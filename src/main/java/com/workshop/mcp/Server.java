@@ -38,8 +38,6 @@ public class Server {
             // Create a shutdown hook to close resources properly
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 if (isShuttingDown.compareAndSet(false, true)) {
-                    // Stop the async input reader and close resources
-                    //io.stopAsyncInputReader();
                     stop();
                     logger.close();
                     shutdownLatch.countDown();
