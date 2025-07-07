@@ -1,0 +1,80 @@
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'org.graalvm.buildtools.native' version '0.10.1'
+}
+
+group = 'com.workshop.mcp'
+version = '0.0.1'
+jar.enabled = false
+
+repositories {
+    mavenCentral()
+    
+    // Maven Central repository (explicit configuration)
+    maven {
+        name = "maven-central"
+        url = "https://repo.maven.apache.org/maven2/"
+        mavenContent {
+            releasesOnly()
+        }
+    }
+    
+    // Gradle Libraries Releases Repository
+    maven {
+        name = "gradle-libs-releases"
+        url = "https://repo.gradle.org/gradle/libs-releases"
+    }
+}
+
+dependencies {
+    implementation 'org.slf4j:slf4j-nop:1.7.36'
+    implementation 'com.google.code.gson:gson:2.13.1'
+    implementation 'org.jsoup:jsoup:1.17.2'
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClass = 'com.workshop.mcp.Server'  // New way to specify main class
+}
+
+// Configure the JAR task
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'com.workshop.mcp.Server',
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+// Configure the Shadow plugin for creating the uber JAR
+shadowJar {
+    archiveBaseName.set('agent-mcp-workshop')
+    archiveClassifier.set('')  // Removes the '-all' classifier from the JAR name
+    archiveVersion.set(project.version)
+    mergeServiceFiles()  // Properly handles service files in META-INF
+}
+
+// Make the shadowJar task run when the build task runs
+build {
+    dependsOn shadowJar
+}
+
+
+tasks.named('startScripts') {
+    dependsOn shadowJar
+}
+
+tasks.named('javadoc') {
+    include '**/com/workshop/mcp/spec/**'
+}
