@@ -1,7 +1,5 @@
 package com.workshop.mcp.io;
 
-import com.workshop.mcp.spec.InitializeResult;
-import com.workshop.mcp.spec.JsonRpcResponse;
 import com.google.gson.Gson;
 
 import java.io.PrintWriter;
@@ -72,18 +70,6 @@ public class IOHandlerImpl implements IOHandler {
         writer.println(text);
         writer.flush();
     }
-
-    /**
-     * Checks if the message is an InitializeResult response
-     *
-     * @param message The JSON message to check
-     * @return true if this is an InitializeResult message
-     */
-    private boolean isInitializeResult(Object message) {
-        // Simple check for InitializeResult - looking for the specific structure
-        return message instanceof JsonRpcResponse && ((JsonRpcResponse) message).result() instanceof InitializeResult;
-    }
-
 
     public void startInputReader() {
         if (running.get()) {
