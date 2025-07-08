@@ -1,6 +1,4 @@
-# MCP Communication Flow Diagram
-
-Based on the log file `agent-mcp-workshop-33408.log`, here's a flow diagram showing the MCP (Model Context Protocol) communication between the client and server.
+# MCP Json Communication Flow Diagram
 
 ```mermaid
 sequenceDiagram
@@ -110,36 +108,3 @@ sequenceDiagram
     Note over Client,Server: Shutdown
     Server-->>Server: Stopping and closing resources
 ```
-
-## Key Components and Builders Used
-
-### com.workshop.mcp.spec.builders Package
-
-The server extensively uses builder classes to construct responses:
-
-1. **InitializeResultBuilder** - Builds initialization response with server capabilities
-2. **ResourcesListResultBuilder** - Constructs list of available resources (Javadoc files)
-3. **ResourceBuilder** - Creates individual resource entries
-4. **ReadResourceResultBuilder** - Builds responses for resource read requests
-5. **PromptsListResultBuilder** - Constructs list of available prompts
-6. **PromptBuilder** - Creates individual prompt definitions
-7. **ToolsListResultBuilder** - Builds list of available tools
-8. **ToolBuilder** - Creates individual tool definitions
-9. **ToolCallResultBuilder** - Constructs results from tool executions
-10. **CompletionCompleteBuilder** - Builds completion/autocomplete responses
-11. **PromptsGetResultBuilder** - Constructs expanded prompt content
-12. **CreateSamplingMessageBuilder** - Builds sampling message requests
-
-## Communication Patterns
-
-1. **Request-Response**: Most interactions follow a standard request-response pattern
-2. **Server-Initiated**: Some messages like `roots/list` and `sampling/createMessage` are initiated by the server
-3. **Notifications**: The server sends notifications like `roots/list_changed` to inform about state changes
-4. **Progress Tokens**: Each request includes a `progressToken` for tracking
-
-## Resource Types Exposed
-
-- **Javadoc HTML files**: Documentation for all MCP spec classes and builders
-- **Tools**: `key_word_search` tool for searching keywords in files
-- **Prompts**: `search_keyword` prompt template for keyword searches
-- **Roots**: Project root directory for file access
