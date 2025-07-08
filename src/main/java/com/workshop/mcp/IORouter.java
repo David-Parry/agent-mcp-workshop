@@ -3,10 +3,8 @@ package com.workshop.mcp;
 import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
-import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
-import com.workshop.mcp.tools.KeyWordSearch;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -69,17 +67,6 @@ public class IORouter implements Router {
                         .withDefaultServerInfo();
                 success(message.id(), builder.build());
             }
-            case PROMPTS_LIST -> {
-                KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
-                PromptsListResultBuilder builder = PromptsListResultBuilder
-                        .builder()
-                        .withPrompt("search_keyword",
-                                    "Creates a prompt, to search for a word using the " + keyWordSearch.name() +
-                                            "tool.")
-                        .withPromptArgument("keyword", "The word to search for", true)
-                        .withNextCursor("nextPage");
-                success(message.id(), builder.build());
-            }
             case PROMPTS_GET -> {
                 // For the sake of the lesson we are dealing with a single prompt if we had more than one we would
                 // need to look it up
@@ -91,52 +78,6 @@ public class IORouter implements Router {
                         .builder()
                         .withDescription("keyword")
                         .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
-                success(message.id(), builder.build());
-            }
-            case TOOLS_LIST -> {
-                KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
-                ToolsListResultBuilder builder = ToolsListResultBuilder
-                        .builder()
-                        .addTool(keyWordSearch.name(), keyWordSearch.description(), keyWordSearch.schema());
-                success(message.id(), builder.build());
-            }
-            case TOOLS_CALL -> {
-                KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
-                ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
-                if (keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
-                    success(message.id(), keyWordSearch.call(toolCallParams));
-                } else {
-                    success(message.id(), ToolCallResultBuilder
-                            .builder()
-                            .addTextContent("Tool not found: " + toolCallParams.name())
-                            .asError()
-                            .build());
-                }
-            }
-            case RESOURCES_LIST -> {
-                ResourcesListResultBuilder builder = ResourcesListResultBuilder
-                        .builder()
-                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
-                        .withNextCursor("pageNext");
-                success(message.id(), builder.build());
-            }
-            case RESOURCES_READ -> {
-                ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
-                String resourceUri = param.uri();
-                ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
-                if (resourceUri != null && !resourceUri.isEmpty()) {
-                    try {
-                        String content = JavadocResources.readResourceContent(resourceUri);
-                        builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
-                    } catch (Exception e) {
-                        logger.log("Error reading resource: " + resourceUri);
-                        builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
-                    }
-                } else {
-                    builder
-                            .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
-                            .asError();
-                }
                 success(message.id(), builder.build());
             }
             case PING -> {
