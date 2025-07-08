@@ -1,7 +1,6 @@
 package com.workshop.mcp;
 
 import com.workshop.mcp.io.IOHandler;
-import com.workshop.mcp.io.IOHandlerImpl;
 import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
 
@@ -11,26 +10,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Server {
     private static final AtomicBoolean isShuttingDown = new AtomicBoolean(false);
-    private static final CountDownLatch shutdownLatch = new CountDownLatch(1);
+    private final CountDownLatch shutdownLatch;
     private static final LogFile logger = LogFileWriter.getInstance();
-    private IOHandler io;
-    private Router router;
+    private final IOHandler io;
+    private final Router router;
 
 
-    public Server() {
-
+    public Server(IOHandler io, Router router, CountDownLatch shutdownLatch) {
+        this.io = io;
+        this.router = router;
+        this.shutdownLatch = shutdownLatch;
     }
-
-    public static void main(String[] args) {
-        Server server = new Server();
-        server.start();
-    }
-
 
     public void start() {
-        io = new IOHandlerImpl();
-        router = new Router(io);
-
         try {
             // Add a listener for individual lines
             io.addLineListener(router::route);
@@ -53,7 +45,7 @@ public class Server {
         }
     }
 
-    private void stop() {
+    public void stop() {
         if (io != null) {
             io.stopRunning();
         }
@@ -64,7 +56,7 @@ public class Server {
     /**
      * Keeps the application running until terminated by the user or until IO processing stops
      */
-    private void keepRunning() {
+    public void keepRunning() {
         try {
             // Create a polling mechanism to check if IO is still running
             while (!isShuttingDown.get()) {

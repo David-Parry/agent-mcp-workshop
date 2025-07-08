@@ -3,7 +3,7 @@ plugins {
     id 'java'
     id 'application'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'org.graalvm.buildtools.native' version '0.10.1'
+    id 'jacoco'
 }
 
 group = 'com.workshop.mcp'
@@ -43,14 +43,14 @@ test {
 }
 
 application {
-    mainClass = 'com.workshop.mcp.Server'  // New way to specify main class
+    mainClass = 'com.workshop.mcp.Runner'  // New way to specify main class
 }
 
 // Configure the JAR task
 jar {
     manifest {
         attributes(
-            'Main-Class': 'com.workshop.mcp.Server',
+            'Main-Class': 'com.workshop.mcp.Runner',
             'Implementation-Title': project.name,
             'Implementation-Version': project.version
         )
@@ -77,4 +77,18 @@ tasks.named('startScripts') {
 
 tasks.named('javadoc') {
     include '**/com/workshop/mcp/spec/**'
+}
+
+// Configure JaCoCo test report
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+
+        // Set custom output directory for HTML report (optional)
+        html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+    }
 }
