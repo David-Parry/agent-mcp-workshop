@@ -114,4 +114,22 @@ public class JsonRpcMessageDeserializer {
     public <T> T deserializeResult(JsonRpcResponse response, Class<T> resultClass) {
         return gson.fromJson(gson.toJson(response.result()), resultClass);
     }
+
+    /**
+     * Deserializes the params field of a JSON-RPC notification into a specific type.
+     * <p>
+     * This method is useful for converting the generic params Map from a
+     * {@link JsonRpcNotification} into a strongly-typed parameter object specific
+     * to the notification being sent.
+     * </p>
+     *
+     * @param <T>         the type to deserialize the params into
+     * @param request     the JSON-RPC notification containing the params to deserialize
+     * @param paramsClass the class of the params type
+     * @return the deserialized params object
+     * @throws com.google.gson.JsonSyntaxException if the params cannot be deserialized to the specified type
+     */
+    public <T> T deserializeParams(JsonRpcNotification request, Class<T> paramsClass) {
+        return gson.fromJson(gson.toJson(request.params()), paramsClass);
+    }
 }

@@ -175,7 +175,9 @@ public class IORouter implements Router {
                 io.emit(rootsRequest);
             }
             case NOTIFICATION_CANCELLED -> {
-                logger.log("Notification cancelled not handling in this example.");
+                NotificationCancelledParams params = deserializer.deserializeParams(message,
+                                                                                    NotificationCancelledParams.class);
+                logger.log("Notification cancelled reason " + params.reason());
             }
             default -> logger.log("Unhandled notification method: " + uniqueKey + " for message: " + message);
         }
