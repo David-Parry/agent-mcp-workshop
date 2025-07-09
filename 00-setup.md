@@ -2,10 +2,17 @@
 
 Lets start with the setup for this workshop.
 
-- Access to a free [Qodo Account](https://app.qodo.ai/signin).
-- Install [Qodo Command](https://docs.qodo.ai/qodo-documentation/qodo-command/getting-started/setup-and-quickstart) on your local machine.
-- For Qodo Command, you will need NPM and Node.js installed on your machine. You can download and install them from [Node.js official website](https://nodejs.org/).
-- JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
+1. Access to a free [Qodo Account](https://app.qodo.ai/signin).
+2. Install [Qodo Command](https://docs.qodo.ai/qodo-documentation/qodo-command/getting-started/setup-and-quickstart) on your local machine.
+```bash 
+   npm install -g @qodo/command 
+```
+3. For Qodo Command, you will need NPM and Node.js installed on your machine. You can download and install them from [Node.js official website](https://nodejs.org/).
+4. JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
+5. Install [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
+ ```bash
+   npm install -g @modelcontextprotocol/inspector
+ ```
 
 ### Verification of development environment
 - To verify that your development environment is set up correctly, you can run the following command in your terminal:
@@ -117,6 +124,7 @@ Waiting for authentication to complete...
 📋 Your API key: sk-{KEY_DATA}
 ➜  agent-mcp-workshop git:(trunk) ✗
 ```
+
 ### Running 
 
 Once you have verified and signed in to your Qodo account, you need an editor to run the workshop.
@@ -151,6 +159,11 @@ For different types of issues, please refer to the appropriate resources:
 
 - **Qodo Account Issues**: If you have problems with your Qodo account (login, registration, access), please reach out to the Qodo support team.
 - **Qodo Command Issues**: For issues with the `qodo` command installation or functionality, please contact Qodo support or refer to the [Qodo Documentation](https://docs.qodo.ai/).
+- **MCP Inspector Issues**: For debugging MCP servers or issues with the inspector tool:
+  - Check the [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
+  - Use `npx @modelcontextprotocol/inspector --help` for command-line options
+  - For connection issues, verify the server is running on the expected port (default: 6274)
+  - Check the browser console for client-side errors when using the web UI
 - **Other Tool Issues**: For problems with individual tools, please consult their respective troubleshooting guides:
   - **JDK/Java**: Refer to the [OpenJDK troubleshooting guide](https://www.azul.com/support/)
   - **Node.js/NPM/npx**: Check the [Node.js help documentation](https://nodejs.org/en/docs/guides/)
