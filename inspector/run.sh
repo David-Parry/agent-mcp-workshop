@@ -1,1 +1,0 @@
-npx @modelcontextprotocol/inspector@0.14.0 --config config.json --server workshop

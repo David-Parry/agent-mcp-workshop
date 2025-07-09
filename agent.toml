@@ -1,7 +1,0 @@
-version = "1.0"
-
-imports = ["agents/sum.toml"]
-
-model = "claude-4-sonnet"
-
-tools = ["workshop.key_word_search", "filesystem"]
