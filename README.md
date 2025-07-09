@@ -16,17 +16,14 @@ This workshop is designed as an **instructor-led class** and is **NOT intended f
 
 ### Getting Started with Lessons
 1. Complete the pre-workshop setup from `00-setup.md`
-2. Start with the `main` branch for project setup
-3. Switch to `01-chapter` to begin the first lesson
-4. Follow instructor guidance for each lesson
-5. Reference `01-complete` if you need to see the solution
+2. Start with the `01-chapter` branch
 
 ```bash
 # Start first lesson
 git checkout 01-chapter
 
 # View completed solution (if needed)
-git checkout 01-complete
+git checkout complete
 ```
 
 ## 💬 Feedback and Support
