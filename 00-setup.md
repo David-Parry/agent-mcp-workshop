@@ -4,12 +4,12 @@ Lets start with the setup for this workshop.
 
 1. Access to a free [Qodo Account](https://app.qodo.ai/signin).
 2. Install [Qodo Command](https://docs.qodo.ai/qodo-documentation/qodo-command/getting-started/setup-and-quickstart) on your local machine.
+   - For Qodo Command, you will need NPM and Node.js installed on your machine. You can download and install them from [Node.js official website](https://nodejs.org/).
 ```bash 
    npm install -g @qodo/command 
 ```
-3. For Qodo Command, you will need NPM and Node.js installed on your machine. You can download and install them from [Node.js official website](https://nodejs.org/).
-4. JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
-5. Install [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
+3. JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
+4. Install [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
  ```bash
    npm install -g @modelcontextprotocol/inspector
  ```
