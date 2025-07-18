@@ -6,9 +6,10 @@ The first step in building our MCP server is to implement the input reading func
 
 ### Code to Add to the Server
 
-Copy the following code block and add it to the `startInputReader()` method in your Server implementation:
+Copy the following code block and add it to the `startInputReader()` method in your IOHandlerImpl implementation:
 
 ```java
+//line 142 
 try (Scanner scanner = new Scanner(System.in)) {
     running.set(true);
     try {
@@ -80,11 +81,12 @@ This implementation forms the foundation of the MCP server's ability to receive 
 
 The next critical component is the `publishLine` method, which distributes received input lines to all registered listeners.
 
-### Code to Add to the Server
+### Code to Add to the IOHandlerImpl
 
 Copy the following code block and add it to the `publishLine(String line)` method in your Server implementation:
 
 ```java
+// line 96
 for (Consumer<String> listener : lineListeners) {
     try {
         listener.accept(line);
@@ -132,11 +134,12 @@ This pattern allows the MCP server to be extensible - new listeners can be added
 
 The `emit` method is responsible for sending JSON-formatted responses back to the MCP client through standard output.
 
-### Code to Add to the Server
+### Code to Add to the IOHandlerImpl
 
-Copy the following code block and add it to the `emit(Object message)` method in your Server implementation:
+Copy the following code block and add it to the `emit(Object message)` method in your  implementation:
 
 ```java
+//line 117
 String text = gson.toJson(message);
 logger.log("[API][SENT]: " + text);
 writer.println(text);

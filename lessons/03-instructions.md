@@ -9,6 +9,7 @@ In this lesson, we'll implement the foundational message routing system for the 
 **Action Required**: Copy the code below and paste it into `IORouter.java` starting at line 43. This code implements the INITIALIZE case in the switch statement:
 
 ```java
+//line 43
 case INITIALIZE -> {
 InitializeParams initializeParams = deserializer.deserializeParams(message, InitializeParams.class);
 ClientCapabilities clientCapabilities = initializeParams.capabilities();
@@ -95,7 +96,7 @@ This command will:
 
 Navigate to the `inspector` folder where you'll find two important files:
 
-1. **`config.json`** - MCP Server Configuration
+1. **`config.json`** - MCP Server Configuration copy and paste the following code into `config.json`:
    ```json
    {
      "mcpServers": {

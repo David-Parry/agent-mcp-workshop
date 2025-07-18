@@ -283,6 +283,21 @@ case PROMPTS_GET -> {
    - This creates an interactive experience for the user
 
 ### How Prompts Enable Client Autocomplete
+The COMPLETION_COMPLETE handler is already present in your IORouter.java file. This handler is responsible for providing autocomplete suggestions based on user input. Let's examine how it works in the context of our keyword search prompt:
+
+```java
+  case COMPLETION_COMPLETE -> {
+                CompletionCompleteParams params = deserializer.deserializeParams(message,
+                                                                                 CompletionCompleteParams.class);
+                if ("keyword" .equalsIgnoreCase(params.argument().name())) {
+                    // Simulating a keyword search completion
+                    CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
+                    response.value("the").value("and").total(3).hasMore(true);
+                    success(message.id(), response.build());
+                }
+            }
+
+```
 
 This is where the real autocomplete magic happens through the interaction of PROMPTS_LIST and PROMPTS_GET:
 
