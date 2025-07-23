@@ -1,2 +1,2 @@
 #!/bin/bash
-qodo sum --set keyword="mcp" --silent -y
+qodo sum --set keyword="mcp" -y
