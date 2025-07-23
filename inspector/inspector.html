@@ -1,0 +1,131 @@
+<![CDATA[<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Agent Inspector</title>
+  <link rel="stylesheet" href="https://unpkg.com/@vscode/webview-ui-toolkit/dist/toolkit.css" type="text/css">
+  <script type="module" src="https://unpkg.com/@vscode/webview-ui-toolkit/dist/toolkit.js?version=0.1.0"></script>
+  <script type="module" src="https://unpkg.com/@vscode/webview-ui-toolkit/dist/toolkit.js?version=0.1.0"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-foreground);
+      background-color: var(--vscode-editor-background);
+    }
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #header {
+      padding: 10px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #content {
+      flex: 1;
+      overflow: auto;
+      padding: 10px;
+    }
+    #footer {
+      padding: 10px;
+      border-top: 1px solid var(--vscode-panel-border);
+      display: flex;
+      align-items: center;
+    }
+    vscode-button {
+      margin-left: 10px;
+    }
+  </style>
+  <script>
+    window.location.href = "http://127.0.0.1:6274";
+  </script>
+</head>
+<body>
+  <div id="app">
+    <div id="header">
+      <vscode-text-field id="url" placeholder="Enter URL" value="http://127.0.0.1:6274"></vscode-text-field>
+      <vscode-button id="connect">Connect</vscode-button>
+      <vscode-button id="disconnect" disabled>Disconnect</vscode-button>
+    </div>
+    <div id="content">
+      <pre id="output"></pre>
+    </div>
+    <div id="footer">
+      <vscode-text-field id="message" placeholder="Type a message" style="flex: 1;"></vscode-text-field>
+      <vscode-button id="send">Send</vscode-button>
+    </div>
+  </div>
+  <script type="module">
+    const vscode = acquireVsCodeApi();
+
+    const urlInput = document.getElementById('url');
+    const connectButton = document.getElementById('connect');
+    const disconnectButton = document.getElementById('disconnect');
+    const output = document.getElementById('output');
+    const messageInput = document.getElementById('message');
+    const sendButton = document.getElementById('send');
+
+    let socket;
+
+    function log(message) {
+      output.textContent += message + '\n';
+      output.scrollTop = output.scrollHeight;
+    }
+
+    connectButton.addEventListener('click', () => {
+      const url = urlInput.value;
+      log(`Connecting to ${url}...`);
+      socket = new WebSocket(url);
+
+      socket.onopen = () => {
+        log('Connected');
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+      };
+
+      socket.onmessage = (event) => {
+        log(`Received: ${event.data}`);
+      };
+
+      socket.onclose = () => {
+        log('Disconnected');
+        connectButton.disabled = false;
+        disconnectButton.disabled = true;
+      };
+
+      socket.onerror = (error) => {
+        log(`Error: ${error.message}`);
+      };
+    });
+
+    disconnectButton.addEventListener('click', () => {
+      if (socket) {
+        socket.close();
+      }
+    });
+
+    sendButton.addEventListener('click', () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        const message = messageInput.value;
+        socket.send(message);
+        log(`Sent: ${message}`);
+        messageInput.value = '';
+      } else {
+        log('Not connected');
+      }
+    });
+
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendButton.click();
+      }
+    });
+  </script>
+</body>
+</html>]]>
