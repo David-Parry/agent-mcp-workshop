@@ -54,7 +54,7 @@ This utility class provides several key functions for handling Javadoc HTML reso
 Now we need to add the handlers for RESOURCES_LIST and RESOURCES_READ to our message router.
 
 **Action Required**:
-Add the following code to your `IORouter.java` file in the switch statement, **after** the TOOLS_CALL case after the INITIALIZE case:
+Add the following code to your `IORouter.java` file in the switch statement, **after** the INITIALIZE case line 71:
 
 ```java
 case RESOURCES_LIST -> {
@@ -146,7 +146,7 @@ This KeyWordSearch tool provides functionality to search for keywords across fil
 
 ### Step 2: Add Tools Handlers to IORouter
 
-After copying the KeyWordSearch.java file, add the following code to your `IORouter.java` file in the switch statement, **after** the INITIALIZE case but **before** the PING case:
+After copying the KeyWordSearch.java file, add the following code to your `IORouter.java` file in the switch statement, **after** the RESOURCE_READ case:
 
 ```java
 case TOOLS_LIST -> {
