@@ -138,7 +138,7 @@ The instructor will be using JetBrains IntelliJ IDEA, but you can use any editor
 
 ## Navigation
 
-This workshop follows a modular [chapter structure](lessons) designed for flexible learning ➜ [chapters](lessons):
+This workshop follows a modular [chapter structure](lesson) designed for flexible learning ➜ [chapters](lesson):
 
 - **Progressive Build**: Each chapter builds upon concepts from the previous one when followed sequentially
 - **Chapter Independence**: Every chapter checkout includes a complete, working implementation of all previous chapters' objectives
@@ -151,7 +151,7 @@ This architecture ensures you can:
 3. Resume from any point if interrupted
 4. Use any chapter as a standalone reference implementation
 
-**Important Note**: If you choose to work through the chapters sequentially without checking out each chapter branch, you must carefully follow all instructions in each [chapter's README file](lessons). Each README contains the specific steps needed to transform your code from the previous chapter's state to the current chapter's objectives. Missing steps may result in incomplete implementations.
+**Important Note**: If you choose to work through the chapters sequentially without checking out each chapter branch, you must carefully follow all instructions in each [chapter's README file](lesson). Each README contains the specific steps needed to transform your code from the previous chapter's state to the current chapter's objectives. Missing steps may result in incomplete implementations.
 
 Each chapter branch represents a clean checkpoint with all previous functionality implemented and tested.
 
