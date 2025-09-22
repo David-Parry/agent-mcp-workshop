@@ -57,8 +57,8 @@
             <div class="fact-card">
                 <h3>Client Details</h3>
                 <ul>
-                    <li><strong>Name:</strong> mcp‑workshop</li>
-                    <li><strong>Version:</strong> 1.0.0</li>
+                    <li><strong>Name:</strong> mcp‑inspector</li>
+                    <li><strong>Version:</strong> 0.16.5</li>
                     <li><strong>Role:</strong> MCP Client</li>
                 </ul>
             </div>
@@ -69,6 +69,15 @@
                     <li><strong>Name:</strong> agent‑mcp‑workshop</li>
                     <li><strong>Version:</strong> 0.0.1</li>
                     <li><strong>Role:</strong> MCP Server</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Client Capabilities</h3>
+                <ul>
+                    <li><strong>Sampling:</strong> ✓</li>
+                    <li><strong>Elicitation:</strong> ✓</li>
+                    <li><strong>Roots:</strong> ✓ (listChanged: true)</li>
                 </ul>
             </div>
 
@@ -91,13 +100,48 @@
             </div>
 
             <div class="fact-card">
+                <h3>Available Prompts</h3>
+                <ul>
+                    <li><strong>Prompt Name:</strong> <code>search_keyword</code></li>
+                    <li><strong>Description:</strong> Creates a prompt to search for a word using the key_word_search tool</li>
+                    <li><strong>Arguments:</strong> keyword (required)</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Available Resources</h3>
+                <ul>
+                    <li><strong>Resource Count:</strong> 70+ Javadoc files</li>
+                    <li><strong>Resource Type:</strong> HTML documentation</li>
+                    <li><strong>Example:</strong> <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
+                    <li><strong>Pagination:</strong> ✓ (nextCursor: "pageNext")</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
                 <h3>Session Flow</h3>
                 <ul>
                     <li><strong>1.</strong> Initialization handshake</li>
-                    <li><strong>2.</strong> Capability negotiation</li>
-                    <li><strong>3.</strong> Tools discovery</li>
-                    <li><strong>4.</strong> Tool execution (optional)</li>
-                    <li><strong>5.</strong> Graceful shutdown</li>
+                    <li><strong>2.</strong> Roots discovery</li>
+                    <li><strong>3.</strong> Ping & sampling</li>
+                    <li><strong>4.</strong> Resources discovery</li>
+                    <li><strong>5.</strong> Resource reading</li>
+                    <li><strong>6.</strong> Prompts discovery</li>
+                    <li><strong>7.</strong> Prompt execution</li>
+                    <li><strong>8.</strong> Tools discovery</li>
+                    <li><strong>9.</strong> Tool execution</li>
+                    <li><strong>10.</strong> Sampling response</li>
+                    <li><strong>11.</strong> Roots changes</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Tool Execution Results</h3>
+                <ul>
+                    <li><strong>Search Keyword:</strong> "mcp"</li>
+                    <li><strong>Files Found:</strong> 58 files</li>
+                    <li><strong>Total Matches:</strong> 400+ occurrences</li>
+                    <li><strong>Search Directory:</strong> /Users/davidparry/code/github/agent-command</li>
                 </ul>
             </div>
         </div>

@@ -40,27 +40,63 @@
         <div class="mermaid">
             sequenceDiagram
             autonumber
-            participant Client as mcp-workshop\n(Client)
-            participant Server as agent-mcp-workshop\n(Server)
+            participant Client as mcp-inspector (Client)
+            participant Server as agent-mcp-workshop (Server)
 
             Note over Client,Server: Initialization Phase
 
-            Client->>Server: initialize\n{"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"mcp-workshop","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
-            Server-->>Client: initialize result\n{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}
-            Client->>Server: notifications/initialized
+            Client->>Server: initialize {"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"sampling":{},"elicitation":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.16.5"}},"jsonrpc":"2.0","id":0}
+            Server-->>Client: initialize result {"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}
+            
+
+            Client->>Server: notifications/initialized {"jsonrpc":"2.0","method":"notifications/initialized"}
+            Server->>Client: elicitation/create {"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Please provide the Jira project details for summarization:","requestedSchema":{"properties":{"projectKey":{"title":"Project Key","enum":["ENG","HR","OPS"],"description":"The Jira project key to summarize","type":"string","enumNames":["Engineering","Human Resources","Operations"]},"timeRange":{"title":"Time Range","enum":["last 7 days","last 30 days","custom"],"description":"The time period to include in the summary","type":"string","enumNames":["Last 7 Days","Last 30 Days","Custom Range"]}},"type":"object","required":["projectKey","timeRange"]}}}
+            Client-->>Server: elicitation result {"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"projectKey":"ENG","timeRange":"last 30 days"}}}
+
+            Note over Client,Server: Roots Discovery Phase
+            Server->>Client: roots/list {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}
+            Client-->>Server: roots/list result {"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}
+
+            Note over Client,Server: Ping & Sampling Phase
+            Client->>Server: ping {"method":"ping","params":{"_meta":{"progressToken":1}},"jsonrpc":"2.0","id":1}
+            Server-->>Client: ping result {"jsonrpc":"2.0","id":1,"result":{}}
+            Server->>Client: sampling/createMessage {"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"text":"Figure out what the single best word to search for in a Java project is.","type":"text"}}],"systemPrompt":"You are a brilliant Java developer.","maxTokens":0},"jsonrpc":"2.0","id":-2000}
+
+            Note over Client,Server: Resources Discovery Phase
+            Client->>Server: resources/list {"method":"resources/list","params":{"_meta":{"progressToken":2}},"jsonrpc":"2.0","id":2}
+            Server-->>Client: resources/list result {"jsonrpc":"2.0","id":2,"result":{"resources":[...],"nextCursor":"pageNext"}}
+
+            Note over Client,Server: Resource Reading Phase
+            Client->>Server: resources/read {"method":"resources/read","params":{"_meta":{"progressToken":3},"uri":"javadoc/com/workshop/mcp/spec/Capability.html"},"jsonrpc":"2.0","id":3}
+            Server-->>Client: resource content {"jsonrpc":"2.0","id":3,"result":{"contents":[...],"isError":false}}
+
+            Note over Client,Server: Prompts Discovery Phase
+            Client->>Server: prompts/list {"method":"prompts/list","params":{"_meta":{"progressToken":4}},"jsonrpc":"2.0","id":4}
+            Server-->>Client: prompts/list result {"jsonrpc":"2.0","id":4,"result":{"prompts":[{"name":"search_keyword","description":"Creates a prompt, to search for a word using the key_word_searchtool.","arguments":[{"name":"keyword","description":"The word to search for","required":true}]}],"nextCursor":"nextPage"}}
+
+            Note over Client,Server: Prompt Execution Phase
+            Client->>Server: prompts/get {"method":"prompts/get","params":{"_meta":{"progressToken":5},"name":"search_keyword","arguments":{"keyword":""}},"jsonrpc":"2.0","id":5}
+            Server-->>Client: prompt result {"jsonrpc":"2.0","id":5,"result":{"description":"keyword","messages":[{"role":"user","content":{"text":"Start from the root of the project and use the key_word_search tool to search for this specific keyword:''","type":"text"}}]}}
 
             Note over Client,Server: Tools Discovery Phase
-            Client->>Server: tools/list
-            Server-->>Client: tools/list result\n[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project. Returns the total count of matches and the absolute file paths of the files containing the keyword.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"root_directory":{"type":"string","description":"The absolute path to the root directory to start the search from."}},"required":["keyword","root_directory"]}}]
+            Client->>Server: tools/list {"method":"tools/list","params":{"_meta":{"progressToken":6}},"jsonrpc":"2.0","id":6}
+            Server-->>Client: tools/list result {"jsonrpc":"2.0","id":6,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project. Returns the total count of matches and the absolute file paths of the files containing the keyword.","inputSchema":{"type":"object","properties":{"keyword":{"key":"keyword","type":"string","description":"the keyword to search for in a file","isRequired":true},"root_directory":{"key":"root_directory","type":"string","description":"The absolute path to the root directory to start the search from.","isRequired":true}},"required":["keyword","root_directory"]}}]}}
 
-            Note over Client,Server: Tool Execution Phase (example)
-            Client->>Server: tools/call\n{"name":"key_word_search","arguments":{"keyword":"java","root_directory":"/Users/davidparry/code/gold/agent-mcp-workshop"}}
-            Server-->>Client: tool result\n{"content":[{"type":"text","text":"Found 172 matches across 39 files"}],"isError":false}
+            Note over Client,Server: Tool Execution Phase
+            Client->>Server: tools/call {"method":"tools/call","params":{"_meta":{"progressToken":7},"name":"key_word_search","arguments":{"keyword":"mcp","root_directory":"/Users/davidparry/code/github/agent-command"}},"jsonrpc":"2.0","id":7}
+            Server-->>Client: tool result {"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/Users/davidparry/code/github/agent-command/api.http, keyword_count=1","type":"text"},...57 more files],"isError":false}}
 
-            Note over Client,Server: IO Closed & Shutdown
-            Client-->>Client: Input stream closed
-            Client-->>Client: IO processing stopped
-            Server-->>Server: Initiating graceful shutdown
+            Note over Client,Server: Sampling Response & Roots Changes
+            Client-->>Server: sampling result {"jsonrpc":"2.0","id":-2000,"result":{"model":"stub-model","stopReason":"endTurn","role":"assistant","content":{"type":"text","text":"the answer is 42"}}}
+            Server->>Client: notifications/roots/list_changed {"jsonrpc":"2.0","method":"notifications/roots/list_changed"}
+            Server->>Client: roots/list {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}
+            Client-->>Server: roots/list result {"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}
+            Server->>Client: notifications/roots/list_changed {"jsonrpc":"2.0","method":"notifications/roots/list_changed"}
+            Server->>Client: roots/list {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}
+            Client-->>Server: roots/list result {"jsonrpc":"2.0","id":-1000,"result":{"roots":[{"uri":"/Users/davidparry/code/github/agent-command","name":""}]}}
+
+            Note over Client,Server: Session End
+            Note over Client,Server: Stopping and closing resources
         </div>
         <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the complete MCP communication lifecycle from initialization to shutdown.</div>
     </section>

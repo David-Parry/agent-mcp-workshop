@@ -13,12 +13,14 @@ import java.util.Set;
 
 import static com.workshop.mcp.spec.Message.KEY_WORD_MESSAGE;
 import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
+import static com.workshop.mcp.spec.builders.ElicitationBuilder.buildJiraProjectElicitation;
 
 public class IORouter implements Router {
     private static final LogFile logger = LogFileWriter.getInstance();
     private static final String JSON_RPC_VERSION = "2.0";
     private static final Long ROOTS_REQUEST_ID = -1000L;
     private static final Long SAMPLE_REQUEST_ID = -2000L;
+    private static final Long ELICITATION_REQUEST_ID = -4000L;
     private static final JsonRpcRequest rootsRequest = new JsonRpcRequest(JSON_RPC_VERSION, ROOTS_REQUEST_ID,
                                                                           "roots" + "/list", null);
     private final IOHandler io;
@@ -26,6 +28,7 @@ public class IORouter implements Router {
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
     private boolean hasRoots = false;
     private boolean hasSampling = false;
+    private boolean hasElicitation = false;
 
     public IORouter(IOHandler io) {
         this.io = io;
@@ -61,6 +64,9 @@ public class IORouter implements Router {
                 }
                 if (clientCapabilities.sampling() != null) {
                     hasSampling = true;
+                }
+                if(clientCapabilities.elicitation() != null){
+                    hasElicitation = true;
                 }
                 InitializeResultBuilder builder = InitializeResultBuilder
                         .builder()
@@ -147,6 +153,9 @@ public class IORouter implements Router {
                 if (hasSampling) {
                     sendSamplingMessage("Figure out what the single best word to search for in a Java project is.");
                 }
+                if(hasElicitation) {
+
+                }
             }
             case COMPLETION_COMPLETE -> {
                 CompletionCompleteParams params = deserializer.deserializeParams(message,
@@ -157,6 +166,13 @@ public class IORouter implements Router {
                     response.value("the").value("and").total(3).hasMore(true);
                     success(message.id(), response.build());
                 }
+            }
+            case ELICITATION_CREATE_MESSAGE -> {
+                // Handle elicitation method calls from client
+                logger.log("Received elicitation/create method call from client: " + message);
+                // Parse the elicitation response and handle it appropriately
+                // For now, just acknowledge the elicitation request
+                success(message.id(), new Object());
             }
             default -> logger.log("Unhandled RpcRequest method: " + uniqueKey + " for message: " + message);
         }
@@ -169,6 +185,9 @@ public class IORouter implements Router {
                 // if server has roots, request the roots list
                 if (hasRoots) {
                     io.emit(rootsRequest);
+                }
+                if(hasElicitation) {
+                    sendElicitationMessage();
                 }
             }
             case NOTIFICATIONS_ROOTS_LIST_CHANGED -> {
@@ -214,5 +233,12 @@ public class IORouter implements Router {
         io.emit(minimalMessageRequest);
     }
 
+    private void sendElicitationMessage() {
+        ElicitationCreateParams params = ElicitationBuilder.buildJiraProjectElicitation();
+        JsonRpcRequest elicitationRequest = new JsonRpcRequest(JSON_RPC_VERSION, ELICITATION_REQUEST_ID,
+                                                               UniqueKeys.ELICITATION_CREATE_MESSAGE.getValue(),
+                                                               params);
+        io.emit(elicitationRequest);
+    }
 
 }
