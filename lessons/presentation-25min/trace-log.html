@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Workshop – Trace Log</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px 18px}
+        .log{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12.5px;color:#d3d9e8;background:#0f1630;border:1px solid #1f2740;border-radius:12px;padding:12px;overflow:auto;max-height:600px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center}
+        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a:hover{background:#1f2740}
+        .log-controls{margin-bottom:12px;display:flex;gap:12px;align-items:center}
+        .log-controls button{background:var(--card);border:1px solid #1f2740;color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+        .log-controls button:hover{background:#1f2740}
+        .log-entry{margin-bottom:4px;padding:2px 0}
+        .log-entry.received{color:#7dcfff}
+        .log-entry.sent{color:#9ece6a}
+        .log-entry.system{color:#f7768e}
+    </style>
+</head>
+<body>
+<header>
+    <h1>MCP Workshop – Trace Log</h1>
+    <p class="subtitle">Raw communication log showing all JSON-RPC messages exchanged between client and server.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="runtime-facts.html">Runtime Facts</a>
+        <a href="trace-log.html">Trace Log</a>
+    </div>
+
+    <section class="card">
+        <h2 style="margin:0 0 8px">Communication Trace</h2>
+        <div class="log-controls">
+            <button onclick="toggleFormatting()">Toggle JSON Formatting</button>
+            <button onclick="filterMessages('all')">All</button>
+            <button onclick="filterMessages('received')">Received</button>
+            <button onclick="filterMessages('sent')">Sent</button>
+        </div>
+        <div class="log" id="log">
+<div class="log-entry received">[RECEIVED] {"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"mcp-workshop","version":"1.0.0"}},"jsonrpc":"2.0","id":0}</div>
+<div class="log-entry sent">[SENT] {"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}</div>
+<div class="log-entry received">[RECEIVED] {"method":"notifications/initialized","jsonrpc":"2.0"}</div>
+<div class="log-entry received">[RECEIVED] {"method":"tools/list","jsonrpc":"2.0","id":1}</div>
+<div class="log-entry sent">[SENT] {"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project. Returns the total count of matches and the absolute file paths of the files containing the keyword.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file","isRequired":true},"root_directory":{"type":"string","description":"The absolute path to the root directory to start the search from.","isRequired":true}},"required":["keyword","root_directory"]}}]}}</div>
+        </div>
+        <div class="hint">
+            This trace shows the complete MCP session lifecycle. Color coding: 
+            <span style="color:#7dcfff">Blue = Received messages</span>, 
+            <span style="color:#9ece6a">Green = Sent messages</span>, 
+            <span style="color:#f7768e">Red = System events</span>
+        </div>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Raw trace data from MCP communication session.</div>
+</main>
+
+<script>
+let formatJson = false;
+
+function toggleFormatting() {
+    formatJson = !formatJson;
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        const text = entry.dataset.originalText || entry.textContent;
+        if (formatJson) {
+            try {
+                const jsonMatch = text.match(/(\{.*\})/);
+                if (jsonMatch) {
+                    const prefix = text.substring(0, jsonMatch.index);
+                    const jsonStr = jsonMatch[1];
+                    const parsed = JSON.parse(jsonStr);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    entry.innerHTML = prefix + '<br>' + formatted.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
+                }
+            } catch (e) {
+                // Keep original if JSON parsing fails
+            }
+        } else {
+            entry.textContent = text;
+        }
+    });
+}
+
+function filterMessages(type) {
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        if (type === 'all') {
+            entry.style.display = 'block';
+        } else {
+            entry.style.display = entry.classList.contains(type) ? 'block' : 'none';
+        }
+    });
+}
+</script>
+</body>
+</html>

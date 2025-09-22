@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deep Dive - MCP Server Protocol JSON-RPC Communication Analysis</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px 18px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .pages-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin-top:24px}
+        .page-card{background:var(--card);border:1px solid #1f2740;border-radius:12px;padding:20px;text-decoration:none;color:inherit;transition:all 0.2s ease}
+        .page-card:hover{transform:translateY(-2px);box-shadow:0 15px 40px rgba(0,0,0,.35);border-color:var(--accent)}
+        .page-card h3{margin:0 0 12px;color:var(--accent);font-size:20px}
+        .page-card p{margin:0;color:var(--muted);line-height:1.6}
+        .page-card .icon{font-size:32px;margin-bottom:12px;display:block}
+        .intro{text-align:center;margin-bottom:32px}
+        .intro h2{color:var(--accent);margin-bottom:16px}
+    </style>
+</head>
+<body>
+<header>
+    <h1>Deep Dive MCP Server Protocol JSON‑RPC Communication Analysis</h1>
+    <p class="subtitle">Interactive exploration of Model Context Protocol communication flow, runtime facts, and trace logs.</p>
+</header>
+<main>
+    <div class="intro">
+        <h2>Explore the MCP Communication Session</h2>
+        <p>This workshop breaks down a complete MCP (Model Context Protocol) communication session into three focused views. Each page provides a different perspective on the same underlying JSON-RPC communication between client and server.</p>
+    </div>
+
+    <div class="pages-grid">
+        <a href="flow-diagram.html" class="page-card">
+            <span class="icon">📊</span>
+            <h3>Flow Diagram</h3>
+            <p>Interactive sequence diagram showing the complete MCP communication lifecycle from initialization through tool discovery and execution to graceful shutdown. Visualizes the bidirectional JSON-RPC message flow between client and server.</p>
+        </a>
+
+        <a href="runtime-facts.html" class="page-card">
+            <span class="icon">📋</span>
+            <h3>Runtime Facts</h3>
+            <p>Key information extracted from the communication session including protocol versions, client/server details, capabilities negotiated, available tools, and session flow summary. Perfect for understanding the technical specifications.</p>
+        </a>
+
+        <a href="trace-log.html" class="page-card">
+            <span class="icon">🔍</span>
+            <h3>Trace Log</h3>
+            <p>Raw communication trace showing all JSON-RPC messages exchanged with timestamps and message types. Includes interactive controls for filtering, formatting, and analyzing the low-level protocol communication.</p>
+        </a>
+    </div>
+
+    <section class="card" style="margin-top:32px">
+        <h2 style="margin:0 0 16px;color:var(--accent)">About This Session</h2>
+        <p>This analysis is based on a real MCP communication session between:</p>
+        <ul style="margin:16px 0">
+            <li><strong>Client:</strong> mcp-workshop v1.0.0</li>
+            <li><strong>Server:</strong> agent-mcp-workshop v0.0.1</li>
+            <li><strong>Protocol:</strong> MCP 2025-06-18</li>
+            <li><strong>Tools Available:</strong> key_word_search</li>
+        </ul>
+        <p>The session demonstrates the complete MCP lifecycle including initialization, capability negotiation, tool discovery, and graceful shutdown. Each page provides a different lens for understanding this communication pattern.</p>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Multi-page analysis of JSON-RPC communication flow.</div>
+</main>
+</body>
+</html>

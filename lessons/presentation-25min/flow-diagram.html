@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Workshop – JSON-RPC Flow Diagram</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px 18px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center}
+        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a:hover{background:#1f2740}
+    </style>
+    <!-- Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+</head>
+<body>
+<header>
+    <h1>MCP Workshop – JSON‑RPC Communication Flow</h1>
+    <p class="subtitle">Sequence diagram showing the complete MCP communication flow including tools discovery and execution.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="runtime-facts.html">Runtime Facts</a>
+        <a href="trace-log.html">Trace Log</a>
+    </div>
+
+    <section class="card">
+        <div class="mermaid">
+            sequenceDiagram
+            autonumber
+            participant Client as mcp-workshop\n(Client)
+            participant Server as agent-mcp-workshop\n(Server)
+
+            Note over Client,Server: Initialization Phase
+
+            Client->>Server: initialize\n{"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"mcp-workshop","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
+            Server-->>Client: initialize result\n{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}
+            Client->>Server: notifications/initialized
+
+            Note over Client,Server: Tools Discovery Phase
+            Client->>Server: tools/list
+            Server-->>Client: tools/list result\n[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project. Returns the total count of matches and the absolute file paths of the files containing the keyword.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"root_directory":{"type":"string","description":"The absolute path to the root directory to start the search from."}},"required":["keyword","root_directory"]}}]
+
+            Note over Client,Server: Tool Execution Phase (example)
+            Client->>Server: tools/call\n{"name":"key_word_search","arguments":{"keyword":"java","root_directory":"/Users/davidparry/code/gold/agent-mcp-workshop"}}
+            Server-->>Client: tool result\n{"content":[{"type":"text","text":"Found 172 matches across 39 files"}],"isError":false}
+
+            Note over Client,Server: IO Closed & Shutdown
+            Client-->>Client: Input stream closed
+            Client-->>Client: IO processing stopped
+            Server-->>Server: Initiating graceful shutdown
+        </div>
+        <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the complete MCP communication lifecycle from initialization to shutdown.</div>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Diagram rendered with Mermaid.</div>
+</main>
+</body>
+</html>
