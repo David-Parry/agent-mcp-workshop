@@ -50,8 +50,18 @@
             
 
             Client->>Server: notifications/initialized {"jsonrpc":"2.0","method":"notifications/initialized"}
+            
+            Note over Client,Server: Elicitation Phase - User Input Collection
             Server->>Client: elicitation/create {"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Please provide the Jira project details for summarization:","requestedSchema":{"properties":{"projectKey":{"title":"Project Key","enum":["ENG","HR","OPS"],"description":"The Jira project key to summarize","type":"string","enumNames":["Engineering","Human Resources","Operations"]},"timeRange":{"title":"Time Range","enum":["last 7 days","last 30 days","custom"],"description":"The time period to include in the summary","type":"string","enumNames":["Last 7 Days","Last 30 Days","Custom Range"]}},"type":"object","required":["projectKey","timeRange"]}}}
+            Note over Client: Client presents elicitation form to user<br/>User selects: projectKey="ENG", timeRange="last 30 days"
             Client-->>Server: elicitation result {"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"projectKey":"ENG","timeRange":"last 30 days"}}}
+            Note over Server: Server processes elicitation response<br/>and stores user preferences for session
+            
+            Note over Client,Server: Follow-up Elicitation - Additional Context
+            Server->>Client: elicitation/create {"jsonrpc":"2.0","id":-4001,"method":"elicitation/create","params":{"message":"Would you like to include additional filters for the Jira summary?","requestedSchema":{"properties":{"includeAssignee":{"title":"Include Assignee Filter","type":"boolean","description":"Filter by specific assignee"},"priority":{"title":"Priority Level","enum":["High","Medium","Low","All"],"description":"Filter by issue priority","type":"string","enumNames":["High Priority Only","Medium Priority Only","Low Priority Only","All Priorities"]},"status":{"title":"Issue Status","enum":["Open","In Progress","Resolved","All"],"description":"Filter by issue status","type":"string","enumNames":["Open Issues","In Progress","Resolved Issues","All Statuses"]}},"type":"object","required":["priority","status"]}}}
+            Note over Client: Client presents additional options to user<br/>User selects: priority="High", status="Open", includeAssignee=false
+            Client-->>Server: elicitation result {"jsonrpc":"2.0","id":-4001,"result":{"action":"accept","content":{"includeAssignee":false,"priority":"High","status":"Open"}}}
+            Note over Server: Server combines all elicitation responses<br/>to configure comprehensive search parameters
 
             Note over Client,Server: Roots Discovery Phase
             Server->>Client: roots/list {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}
