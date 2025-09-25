@@ -21,7 +21,136 @@
     </style>
     <!-- Mermaid -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'dark',
+            sequence: {
+                showSequenceNumbers: true
+            }
+        });
+        
+        // Add hover tooltips after Mermaid renders
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                addHoverTooltips();
+            }, 1000); // Wait for Mermaid to render
+        });
+        
+        function addHoverTooltips() {
+            // Create tooltip element
+            const tooltip = document.createElement('div');
+            tooltip.id = 'mermaid-tooltip';
+            tooltip.style.cssText = `
+                position: absolute;
+                background: #1a1a2e;
+                color: #e6e9ef;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                border: 1px solid #7aa2f7;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 1000;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s;
+                max-width: 300px;
+                word-wrap: break-word;
+            `;
+            document.body.appendChild(tooltip);
+            
+            // Define tooltips for different message types
+            const tooltips = {
+                'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"sampling":{},"elicitation":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.16.5"}},"jsonrpc":"2.0","id":0}',
+                'initialize result' : '"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}',
+                'notifications/initialized': '',
+                'elicitation/create': 'ec',
+                'roots/list': 'Discovers available root directories or workspaces',
+                'ping': 'Health check to verify connection is still active',
+                'sampling/createMessage': 'Requests AI model to generate content based on provided context',
+                'resources/list': 'Retrieves available resources (files, documents, etc.)',
+                'resources/read': 'Reads the content of a specific resource',
+                'prompts/list': 'Lists available prompt templates',
+                'prompts/get': 'Retrieves a specific prompt template with parameters',
+                'tools/list': 'Discovers available tools and their schemas',
+                'tools/call': 'Executes a specific tool with provided arguments',
+                'notifications/roots/list_changed': 'Notifies that the list of available roots has changed'
+            };
+            
+            // Add hover listeners to message elements
+            const messageElements = document.querySelectorAll('.messageText, .messageLine0, .messageLine1');
+            messageElements.forEach(element => {
+                const text = element.textContent || element.getAttribute('data-text') || '';
+                
+                // Find matching tooltip
+                let tooltipText = '';
+                for (const [key, value] of Object.entries(tooltips)) {
+                    if (text.includes(key)) {
+                        tooltipText = value;
+                        break;
+                    }
+                }
+                
+                if (tooltipText) {
+                    element.addEventListener('mouseenter', (e) => {
+                        tooltip.textContent = tooltipText;
+                        tooltip.style.opacity = '1';
+                        updateTooltipPosition(e, tooltip);
+                    });
+                    
+                    element.addEventListener('mousemove', (e) => {
+                        updateTooltipPosition(e, tooltip);
+                    });
+                    
+                    element.addEventListener('mouseleave', () => {
+                        tooltip.style.opacity = '0';
+                    });
+                    
+                    element.style.cursor = 'help';
+                }
+            });
+        }
+        
+        function updateTooltipPosition(e, tooltip) {
+            // Get mouse position relative to the page (including scroll)
+            const x = e.pageX + 10;
+            const y = e.pageY - 10;
+            
+            // Set initial position
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+            
+            // Force a reflow to get accurate dimensions
+            tooltip.offsetHeight;
+            
+            // Get tooltip dimensions after positioning
+            const rect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            let finalX = x;
+            let finalY = y;
+            
+            // Adjust if tooltip goes off right edge
+            if (rect.right > viewportWidth) {
+                finalX = e.pageX - rect.width - 10;
+            }
+            
+            // Adjust if tooltip goes off top edge
+            if (rect.top < 0) {
+                finalY = e.pageY + 20;
+            }
+            
+            // Adjust if tooltip goes off bottom edge
+            if (rect.bottom > viewportHeight) {
+                finalY = e.pageY - rect.height - 10;
+            }
+            
+            // Apply final position
+            tooltip.style.left = finalX + 'px';
+            tooltip.style.top = finalY + 'px';
+        }
+    </script>
 </head>
 <body>
 <header>
@@ -56,6 +185,12 @@
             Note over Client: Client presents elicitation form to user<br/>User selects: projectKey="ENG", timeRange="last 30 days"
             Client-->>Server: elicitation/create result
             Note over Server: Server processes elicitation response<br/>and stores user preferences for session
+            
+            Note over Client,Server: Follow-up Elicitation - Additional Context
+            Server->>Client: elicitation/create
+            Note over Client: Client presents additional options to user<br/>User selects: priority="High", status="Open", includeAssignee=false
+            Client-->>Server: elicitation/create result
+            Note over Server: Server combines all elicitation responses<br/>to configure comprehensive search parameters
 
             Note over Client,Server: Roots Discovery Phase
             Server->>Client: roots/list
