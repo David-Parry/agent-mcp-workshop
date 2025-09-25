@@ -62,53 +62,129 @@
             // Define tooltips for different message types
             const tooltips = {
                 'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"sampling":{},"elicitation":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.16.5"}},"jsonrpc":"2.0","id":0}',
-                'initialize result' : '"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}',
-                'notifications/initialized': '',
-                'elicitation/create': 'ec',
-                'roots/list': 'Discovers available root directories or workspaces',
-                'ping': 'Health check to verify connection is still active',
-                'sampling/createMessage': 'Requests AI model to generate content based on provided context',
-                'resources/list': 'Retrieves available resources (files, documents, etc.)',
-                'resources/read': 'Reads the content of a specific resource',
-                'prompts/list': 'Lists available prompt templates',
-                'prompts/get': 'Retrieves a specific prompt template with parameters',
-                'tools/list': 'Discovers available tools and their schemas',
-                'tools/call': 'Executes a specific tool with provided arguments',
-                'notifications/roots/list_changed': 'Notifies that the list of available roots has changed'
+                'initialize result': '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}',
+                'notifications/initialized': '{"jsonrpc":"2.0","method":"notifications/initialized"}',
+                'elicitation/create': '{"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Please provide the Jira project details for summarization:","requestedSchema":{"properties":{"projectKey":{"title":"Project Key","enum":["ENG","HR","OPS"],"description":"The Jira project key to summarize","type":"string","enumNames":["Engineering","Human Resources","Operations"]},"timeRange":{"title":"Time Range","enum":["last 7 days","last 30 days","custom"],"description":"The time period to include in the summary","type":"string","enumNames":["Last 7 Days","Last 30 Days","Custom Range"]}},"type":"object","required":["projectKey","timeRange"]}}}',
+                'elicitation/create result': '{"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"projectKey":"ENG","timeRange":"last 30 days"}}}',
+                'roots/list': '{"jsonrpc":"2.0","id":-1000,"method":"roots/list"}',
+                'roots/list result': '{"jsonrpc":"2.0","id":-1000,"result":{"roots":["/opt/project/app"]}}',
+                'ping': '{"method":"ping","params":{"_meta":{"progressToken":1}},"jsonrpc":"2.0","id":1}',
+                'ping result': '{"jsonrpc":"2.0","id":1,"result":{}}',
+                'sampling/createMessage': '{"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"text":"Figure out what the single best word to search for in a Java project is.","type":"text"}}],"systemPrompt":"You are a brilliant Java developer.","maxTokens":0},"jsonrpc":"2.0","id":-2000}',
+                'sampling/createMessage result': '{"jsonrpc":"2.0","id":-2000,"result":{"model":"stub-model","stopReason":"endTurn","role":"assistant","content":{"type":"text","text":"the answer is 42"}}}',
+                'resources/list': '{"method":"resources/list","params":{"_meta":{"progressToken":2}},"jsonrpc":"2.0","id":2}',
+                'resources/list result': '{"jsonrpc":"2.0","id":2,"result":{"resources":[...],"nextCursor":"pageNext"}}',
+                'resources/read': '{"method":"resources/read","params":{"_meta":{"progressToken":3},"uri":"javadoc/com/workshop/mcp/spec/Capability.html"},"jsonrpc":"2.0","id":3}',
+                'resources/read result': '{"jsonrpc":"2.0","id":3,"result":{"contents":[...],"isError":false}}',
+                'prompts/list': '{"method":"prompts/list","params":{"_meta":{"progressToken":4}},"jsonrpc":"2.0","id":4}',
+                'prompts/list result': '{"jsonrpc":"2.0","id":4,"result":{"prompts":[{"name":"search_keyword","description":"Creates a prompt, to search for a word using the key_word_searchtool.","arguments":[{"name":"keyword","description":"The word to search for","required":true}]}],"nextCursor":"nextPage"}}',
+                'prompts/get': '{"method":"prompts/get","params":{"_meta":{"progressToken":5},"name":"search_keyword","arguments":{"keyword":""}},"jsonrpc":"2.0","id":5}',
+                'prompts/get result': '{"jsonrpc":"2.0","id":5,"result":{"description":"keyword","messages":[{"role":"user","content":{"text":"Start from the root of the project and use the key_word_search tool to search for this specific keyword:\'\'","type":"text"}}]}}',
+                'tools/list': '{"method":"tools/list","params":{"_meta":{"progressToken":6}},"jsonrpc":"2.0","id":6}',
+                'tools/list result': '{"jsonrpc":"2.0","id":6,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project. Returns the total count of matches and the absolute file paths of the files containing the keyword.","inputSchema":{"type":"object","properties":{"keyword":{"key":"keyword","type":"string","description":"the keyword to search for in a file","isRequired":true},"root_directory":{"key":"root_directory","type":"string","description":"The absolute path to the root directory to start the search from.","isRequired":true}},"required":["keyword","root_directory"]}}]}}',
+                'tools/call': '{"method":"tools/call","params":{"_meta":{"progressToken":7},"name":"key_word_search","arguments":{"keyword":"mcp","root_directory":"/Users/davidparry/code/github/agent-command"}},"jsonrpc":"2.0","id":7}',
+                'tools/call result': '{"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/Users/davidparry/code/github/agent-command/api.http, keyword_count=1","type":"text"},...57 more files],"isError":false}}',
+                'notifications/roots/list_changed': '{"jsonrpc":"2.0","method":"notifications/roots/list_changed"}'
             };
             
-            // Add hover listeners to message elements
-            const messageElements = document.querySelectorAll('.messageText, .messageLine0, .messageLine1');
-            messageElements.forEach(element => {
-                const text = element.textContent || element.getAttribute('data-text') || '';
+            // Wait a bit more for Mermaid to fully render
+            setTimeout(() => {
+                // Try multiple selectors to catch different Mermaid versions
+                const messageSelectors = [
+                    '.messageText',
+                    '.messageLine0', 
+                    '.messageLine1',
+                    'text[class*="messageText"]',
+                    'text[class*="messageLine"]',
+                    '.message-text',
+                    'g.message text',
+                    'g[class*="message"] text'
+                ];
                 
-                // Find matching tooltip
-                let tooltipText = '';
-                for (const [key, value] of Object.entries(tooltips)) {
-                    if (text.includes(key)) {
-                        tooltipText = value;
-                        break;
+                let messageElements = [];
+                messageSelectors.forEach(selector => {
+                    const elements = document.querySelectorAll(selector);
+                    messageElements = messageElements.concat(Array.from(elements));
+                });
+                
+                // Remove duplicates
+                messageElements = [...new Set(messageElements)];
+                
+                console.log('Found message elements:', messageElements.length);
+                
+                messageElements.forEach((element, index) => {
+                    const text = (element.textContent || element.innerHTML || '').trim();
+                    console.log(`Element ${index}: "${text}"`);
+                    
+                    // Find matching tooltip with precise matching
+                    let tooltipText = '';
+                    let matchedKey = '';
+                    
+                    // Sort keys by length (longest first) to avoid partial matches
+                    const sortedKeys = Object.keys(tooltips).sort((a, b) => b.length - a.length);
+                    
+                    for (const key of sortedKeys) {
+                        const value = tooltips[key];
+                        
+                        // Try exact match first (most precise)
+                        if (text === key) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Exact match: "${text}" === "${key}"`);
+                            break;
+                        }
+                        
+                        // Try exact match ignoring case
+                        if (text.toLowerCase() === key.toLowerCase()) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Case-insensitive exact match: "${text}" === "${key}"`);
+                            break;
+                        }
+                        
+                        // Try contains match but only if the key is substantial (avoid single char matches)
+                        if (key.length >= 4 && text.includes(key)) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Contains match: "${text}" contains "${key}"`);
+                            break;
+                        }
+                        
+                        // Try word boundary match (key as whole word in text)
+                        const wordRegex = new RegExp('\\b' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                        if (wordRegex.test(text)) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Word boundary match: "${text}" contains word "${key}"`);
+                            break;
+                        }
                     }
-                }
-                
-                if (tooltipText) {
-                    element.addEventListener('mouseenter', (e) => {
-                        tooltip.textContent = tooltipText;
-                        tooltip.style.opacity = '1';
-                        updateTooltipPosition(e, tooltip);
-                    });
                     
-                    element.addEventListener('mousemove', (e) => {
-                        updateTooltipPosition(e, tooltip);
-                    });
-                    
-                    element.addEventListener('mouseleave', () => {
-                        tooltip.style.opacity = '0';
-                    });
-                    
-                    element.style.cursor = 'help';
-                }
-            });
+                    if (tooltipText) {
+                        console.log(`Final match: "${text}" matched with key "${matchedKey}"`);
+                        
+                        element.addEventListener('mouseenter', (e) => {
+                            tooltip.innerHTML = `<strong>${matchedKey}</strong><br/>${tooltipText}`;
+                            tooltip.style.opacity = '1';
+                            updateTooltipPosition(e, tooltip);
+                        });
+                        
+                        element.addEventListener('mousemove', (e) => {
+                            updateTooltipPosition(e, tooltip);
+                        });
+                        
+                        element.addEventListener('mouseleave', () => {
+                            tooltip.style.opacity = '0';
+                        });
+                        
+                        element.style.cursor = 'help';
+                        element.style.textDecoration = 'underline';
+                        element.style.textDecorationStyle = 'dotted';
+                    } else {
+                        console.log(`No match found for: "${text}"`);
+                    }
+                });
+            }, 500); // Additional delay for Mermaid rendering
         }
         
         function updateTooltipPosition(e, tooltip) {
