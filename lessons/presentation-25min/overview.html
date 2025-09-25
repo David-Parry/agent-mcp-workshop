@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Protocol Overview - Architecture and Flow</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .back-link{display:inline-block;margin-bottom:24px;color:var(--accent);text-decoration:none;font-weight:500}
+        .back-link:hover{text-decoration:underline}
+        .diagram-container{text-align:center;margin:32px 0;width:100%}
+        .mermaid{background:white;border-radius:12px;padding:40px;margin:0 auto;width:100%;max-width:none;transform:scale(1.2);transform-origin:center;overflow:visible}
+        h2{color:var(--accent);margin-top:32px;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .highlight{background:rgba(122,162,247,0.1);padding:2px 6px;border-radius:4px;color:var(--accent)}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#7aa2f7',
+                primaryTextColor: '#0b1020',
+                primaryBorderColor: '#1f2740',
+                lineColor: '#7aa2f7',
+                secondaryColor: '#e6e9ef',
+                tertiaryColor: '#9aa4b2'
+            }
+        });
+    </script>
+</head>
+<body>
+<header>
+    <h1>MCP Protocol Overview</h1>
+    <p class="subtitle">Understanding the Model Context Protocol architecture and communication flow</p>
+</header>
+<main>
+    <a href="index.html" class="back-link">← Back to Main</a>
+
+    <section class="card">
+        <h2>MCP Communication Architecture</h2>
+        <p>The Model Context Protocol (MCP) enables seamless communication between applications, language models, and external services. The diagram below illustrates the complete request-response flow in an MCP-enabled system.</p>
+        
+        <div class="diagram-container">
+            <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant App as Application
+    participant LLM as LLM (Language Model)
+    participant MCP as MCP Server
+    
+    User->>App: Send Request
+    App->>LLM: Forward Request
+    LLM->>LLM: Process Request
+    LLM->>App: Request Additional Information<br/>(Tool/Function Call)
+    App->>MCP: Route Request to MCP Server
+    MCP->>MCP: Process Request
+    MCP->>App: Return Response
+    App->>LLM: Provide Additional Information<br/>(MCP Response)
+    LLM->>LLM: Process with New Information
+    LLM->>App: Generate Final Response
+    App->>User: Deliver Response
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Flow Explanation</h2>
+        
+        <h3>1. User Interaction</h3>
+        <p>The process begins when a <span class="highlight">User</span> sends a request to the <span class="highlight">Application</span>. This could be a question, command, or any input that requires processing.</p>
+
+        <h3>2. LLM Processing</h3>
+        <p>The <span class="highlight">Application</span> forwards the request to the <span class="highlight">LLM (Language Model)</span>, which begins processing the user's input. During this processing, the LLM may determine that it needs additional information or capabilities to provide a complete response.</p>
+
+        <h3>3. Tool/Function Call</h3>
+        <p>When the <span class="highlight">LLM</span> requires external data or functionality, it makes a <span class="highlight">Tool/Function Call</span> back to the Application. This is where MCP comes into play - the LLM is requesting access to external resources, data, or capabilities.</p>
+
+        <h3>4. MCP Server Interaction</h3>
+        <p>The <span class="highlight">Application</span> routes this request to the appropriate <span class="highlight">MCP Server</span>. The MCP Server processes the request, which might involve:</p>
+        <ul>
+            <li>Accessing databases or file systems</li>
+            <li>Calling external APIs</li>
+            <li>Performing computations</li>
+            <li>Retrieving specific resources or data</li>
+        </ul>
+
+        <h3>5. Response Chain</h3>
+        <p>The <span class="highlight">MCP Server</span> returns its response to the Application, which then provides this additional information back to the LLM. The LLM processes this new information along with the original request to generate a comprehensive final response.</p>
+
+        <h3>6. Final Delivery</h3>
+        <p>The <span class="highlight">Application</span> delivers the LLM's final response back to the <span class="highlight">User</span>, completing the request-response cycle.</p>
+    </section>
+
+    <section class="card">
+        <h2>Key Benefits of MCP Architecture</h2>
+        <ul>
+            <li><strong>Modularity:</strong> MCP servers can be developed and deployed independently</li>
+            <li><strong>Extensibility:</strong> New capabilities can be added without modifying the core application</li>
+            <li><strong>Security:</strong> Controlled access to external resources through well-defined protocols</li>
+            <li><strong>Standardization:</strong> Consistent interface for LLM-to-external-service communication</li>
+            <li><strong>Scalability:</strong> Multiple MCP servers can handle different types of requests</li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Protocol Features</h2>
+        <p>The MCP protocol supports various types of interactions:</p>
+        <ul>
+            <li><strong>Tools:</strong> Function calls that the LLM can invoke</li>
+            <li><strong>Resources:</strong> Data sources that can be read or accessed</li>
+            <li><strong>Prompts:</strong> Reusable prompt templates</li>
+            <li><strong>Sampling:</strong> AI model interaction capabilities</li>
+            <li><strong>Real-time Updates:</strong> Dynamic notifications of changes</li>
+        </ul>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Protocol overview and architecture explanation.</div>
+</main>
+</body>
+</html>
