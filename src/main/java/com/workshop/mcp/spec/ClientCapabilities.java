@@ -18,5 +18,6 @@ package com.workshop.mcp.spec;
  */
 public record ClientCapabilities(
     SamplingCapability sampling,
-    RootsCapability roots
+    RootsCapability roots,
+    Elicitation elicitation
 ) {}
