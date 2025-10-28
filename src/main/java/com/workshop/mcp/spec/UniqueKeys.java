@@ -101,8 +101,13 @@ public enum UniqueKeys {
      * Method for creating a new sampling message.
      * Used to initiate a sampling operation with specific parameters.
      */
-    SAMPLING_CREATE_MESSAGE("sampling/createMessage");
+    SAMPLING_CREATE_MESSAGE("sampling/createMessage"),
 
+    /**
+     * Method for creating a new elicitation message.
+     * Used to initiate an elicitation operation with questions for the user.
+     */
+    ELICITATION_CREATE_MESSAGE("elicitation/create");
 
     private final String value;
 
