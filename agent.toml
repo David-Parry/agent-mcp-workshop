@@ -1,5 +1,5 @@
 version = "1.0"
-model = "claude-4-sonnet"
+model = "claude-4.5-sonnet"
 
 [commands.sum]
 description = "This Agent is designed to work with the Tool key_word_search that comes from the workshop."
