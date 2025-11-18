@@ -54,7 +54,7 @@ This utility class provides several key functions for handling Javadoc HTML reso
 Now we need to add the handlers for RESOURCES_LIST and RESOURCES_READ to our message router.
 
 **Action Required**:
-Add the following code to your `IORouter.java` file in the switch statement, **after** the TOOLS_CALL case after the INITIALIZE case:
+Add the following code to your `IORouter.java` file in the switch statement, **after** the INITIALIZE case line 71:
 
 ```java
 case RESOURCES_LIST -> {
@@ -146,7 +146,7 @@ This KeyWordSearch tool provides functionality to search for keywords across fil
 
 ### Step 2: Add Tools Handlers to IORouter
 
-After copying the KeyWordSearch.java file, add the following code to your `IORouter.java` file in the switch statement, **after** the INITIALIZE case but **before** the PING case:
+After copying the KeyWordSearch.java file, add the following code to your `IORouter.java` file in the switch statement, **after** the RESOURCE_READ case:
 
 ```java
 case TOOLS_LIST -> {
@@ -244,27 +244,18 @@ The PROMPTS_GET handler is already present in your IORouter.java file. This hand
 
 ```java
 case PROMPTS_GET -> {
-    GetPromptParam param = deserializer.deserializeParams(message, GetPromptParam.class);
-    GetPromptResultBuilder builder = GetPromptResultBuilder.builder();
-    if ("search_keyword".equalsIgnoreCase(param.name())) {
-        String keyword = param.arguments().get("keyword");
-        if (keyword != null && !keyword.isEmpty()) {
-            builder.withDescription("Search for the keyword: " + keyword);
-            builder.addMessage(UserMessage.of("Search for the keyword: " + keyword));
-            builder.addMessage(AssistantMessage.of("I'll search for the keyword '" + keyword + 
-                    "' in the project files."));
-            builder.addMessage(AssistantMessage.of("Calling the key_word_search tool with keyword: " + keyword));
-        } else {
-            builder.withDescription("Please provide a keyword to search for");
-            builder.addMessage(UserMessage.of("Search for a keyword in the project files"));
-            builder.addMessage(AssistantMessage.of("Please provide a keyword to search for in the project files."));
+// For the sake of the lesson we are dealing with a single prompt if we had more than one we would
+// need to look it up
+PromptsGetParams params = deserializer.deserializeParams(message, PromptsGetParams.class);
+// this would be the key to look up our prompt
+Object name = params.name();
+
+PromptsGetResultBuilder builder = PromptsGetResultBuilder
+        .builder()
+        .withDescription("keyword")
+        .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
+success(message.id(), builder.build());
         }
-    } else {
-        builder.withDescription("Unknown prompt: " + param.name());
-        builder.asError();
-    }
-    success(message.id(), builder.build());
-}
 ```
 
 #### What the PROMPTS_GET handler does:
@@ -319,6 +310,71 @@ This is where the real autocomplete magic happens through the interaction of PRO
    - Instead of manually typing tool names and parameters
    - Users get interactive guidance through prompts
    - The autocomplete messages make tool usage intuitive
+
+## Part 4: Implementing the Elicitation Capability
+
+The elicitation capability allows the server to request additional information from the client through interactive prompts. This is useful when you need to gather user input before proceeding with an operation.
+
+### Step 1: Add the `sendElicitationMessage()` method (IORouter line ~236)
+
+This private method creates and sends an elicitation request to the client:
+
+```java
+private void sendElicitationMessage() {
+    ElicitationCreateParams params = ElicitationBuilder.buildJiraProjectElicitation();
+    JsonRpcRequest elicitationRequest = new JsonRpcRequest(JSON_RPC_VERSION, ELICITATION_REQUEST_ID,
+                                                           UniqueKeys.ELICITATION_CREATE_MESSAGE.getValue(),
+                                                           params);
+    io.emit(elicitationRequest);
+}
+```
+
+**Key components:**
+- `ElicitationBuilder.buildJiraProjectElicitation()` - Creates the elicitation parameters with questions
+- `ELICITATION_REQUEST_ID` - A unique identifier for tracking this request (defined as `-4000L`)
+- `UniqueKeys.ELICITATION_CREATE_MESSAGE` - The method name for elicitation creation
+- `io.emit()` - Sends the request to the client
+
+### Step 2: Detect elicitation capability during initialization (IORouter line ~75)
+
+In the `INITIALIZE` case of the `process(JsonRpcRequest message)` method, check if the client supports elicitation:
+
+```java
+if(clientCapabilities.elicitation() != null){
+    hasElicitation = true;
+}
+```
+
+This sets the `hasElicitation` flag when the client advertises elicitation support in its capabilities.
+
+### Step 3: Send elicitation after initialization (IORouter line ~195)
+
+In the `NOTIFICATIONS_INITIALIZED` case of the `process(JsonRpcNotification message)` method, trigger the elicitation:
+
+```java
+if(hasElicitation) {
+    sendElicitationMessage();
+}
+```
+
+This sends the elicitation request immediately after the client confirms initialization, ensuring the client is ready to receive it.
+
+### Step 4: Handle elicitation responses (IORouter line ~175)
+
+Add a case to handle responses from the client in the `process(JsonRpcRequest message)` method:
+
+```java
+case ELICITATION_CREATE_MESSAGE -> {
+    // Handle elicitation method calls from client
+    logger.log("Received elicitation/create method call from client: " + message);
+    // Parse the elicitation response and handle it appropriately
+    // For now, just acknowledge the elicitation request
+    success(message.id(), new Object());
+}
+```
+
+**Note:** The elicitation flow is bidirectional - the server can send elicitation requests to the client, and the client can also send elicitation requests to the server. This handler processes incoming elicitation requests from the client.
+
 
 ## Testing Your Implementation
 
