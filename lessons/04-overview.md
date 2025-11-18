@@ -3,7 +3,7 @@
 Based on the instruction file and building upon the foundation from lesson 3, here's what will take place in this lesson:
 
 ## Core Objective
-This lesson completes the MCP server implementation by adding the three main capabilities that were advertised during initialization: Resources, Tools, and Prompts. These features transform the basic message router into a fully functional MCP server that can expose content, provide executable functionality, and offer intelligent user guidance.
+This lesson completes the MCP server implementation by adding four main capabilities that were advertised during initialization: Resources, Tools, Prompts, and Elicitation. These features transform the basic message router into a fully functional MCP server that can expose content, provide executable functionality, offer intelligent user guidance, and request additional information from clients interactively.
 
 ## Key Implementation Tasks
 
@@ -62,13 +62,39 @@ Prompts create user-friendly templates that guide clients in using tools effecti
   - Adapts responses based on whether arguments are provided
   - Bridges the gap between user intent and tool execution
 
+### 4. **Elicitation Capability Implementation**
+Elicitation enables servers to request additional information from clients through interactive prompts:
+
+- **sendElicitationMessage() Method**: Creates and sends elicitation requests:
+  - Uses `ElicitationBuilder.buildJiraProjectElicitation()` to create structured questions
+  - Constructs a JSON-RPC request with a unique elicitation request ID (`-4000L`)
+  - Emits the request to the client via the IO handler
+  - Demonstrates server-initiated information gathering
+
+- **Capability Detection**: During initialization:
+  - Checks if the client advertises elicitation support in its capabilities
+  - Sets the `hasElicitation` flag when the capability is detected
+  - Enables conditional elicitation behavior based on client support
+
+- **Elicitation Trigger**: After initialization:
+  - Sends elicitation request in the `NOTIFICATIONS_INITIALIZED` handler
+  - Ensures the client is ready to receive elicitation requests
+  - Demonstrates the proper timing for server-initiated interactions
+
+- **ELICITATION_CREATE_MESSAGE Handler**: Processes elicitation responses:
+  - Handles bidirectional elicitation flow (server-to-client and client-to-server)
+  - Logs incoming elicitation requests for debugging
+  - Acknowledges elicitation requests with appropriate responses
+  - Demonstrates how to handle interactive information gathering
+
 ## Architecture Integration
 
-This lesson demonstrates how the three capabilities work together:
+This lesson demonstrates how the four capabilities work together:
 
 1. **Resources** expose static documentation and content
 2. **Tools** provide dynamic functionality and operations  
 3. **Prompts** make tools accessible through guided templates
+4. **Elicitation** enables interactive information gathering from clients
 
 The implementation shows important patterns:
 - **Builder Pattern**: All responses use builders for type-safe construction
@@ -85,7 +111,9 @@ The implementation shows important patterns:
 
 3. **Prompt-Tool Relationship**: Students learn how prompts act as user-friendly wrappers around tools, enabling sophisticated autocomplete and guided experiences in MCP clients.
 
-4. **Complete Feature Implementation**: Unlike lesson 3 where capabilities were only advertised, this lesson implements all advertised features, demonstrating the importance of fulfilling protocol contracts.
+4. **Bidirectional Communication**: The elicitation capability demonstrates server-initiated interactions, showing how MCP supports both client-to-server and server-to-client communication patterns.
+
+5. **Complete Feature Implementation**: Unlike lesson 3 where capabilities were only advertised, this lesson implements all advertised features, demonstrating the importance of fulfilling protocol contracts.
 
 ## Testing with MCP Inspector
 
@@ -103,7 +131,8 @@ By the end of this lesson, students will have:
 - ✅ Understanding of how to expose static content through Resources
 - ✅ Knowledge of creating executable functionality with Tools
 - ✅ Experience building user-friendly interfaces with Prompts
+- ✅ Understanding of bidirectional communication through Elicitation
 - ✅ Insight into how these features enable intelligent client experiences
 - ✅ A fully functional MCP server ready for real-world use
 
-This completes the MCP server implementation, transforming the basic message router from lesson 3 into a production-ready server that can serve documentation, execute searches, and provide intelligent user guidance through the Model Context Protocol.
+This completes the MCP server implementation, transforming the basic message router from lesson 3 into a production-ready server that can serve documentation, execute searches, gather user input interactively, and provide intelligent user guidance through the Model Context Protocol.
