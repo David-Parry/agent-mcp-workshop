@@ -244,27 +244,18 @@ The PROMPTS_GET handler is already present in your IORouter.java file. This hand
 
 ```java
 case PROMPTS_GET -> {
-    GetPromptParam param = deserializer.deserializeParams(message, GetPromptParam.class);
-    GetPromptResultBuilder builder = GetPromptResultBuilder.builder();
-    if ("search_keyword".equalsIgnoreCase(param.name())) {
-        String keyword = param.arguments().get("keyword");
-        if (keyword != null && !keyword.isEmpty()) {
-            builder.withDescription("Search for the keyword: " + keyword);
-            builder.addMessage(UserMessage.of("Search for the keyword: " + keyword));
-            builder.addMessage(AssistantMessage.of("I'll search for the keyword '" + keyword + 
-                    "' in the project files."));
-            builder.addMessage(AssistantMessage.of("Calling the key_word_search tool with keyword: " + keyword));
-        } else {
-            builder.withDescription("Please provide a keyword to search for");
-            builder.addMessage(UserMessage.of("Search for a keyword in the project files"));
-            builder.addMessage(AssistantMessage.of("Please provide a keyword to search for in the project files."));
+// For the sake of the lesson we are dealing with a single prompt if we had more than one we would
+// need to look it up
+PromptsGetParams params = deserializer.deserializeParams(message, PromptsGetParams.class);
+// this would be the key to look up our prompt
+Object name = params.name();
+
+PromptsGetResultBuilder builder = PromptsGetResultBuilder
+        .builder()
+        .withDescription("keyword")
+        .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
+success(message.id(), builder.build());
         }
-    } else {
-        builder.withDescription("Unknown prompt: " + param.name());
-        builder.asError();
-    }
-    success(message.id(), builder.build());
-}
 ```
 
 #### What the PROMPTS_GET handler does:
