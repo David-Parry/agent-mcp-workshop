@@ -12,6 +12,7 @@ package com.workshop.mcp.spec;
  * @param tools capability configuration for tool-related features
  * @param prompts capability configuration for prompt-related features
  * @param resources capability configuration for resource-related features
+ * @param completions capability configuration for resource-related features
  * 
  * @see Capability
  * @see InitializeResult
@@ -20,5 +21,6 @@ package com.workshop.mcp.spec;
 public record ServerCapabilities(
     Capability tools,
     Capability prompts,
-    Capability resources
+    Capability resources,
+    Capability completions
 ) {}

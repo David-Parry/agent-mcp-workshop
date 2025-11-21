@@ -125,7 +125,7 @@ public class InitializeResultBuilder {
      */
     public InitializeResultBuilder withDefaultCapabilities() {
         Capability capabilityTrue = new Capability();
-        this.capabilities = new ServerCapabilities(capabilityTrue, capabilityTrue, new Capability(false, false));
+        this.capabilities = new ServerCapabilities(capabilityTrue, capabilityTrue, new Capability(false, false), new Capability(null,null));
         return this;
     }
 
