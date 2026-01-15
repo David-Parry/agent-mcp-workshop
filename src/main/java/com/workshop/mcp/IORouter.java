@@ -153,9 +153,6 @@ public class IORouter implements Router {
                 if (hasSampling) {
                     sendSamplingMessage("Figure out what the single best word to search for in a Java project is.");
                 }
-                if(hasElicitation) {
-                    logger.log("The client has elicitation");
-                }
             }
             case COMPLETION_COMPLETE -> {
                 CompletionCompleteParams params = deserializer.deserializeParams(message,
