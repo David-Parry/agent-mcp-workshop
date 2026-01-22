@@ -133,52 +133,9 @@ fi
 
 echo ""
 
-# Step 5: Verify qodo command is installed with minimum version
-echo "Step 5: Verifying qodo installation..."
-echo "-------------------------------------"
-QODO_EXIT_CODE=0
-
-if command -v qodo &> /dev/null; then
-    # Get qodo version
-    QODO_VERSION_OUTPUT=$(qodo -v 2>&1)
-    # Extract version number (assuming format like "qodo version 0.9.x" or just "0.9.x")
-    QODO_VERSION=$(echo "$QODO_VERSION_OUTPUT" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-    
-    if [ -n "$QODO_VERSION" ]; then
-        echo "qodo version detected: $QODO_VERSION"
-        
-        # Extract major and minor version
-        QODO_MAJOR=$(echo $QODO_VERSION | cut -d'.' -f1)
-        QODO_MINOR=$(echo $QODO_VERSION | cut -d'.' -f2)
-        
-        # Check if version is 0.9 or higher
-        if [ "$QODO_MAJOR" -gt 0 ] || ([ "$QODO_MAJOR" -eq 0 ] && [ "$QODO_MINOR" -ge 9 ]); then
-            echo "✓ qodo version meets minimum requirement (0.9)"
-            echo ""
-            echo "✅ Step 5 PASSED: qodo command is installed with version $QODO_VERSION!"
-        else
-            echo "❌ qodo version $QODO_VERSION is below minimum requirement of 0.9"
-            echo ""
-            echo "❌ Step 5 FAILED: qodo version is below minimum requirement"
-            QODO_EXIT_CODE=1
-        fi
-    else
-        echo "❌ Could not determine qodo version"
-        echo ""
-        echo "❌ Step 5 FAILED: Unable to parse qodo version"
-        QODO_EXIT_CODE=1
-    fi
-else
-    echo "❌ qodo command is not installed or not in PATH"
-    echo ""
-    echo "❌ Step 5 FAILED: qodo is not installed"
-    QODO_EXIT_CODE=1
-fi
-
-echo ""
 
 # Step 6: Verify MCP Inspector can run
-echo "Step 6: Verifying MCP Inspector..."
+echo "Step 5: Verifying MCP Inspector..."
 echo "----------------------------------"
 echo "Starting MCP Inspector to verify npx functionality..."
 echo "(This will start a server - it will be automatically stopped after verification)"
@@ -216,12 +173,12 @@ fi
 # Check if the expected messages appear in the output
 if grep -q "server listening" mcp_output.log 2>/dev/null; then
     echo ""
-    echo "✅ Step 6 PASSED: MCP Inspector started successfully!"
+    echo "✅ Step 5 PASSED: MCP Inspector started successfully!"
     echo "Server started and listening - npx can run MCP tools correctly."
     MCP_EXIT_CODE=0
 else
     echo ""
-    echo "❌ Step 6 FAILED: MCP Inspector did not start correctly"
+    echo "❌ Step 5 FAILED: MCP Inspector did not start correctly"
     echo "Expected 'server listening' message was not found."
     if [ -f mcp_output.log ]; then
         echo "Output received:"
@@ -240,7 +197,7 @@ echo "Summary"
 echo "======="
 
 # Final summary
-if [ $JDK_EXIT_CODE -eq 0 ] && [ $VERSION_EXIT_CODE -eq 0 ] && [ $CLEAN_EXIT_CODE -eq 0 ] && [ $NODE_EXIT_CODE -eq 0 ] && [ $QODO_EXIT_CODE -eq 0 ] && [ $MCP_EXIT_CODE -eq 0 ]; then
+if [ $JDK_EXIT_CODE -eq 0 ] && [ $VERSION_EXIT_CODE -eq 0 ] && [ $CLEAN_EXIT_CODE -eq 0 ] && [ $NODE_EXIT_CODE -eq 0 ] && [ $MCP_EXIT_CODE -eq 0 ]; then
     echo "✅ ALL TESTS PASSED: All development tools are properly configured!"
     echo "  - JDK 21+ ✓"
     echo "  - Gradle wrapper ✓"

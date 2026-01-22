@@ -6,15 +6,8 @@ Lets start with the setup for this workshop.
 ```bash
 git clone git@github.com:David-Parry/agent-mcp-workshop.git
 ```
-3. Access to a free [Qodo Account](https://app.qodo.ai/signin).
-4. Install [Qodo Command](https://docs.qodo.ai/qodo-documentation/qodo-command/getting-started/setup-and-quickstart) on your local machine.
-   - For Qodo Command, you will need NPM and Node.js installed on your machine. You can download and install them from [Node.js official website](https://nodejs.org/).
-```bash 
-   npm install -g @qodo/command 
-```
-
-5. JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
-6. Install [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
+3. JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
+4. Install [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
  ```bash
    npm install -g @modelcontextprotocol/inspector
  ```
@@ -67,7 +60,7 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 345ms
+BUILD SUCCESSFUL in 314ms
 1 actionable task: 1 executed
 
 ✅ Step 3 PASSED: ./gradlew clean completed successfully!
@@ -83,20 +76,13 @@ npx version detected: 10.9.2
 
 ✅ Step 4 PASSED: Node.js (v22+), NPM (10.9+), and npx (10.9+) meet all requirements!
 
-Step 5: Verifying qodo installation...
--------------------------------------
-qodo version detected: 0.9.1
-✓ qodo version meets minimum requirement (0.9)
-
-✅ Step 5 PASSED: qodo command is installed with version 0.9.1!
-
-Step 6: Verifying MCP Inspector...
+Step 5: Verifying MCP Inspector...
 ----------------------------------
 Starting MCP Inspector to verify npx functionality...
 (This will start a server - it will be automatically stopped after verification)
 
 
-✅ Step 6 PASSED: MCP Inspector started successfully!
+✅ Step 5 PASSED: MCP Inspector started successfully!
 Server started and listening - npx can run MCP tools correctly.
 
 Summary
