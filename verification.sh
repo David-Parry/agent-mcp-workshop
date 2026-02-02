@@ -144,7 +144,7 @@ echo ""
 MCP_EXIT_CODE=0
 
 # Start the MCP inspector in background and capture output
-npx @modelcontextprotocol/inspector@0.14.0 > mcp_output.log 2>&1 &
+npx @modelcontextprotocol/inspector > mcp_output.log 2>&1 &
 MCP_PID=$!
 
 # Wait for the server to start (max 5 seconds)
