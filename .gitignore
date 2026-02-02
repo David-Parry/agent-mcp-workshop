@@ -46,3 +46,4 @@ bin/
 /inspector/logs/
 /logs/
 /sum_response.json
+/.idea/
