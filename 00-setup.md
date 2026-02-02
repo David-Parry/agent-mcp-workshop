@@ -92,33 +92,13 @@ Summary
   - Gradle wrapper ✓
   - Gradle project build ✓
   - Node.js, NPM, and npx ✓
-  - qodo 0.9+ ✓
   - MCP Inspector ✓
 
 ```
 
-- To verify that you have a Qodo account and can login, run the following command in your terminal:
-```bash
-   qodo login  
-```
-- Valid output should look something like this:
-```bash
-➜  agent-mcp-workshop git:(trunk) ✗    qodo login  
-Starting authentication process...
-
-🔐  Please authenticate in your browser
-🌐  If it doesn't open automatically, visit:
-https://auth.qodo.ai/......
-
-Waiting for authentication to complete...
-✅ Authentication successful! API key saved.
-📋 Your API key: sk-{KEY_DATA}
-➜  agent-mcp-workshop git:(trunk) ✗
-```
-
 ### Running 
 
-Once you have verified and signed in to your Qodo account, you need an editor to run the workshop.
+Once you have verified your environment, you need an editor to run the workshop.
 The instructor will be using JetBrains IntelliJ IDEA, but you can use any editor of your choice for Java development, such as Eclipse, VS Code, or even a simple text editor.
 
 
@@ -148,8 +128,6 @@ Each chapter branch represents a clean checkpoint with all previous functionalit
 
 For different types of issues, please refer to the appropriate resources:
 
-- **Qodo Account Issues**: If you have problems with your Qodo account (login, registration, access), please reach out to the Qodo support team.
-- **Qodo Command Issues**: For issues with the `qodo` command installation or functionality, please contact Qodo support or refer to the [Qodo Documentation](https://docs.qodo.ai/).
 - **MCP Inspector Issues**: For debugging MCP servers or issues with the inspector tool:
   - Check the [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
   - Use `npx @modelcontextprotocol/inspector --help` for command-line options
