@@ -1,78 +1,59 @@
 # Agent MCP Workshop
 
-**⚠️ Important: This is NOT a completed project - it's a set of educational lessons!**
+**This is an instructor-led workshop. It is NOT intended for self-paced learning.**
 
-This repository contains a series of hands-on lessons for learning to build Java-based Model Context Protocol (MCP) server implementations. Each lesson is organized as a separate branch, with completed solutions available in corresponding branches.
+This repository contains hands-on lessons for building Java-based Model Context Protocol (MCP) server implementations. The workshop is designed to be delivered by an instructor, and attempting to work through these materials independently will likely result in confusion as key concepts and instructions are provided during live sessions.
 
-## 📚 Workshop Structure
-
-This workshop is designed as an **instructor-led class** and is **NOT intended for self-study**. While you may attempt to work through the lessons independently, there is no guarantee of success as many instructions and concepts will be discussed during the workshop sessions.
+## Workshop Structure
 
 ### Branch Organization
-- **Lesson branches**: `01-chapter`, `02-chapter`, `03-chapter`, etc. - Starting points for each lesson
+
+Each lesson is organized as a separate branch:
+- `01-chapter`, `02-chapter`, `03-chapter`, etc. - Starting points for each lesson
+- `complete` - Final solution with all chapters implemented
+
+### How to Navigate Lessons
+
+**Important Pattern**: Each chapter branch contains an intro file (e.g., `01-intro.md`, `02-intro.md`) that you should read before starting that chapter's exercises. These intro files contain the context and instructions specific to that lesson.
+
+For the `trunk` branch (this branch), refer to:
+- **[00-introduction.md](00-introduction.md)** - Workshop introduction and learning objectives
+- **[00-setup.md](00-setup.md)** - Environment setup instructions (complete before class)
 
 ### Pre-Workshop Setup
-**⚠️ IMPORTANT: After you have registered, please follow the [00-setup.md](00-setup.md) instructions before class to ensure your environment will be ready to go and learning can commence immediately.**
 
-### Getting Started with Lessons
-1. Complete the pre-workshop setup from `00-setup.md`
-2. Start with the `01-chapter` branch
+**Before attending class**, please complete the environment setup:
+
+1. Read and follow all instructions in [00-setup.md](00-setup.md)
+2. Run the verification script to confirm your environment is ready
+3. Resolve any issues before the workshop begins
+
+This ensures you can start learning immediately when class begins.
+
+### Getting Started (During Class)
+
+1. Ensure pre-workshop setup from [00-setup.md](00-setup.md) is complete
+2. When instructed, checkout the first lesson branch:
 
 ```bash
-# Start first lesson
 git checkout 01-chapter
-
-# View completed solution (if needed)
-git checkout complete
 ```
 
-## 💬 Feedback and Support
+3. Read the intro file in that branch before starting exercises
 
-We value your feedback to improve these workshop lessons!
+## Feedback and Support
 
-### How to Provide Feedback
-- **Issues**: Report problems or suggestions via [GitHub Issues](../../issues)
+We value your feedback to improve these workshop lessons:
+
+- **Issues**: Report problems via [GitHub Issues](../../issues)
 - **Discussions**: Join conversations in [GitHub Discussions](../../discussions)
 - **Pull Requests**: Suggest improvements to lesson content
 - **Workshop Feedback**: Provide direct feedback to your instructor during sessions
 
-### What Feedback Helps
+### Helpful Feedback Topics
+
 - Clarity of instructions
 - Difficulty level of exercises
 - Missing prerequisites or setup steps
 - Technical issues with code examples
 - Suggestions for additional topics
-
-## 🎯 Learning Objectives
-=======
-  
-## Overview
-
-This workshop project implements:
-- **MCP Server**: A Java-based server that implements the Model Context Protocol specification
-- **Keyword Search Tool**: A custom tool that searches for keywords across project files
-- **Agent Integration**: Pre-configured agents that use the keyword search tool for file analysis
-- **JSON-RPC Communication**: Full implementation of JSON-RPC for MCP communication
-
-## Features
-
-### MCP Server
-- Complete MCP specification implementation in Java
-- JSON-RPC message handling with proper serialization/deserialization
-- Tool registration and execution framework
-- Asynchronous I/O handling for real-time communication
-- Comprehensive logging and error handling
-
-### Keyword Search Tool
-- Recursive file system traversal
-- Text file detection and binary file filtering
-- Case-sensitive keyword matching with occurrence counting
-- Support for multiple root directories
-- Detailed results with file paths and match counts
-
-### Agent Configuration
-- **Sum Agent**: Analyzes keyword distribution across files and identifies the most relevant file
-- Configurable execution strategies (plan vs. act)
-- Structured output schemas with JSON validation
-- Automatic result persistence to files
-

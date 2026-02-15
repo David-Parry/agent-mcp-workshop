@@ -1,25 +1,46 @@
-## Setup and Prerequisites
+# Environment Setup
 
-Lets start with the setup for this workshop.
-1. git command line tool installed on your machine. You can download and install it from [Git official website](https://git-scm.com/downloads).
-2. checkout the repository:
+This document contains the prerequisites and setup instructions for the workshop. **Complete these steps before attending class** to ensure your development environment is ready.
+
+## Prerequisites
+
+### 1. Git
+
+Install the Git command line tool from the [Git official website](https://git-scm.com/downloads).
+
+### 2. Clone the Repository
+
 ```bash
 git clone git@github.com:David-Parry/agent-mcp-workshop.git
 ```
-3. JDK 21.0.7 or later installed on your machine. You can download and install it from [OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
-4. Install [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
- ```bash
-   npm install -g @modelcontextprotocol/inspector
- ```
 
-### Verification of development environment
-- To verify that your development environment is set up correctly, you can run the following command in your terminal:
-```bash 
-    ./verification.sh
-```
-- Valid output should look something like this (Summary needs to be green):
+### 3. JDK 21
+
+Install JDK 21.0.7 or later. You can download it from [Azul OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
+
+### 4. Node.js and NPM
+
+Install Node.js v22 or later with NPM 10.9+. Download from [Node.js official website](https://nodejs.org/).
+
+### 5. MCP Inspector
+
+Install the MCP Inspector tool globally:
+
 ```bash
-➜  agent-mcp-workshop git:(trunk) ✗     ./verification.sh
+npm install -g @modelcontextprotocol/inspector
+```
+
+## Verification
+
+Run the verification script to confirm your environment is properly configured:
+
+```bash
+./verification.sh
+```
+
+A successful run will show output similar to:
+
+```
 MCP Workshop Verification Script
 =========================
 
@@ -31,110 +52,43 @@ Java version detected: openjdk version "21.0.3" 2024-04-16 LTS
 
 Step 2: Verifying Gradle wrapper...
 -----------------------------------
-
-------------------------------------------------------------
-Gradle 8.13
-------------------------------------------------------------
-
-Build time:    2025-02-25 09:22:14 UTC
-Revision:      073314332697ba45c16c0a0ce1891fa6794179ff
-
-Kotlin:        2.0.21
-Groovy:        3.0.22
-Ant:           Apache Ant(TM) version 1.10.15 compiled on August 25 2024
-Launcher JVM:  21.0.3 (Azul Systems, Inc. 21.0.3+9-LTS)
-Daemon JVM:    /Users/davidparry/app/java/zulu21.34.19-ca-jdk21.0.3-macosx_aarch64/zulu-21.jdk/Contents/Home (no JDK specified, using current Java home)
-OS:            Mac OS X 14.6.1 aarch64
-
-
 ✅ Step 2 PASSED: ./gradlew --version completed successfully!
 
 Step 3: Verifying Gradle project build...
 ----------------------------------------
-
-[Incubating] Problems report is available at: file:///Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/build/reports/problems/problems-report.html
-
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
-
-You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
-
-For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
-
-BUILD SUCCESSFUL in 314ms
-1 actionable task: 1 executed
-
 ✅ Step 3 PASSED: ./gradlew clean completed successfully!
 
 Step 4: Verifying Node.js, NPM, and npx installation...
 -------------------------------------------------------
-Node.js version detected: v22.14.0
-✓ Node.js version meets minimum requirement (v22)
-NPM version detected: 10.9.2
-✓ NPM version meets minimum requirement (10.9)
-npx version detected: 10.9.2
-✓ npx version meets minimum requirement (10.9)
-
 ✅ Step 4 PASSED: Node.js (v22+), NPM (10.9+), and npx (10.9+) meet all requirements!
 
 Step 5: Verifying MCP Inspector...
 ----------------------------------
-Starting MCP Inspector to verify npx functionality...
-(This will start a server - it will be automatically stopped after verification)
-
-
 ✅ Step 5 PASSED: MCP Inspector started successfully!
-Server started and listening - npx can run MCP tools correctly.
 
 Summary
 =======
 ✅ ALL TESTS PASSED: All development tools are properly configured!
-  - JDK 21+ ✓
-  - Gradle wrapper ✓
-  - Gradle project build ✓
-  - Node.js, NPM, and npx ✓
-  - MCP Inspector ✓
-
 ```
 
-### Running 
+**The Summary section should show all tests passed (green).** If any tests fail, resolve the issues before the workshop.
 
-Once you have verified your environment, you need an editor to run the workshop.
-The instructor will be using JetBrains IntelliJ IDEA, but you can use any editor of your choice for Java development, such as Eclipse, VS Code, or even a simple text editor.
+## IDE / Editor
 
+The instructor will use JetBrains IntelliJ IDEA, but you can use any Java-capable editor:
+- IntelliJ IDEA
+- Eclipse
+- VS Code with Java extensions
+- Any text editor with Java support
 
-## Navigation
+## Troubleshooting
 
-This workshop follows a modular [chapter structure](lessons) designed for flexible learning ➜ [chapters](lessons):
+For issues with specific tools, consult their documentation:
 
-- **Progressive Build**: Each chapter builds upon concepts from the previous one when followed sequentially
-- **Chapter Independence**: Every chapter checkout includes a complete, working implementation of all previous chapters' objectives
-- **Skip-Friendly Design**: You can jump to any chapter without completing earlier ones - simply checkout the chapter branch, and you'll have all prerequisite code ready
-- **Self-Contained Exercises**: While the learning narrative flows sequentially, each chapter's starting point contains all necessary code from prior chapters
-
-This architecture ensures you can:
-1. Follow the workshop from start to finish for the complete learning experience
-2. Jump directly to topics of interest without setup overhead
-3. Resume from any point if interrupted
-4. Use any chapter as a standalone reference implementation
-
-**Important Note**: If you choose to work through the chapters sequentially without checking out each chapter branch, you must carefully follow all instructions in each [chapter's README file](lessons). Each README contains the specific steps needed to transform your code from the previous chapter's state to the current chapter's objectives. Missing steps may result in incomplete implementations.
-
-Each chapter branch represents a clean checkpoint with all previous functionality implemented and tested.
-
-
----
-
-#### Troubleshooting
-
-For different types of issues, please refer to the appropriate resources:
-
-- **MCP Inspector Issues**: For debugging MCP servers or issues with the inspector tool:
-  - Check the [MCP Inspector documentation](https://github.com/modelcontextprotocol/inspector)
+- **JDK/Java**: [Azul Support](https://www.azul.com/support/)
+- **Node.js/NPM**: [Node.js Documentation](https://nodejs.org/en/docs/guides/)
+- **Gradle**: [Gradle Troubleshooting Guide](https://docs.gradle.org/current/userguide/troubleshooting.html)
+- **MCP Inspector**: [MCP Inspector GitHub](https://github.com/modelcontextprotocol/inspector)
   - Use `npx @modelcontextprotocol/inspector --help` for command-line options
-  - For connection issues, verify the server is running on the expected port (default: 6274)
-  - Check the browser console for client-side errors when using the web UI
-- **Other Tool Issues**: For problems with individual tools, please consult their respective troubleshooting guides:
-  - **JDK/Java**: Refer to the [OpenJDK troubleshooting guide](https://www.azul.com/support/)
-  - **Node.js/NPM/npx**: Check the [Node.js help documentation](https://nodejs.org/en/docs/guides/)
-  - **Gradle**: See the [Gradle troubleshooting guide](https://docs.gradle.org/current/userguide/troubleshooting.html)
-  - **IDE Issues**: Consult your specific IDE's documentation (IntelliJ IDEA, VS Code, Eclipse, etc.)
+  - Default port: 6274
+- **IDE Issues**: Consult your IDE's documentation

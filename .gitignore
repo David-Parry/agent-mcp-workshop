@@ -1,3 +1,4 @@
+.idea/
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
@@ -42,7 +43,6 @@ bin/
 .DS_Store
 /tmp/
 /.java-version
-/.qodo/
 /inspector/logs/
 /logs/
 /sum_response.json
