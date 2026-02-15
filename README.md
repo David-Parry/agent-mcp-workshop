@@ -1,78 +1,37 @@
-# Agent MCP Workshop
+# Agent MCP Workshop - Completed Project
 
-**⚠️ Important: This is NOT a completed project - it's a set of educational lessons!**
+**Instructor Use Only**
 
-This repository contains a series of hands-on lessons for learning to build Java-based Model Context Protocol (MCP) server implementations. Each lesson is organized as a separate branch, with completed solutions available in corresponding branches.
+This branch contains the **completed workshop project** with all chapters finished. It is intended for instructors to demonstrate what students will have built by the end of the workshop.
 
-## 📚 Workshop Structure
+## Building the MCP Server
 
-This workshop is designed as an **instructor-led class** and is **NOT intended for self-study**. While you may attempt to work through the lessons independently, there is no guarantee of success as many instructions and concepts will be discussed during the workshop sessions.
-
-### Branch Organization
-- **Lesson branches**: `01-chapter`, `02-chapter`, `03-chapter`, etc. - Starting points for each lesson
-
-### Pre-Workshop Setup
-**⚠️ IMPORTANT: After you have registered, please follow the [00-setup.md](00-setup.md) instructions before class to ensure your environment will be ready to go and learning can commence immediately.**
-
-### Getting Started with Lessons
-1. Complete the pre-workshop setup from `00-setup.md`
-2. Start with the `01-chapter` branch
+To build the completed MCP server:
 
 ```bash
-# Start first lesson
-git checkout 01-chapter
-
-# View completed solution (if needed)
-git checkout complete
+./gradlew clean build
 ```
 
-## 💬 Feedback and Support
+This creates the MCP server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`.
 
-We value your feedback to improve these workshop lessons!
+For instructions on how to run and test the server with MCP Inspector, refer to the lesson documentation in prior chapters (e.g., `03-chapter`).
 
-### How to Provide Feedback
-- **Issues**: Report problems or suggestions via [GitHub Issues](../../issues)
-- **Discussions**: Join conversations in [GitHub Discussions](../../discussions)
-- **Pull Requests**: Suggest improvements to lesson content
-- **Workshop Feedback**: Provide direct feedback to your instructor during sessions
+## What This Project Includes
 
-### What Feedback Helps
-- Clarity of instructions
-- Difficulty level of exercises
-- Missing prerequisites or setup steps
-- Technical issues with code examples
-- Suggestions for additional topics
+- **MCP Server**: Complete Java implementation of the Model Context Protocol specification
+- **JSON-RPC Communication**: Full message handling with serialization/deserialization
+- **Keyword Search Tool**: Custom tool that searches for keywords across project files
+- **Agent Integration**: Pre-configured agents using the keyword search tool
+- **Tool Registration Framework**: Extensible system for adding MCP tools
 
-## 🎯 Learning Objectives
-=======
-  
-## Overview
+## For Students
 
-This workshop project implements:
-- **MCP Server**: A Java-based server that implements the Model Context Protocol specification
-- **Keyword Search Tool**: A custom tool that searches for keywords across project files
-- **Agent Integration**: Pre-configured agents that use the keyword search tool for file analysis
-- **JSON-RPC Communication**: Full implementation of JSON-RPC for MCP communication
+This branch is **not for learning** - it shows only the final result.
 
-## Features
+To follow the workshop lessons, switch to the appropriate chapter branch:
 
-### MCP Server
-- Complete MCP specification implementation in Java
-- JSON-RPC message handling with proper serialization/deserialization
-- Tool registration and execution framework
-- Asynchronous I/O handling for real-time communication
-- Comprehensive logging and error handling
+```bash
+git checkout 01-chapter  # Start here
+```
 
-### Keyword Search Tool
-- Recursive file system traversal
-- Text file detection and binary file filtering
-- Case-sensitive keyword matching with occurrence counting
-- Support for multiple root directories
-- Detailed results with file paths and match counts
-
-### Agent Configuration
-- **Sum Agent**: Analyzes keyword distribution across files and identifies the most relevant file
-- Configurable execution strategies (plan vs. act)
-- Structured output schemas with JSON validation
-- Automatic result persistence to files
-
+Each chapter branch contains lesson documentation in the `lesson/` folder with step-by-step instructions.

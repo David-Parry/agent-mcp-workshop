@@ -1,51 +1,21 @@
-# Chapter 04: Configuring MCP Server and Agent Setup
+# Chapter 05: Running Your MCP Server with a Live LLM
 
-## Setting Up MCP Server Configuration and Agent Integration
+## From Inspector to Real Conversations
 
-In this lesson, we'll configure the MCP (Model Context Protocol) server to work with Qodo agents. This involves creating two essential configuration files: `mcp.json` for server configuration and `agent.toml` for agent setup. These files enable AI agents to interact with your MCP server and utilize its capabilities.
+In this lesson, you'll register your newly written MCP server with your favorite code generation client and see it run with a live LLM—not the Inspector anymore. This demonstrates the complete lifecycle of MCP development: build, test, deploy, and use.
 
-### Prerequisites: Ensure You Have a Qodo Session
+## Prerequisites
 
-Before we begin configuring the MCP server and agent setup, you need to be logged in to Qodo and verify you have the latest version.
+Before starting, ensure you have:
+- Your MCP server built and tested (from previous lessons)
+- The JAR file at `build/libs/agent-mcp-workshop-0.0.1.jar`
+- A code generation client that supports MCP (Claude Code, Cursor, Windsurf, Cline, etc.)
 
-#### Step 1: Check Qodo Version
+## Step 1: Create the MCP Server Configuration
 
-**Action Required**: Run the following command to check your Qodo version:
+The `mcp.json` file tells your code generation client how to launch your MCP server.
 
-```bash
-qodo --version
-```
-
-This command will display your current Qodo version. Make sure you have the latest version installed to ensure compatibility with all features. If you need to update, the command output will show you the npm install command to run, which will look something like:
-
-```bash
-npm install -g @qodo/qodo-cli@latest
-```
-
-Run the suggested command to update to the latest version.
-
-#### Step 2: Log in to Qodo
-
-**Action Required**: Run the following command to log in to Qodo:
-
-```bash
-qodo login
-```
-
-This command will:
-- Open a browser window for authentication
-- Create a session token for your Qodo account
-- Enable access to Qodo's AI models and services
-
-If you're already logged in, the command will confirm your active session. Make sure you have a valid session before proceeding with the configuration steps.
-
-### First Configuration Task: Create the MCP Server Configuration File
-
-The MCP server configuration tells AI tools how to launch and communicate with your server. This is essential for integrating your MCP server with various AI agents and tools.
-
-#### Step 1: Create mcp.json in the Root Directory
-
-**Action Required**: Create a new file called `mcp.json` in the root directory of your project and add the following configuration:
+**Action Required**: Create a file called `mcp.json` in the root directory of your project:
 
 ```json
 {
@@ -56,215 +26,183 @@ The MCP server configuration tells AI tools how to launch and communicate with y
         "-jar",
         "build/libs/agent-mcp-workshop-0.0.1.jar"
       ],
-      "env": {
-      }
+      "env": {}
     }
   }
 }
 ```
 
-## Understanding the MCP Configuration Structure:
+### Understanding the Configuration
 
-Let's break down each field in this configuration:
+| Field | Purpose |
+|-------|---------|
+| `mcpServers` | Container for all MCP server definitions |
+| `workshop` | Unique name for your server (you choose this) |
+| `command` | The executable to run (`java`) |
+| `args` | Command-line arguments to pass |
+| `env` | Environment variables (empty for now) |
 
-1. **`mcpServers`**: The top-level object that contains all MCP server configurations. You can define multiple servers here if needed.
+## Step 2: Register with Your Code Generation Client
 
-2. **`workshop`**: This is the unique identifier for your MCP server. This name will be referenced in your agent configuration to specify which server to use.
+Choose your client and follow the appropriate setup:
 
-3. **`command`**: The executable command to run your server. In our case, it's `"java"` since we're running a Java application.
+### Option A: Claude Code
 
-4. **`args`**: An array of command-line arguments passed to the command. Here we specify:
-   - `"-jar"`: Tells Java to run a JAR file
-   - `"build/libs/agent-mcp-workshop-0.0.1.jar"`: The path to your compiled MCP server JAR file
+Claude Code automatically discovers `mcp.json` files in your project directory. Simply:
 
-5. **`env`**: Environment variables to set when launching the server. Currently empty, but you could add variables like:
-   ```json
-   "env": {
-     "LOG_LEVEL": "DEBUG",
-     "API_KEY": "${MY_API_KEY}"
-   }
-   ```
+1. Ensure `mcp.json` is in your project root
+2. Open Claude Code in your project directory
+3. The server will be available automatically
 
-### Second Configuration Task: Create the Agent Configuration File
+To verify, you can ask Claude Code: "What MCP tools are available?"
 
-Now we'll create an agent configuration that tells Qodo Command how to interact with your MCP server.
+### Option B: Cursor
 
-#### Step 2: Create agent.toml in the Root Directory
+1. Open Cursor Settings
+2. Navigate to **MCP Servers** section
+3. Add a new server with:
+   - **Name**: `workshop`
+   - **Command**: `java`
+   - **Args**: `-jar /full/path/to/build/libs/agent-mcp-workshop-0.0.1.jar`
 
-**Action Required**: Create a new file called `agent.toml` in the root directory and add the following configuration:
+### Option C: Windsurf
+
+1. Edit `~/.codeium/windsurf/mcp_config.json`
+2. Add your server configuration:
+```json
+{
+  "mcpServers": {
+    "workshop": {
+      "command": "java",
+      "args": ["-jar", "/full/path/to/build/libs/agent-mcp-workshop-0.0.1.jar"]
+    }
+  }
+}
+```
+
+### Option D: Other Clients
+
+Most MCP-compatible clients use a similar `mcp.json` format. Consult your client's documentation for the specific configuration location.
+
+## Step 3: Verify Your Server is Running
+
+Once configured, verify that your code generation client can see your MCP server.
+
+**Action Required**: Ask your LLM client:
+
+> "What MCP tools do you have access to?"
+
+Or:
+
+> "Can you list the available tools from the workshop server?"
+
+You should see `key_word_search` listed among the available tools.
+
+## Step 4: Use Your MCP Server in Conversation
+
+Now for the exciting part—using your tool in a real conversation!
+
+**Action Required**: Try these prompts with your code generation client:
+
+### Basic Usage
+```
+Search for the keyword "mcp" in this project and tell me which file has the most occurrences.
+```
+
+### Analysis Request
+```
+Find all files containing "TODO" and summarize what work remains to be done.
+```
+
+### Comparative Query
+```
+Compare the occurrence of "test" vs "spec" across the codebase. What does this tell us about the testing approach?
+```
+
+## Step 5: Observe the Complete Lifecycle
+
+As you interact with the LLM, observe what happens:
+
+1. **Tool Discovery**: The LLM knows about your `key_word_search` tool
+2. **Decision Making**: The LLM decides when your tool is useful
+3. **Tool Invocation**: Your MCP server receives the request
+4. **Data Return**: Your server returns structured results
+5. **Interpretation**: The LLM explains what the data means
+
+This is the complete lifecycle you've built!
+
+## Using the Prompt Template
+
+In the `lesson/` directory, you'll find `agent.toml` with a prompt template:
 
 ```toml
-version = "1.0"
-imports = ["agents/sum.toml"]
-model = "claude-4-sonnet"
-tools = ["workshop.key_word_search", "filesystem"]
+# Keyword Search Agent Prompt
+#
+# This is a prompt template for use with your code generation client of choice
+# (Claude, GPT, Copilot, etc.). Copy the instructions below and adapt as needed.
 ```
 
-## Understanding the Agent Configuration:
+You can use this prompt to guide more structured interactions with your MCP server. Simply copy the instructions section and paste it into your conversation when you want the LLM to follow a specific workflow.
 
-Let's examine each field in the agent configuration:
+## Troubleshooting
 
-1. **`version`**: Specifies the configuration format version. Currently `"1.0"` is the standard version for agent configurations.
+### Server Not Found
 
-2. **`imports`**: Lists the agent definition files to import. Here we're importing `"agents/sum.toml"`, which we'll set up in the next step.
+If your client can't find the server:
+- Verify the JAR file exists: `ls build/libs/agent-mcp-workshop-0.0.1.jar`
+- Check the path in `mcp.json` is correct
+- Rebuild if needed: `./gradlew clean build`
 
-3. **`model`**: Defines which AI model the agent should use. Here we're using `"claude-4-sonnet"`, which is:
-   - A powerful language model from Anthropic
-   - Optimized for complex reasoning and code understanding
-   - Well-suited for development tasks
+### Server Won't Start
 
-4. **`tools`**: An array of tools the agent can access. In our configuration:
-   - **`"workshop.key_word_search"`**: References a specific tool from our "workshop" MCP server
-     - The format is `<server_name>.<tool_name>`
-     - This tool will allow the agent to perform keyword searches (we'll implement this in later lessons)
-   - **`"filesystem"`**: A built-in tool that gives the agent file system access
-     - Allows reading, writing, and navigating files
-     - Essential for code generation and modification tasks
+If the server fails to launch:
+- Test manually: `java -jar build/libs/agent-mcp-workshop-0.0.1.jar`
+- Check for Java errors in your client's logs
+- Ensure Java is in your PATH
 
-### Third Configuration Task: Create the Agents Directory and Add Your First Agent
+### Tool Not Working
 
-Now we need to create the directory structure for your custom agents and add our first agent definition.
+If the tool returns errors:
+- Review the MCP Inspector tests from previous lessons
+- Check that your tool handles edge cases
+- Look at your server's stderr output for errors
 
-#### Step 3: Create the agents Folder and Copy the Example Agent
+## What You've Accomplished
 
-**Action Required**: Create a new folder called `agents` in the root directory and copy the example agent file:
+By completing this lesson, you've experienced the full MCP development lifecycle:
 
-```bash
-mkdir agents
-cp lesson/sum.toml agents/
-```
+| Phase | What You Did |
+|-------|--------------|
+| **Build** | Created an MCP server with a custom tool |
+| **Test** | Verified functionality with MCP Inspector |
+| **Configure** | Set up `mcp.json` for your client |
+| **Deploy** | Registered with your code generation client |
+| **Use** | Had real conversations powered by your tool |
 
-## Understanding the Agents Directory:
+## The Power of MCP
 
-This `agents` folder is where all the work is done defining your agents. Here's what you need to know:
+You've now seen how MCP enables:
 
-1. **Purpose**: This directory contains all your custom agent TOML files that define specific behaviors and capabilities
-2. **Naming Convention**: Each agent file is named after the command you'll use to invoke it (e.g., `sum.toml` → `qodo sum`)
-3. **Agent Definition**: Each agent file contains:
-   - Description of what the agent does
-   - Custom instructions for the AI model
-   - Arguments the agent accepts
-   - Tools the agent can use
-   - Output formatting preferences
+- **Separation of Concerns**: Your tool does data collection; the LLM does interpretation
+- **Reusability**: One MCP server works with any compatible client
+- **Natural Interaction**: Users speak naturally; the LLM handles tool orchestration
+- **Extensibility**: Add more tools to your server as needed
 
-Let's examine the `sum.toml` file you just copied:
+## Next Steps
 
-```bash
-cat agents/sum.toml
-```
+Now that you understand the complete lifecycle, you can:
 
-This example agent demonstrates how to:
-- Define a custom command (`sum`)
-- Specify agent behavior through instructions
-- Configure which tools the agent can access
-- Set up argument handling
-
-**Important**: The agents in this folder must be imported in your `agent.toml` file (which we've already done with `imports = ["agents/sum.toml"]`) to be recognized by Qodo Command.
-
-## How These Configurations Work Together:
-
-The relationship between `mcp.json` and `agent.toml` creates a powerful integration:
-
-1. **Server Definition**: `mcp.json` defines how to launch your MCP server ("workshop")
-2. **Tool Access**: `agent.toml` specifies that agents can use tools from the "workshop" server
-3. **Runtime Integration**: When Qodo Command runs, it:
-   - Reads `mcp.json` to understand available MCP servers
-   - Launches the "workshop" server using the specified command
-   - Connects the agent to the server
-   - Makes the `key_word_search` tool available to the AI model
-
-### Important Configuration Notes:
-
-#### File Locations Matter
-
-Both configuration files must be in the **root directory** of your project:
-```
-/Users/davidparry/code/scratch/agent-mcp-workshop/
-├── mcp.json          # MCP server configuration
-├── agent.toml        # Agent configuration
-├── build/
-│   └── libs/
-│       └── agent-mcp-workshop-0.0.1.jar
-└── ... other project files
-```
-
-#### Tool Naming Convention
-
-When referencing MCP server tools in `agent.toml`, always use the format:
-```
-<server_name>.<tool_name>
-```
-
-For example:
-- `workshop.key_word_search` - Correct ✓
-- `key_word_search` - Incorrect ✗ (missing server prefix)
-
-#### Environment Variables
-
-If your MCP server needs environment variables (like API keys), you can:
-
-1. **Direct values** in `mcp.json`:
-   ```json
-   "env": {
-     "API_KEY": "your-actual-key"
-   }
-   ```
-
-2. **Reference system variables**:
-   ```json
-   "env": {
-     "API_KEY": "${SYSTEM_API_KEY}"
-   }
-   ```
-
-### Testing Your Configuration
-
-After creating all configuration files and the agents directory, you can verify your setup:
-
-1. **Build your MCP server** (if not already done):
-   ```bash
-   ./gradlew clean build
-   ```
-
-2. **Check file locations**:
-   ```bash
-   ls -la mcp.json agent.toml agents/
-   ```
-   You should see both configuration files and the agents directory with sum.toml inside.
-
-3. **Test your agent configuration**:
-   
-   **Action Required**: Run the command from the `run_agent.sh` file to test your agent setup:
-   ```bash
-    ./run_agent.sh
-   ```   
-    This script looks like this and will only return the agent's output:
-   ```bash
-   qodo sum --set keyword="mcp" --silent -y
-   ```
-   
-   This command will:
-   - Launch the `sum` agent you just configured
-   - Set the keyword parameter to "mcp"
-   - Run in silent mode (`--silent`) to minimize output
-   - Auto-confirm any prompts (`-y`)
-   
-   If everything is configured correctly, the agent will:
-   - Start your MCP server using the configuration in `mcp.json`
-   - Load the `sum` agent from `agents/sum.toml`
-   - Execute the agent's instructions with access to the configured tools
-   
-   **Note**: If you encounter any errors, check that:
-   - You're logged in to Qodo (`qodo login`)
-   - The JAR file exists at `build/libs/agent-mcp-workshop-0.0.1.jar`
-   - All configuration files are in the correct locations
+1. **Add more tools** to your MCP server
+2. **Build specialized servers** for different domains
+3. **Share your servers** with team members
+4. **Create complex workflows** combining multiple tools
 
 ## Congratulations!
 
-You've successfully configured:
-- ✅ MCP server configuration (`mcp.json`)
-- ✅ Agent configuration (`agent.toml`)
-- ✅ Tool access setup
-- ✅ Model selection
+You've successfully:
+- Built an MCP server from scratch
+- Tested it with the MCP Inspector
+- Registered it with a live LLM client
+- Used it in real conversations
 
-Your MCP server is now ready to be integrated with AI agents! 
+You now understand the complete MCP development lifecycle and can build your own tools to extend any MCP-compatible AI assistant!
