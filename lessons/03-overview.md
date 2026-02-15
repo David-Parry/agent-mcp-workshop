@@ -1,6 +1,15 @@
 # Overview of Workshop Lesson 3: Implementing MCP Protocol Handshake and Core Message Routing
 
-Based on the instruction file, sequence diagram, and class diagram, here's what will take place in this lesson:
+## Your Goal
+
+**By the end of this lesson, you will have a working MCP server that can:**
+1. Complete the protocol handshake with MCP clients
+2. Respond to ping requests
+3. Handle notification messages with type-safe deserialization
+
+**To verify success:** Run the MCP Inspector, connect to your server, and confirm that initialization completes and ping works. When you click "List Resources" (which isn't implemented yet), you should see a properly logged cancellation reason instead of raw JSON.
+
+---
 
 ## Core Objective
 This lesson focuses on implementing the foundational message routing system for an MCP (Model Context Protocol) server, establishing the critical communication infrastructure between MCP clients and servers.

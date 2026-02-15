@@ -1,5 +1,26 @@
 # Chapter 03: Implementing MCP Protocol Handshake and Core Message Routing
 
+## Lesson Objective
+
+**What you will build:** A working MCP server that completes the protocol handshake and handles basic requests.
+
+**Tasks to complete:**
+1. Implement the Initialize handler (establishes client-server connection)
+2. Implement the Ping handler (heartbeat mechanism)
+3. Build and test with MCP Inspector
+4. Add notification deserialization infrastructure
+5. Create the `NotificationCancelledParams` record
+6. Wire up type-safe notification handling
+
+**How to verify you're done:**
+- Run `./gradlew clean build` successfully
+- Launch MCP Inspector and connect to your server
+- Initialization completes (green status)
+- Ping returns a response
+- Click "List Resources" and check `inspector/logs/` - you should see "Notification cancelled reason" with the actual reason text (not raw JSON)
+
+---
+
 ## Starting Message Routing to Meet the Protocol Specification
 
 In this lesson, we'll implement the foundational message routing system for the MCP (Model Context Protocol) server. This includes handling the critical initial handshake, ping requests, and basic notifications - the core building blocks that establish communication between MCP clients and servers.
