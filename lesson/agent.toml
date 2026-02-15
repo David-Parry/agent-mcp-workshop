@@ -1,49 +1,16 @@
-version = "1.0"
-model = "claude-4.5-sonnet"
+# Keyword Search Agent Prompt
+#
+# This is a prompt template for use with your code generation client of choice
+# (Claude, GPT, Copilot, etc.). Copy the instructions below and adapt as needed
+# for your specific workflow and available tools.
+#
+# Prerequisites:
+# - A tool that can search files for keywords (e.g., key_word_search, grep, ripgrep)
+# - Ability to read file contents
+# - Ability to write files (optional, for saving results)
 
-[commands.sum]
-description = "This Agent is designed to work with the Tool key_word_search that comes from the workshop."
-
-tools = ["workshop.key_word_search", "filesystem"]
-
-# Optional: Define execution strategy: "plan" for multi-step, "act" for direct execution
-execution_strategy = "act"
-
-arguments = [
-    {name = "keyword", type = "string", required = true, description = "The keyword to search for using the key_word_search tool."}
-]
-
-output_schema = """
-{
-    "properties": {
-        "success": {
-            "description": "Whether the task completed successfully",
-            "type": "boolean"
-        },
-        "file_path": {
-            "description": "The absolute file path of the file with the highest keyword_count",
-            "type": "string"
-        },
-        "keyword_count": {
-            "description": "The keyword_count found in the file",
-            "type": "integer"
-        },
-        "file_summary": {
-            "description": "A summary of the file contents",
-             "type": "string"
-        },
-        "explanation": {
-            "description": "Explanation of why this file has the highest keyword_count and its relevance to the project",
-            "type": "string"
-        }
-    }
-}
-"""
-
-exit_expression = "success"
-
-
-instructions = """
+[instructions]
+prompt = """
 This Agent performs keyword analysis across project files using the key_word_search tool to identify the most relevant file for a given keyword.
 
 OBJECTIVE: Find and analyze the file with the highest occurrence of a specific keyword across all project files.
