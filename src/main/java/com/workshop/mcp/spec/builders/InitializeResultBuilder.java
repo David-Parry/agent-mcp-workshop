@@ -4,6 +4,8 @@ import com.workshop.mcp.spec.Capability;
 import com.workshop.mcp.spec.InitializeResult;
 import com.workshop.mcp.spec.ServerCapabilities;
 import com.workshop.mcp.spec.ServerInfo;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Builder for creating {@link InitializeResult} objects with a fluent API.
@@ -33,6 +35,7 @@ public class InitializeResultBuilder {
     private String protocolVersion;
     private ServerCapabilities capabilities;
     private ServerInfo serverInfo;
+    private final Map<String, Object> experimental = new HashMap<>();
 
     /**
      * Private constructor to enforce the use of the static builder method.
@@ -125,7 +128,27 @@ public class InitializeResultBuilder {
      */
     public InitializeResultBuilder withDefaultCapabilities() {
         Capability capabilityTrue = new Capability();
-        this.capabilities = new ServerCapabilities(capabilityTrue, capabilityTrue, new Capability(false, false));
+        this.capabilities = new ServerCapabilities(
+            capabilityTrue,
+            capabilityTrue,
+            new Capability(false, false),
+            new Capability(null, null),
+            experimental.isEmpty() ? null : experimental
+        );
+        return this;
+    }
+
+    /**
+     * Declares support for an MCP extension in the server's experimental capabilities.
+     * Extensions use the format {vendor-prefix}/{extension-name}.
+     * Official MCP extensions use the prefix io.modelcontextprotocol.
+     *
+     * @param identifier the extension identifier, e.g. "io.modelcontextprotocol/elicitation"
+     * @param config     the capability configuration object for this extension
+     * @return this builder instance for method chaining
+     */
+    public InitializeResultBuilder withExperimentalCapability(String identifier, Object config) {
+        this.experimental.put(identifier, config);
         return this;
     }
 

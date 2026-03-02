@@ -71,6 +71,7 @@ public class IORouter implements Router {
                 InitializeResultBuilder builder = InitializeResultBuilder
                         .builder()
                         .withProtocolVersion(initializeParams.protocolVersion())
+                        .withExperimentalCapability("io.modelcontextprotocol/elicitation", new Object())
                         .withDefaultCapabilities()
                         .withDefaultServerInfo();
                 success(message.id(), builder.build());
