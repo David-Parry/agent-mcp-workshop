@@ -1,4 +1,4 @@
-# Chapter 05: Running Your MCP Server with a Live LLM
+# Chapter 06: Running Your MCP Server with a Live LLM
 
 ## From Inspector to Real Conversations
 
