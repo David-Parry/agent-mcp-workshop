@@ -8,6 +8,8 @@ if [ $# -ne 1 ]; then
     echo "  $0 03-chapter"
     echo "  $0 04-chapter"
     echo "  $0 05-chapter"
+    echo "  $0 06-chapter"
+    echo "  $0 agent-chapter"
 
     exit 1
 
