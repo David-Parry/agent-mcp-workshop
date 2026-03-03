@@ -47,3 +47,4 @@ bin/
 /logs/
 /sum_response.json
 /.idea/
+/.mcp-resolved.json

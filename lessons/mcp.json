@@ -4,7 +4,7 @@
       "command": "java",
       "args": [
         "-jar",
-        "build/libs/agent-mcp-workshop-0.0.1.jar"
+        "{YOUR_BASE}/build/libs/agent-mcp-workshop-0.0.1.jar"
       ],
       "env": {
       }
