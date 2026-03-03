@@ -1,208 +1,322 @@
-# Chapter 05: Running Your MCP Server with a Live LLM
+# Chapter 05: MCP Extensions — Elicitation and the Experimental Capability
 
-## From Inspector to Real Conversations
+## Overview
 
-In this lesson, you'll register your newly written MCP server with your favorite code generation client and see it run with a live LLM—not the Inspector anymore. This demonstrates the complete lifecycle of MCP development: build, test, deploy, and use.
+In this lesson we implement two related things:
 
-## Prerequisites
+1. **Elicitation** — the server requests structured user input from the client through an interactive form
+2. **Extension declaration** — the server announces it supports elicitation by adding it to the `experimental` capability map in the `initialize` response
 
-Before starting, ensure you have:
-- Your MCP server built and tested (from previous lessons)
-- The JAR file at `build/libs/agent-mcp-workshop-0.0.1.jar`
-- A code generation client that supports MCP (Claude Code, Cursor, Windsurf, Cline, etc.)
+Both follow the same MCP extension lifecycle: declare the capability field, add builder support, detect it at runtime, send the request, and handle the response.
 
-## Step 1: Create the MCP Server Configuration
+> Official documentation: [https://modelcontextprotocol.info/docs/extensions/](https://modelcontextprotocol.info/docs/extensions/)
 
-The `mcp.json` file tells your code generation client how to launch your MCP server.
+---
 
-**Action Required**: Create a file called `mcp.json` in the root directory of your project:
+## Part 1: Add the `experimental` Field to `ServerCapabilities`
 
-```json
-{
-  "mcpServers": {
-    "workshop": {
-      "command": "java",
-      "args": [
-        "-jar",
-        "build/libs/agent-mcp-workshop-0.0.1.jar"
-      ],
-      "env": {}
-    }
-  }
+### Understanding the `experimental` Map
+
+The MCP spec uses `experimental` in `ServerCapabilities` as the standard place for servers to declare extension support. It is a `Map<String, Object>` where each key is an extension identifier and the value is an extension-specific configuration object.
+
+Extension identifiers follow the format `{vendor-prefix}/{extension-name}`. Official MCP extensions use the prefix `io.modelcontextprotocol`.
+
+### Step 1: Update `ServerCapabilities.java`
+
+**Action Required**: Replace the contents of `src/main/java/com/workshop/mcp/spec/ServerCapabilities.java` with the following:
+
+```java
+package com.workshop.mcp.spec;
+
+import java.util.Map;
+
+/**
+ * Represents the capabilities provided by an MCP (Model Context Protocol) server.
+ */
+public record ServerCapabilities(
+    Capability tools,
+    Capability prompts,
+    Capability resources,
+    Capability completions,
+    Map<String, Object> experimental
+) {}
+```
+
+#### What changed:
+
+1. **`experimental`** — a `Map<String, Object>` where the server declares which extensions it supports; each key is an extension identifier, each value is an extension-specific config object
+
+When the client receives the `initialize` response, it reads this map to discover what extensions the server supports. Both sides must declare support before either activates extension behavior — this is the opt-in guarantee the MCP extension spec requires.
+
+---
+
+## Part 2: Add Builder Support in `InitializeResultBuilder`
+
+### Step 1: Add the experimental map field and imports (~line 4 and ~line 36)
+
+**Action Required**: Add two import statements at the top of `InitializeResultBuilder.java`:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+```
+
+Then add a field inside the class body to accumulate experimental capability entries:
+
+```java
+private final Map<String, Object> experimental = new HashMap<>();
+```
+
+**Key components:**
+- `HashMap` — collects extension declarations added by the caller before `build()` is called
+- The map starts empty; entries are only added when `withExperimentalCapability()` is called
+- Passing `null` to `ServerCapabilities` when empty keeps the JSON response clean
+
+### Step 2: Update `withDefaultCapabilities()` (~line 126)
+
+**Action Required**: Replace the existing `withDefaultCapabilities()` method:
+
+```java
+public InitializeResultBuilder withDefaultCapabilities() {
+    Capability capabilityTrue = new Capability();
+    this.capabilities = new ServerCapabilities(
+        capabilityTrue,
+        capabilityTrue,
+        new Capability(false, false),
+        new Capability(null, null),
+        experimental.isEmpty() ? null : experimental
+    );
+    return this;
 }
 ```
 
-### Understanding the Configuration
+#### What changed:
 
-| Field | Purpose |
-|-------|---------|
-| `mcpServers` | Container for all MCP server definitions |
-| `workshop` | Unique name for your server (you choose this) |
-| `command` | The executable to run (`java`) |
-| `args` | Command-line arguments to pass |
-| `env` | Environment variables (empty for now) |
+1. **5th argument** — passes the accumulated `experimental` map if it has any entries, or `null` if empty so the field is omitted from the JSON response when no extensions are declared
 
-## Step 2: Register with Your Code Generation Client
+2. **`withExperimentalCapability()` must be called before `withDefaultCapabilities()`** — calling it first populates the map so `withDefaultCapabilities()` picks it up correctly
 
-Choose your client and follow the appropriate setup:
+### Step 3: Add `withExperimentalCapability()` method (~line 130)
 
-### Option A: Claude Code
+**Action Required**: Add this method after `withDefaultServerInfo()`:
 
-Claude Code automatically discovers `mcp.json` files in your project directory. Simply:
-
-1. Ensure `mcp.json` is in your project root
-2. Open Claude Code in your project directory
-3. The server will be available automatically
-
-To verify, you can ask Claude Code: "What MCP tools are available?"
-
-### Option B: Cursor
-
-1. Open Cursor Settings
-2. Navigate to **MCP Servers** section
-3. Add a new server with:
-   - **Name**: `workshop`
-   - **Command**: `java`
-   - **Args**: `-jar /full/path/to/build/libs/agent-mcp-workshop-0.0.1.jar`
-
-### Option C: Windsurf
-
-1. Edit `~/.codeium/windsurf/mcp_config.json`
-2. Add your server configuration:
-```json
-{
-  "mcpServers": {
-    "workshop": {
-      "command": "java",
-      "args": ["-jar", "/full/path/to/build/libs/agent-mcp-workshop-0.0.1.jar"]
-    }
-  }
+```java
+/**
+ * Declares support for an MCP extension in the server's experimental capabilities.
+ * Extensions use the format {vendor-prefix}/{extension-name}.
+ * Official MCP extensions use the prefix io.modelcontextprotocol.
+ *
+ * @param identifier the extension identifier, e.g. "io.modelcontextprotocol/elicitation"
+ * @param config     the capability configuration object for this extension
+ * @return this builder instance for method chaining
+ */
+public InitializeResultBuilder withExperimentalCapability(String identifier, Object config) {
+    this.experimental.put(identifier, config);
+    return this;
 }
 ```
 
-### Option D: Other Clients
+#### What this method does:
 
-Most MCP-compatible clients use a similar `mcp.json` format. Consult your client's documentation for the specific configuration location.
+1. **Accepts an identifier** — the namespaced extension key, e.g. `"io.modelcontextprotocol/elicitation"`
 
-## Step 3: Verify Your Server is Running
+2. **Accepts a config object** — extensions may require configuration; for simple opt-in extensions `new Object()` is sufficient
 
-Once configured, verify that your code generation client can see your MCP server.
+3. **Accumulates entries** — multiple `withExperimentalCapability()` calls can be chained to declare several extensions at once
 
-**Action Required**: Ask your LLM client:
+4. **Returns `this`** — follows the fluent builder pattern already used by all other builder methods
 
-> "What MCP tools do you have access to?"
+---
 
-Or:
+## Part 3: Implementing the Elicitation Capability in `IORouter`
 
-> "Can you list the available tools from the workshop server?"
+Elicitation is the capability that allows the server to request structured user input from the client through an interactive form. The server sends an `elicitation/create` request containing a prompt and a JSON schema; the client renders a form and returns the user's response.
 
-You should see `key_word_search` listed among the available tools.
+### Step 1: Add the `ELICITATION_REQUEST_ID` constant and `hasElicitation` field (~line 19 and ~line 26)
 
-## Step 4: Use Your MCP Server in Conversation
+**Action Required**: Add the request ID constant alongside the existing ID constants:
 
-Now for the exciting part—using your tool in a real conversation!
-
-**Action Required**: Try these prompts with your code generation client:
-
-### Basic Usage
-```
-Search for the keyword "mcp" in this project and tell me which file has the most occurrences.
+```java
+private static final Long ELICITATION_REQUEST_ID = -4000L;
 ```
 
-### Analysis Request
-```
-Find all files containing "TODO" and summarize what work remains to be done.
-```
+Then add the capability flag alongside the existing flags:
 
-### Comparative Query
-```
-Compare the occurrence of "test" vs "spec" across the codebase. What does this tell us about the testing approach?
+```java
+private boolean hasElicitation = false;
 ```
 
-## Step 5: Observe the Complete Lifecycle
+**Key components:**
+- `ELICITATION_REQUEST_ID` — unique ID (`-4000L`) used to match the elicitation response when it comes back as a `JsonRpcResponse`
+- `hasElicitation` — set to `true` during initialization when the client declares elicitation support; gates all elicitation behavior
 
-As you interact with the LLM, observe what happens:
+### Step 2: Detect elicitation capability during initialization (~line 65)
 
-1. **Tool Discovery**: The LLM knows about your `key_word_search` tool
-2. **Decision Making**: The LLM decides when your tool is useful
-3. **Tool Invocation**: Your MCP server receives the request
-4. **Data Return**: Your server returns structured results
-5. **Interpretation**: The LLM explains what the data means
+**Action Required**: In the `INITIALIZE` case of `process(JsonRpcRequest message)`, add the elicitation check after the existing `hasSampling` check:
 
-This is the complete lifecycle you've built!
-
-## Using the Prompt Template
-
-In the `lesson/` directory, you'll find `agent.toml` with a prompt template:
-
-```toml
-# Keyword Search Agent Prompt
-#
-# This is a prompt template for use with your code generation client of choice
-# (Claude, GPT, Copilot, etc.). Copy the instructions below and adapt as needed.
+```java
+if (clientCapabilities.elicitation() != null) {
+    hasElicitation = true;
+}
 ```
 
-You can use this prompt to guide more structured interactions with your MCP server. Simply copy the instructions section and paste it into your conversation when you want the LLM to follow a specific workflow.
+This sets the `hasElicitation` flag when the client advertises elicitation support in its `ClientCapabilities`. The server will only send elicitation requests when this flag is `true`.
 
-## Troubleshooting
+### Step 3: Declare the extension in the initialize response (~line 68)
 
-### Server Not Found
+**Action Required**: Add a call to `withExperimentalCapability()` in the existing `InitializeResultBuilder` chain. The builder chain currently reads:
 
-If your client can't find the server:
-- Verify the JAR file exists: `ls build/libs/agent-mcp-workshop-0.0.1.jar`
-- Check the path in `mcp.json` is correct
-- Rebuild if needed: `./gradlew clean build`
+```java
+InitializeResultBuilder builder = InitializeResultBuilder
+        .builder()
+        .withProtocolVersion(initializeParams.protocolVersion())
+        .withDefaultCapabilities()
+        .withDefaultServerInfo();
+```
 
-### Server Won't Start
+Replace it with:
 
-If the server fails to launch:
-- Test manually: `java -jar build/libs/agent-mcp-workshop-0.0.1.jar`
-- Check for Java errors in your client's logs
-- Ensure Java is in your PATH
+```java
+InitializeResultBuilder builder = InitializeResultBuilder
+        .builder()
+        .withProtocolVersion(initializeParams.protocolVersion())
+        .withExperimentalCapability("io.modelcontextprotocol/elicitation", new Object())
+        .withDefaultCapabilities()
+        .withDefaultServerInfo();
+```
 
-### Tool Not Working
+#### Why `withExperimentalCapability()` comes before `withDefaultCapabilities()`:
 
-If the tool returns errors:
-- Review the MCP Inspector tests from previous lessons
-- Check that your tool handles edge cases
-- Look at your server's stderr output for errors
+`withDefaultCapabilities()` reads the `experimental` map when it constructs `ServerCapabilities`. The call to `withExperimentalCapability()` must populate that map first so the entry is included in the response.
 
-## What You've Accomplished
+### Step 4: Add the `sendElicitationMessage()` method (~line 210)
 
-By completing this lesson, you've experienced the full MCP development lifecycle:
+**Action Required**: Add this private method after `sendSamplingMessage()`:
 
-| Phase | What You Did |
-|-------|--------------|
-| **Build** | Created an MCP server with a custom tool |
-| **Test** | Verified functionality with MCP Inspector |
-| **Configure** | Set up `mcp.json` for your client |
-| **Deploy** | Registered with your code generation client |
-| **Use** | Had real conversations powered by your tool |
+```java
+/**
+ * Creates and sends an elicitation request to the client.
+ * Uses ElicitationBuilder to construct a structured question with a JSON schema.
+ */
+private void sendElicitationMessage() {
+    ElicitationCreateParams params = ElicitationBuilder.buildJiraProjectElicitation();
+    JsonRpcRequest elicitationRequest = new JsonRpcRequest(JSON_RPC_VERSION, ELICITATION_REQUEST_ID,
+                                                           UniqueKeys.ELICITATION_CREATE_MESSAGE.getValue(),
+                                                           params);
+    io.emit(elicitationRequest);
+}
+```
 
-## The Power of MCP
+**Key components:**
+- `ElicitationBuilder.buildJiraProjectElicitation()` — creates the elicitation parameters with a prompt and a JSON schema defining a dropdown for Project Key and a dropdown for Time Range
+- `ELICITATION_REQUEST_ID` — the unique ID we defined in Step 1; the response will arrive as a `JsonRpcResponse` with this same ID
+- `io.emit()` — sends the request to the client
 
-You've now seen how MCP enables:
+### Step 5: Send elicitation after initialization (~line 185)
 
-- **Separation of Concerns**: Your tool does data collection; the LLM does interpretation
-- **Reusability**: One MCP server works with any compatible client
-- **Natural Interaction**: Users speak naturally; the LLM handles tool orchestration
-- **Extensibility**: Add more tools to your server as needed
+**Action Required**: In the `NOTIFICATIONS_INITIALIZED` case of `process(JsonRpcNotification message)`, add the elicitation trigger after the existing roots request:
 
-## Next Steps
+```java
+case NOTIFICATIONS_INITIALIZED -> {
+    // if server has roots, request the roots list
+    if (hasRoots) {
+        io.emit(rootsRequest);
+    }
+    if (hasElicitation) {
+        sendElicitationMessage();
+    }
+}
+```
 
-Now that you understand the complete lifecycle, you can:
+This sends the elicitation request immediately after the client confirms initialization. `NOTIFICATIONS_INITIALIZED` is the correct moment — the client has confirmed the connection is ready and can accept server-initiated requests.
 
-1. **Add more tools** to your MCP server
-2. **Build specialized servers** for different domains
-3. **Share your servers** with team members
-4. **Create complex workflows** combining multiple tools
+### Step 6: Handle elicitation responses (~line 160)
+
+**Action Required**: Add a case to handle incoming `elicitation/create` method calls from the client in the `process(JsonRpcRequest message)` switch statement, before the `default` case:
+
+```java
+case ELICITATION_CREATE_MESSAGE -> {
+    // Handle elicitation method calls from client
+    logger.log("Received elicitation/create method call from client: " + message);
+    // Parse the elicitation response and handle it appropriately
+    // For now, just acknowledge the elicitation request
+    success(message.id(), new Object());
+}
+```
+
+**Note:** The elicitation flow is bidirectional — the server can send elicitation requests to the client (via `sendElicitationMessage()`), and the client can also send elicitation requests to the server. This handler processes the client-to-server direction and acknowledges it.
+
+---
+
+## Testing Your Implementation
+
+### 1. Build the project:
+
+```bash
+./gradlew clean build
+```
+
+### 2. Start the MCP Inspector:
+
+```bash
+cd inspector
+./run.sh
+```
+
+### 3. Verify the initialize response:
+
+- Click **Connect** to establish the connection
+- In the MCP Inspector message log, find the `initialize` response from the server
+- Expand the `capabilities` object — you should now see an `experimental` field containing `"io.modelcontextprotocol/elicitation": {}`
+
+### 4. Observe the elicitation flow:
+
+- After clicking **Connect**, the server sends an `elicitation/create` request in response to `notifications/initialized`
+- The MCP Inspector displays the Jira project elicitation form with:
+  - A **Project Key** dropdown: ENG (Engineering), HR (Human Resources), OPS (Operations)
+  - A **Time Range** dropdown: Last 7 Days, Last 30 Days, Custom Range
+- Select values and click **Submit** — the server log confirms receipt
+
+## What You Should Observe
+
+### In the initialize response:
+- The `experimental` map appears in `capabilities` with the elicitation key
+- The `completions` capability is present alongside tools, prompts, and resources
+
+### In the elicitation flow:
+- The server sends `elicitation/create` immediately after `notifications/initialized`
+- The inspector renders the structured form from `ElicitationBuilder`
+- Submitting, declining, or cancelling produces different log entries on the server
+
+---
+
+## How This Implements the Full Extension Pattern
+
+The work you just did covers both sides of the elicitation extension handshake:
+
+| Direction | Mechanism | Where |
+|-----------|-----------|-------|
+| Client → Server | `capabilities.elicitation: {}` in `initialize` request | `ClientCapabilities.elicitation` (already in spec) |
+| Server → Client | `capabilities.experimental["io.modelcontextprotocol/elicitation"]` in `initialize` response | `withExperimentalCapability()` — **this lesson** |
+| Server sends request | `elicitation/create` in `NOTIFICATIONS_INITIALIZED` | `sendElicitationMessage()` — **this lesson** |
+| Client responds | `JsonRpcResponse` or `JsonRpcRequest` with elicitation data | `ELICITATION_CREATE_MESSAGE` case — **this lesson** |
+
+The same four-step pattern applies to every MCP extension (ext-auth, ext-apps, or custom):
+1. Add the field to `ServerCapabilities`
+2. Add builder support in `InitializeResultBuilder`
+3. Detect client support and declare server support in `INITIALIZE`
+4. Send and handle extension-specific messages
+
+---
 
 ## Congratulations!
 
-You've successfully:
-- Built an MCP server from scratch
-- Tested it with the MCP Inspector
-- Registered it with a live LLM client
-- Used it in real conversations
+Your MCP server now supports the full MCP extension lifecycle:
 
-You now understand the complete MCP development lifecycle and can build your own tools to extend any MCP-compatible AI assistant!
+- ✅ **`ServerCapabilities.experimental`** — declares extension support to clients
+- ✅ **`withExperimentalCapability()`** — fluent builder method for extension declaration
+- ✅ **Capability detection** — `hasElicitation` flag set from client capabilities
+- ✅ **Extension declaration** — `io.modelcontextprotocol/elicitation` in every initialize response
+- ✅ **Elicitation request** — `elicitation/create` sent after initialization
+- ✅ **Elicitation handler** — `ELICITATION_CREATE_MESSAGE` case handles client requests
+- ✅ **Complete handshake** — both directions of the extension lifecycle implemented

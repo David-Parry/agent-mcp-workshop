@@ -1,165 +1,152 @@
-# Overview: Running Your MCP Server with a Live LLM
+# Overview of Workshop Lesson 5: MCP Extensions and the Experimental Capability
 
-## The Complete Lifecycle: From Code to Conversation
+Based on the foundation built in lesson 4, here's what will take place in this lesson:
 
-Congratulations! You've built and tested your `key_word_search` MCP server using the MCP Inspector. Now it's time for the exciting part: connecting your MCP server to a **live LLM** and watching it work in a real conversation.
+## Core Objective
 
-In this lesson, you'll use your favorite code generation client (Claude Code, Cursor, Windsurf, Cline, or any MCP-compatible tool) to register your newly written MCP server and see it run with a live LLM—not the Inspector anymore. This demonstrates the complete lifecycle of MCP development.
+This lesson introduces the **MCP Extensions** system — the mechanism the protocol uses to evolve beyond its core specification without breaking existing implementations. Students will update the server's `ServerCapabilities` to include the `experimental` map, add a builder method to populate it, and wire the declaration into the `initialize` response so clients know what extensions the server supports.
 
-## What You'll Experience
+> Official documentation: [https://modelcontextprotocol.info/docs/extensions/](https://modelcontextprotocol.info/docs/extensions/)
 
-```mermaid
-graph LR
-    subgraph "Previous Lessons"
-        A[Build MCP Server] --> B[Test with Inspector]
-    end
+## What Are MCP Extensions?
 
-    subgraph "This Lesson"
-        B --> C[Register with LLM Client]
-        C --> D[Live Conversation]
-        D --> E[Real AI Insights]
-    end
+MCP extensions are **optional additions** to the specification. They define capabilities beyond the core protocol that are:
 
-    style A fill:#e0e0e0
-    style B fill:#e0e0e0
-    style C fill:#81c784
-    style D fill:#81c784
-    style E fill:#81c784
+- **Modular** — independently versioned and maintained in separate repositories
+- **Opt-in** — disabled by default in SDKs; both sides must explicitly declare support
+- **Experimental** — tracked in the `experimental` field of capabilities until they stabilize
+
+## Official Extensions
+
+The MCP organization currently maintains two extension repositories:
+
+### ext-auth — Supplementary Authorization
+
+Provides authorization mechanisms for scenarios the core protocol doesn't cover:
+
+- **OAuth 2.0 Client Credentials** — machine-to-machine (M2M) authentication flow for servers that call protected APIs on behalf of themselves rather than a user
+- **Enterprise-Managed Authorization** — a framework for enterprise environments requiring centralized, auditable access control through corporate identity providers
+
+### ext-apps — Interactive UI Capabilities
+
+Allows MCP servers to render **interactive UI elements inline within conversations**:
+- Charts and data visualizations
+- Forms for structured input collection
+- Video and media players
+- Custom interactive components
+
+Both follow the same declaration pattern: the server advertises support in the `experimental` map of its `ServerCapabilities`, the client checks for that key, and only then does either side send extension-specific messages.
+
+## Extension Identifiers
+
+Every extension uses a namespaced identifier:
+
+```
+{vendor-prefix}/{extension-name}
 ```
 
-## The Journey So Far
+Official MCP extensions use the prefix `io.modelcontextprotocol`:
 
-1. **Built**: Created an MCP server with the `key_word_search` tool
-2. **Tested**: Verified it works using the MCP Inspector
-3. **Now**: Connect it to a real LLM and have an actual conversation
-
-## The Architecture: Your Tool + AI Reasoning
-
-```mermaid
-graph TB
-    subgraph "Configuration"
-        MCF[mcp.json] -->|"Defines how to launch"| WS[Your MCP Server]
-    end
-
-    subgraph "Your Code Generation Client"
-        U[You] -->|"Natural language request"| LLM[LLM Client]
-        LLM -->|"1. Reads mcp.json"| MCF
-        LLM -->|"2. Launches server"| WS
-        LLM -->|"3. Calls tools"| WS
-        WS -->|"4. Returns data"| LLM
-        LLM -->|"5. Interprets & explains"| U
-    end
-
-    style U fill:#e1f5fe
-    style LLM fill:#4fc3f7
-    style WS fill:#81c784
-    style MCF fill:#ffeb3b
+```
+io.modelcontextprotocol/oauth-client-credentials
+io.modelcontextprotocol/enterprise-managed-authorization
+io.modelcontextprotocol/mcp-apps
 ```
 
-## Why This Matters
+Your own organization would use its own prefix:
 
-With the MCP Inspector, you manually tested individual tool calls. Now you'll see:
+```
+com.mycompany/analytics-dashboard
+```
 
-- **Natural Language**: Ask questions in plain English
-- **Tool Selection**: The LLM decides when to use your tool
-- **Interpretation**: Raw data becomes meaningful insights
-- **Conversation**: Follow-up questions and deeper analysis
+## How the Experimental Map Works
 
-## What Your MCP Server Provides
-
-Your `key_word_search` tool handles the predictable, deterministic work:
+The `experimental` field in `ServerCapabilities` is a `Map<String, Object>`. Each entry is an extension identifier pointing to an extension-specific configuration object. During `initialize`, the server includes this map in its response, and the client reads it to know what extensions are available.
 
 ```json
 {
-  "keyword": "TODO",
-  "results": [
-    {"file": "src/main.java", "count": 12},
-    {"file": "src/util.java", "count": 5}
-  ]
+  "protocolVersion": "2024-11-05",
+  "capabilities": {
+    "tools": {},
+    "prompts": {},
+    "resources": {},
+    "completions": {},
+    "experimental": {
+      "io.modelcontextprotocol/elicitation": {}
+    }
+  }
 }
 ```
 
-## What the LLM Adds
+## Key Implementation Tasks
 
-The AI interprets, explains, and provides context:
+### 1. Add `experimental` to `ServerCapabilities`
 
-> "I found 17 occurrences of 'TODO' across your project. Most are concentrated in `src/main.java` (12 occurrences), which suggests this file may have been written quickly and needs review. Would you like me to analyze the specific TODO comments?"
+Add `Map<String, Object> experimental` as a new field alongside `completions`. This is the slot in the `initialize` response where the server lists each extension it supports:
 
-## Division of Responsibilities
-
-### Your MCP Server Tool Handles:
-- File system traversal
-- Pattern matching and counting
-- Data aggregation
-- Structured data output
-- Consistent, repeatable operations
-
-### The LLM Handles:
-- Understanding your intent
-- Choosing when to use tools
-- Interpreting raw data
-- Applying domain knowledge
-- Generating contextual insights
-- Explaining "why" patterns exist
-
-## Supported Code Generation Clients
-
-You can use any MCP-compatible client:
-
-| Client | MCP Config Location |
-|--------|---------------------|
-| **Claude Code** | `~/.claude/claude_desktop_config.json` or project `mcp.json` |
-| **Cursor** | Settings → MCP Servers |
-| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
-| **Cline** | VS Code extension settings |
-| **Continue** | `~/.continue/config.json` |
-
-## The Complete Lifecycle
-
-```mermaid
-sequenceDiagram
-    participant You
-    participant LLM_Client
-    participant MCP_Config
-    participant Your_Server
-
-    You->>LLM_Client: "Find files with the most TODOs"
-    LLM_Client->>MCP_Config: Read mcp.json
-    MCP_Config->>Your_Server: Launch java -jar ...
-
-    LLM_Client->>Your_Server: List available tools
-    Your_Server-->>LLM_Client: key_word_search tool
-
-    LLM_Client->>Your_Server: Call key_word_search("TODO")
-    Your_Server->>Your_Server: Scan files, count keywords
-    Your_Server-->>LLM_Client: Return frequency data
-
-    LLM_Client->>LLM_Client: Interpret results
-    LLM_Client-->>You: "Found 47 TODOs, mostly in API layer..."
+```java
+public record ServerCapabilities(
+    Capability tools,
+    Capability prompts,
+    Capability resources,
+    Capability completions,
+    Map<String, Object> experimental
+) {}
 ```
 
-## What You'll Do
+### 2. Add `withExperimentalCapability()` to `InitializeResultBuilder`
 
-1. **Configure**: Add your MCP server to your client's `mcp.json`
-2. **Launch**: Start your code generation client
-3. **Converse**: Ask questions that use your tool
-4. **Observe**: Watch the complete lifecycle in action
+A new builder method that registers an extension by identifier and configuration, called before `withDefaultCapabilities()` so the map is populated when the `ServerCapabilities` record is constructed:
 
-## The Power of This Integration
+```java
+builder.withExperimentalCapability("io.modelcontextprotocol/elicitation", new Object())
+       .withDefaultCapabilities()
+```
 
-This is what makes MCP powerful:
+### 3. Implement the Elicitation Capability in `IORouter`
 
-- **You built** a specialized tool that does one thing well
-- **The LLM** knows when and how to use it
-- **Together** they create an experience neither could provide alone
+Four additions to `IORouter`:
+- `hasElicitation` flag and `ELICITATION_REQUEST_ID` constant
+- Check `clientCapabilities.elicitation()` during `INITIALIZE`
+- Call `sendElicitationMessage()` in `NOTIFICATIONS_INITIALIZED`
+- Handle `ELICITATION_CREATE_MESSAGE` in the request switch
 
-Your deterministic tool + AI reasoning = Actionable insights
+### 4. Wire Extension Declaration in `IORouter.INITIALIZE`
 
-## Next Steps
+Call `withExperimentalCapability()` in the builder chain so every `initialize` response tells the client this server supports elicitation.
 
-Follow the instructions to:
-1. Create your `mcp.json` configuration
-2. Register it with your chosen client
-3. Have your first live conversation with your MCP server
+## How This Fits the Full Extension Lifecycle
 
-You're about to see your code come to life in a real AI conversation!
+After this lesson, both directions of the elicitation handshake are complete:
+
+| Direction | Mechanism | Where |
+|-----------|-----------|-------|
+| Client → Server | `capabilities.elicitation: {}` in `initialize` request | `ClientCapabilities.elicitation` (already in spec) |
+| Server → Client | `capabilities.experimental["io.modelcontextprotocol/elicitation"]` in `initialize` response | **This lesson** |
+| Server sends elicitation | `elicitation/create` in `NOTIFICATIONS_INITIALIZED` | **This lesson** |
+| Client responds | `JsonRpcRequest` with `ELICITATION_CREATE_MESSAGE` | **This lesson** |
+
+## Important Learning Points
+
+1. **Extension Identifiers** — The `{vendor-prefix}/{extension-name}` format prevents naming collisions across the ecosystem.
+
+2. **Opt-In by Default** — SDK support for extensions is disabled by default and requires explicit declaration in both `initialize` request and response before either side activates extension behavior.
+
+3. **Backwards Compatibility** — Because extensions live in the `experimental` map, servers that don't support a given extension simply omit its key. Clients that don't recognize a key ignore it. Neither side breaks.
+
+4. **Same Pattern, Every Extension** — ext-auth, ext-apps, and any future extension follow the same lifecycle: declare in `experimental`, check for the key in the other side's `experimental`, then exchange extension-specific messages.
+
+5. **Completions Capability** — The `completions` field in `ServerCapabilities` is a core capability (not an extension) that enables the `completion/complete` handler already present in the server. It is included as part of the `ServerCapabilities` update in this lesson.
+
+## What Students Will Achieve
+
+By the end of this lesson, students will have:
+
+- ✅ Understanding of the MCP extensions system and official extension repositories
+- ✅ Knowledge of the `experimental` capability map and extension identifier format
+- ✅ `ServerCapabilities` updated with `completions` and `experimental` fields
+- ✅ `InitializeResultBuilder` updated with `withExperimentalCapability()` method
+- ✅ Elicitation wired end-to-end in `IORouter` (detect, send, handle)
+- ✅ Server declaring `io.modelcontextprotocol/elicitation` in every `initialize` response
+- ✅ Both directions of the elicitation handshake fully implemented
+- ✅ The mental model to implement any future MCP extension using the same pattern

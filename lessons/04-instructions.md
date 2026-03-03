@@ -311,71 +311,6 @@ This is where the real autocomplete magic happens through the interaction of PRO
    - Users get interactive guidance through prompts
    - The autocomplete messages make tool usage intuitive
 
-## Part 4: Implementing the Elicitation Capability
-
-The elicitation capability allows the server to request additional information from the client through interactive prompts. This is useful when you need to gather user input before proceeding with an operation.
-
-### Step 1: Add the `sendElicitationMessage()` method (IORouter line ~236)
-
-This private method creates and sends an elicitation request to the client:
-
-```java
-private void sendElicitationMessage() {
-    ElicitationCreateParams params = ElicitationBuilder.buildJiraProjectElicitation();
-    JsonRpcRequest elicitationRequest = new JsonRpcRequest(JSON_RPC_VERSION, ELICITATION_REQUEST_ID,
-                                                           UniqueKeys.ELICITATION_CREATE_MESSAGE.getValue(),
-                                                           params);
-    io.emit(elicitationRequest);
-}
-```
-
-**Key components:**
-- `ElicitationBuilder.buildJiraProjectElicitation()` - Creates the elicitation parameters with questions
-- `ELICITATION_REQUEST_ID` - A unique identifier for tracking this request (defined as `-4000L`)
-- `UniqueKeys.ELICITATION_CREATE_MESSAGE` - The method name for elicitation creation
-- `io.emit()` - Sends the request to the client
-
-### Step 2: Detect elicitation capability during initialization (IORouter line ~75)
-
-In the `INITIALIZE` case of the `process(JsonRpcRequest message)` method, check if the client supports elicitation:
-
-```java
-if(clientCapabilities.elicitation() != null){
-    hasElicitation = true;
-}
-```
-
-This sets the `hasElicitation` flag when the client advertises elicitation support in its capabilities.
-
-### Step 3: Send elicitation after initialization (IORouter line ~195)
-
-In the `NOTIFICATIONS_INITIALIZED` case of the `process(JsonRpcNotification message)` method, trigger the elicitation:
-
-```java
-if(hasElicitation) {
-    sendElicitationMessage();
-}
-```
-
-This sends the elicitation request immediately after the client confirms initialization, ensuring the client is ready to receive it.
-
-### Step 4: Handle elicitation responses (IORouter line ~175)
-
-Add a case to handle responses from the client in the `process(JsonRpcRequest message)` method:
-
-```java
-case ELICITATION_CREATE_MESSAGE -> {
-    // Handle elicitation method calls from client
-    logger.log("Received elicitation/create method call from client: " + message);
-    // Parse the elicitation response and handle it appropriately
-    // For now, just acknowledge the elicitation request
-    success(message.id(), new Object());
-}
-```
-
-**Note:** The elicitation flow is bidirectional - the server can send elicitation requests to the client, and the client can also send elicitation requests to the server. This handler processes incoming elicitation requests from the client.
-
-
 ## Testing Your Implementation
 
 Now let's test all three capabilities - Resources, Tools, and Prompts:
@@ -456,4 +391,4 @@ These features work together to create a powerful MCP server:
 - **Tools** provide dynamic functionality and operations
 - **Prompts** make tools accessible through guided templates
 
-Your MCP server is now fully functional and ready for real-world use!
+In the next lesson you will extend this server with MCP Extensions — adding the `experimental` capability map and implementing the elicitation flow.
