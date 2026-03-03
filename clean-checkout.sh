@@ -9,7 +9,7 @@ if [ $# -ne 1 ]; then
     echo "  $0 04-chapter"
     echo "  $0 05-chapter"
     echo "  $0 06-chapter"
-
+    echo "  $0 audit-chapter"
     exit 1
 
 fi
