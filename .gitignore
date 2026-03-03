@@ -47,3 +47,11 @@ bin/
 /inspector/logs/
 /logs/
 /sum_response.json
+/skills/examples/
+/skills/java-script-runner.md
+/skills/keyword-audit-plugin.md
+/skills/keyword-report.md
+/skills/keyword-search.md
+/skills/
+/keyword-audit-plugin/
+/.mcp-resolved.json
