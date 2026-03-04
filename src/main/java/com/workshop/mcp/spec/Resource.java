@@ -29,6 +29,16 @@ public record Resource(String uri, String name, String description, String mimeT
     public static final String MIME_TYPE_JSON = "application/json";
 
     /**
+     * MIME type for MCP App HTML resources.
+     * <p>
+     * Resources served at {@code ui://} URIs must use this MIME type so that
+     * the host knows to render them as interactive app iframes rather than
+     * displaying the raw HTML as text content.
+     * </p>
+     */
+    public static final String MIME_TYPE_UI_APP = "text/html;profile=mcp-app";
+
+    /**
      * Creates a resource with default MIME type and no annotations.
      * 
      * @param uri the unique identifier for the resource

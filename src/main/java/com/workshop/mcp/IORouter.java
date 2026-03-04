@@ -6,9 +6,11 @@ import com.workshop.mcp.io.LogFileWriter;
 import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
+
 import com.workshop.mcp.tools.KeyWordSearch;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.workshop.mcp.spec.Message.KEY_WORD_MESSAGE;
@@ -72,6 +74,7 @@ public class IORouter implements Router {
                         .builder()
                         .withProtocolVersion(initializeParams.protocolVersion())
                         .withExperimentalCapability("io.modelcontextprotocol/elicitation", new Object())
+                        .withExperimentalCapability("io.modelcontextprotocol/apps", new Object())
                         .withDefaultCapabilities()
                         .withDefaultServerInfo();
                 success(message.id(), builder.build());
@@ -102,10 +105,13 @@ public class IORouter implements Router {
             }
             case TOOLS_LIST -> {
                 KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
-                ToolsListResultBuilder builder = ToolsListResultBuilder
-                        .builder()
-                        .addTool(keyWordSearch.name(), keyWordSearch.description(), keyWordSearch.schema());
-                success(message.id(), builder.build());
+                AppTool appTool = AppToolBuilder.builder()
+                        .withName(keyWordSearch.name())
+                        .withDescription(keyWordSearch.description())
+                        .withInputSchema(keyWordSearch.schema())
+                        .withResourceUri("ui://keyword-search/mcp-app.html")
+                        .build();
+                success(message.id(), new AppToolsListResult(List.of(appTool)));
             }
             case TOOLS_CALL -> {
                 KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
@@ -124,6 +130,12 @@ public class IORouter implements Router {
                 ResourcesListResultBuilder builder = ResourcesListResultBuilder
                         .builder()
                         .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
+                        .addResource(ResourceBuilder.builder()
+                                .withUri("ui://keyword-search/mcp-app.html")
+                                .withName("Keyword Search App")
+                                .withDescription("Interactive keyword search results dashboard")
+                                .withMimeType(Resource.MIME_TYPE_UI_APP)
+                                .build())
                         .withNextCursor("pageNext");
                 success(message.id(), builder.build());
             }
@@ -131,7 +143,15 @@ public class IORouter implements Router {
                 ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
                 String resourceUri = param.uri();
                 ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
-                if (resourceUri != null && !resourceUri.isEmpty()) {
+                if ("ui://keyword-search/mcp-app.html".equals(resourceUri)) {
+                    try {
+                        String html = JavadocResources.readResourceContent("lesson/mcp-app.html");
+                        builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, html);
+                    } catch (Exception e) {
+                        logger.log("Error reading UI app resource: " + resourceUri);
+                        builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, e.getMessage()).asError();
+                    }
+                } else if (resourceUri != null && !resourceUri.isEmpty()) {
                     try {
                         String content = JavadocResources.readResourceContent(resourceUri);
                         builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
