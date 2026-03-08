@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Workshop – Trace Log</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:95%;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px}
+        .log{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:16px;color:#d3d9e8;background:#0f1630;border:1px solid #1f2740;border-radius:12px;padding:12px;overflow:auto;max-height:600px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        .log-controls{margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+        .log-controls button{background:var(--card);border:1px solid #1f2740;color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+        .log-controls button:hover{background:#1f2740}
+        .log-entry{margin-bottom:4px;padding:2px 0}
+        .log-entry.received{color:#7dcfff}
+        .log-entry.sent{color:#9ece6a}
+        .log-entry.system{color:#f7768e}
+        h2{color:var(--accent);margin:0 0 8px}
+    </style>
+</head>
+<body>
+<header>
+    <h1>MCP Workshop – Trace Log</h1>
+    <p class="subtitle">Raw JSON-RPC communication log — compare against your live Inspector output during demos.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+    </div>
+
+    <section class="card">
+        <h2>Communication Trace</h2>
+        <div class="log-controls">
+            <button onclick="toggleFormatting()">Toggle JSON Formatting</button>
+            <button onclick="filterMessages('all')">All</button>
+            <button onclick="filterMessages('received')">Received</button>
+            <button onclick="filterMessages('sent')">Sent</button>
+        </div>
+        <div class="log" id="log">
+<div class="log-entry received">[2025-09-22 17:37:33.352] [API][RECEIVED] {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"sampling":{},"elicitation":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.16.5"}}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:33.382] [API][SENT] {"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}</div>
+<div class="log-entry received">[2025-09-22 17:37:33.391] [API][RECEIVED] {"jsonrpc":"2.0","method":"notifications/initialized"}</div>
+<div class="log-entry sent">[2025-09-22 18:48:52.974] [API][SENT] {"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Please provide the Jira project details for summarization:","requestedSchema":{"properties":{"projectKey":{"title":"Project Key","enum":["ENG","HR","OPS"],"description":"The Jira project key to summarize","type":"string","enumNames":["Engineering","Human Resources","Operations"]},"timeRange":{"title":"Time Range","enum":["last 7 days","last 30 days","custom"],"description":"The time period to include in the summary","type":"string","enumNames":["Last 7 Days","Last 30 Days","Custom Range"]}},"type":"object","required":["projectKey","timeRange"]}}}</div>
+<div class="log-entry received">[2025-09-22 19:05:17.561] [API][RECEIVED] {"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"projectKey":"ENG","timeRange":"last 30 days"}}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:33.392] [API][SENT] {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}</div>
+<div class="log-entry received">[2025-09-22 17:37:33.415] [API][RECEIVED] {"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}</div>
+<div class="log-entry received">[2025-09-22 17:37:39.140] [API][RECEIVED] {"jsonrpc":"2.0","id":1,"method":"ping","params":{"_meta":{"progressToken":1}}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:39.140] [API][SENT] {"jsonrpc":"2.0","id":1,"result":{}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:39.143] [API][SENT] {"jsonrpc":"2.0","id":-2000,"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"text":"Figure out what the single best word to search for in a Java project is.","type":"text"}}],"systemPrompt":"You are a brilliant Java developer.","maxTokens":0}}</div>
+<div class="log-entry received">[2025-09-22 17:37:41.864] [API][RECEIVED] {"jsonrpc":"2.0","id":2,"method":"resources/list","params":{"_meta":{"progressToken":2}}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:42.002] [API][SENT] {"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"javadoc/com/workshop/mcp/spec/Annotations.html","name":"Annotations","description":"Represents annotations that provide additional metadata for resources in the MCP (Model Context Protocol) system...","mimeType":"text/html"}],"nextCursor":"pageNext"}}</div>
+<div class="log-entry received">[2025-09-22 17:37:43.290] [API][RECEIVED] {"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"_meta":{"progressToken":3},"uri":"javadoc/com/workshop/mcp/spec/Capability.html"}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:43.294] [API][SENT] {"jsonrpc":"2.0","id":3,"result":{"contents":[{"uri":"javadoc/com/workshop/mcp/spec/Capability.html","mimeType":"text/html","text":"<!DOCTYPE HTML>..."}],"isError":false}}</div>
+<div class="log-entry received">[2025-09-22 17:37:49.389] [API][RECEIVED] {"jsonrpc":"2.0","id":4,"method":"prompts/list","params":{"_meta":{"progressToken":4}}}</div>
+<div class="log-entry sent">[2025-09-22 17:37:49.393] [API][SENT] {"jsonrpc":"2.0","id":4,"result":{"prompts":[{"name":"search_keyword","description":"Creates a prompt, to search for a word using the key_word_search tool.","arguments":[{"name":"keyword","description":"The word to search for","required":true}]}],"nextCursor":"nextPage"}}</div>
+<div class="log-entry received">[2025-09-22 17:38:03.281] [API][RECEIVED] {"jsonrpc":"2.0","id":5,"method":"prompts/get","params":{"_meta":{"progressToken":5},"name":"search_keyword","arguments":{"keyword":""}}}</div>
+<div class="log-entry sent">[2025-09-22 17:38:03.283] [API][SENT] {"jsonrpc":"2.0","id":5,"result":{"description":"keyword","messages":[{"role":"user","content":{"text":"Start from the root of the project and use the key_word_search tool to search for this specific keyword:''","type":"text"}}]}}</div>
+<div class="log-entry received">[2025-09-22 17:38:18.089] [API][RECEIVED] {"jsonrpc":"2.0","id":6,"method":"tools/list","params":{"_meta":{"progressToken":6}}}</div>
+<div class="log-entry sent">[2025-09-22 17:38:18.091] [API][SENT] {"jsonrpc":"2.0","id":6,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"root_directory":{"type":"string","description":"The absolute path to the root directory to start the search from."}},"required":["keyword","root_directory"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}}}]}}</div>
+<div class="log-entry received">[2025-09-22 17:38:36.939] [API][RECEIVED] {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"progressToken":7},"name":"key_word_search","arguments":{"keyword":"mcp","root_directory":"/Users/davidparry/code/github/agent-command"}}}</div>
+<div class="log-entry sent">[2025-09-22 17:38:37.108] [API][SENT] {"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/Users/davidparry/code/github/agent-command/api.http, keyword_count=1","type":"text"},{"text":"/Users/davidparry/code/github/agent-command/README.md, keyword_count=3","type":"text"}],"isError":false}}</div>
+<div class="log-entry received">[2025-09-22 17:39:10.967] [API][RECEIVED] {"jsonrpc":"2.0","id":-2000,"result":{"model":"stub-model","stopReason":"endTurn","role":"assistant","content":{"type":"text","text":"the answer is 42"}}}</div>
+<div class="log-entry received">[2025-09-22 17:39:15.722] [API][RECEIVED] {"jsonrpc":"2.0","method":"notifications/roots/list_changed"}</div>
+<div class="log-entry sent">[2025-09-22 17:39:15.723] [API][SENT] {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}</div>
+<div class="log-entry received">[2025-09-22 17:39:15.726] [API][RECEIVED] {"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}</div>
+<div class="log-entry received">[2025-09-22 17:39:21.470] [API][RECEIVED] {"jsonrpc":"2.0","method":"notifications/roots/list_changed"}</div>
+<div class="log-entry sent">[2025-09-22 17:39:21.470] [API][SENT] {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}</div>
+<div class="log-entry received">[2025-09-22 17:39:21.473] [API][RECEIVED] {"jsonrpc":"2.0","id":-1000,"result":{"roots":[{"uri":"/Users/davidparry/code/github/agent-command","name":""}]}}</div>
+<div class="log-entry system">[2025-09-22 17:39:31.046] Stopping and closing resources</div>
+        </div>
+        <div class="hint">
+            Color coding:
+            <span style="color:#7dcfff">Blue = Received (Client → Server)</span> &nbsp;|&nbsp;
+            <span style="color:#9ece6a">Green = Sent (Server → Client)</span> &nbsp;|&nbsp;
+            <span style="color:#f7768e">Red = System events</span>
+        </div>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Raw trace data from MCP communication session — 45-minute deep dive.</div>
+</main>
+
+<script>
+let formatJson = false;
+
+function toggleFormatting() {
+    formatJson = !formatJson;
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        const text = entry.dataset.originalText || entry.textContent;
+        if (!entry.dataset.originalText) entry.dataset.originalText = text;
+        if (formatJson) {
+            try {
+                const jsonMatch = text.match(/(\{.*\})/);
+                if (jsonMatch) {
+                    const prefix = text.substring(0, jsonMatch.index);
+                    const jsonStr = jsonMatch[1];
+                    const parsed = JSON.parse(jsonStr);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    entry.innerHTML = prefix + '<br>' + formatted.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
+                }
+            } catch (e) {}
+        } else {
+            entry.textContent = text;
+        }
+    });
+}
+
+function filterMessages(type) {
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        if (type === 'all') {
+            entry.style.display = 'block';
+        } else {
+            entry.style.display = entry.classList.contains(type) ? 'block' : 'none';
+        }
+    });
+}
+</script>
+</body>
+</html>

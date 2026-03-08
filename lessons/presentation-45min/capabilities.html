@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Resources, Tools &amp; Prompts – MCP Workshop</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+        @media(max-width:800px){.two-col,.three-col{grid-template-columns:1fr}}
+        .cap-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:18px}
+        .cap-card h4{color:var(--accent);margin:0 0 10px;font-size:16px}
+        .cap-card p{color:var(--muted);margin:0 0 12px;font-size:13px}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:24px 0}
+        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+        .ide-demo h3{color:var(--fg);margin:0 0 12px;font-size:17px}
+        .ide-demo ul{margin:8px 0 0;padding-left:22px}
+        .ide-demo li{margin:6px 0;font-size:14px}
+        .ide-demo code{color:var(--green)}
+        .step-list{counter-reset:step}
+        .step-list li{counter-increment:step;list-style:none;padding-left:0;display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+        .step-list li::before{content:counter(step);display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
+        .capability-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+        .cap-icon{font-size:32px}
+        .capability-header h2{margin:0}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740;font-size:13px}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+    </style>
+</head>
+<body>
+<header>
+    <h1>Capabilities: Resources, Tools &amp; Prompts</h1>
+    <p class="subtitle">Implementing the three core MCP capabilities that transform a basic router into a fully functional server</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+    </div>
+
+    <!-- Chapter 3: Handshake -->
+    <section class="card">
+        <div class="timing-badge">23 – 25 min</div>
+        <span class="chapter-badge">Chapter 3</span>
+        <h2>Protocol Handshake &amp; Routing</h2>
+        <p>Before any capability is usable, the client and server must complete the <strong>initialize handshake</strong>. This negotiates protocol version and declares what each side supports.</p>
+
+        <div class="two-col" style="margin-top:16px">
+            <div class="cap-card">
+                <h4>Initialize Request (Client → Server)</h4>
+                <pre>{
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+      "sampling": {},
+      "elicitation": {},
+      "roots": { "listChanged": true }
+    },
+    "clientInfo": {
+      "name": "mcp-inspector",
+      "version": "0.16.5"
+    }
+  }
+}</pre>
+            </div>
+            <div class="cap-card">
+                <h4>Initialize Response (Server → Client)</h4>
+                <pre>{
+  "result": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {
+      "tools": { "listChanged": true },
+      "prompts": { "listChanged": true },
+      "resources": {
+        "listChanged": false,
+        "subscribe": false
+      }
+    },
+    "serverInfo": {
+      "name": "agent-mcp-workshop",
+      "version": "0.0.1"
+    }
+  }
+}</pre>
+            </div>
+        </div>
+
+        <h3>Message Routing — The IORouter Switch</h3>
+        <p>After deserialization, every message is routed through a <code>switch</code> expression based on its method name:</p>
+        <pre>case INITIALIZE         → handleInitialize(request)
+case PING               → emit(new JsonRpcResponse(id, new Object()))
+case RESOURCES_LIST     → handleResourcesList(request)
+case RESOURCES_READ     → handleResourcesRead(request)
+case TOOLS_LIST         → handleToolsList(request)
+case TOOLS_CALL         → handleToolsCall(request)
+case PROMPTS_LIST       → handlePromptsList(request)
+case PROMPTS_GET        → handlePromptsGet(request)
+case NOTIFICATIONS_*    → handleNotification(notification)</pre>
+
+        <h3>STDIO Discipline</h3>
+        <ul>
+            <li>All logs go to <code>inspector/logs/mcp-&lt;pid&gt;.log</code> — never to System.out</li>
+            <li>Writing non-JSON to stdout breaks the protocol immediately</li>
+            <li>The client reads stdout byte-by-byte looking for newline-delimited JSON</li>
+        </ul>
+    </section>
+
+    <!-- Chapter 4: Resources -->
+    <section class="card">
+        <div class="timing-badge">25 – 28 min</div>
+        <span class="chapter-badge">Chapter 4</span>
+        <div class="capability-header">
+            <span class="cap-icon">📄</span>
+            <h2>Resources — Serving Content from the Server</h2>
+        </div>
+        <p>Resources allow the server to expose any content the client can discover and read. Our server exposes <strong>70+ Javadoc HTML files</strong> bundled inside the JAR.</p>
+
+        <div class="two-col">
+            <div>
+                <h3>resources/list — Discovery</h3>
+                <p>Returns a paginated list of all available resources with URI, name, description, and MIME type:</p>
+                <pre>{
+  "resources": [{
+    "uri": "javadoc/com/workshop/mcp/spec/Capability.html",
+    "name": "Capability",
+    "description": "Represents the capability...",
+    "mimeType": "text/html"
+  }],
+  "nextCursor": "pageNext"
+}</pre>
+            </div>
+            <div>
+                <h3>resources/read — Retrieval</h3>
+                <p>Returns the actual content of a specific resource by URI:</p>
+                <pre>{
+  "contents": [{
+    "uri": "javadoc/...",
+    "mimeType": "text/html",
+    "text": "<!DOCTYPE HTML>..."
+  }],
+  "isError": false
+}</pre>
+            </div>
+        </div>
+
+        <h3>JavadocResources — Classpath Loading</h3>
+        <ul>
+            <li>HTML Javadoc files are bundled inside the JAR via Gradle resources</li>
+            <li><strong>JSoup</strong> parses the HTML to extract documentation summaries for descriptions</li>
+            <li>File paths become resource URIs: <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
+            <li>Making the server self-contained — no external files required</li>
+        </ul>
+    </section>
+
+    <!-- Chapter 4: Tools -->
+    <section class="card">
+        <div class="capability-header">
+            <span class="cap-icon">🔧</span>
+            <h2>Tools — Executable Functionality</h2>
+        </div>
+        <p>Tools are functions the LLM can call. Defined with <strong>JSON Schema</strong> for parameter validation, they are the primary integration point between the LLM and your business logic.</p>
+
+        <div class="two-col">
+            <div>
+                <h3>tools/list — Discovery</h3>
+                <pre>{
+  "tools": [{
+    "name": "key_word_search",
+    "description": "Searches for a keyword across all files in a project.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "type": "string",
+          "description": "keyword to search for"
+        },
+        "root_directory": {
+          "type": "string",
+          "description": "absolute path to start from"
+        }
+      },
+      "required": ["keyword", "root_directory"]
+    }
+  }]
+}</pre>
+            </div>
+            <div>
+                <h3>tools/call — Execution</h3>
+                <pre>{
+  "method": "tools/call",
+  "params": {
+    "name": "key_word_search",
+    "arguments": {
+      "keyword": "mcp",
+      "root_directory": "/Users/.../project"
+    }
+  }
+}
+
+// Response
+{
+  "content": [{
+    "type": "text",
+    "text": "/path/api.http, keyword_count=1"
+  },
+  // ... 57 more files
+  ],
+  "isError": false
+}</pre>
+            </div>
+        </div>
+
+        <h3>KeyWordSearch Implementation</h3>
+        <ul>
+            <li>Walks the directory tree recursively from <code>root_directory</code></li>
+            <li>Counts occurrences of <code>keyword</code> per file (case-insensitive)</li>
+            <li>Returns one text content item per matching file with its count</li>
+            <li>The JSON Schema <code>required</code> array enables client-side validation before the request is even sent</li>
+        </ul>
+    </section>
+
+    <!-- Chapter 4: Prompts -->
+    <section class="card">
+        <div class="capability-header">
+            <span class="cap-icon">💬</span>
+            <h2>Prompts — User-Friendly Templates</h2>
+        </div>
+        <p>Prompts are reusable templates that guide users and clients in composing effective tool calls. They appear as autocomplete suggestions in MCP-compatible clients.</p>
+
+        <div class="two-col">
+            <div>
+                <h3>prompts/list — Discovery</h3>
+                <pre>{
+  "prompts": [{
+    "name": "search_keyword",
+    "description": "Creates a prompt to search for a word using the key_word_search tool.",
+    "arguments": [{
+      "name": "keyword",
+      "description": "The word to search for",
+      "required": true
+    }]
+  }]
+}</pre>
+            </div>
+            <div>
+                <h3>prompts/get — Execution</h3>
+                <pre>{
+  "method": "prompts/get",
+  "params": {
+    "name": "search_keyword",
+    "arguments": { "keyword": "mcp" }
+  }
+}
+
+// Response
+{
+  "messages": [{
+    "role": "user",
+    "content": {
+      "type": "text",
+      "text": "Start from the root of the project and use the key_word_search tool to search for this specific keyword: 'mcp'"
+    }
+  }]
+}</pre>
+            </div>
+        </div>
+
+        <h3>How the Three Capabilities Work Together</h3>
+        <table>
+            <thead><tr><th>Capability</th><th>What It Exposes</th><th>Primary Use</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Resources</strong></td><td>Static content (Javadoc HTML)</td><td>Documentation, reference data, context for the LLM</td></tr>
+                <tr><td><strong>Tools</strong></td><td>Executable functions (keyword search)</td><td>Dynamic operations, data retrieval, system interaction</td></tr>
+                <tr><td><strong>Prompts</strong></td><td>Guided templates</td><td>UX layer — makes tools discoverable and easy to use</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- IDE Demo -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — 30–33 min</span>
+        <h3>MCP Inspector: Explore All Three Capabilities</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE. The server should already be running from the previous demo.</p>
+        <ul>
+            <li>Click <strong>"List Resources"</strong> → see 70+ Javadoc files listed</li>
+            <li>Click a resource → read its HTML content via <code>resources/read</code></li>
+            <li>Click <strong>"List Tools"</strong> → see <code>key_word_search</code> with its JSON Schema</li>
+            <li>Call <code>key_word_search</code> with keyword=<code>"mcp"</code> and a root directory → see 58 matching files</li>
+            <li>Click <strong>"List Prompts"</strong> → see <code>search_keyword</code> prompt</li>
+            <li>Execute the prompt with a keyword to see the generated message</li>
+            <li>Switch to <a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a> to see the full session summary</li>
+        </ul>
+    </div>
+
+    <div class="footer">© 2025 MCP Workshop. Resources, Tools, and Prompts — Chapters 3 &amp; 4.</div>
+</main>
+</body>
+</html>

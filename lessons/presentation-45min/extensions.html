@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Extensions &amp; Elicitation – MCP Workshop</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+        .ext-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:18px}
+        .ext-card h4{margin:0 0 10px;font-size:15px;color:var(--fg)}
+        .ext-card p{color:var(--muted);margin:0 0 10px;font-size:13px}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:24px 0}
+        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+        .ide-demo h3{color:var(--fg);margin:0 0 12px;font-size:17px}
+        .ide-demo ul{margin:8px 0 0;padding-left:22px}
+        .ide-demo li{margin:6px 0;font-size:14px}
+        .ide-demo code{color:var(--green)}
+        table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+        .handshake-table td:first-child{color:var(--orange);font-weight:600}
+        .key-concept{background:rgba(187,154,247,0.08);border:1px solid rgba(187,154,247,0.3);border-radius:10px;padding:16px;margin:12px 0}
+        .key-concept strong{color:var(--purple)}
+        .flow-steps{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+        .flow-step{display:flex;gap:14px;align-items:flex-start}
+        .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:13px;font-weight:700;flex-shrink:0}
+        .step-content h4{margin:0 0 4px;font-size:14px;color:var(--fg)}
+        .step-content p{margin:0;font-size:13px;color:var(--muted)}
+    </style>
+</head>
+<body>
+<header>
+    <h1>MCP Extensions &amp; Elicitation</h1>
+    <p class="subtitle">The experimental capability map — how MCP evolves without breaking existing implementations</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+    </div>
+
+    <!-- Extensions Overview -->
+    <section class="card">
+        <div class="timing-badge">33 – 35 min</div>
+        <span class="chapter-badge">Chapter 5</span>
+        <h2>What Are MCP Extensions?</h2>
+        <p>MCP Extensions are <strong>optional additions</strong> to the core specification. They allow the protocol to evolve without breaking backwards compatibility. An extension is only active when <em>both sides</em> explicitly declare support for it.</p>
+
+        <div class="key-concept">
+            <strong>The Experimental Map:</strong> Extensions live in the <code>experimental</code> field of <code>ServerCapabilities</code>. It's a <code>Map&lt;String, Object&gt;</code> where each key is an extension identifier and each value is extension-specific configuration.
+        </div>
+
+        <pre style="margin-top:16px">{
+  "protocolVersion": "2025-06-18",
+  "capabilities": {
+    "tools": { "listChanged": true },
+    "prompts": { "listChanged": true },
+    "resources": { "listChanged": false },
+    "experimental": {
+      "io.modelcontextprotocol/elicitation": {},
+      "io.modelcontextprotocol/apps": {}
+    }
+  }
+}</pre>
+    </section>
+
+    <section class="card">
+        <h2>Extension Identifier Format</h2>
+        <p>Every extension uses a <strong>namespaced identifier</strong> to avoid naming collisions:</p>
+        <pre>{vendor-prefix}/{extension-name}</pre>
+
+        <div class="two-col" style="margin-top:16px">
+            <div class="ext-card">
+                <h4>Official MCP Extensions</h4>
+                <p>Maintained by the MCP organization under the <code>io.modelcontextprotocol</code> namespace:</p>
+                <ul style="margin:0;padding-left:20px;font-size:13px">
+                    <li><code>io.modelcontextprotocol/elicitation</code></li>
+                    <li><code>io.modelcontextprotocol/oauth-client-credentials</code></li>
+                    <li><code>io.modelcontextprotocol/enterprise-managed-authorization</code></li>
+                    <li><code>io.modelcontextprotocol/apps</code></li>
+                </ul>
+            </div>
+            <div class="ext-card">
+                <h4>Your Own Extensions</h4>
+                <p>Use your organization's reverse-domain prefix:</p>
+                <ul style="margin:0;padding-left:20px;font-size:13px">
+                    <li><code>com.mycompany/analytics-dashboard</code></li>
+                    <li><code>com.mycompany/audit-trail</code></li>
+                    <li><code>io.github.username/custom-ext</code></li>
+                </ul>
+                <p style="margin-top:8px">Any MCP client that doesn't recognize your extension key simply ignores it. Neither side breaks.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Two Official Extension Repositories</h2>
+        <div class="two-col">
+            <div class="ext-card">
+                <h4>🔐 ext-auth — Authorization</h4>
+                <p>Covers authorization scenarios the core protocol doesn't address:</p>
+                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
+                    <li><strong>OAuth 2.0 Client Credentials</strong> — machine-to-machine auth for servers calling protected APIs on their own behalf</li>
+                    <li><strong>Enterprise-Managed Authorization</strong> — centralized access control via corporate identity providers (Okta, Azure AD, etc.)</li>
+                </ul>
+            </div>
+            <div class="ext-card">
+                <h4>🖥️ ext-apps — Interactive UI</h4>
+                <p>Allows MCP servers to render interactive HTML UI elements inside the conversation:</p>
+                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
+                    <li>Charts and data visualizations</li>
+                    <li>Forms for structured input collection</li>
+                    <li>Video and media players</li>
+                    <li>Custom interactive components</li>
+                </ul>
+                <p style="font-size:13px;margin-top:8px">This is what powers <strong>MCP Apps</strong> — covered on the next page.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Elicitation -->
+    <section class="card">
+        <div class="timing-badge">35 – 37 min</div>
+        <h2>Elicitation — Server-Initiated User Input</h2>
+        <p>Elicitation lets the <strong>server</strong> ask the <strong>user</strong> for structured input mid-session. Instead of the tool requiring all parameters upfront, the server can pause execution, present a form, collect responses, and continue.</p>
+
+        <h3>The Elicitation Flow</h3>
+        <div class="flow-steps">
+            <div class="flow-step">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                    <h4>Client declares support</h4>
+                    <p>During <code>initialize</code>, the client includes <code>"elicitation": {}</code> in its capabilities.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                    <h4>Server checks and declares</h4>
+                    <p>Server reads <code>clientCapabilities.elicitation()</code>. If present, sets <code>hasElicitation = true</code> and adds <code>io.modelcontextprotocol/elicitation</code> to the experimental map in its response.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                    <h4>Server sends elicitation/create</h4>
+                    <p>After <code>notifications/initialized</code>, the server sends a JSON Schema form definition to the client.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">4</span>
+                <div class="step-content">
+                    <h4>Client presents form to user</h4>
+                    <p>The host renders a UI form based on the schema. The user fills it in and submits.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">5</span>
+                <div class="step-content">
+                    <h4>Client returns result</h4>
+                    <p>The host sends back an <code>ELICITATION_CREATE_MESSAGE</code> request with <code>action: "accept"</code> and the user's input.</p>
+                </div>
+            </div>
+        </div>
+
+        <h3>Elicitation Request (Server → Client)</h3>
+        <pre>{
+  "jsonrpc": "2.0",
+  "id": -4000,
+  "method": "elicitation/create",
+  "params": {
+    "message": "Please provide the Jira project details for summarization:",
+    "requestedSchema": {
+      "type": "object",
+      "required": ["projectKey", "timeRange"],
+      "properties": {
+        "projectKey": {
+          "title": "Project Key",
+          "type": "string",
+          "enum": ["ENG", "HR", "OPS"],
+          "enumNames": ["Engineering", "Human Resources", "Operations"]
+        },
+        "timeRange": {
+          "title": "Time Range",
+          "type": "string",
+          "enum": ["last 7 days", "last 30 days", "custom"]
+        }
+      }
+    }
+  }
+}</pre>
+
+        <h3>User Response (Client → Server)</h3>
+        <pre>{
+  "jsonrpc": "2.0",
+  "id": -4000,
+  "result": {
+    "action": "accept",
+    "content": {
+      "projectKey": "ENG",
+      "timeRange": "last 30 days"
+    }
+  }
+}</pre>
+
+        <h3>Backwards Compatibility — The Core Principle</h3>
+        <table class="handshake-table">
+            <thead><tr><th>Direction</th><th>Mechanism</th><th>Where Implemented</th></tr></thead>
+            <tbody>
+                <tr><td>Client → Server</td><td><code>capabilities.elicitation: {}</code> in initialize request</td><td>Client (Inspector, Claude)</td></tr>
+                <tr><td>Server → Client</td><td><code>capabilities.experimental["io.modelcontextprotocol/elicitation"]</code></td><td>IORouter INITIALIZE handler</td></tr>
+                <tr><td>Server sends form</td><td><code>elicitation/create</code> in NOTIFICATIONS_INITIALIZED</td><td>IORouter</td></tr>
+                <tr><td>Client responds</td><td><code>ELICITATION_CREATE_MESSAGE</code> JsonRpcRequest</td><td>IORouter switch</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- IDE Demo -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — 41–43 min</span>
+        <h3>Inspector: See the Elicitation Flow Live</h3>
+        <p style="color:var(--muted);font-size:14px">Restart the server from the Chapter 5 branch to see elicitation in action.</p>
+        <ul>
+            <li>Connect to the server — watch the elicitation form appear automatically after initialization</li>
+            <li>The Inspector renders the dropdown form for <code>projectKey</code> and <code>timeRange</code></li>
+            <li>Select values and submit — watch the <code>elicitation/create result</code> in the trace log</li>
+            <li>See the <code>experimental</code> map in the initialize response containing <code>io.modelcontextprotocol/elicitation</code></li>
+            <li>Switch to <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> to compare with the pre-recorded session</li>
+        </ul>
+    </div>
+
+    <div class="footer">© 2025 MCP Workshop. MCP Extensions and Elicitation — Chapter 5.</div>
+</main>
+</body>
+</html>

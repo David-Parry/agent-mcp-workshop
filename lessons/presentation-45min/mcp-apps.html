@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Apps — Interactive UI – MCP Workshop</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+        @media(max-width:700px){.two-col,.three-col{grid-template-columns:1fr}}
+        .feature-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:16px}
+        .feature-card h4{color:var(--accent);margin:0 0 8px;font-size:14px}
+        .feature-card p{color:var(--muted);margin:0;font-size:13px}
+        table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+        .comparison-table td:first-child{color:var(--orange);font-weight:600}
+        .flow-steps{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+        .flow-step{display:flex;gap:14px;align-items:flex-start}
+        .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:13px;font-weight:700;flex-shrink:0}
+        .step-content h4{margin:0 0 4px;font-size:14px;color:var(--fg)}
+        .step-content p{margin:0;font-size:13px;color:var(--muted)}
+        .big-concept{display:flex;align-items:center;justify-content:center;gap:16px;margin:20px 0;flex-wrap:wrap}
+        .concept-block{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:14px 20px;text-align:center;min-width:120px}
+        .concept-block .icon{font-size:28px;display:block;margin-bottom:6px}
+        .concept-block h4{margin:0;font-size:13px;color:var(--accent)}
+        .plus-sign{font-size:28px;color:var(--muted);font-weight:300}
+        .equals-sign{font-size:28px;color:var(--green);font-weight:700}
+        .result-block{background:rgba(122,162,247,0.1);border:2px solid var(--accent);border-radius:10px;padding:14px 20px;text-align:center;min-width:140px}
+        .result-block .icon{font-size:28px;display:block;margin-bottom:6px}
+        .result-block h4{margin:0;font-size:14px;color:var(--accent);font-weight:700}
+        .security-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px}
+        .security-item{background:#0c1328;border:1px solid rgba(247,118,142,0.3);border-radius:8px;padding:12px}
+        .security-item h4{color:var(--red);margin:0 0 6px;font-size:13px}
+        .security-item p{color:var(--muted);margin:0;font-size:12px}
+        .supported-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+        .supported-item{background:#0c1328;border:1px solid rgba(158,206,106,0.3);border-radius:8px;padding:10px;text-align:center;font-size:12px;color:var(--green)}
+    </style>
+</head>
+<body>
+<header>
+    <h1>MCP Apps — Interactive UI Inside the Conversation</h1>
+    <p class="subtitle">How MCP servers render live, interactive dashboards directly inside Claude — no new tab, no context switch</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+    </div>
+
+    <section class="card">
+        <div class="timing-badge">37 – 41 min</div>
+        <span class="chapter-badge">Chapter 6</span>
+        <h2>What Are MCP Apps?</h2>
+        <p>Text responses can only go so far. MCP Apps let your server return an <strong>interactive HTML interface</strong> that renders directly inside the conversation — right next to the chat that triggered it.</p>
+
+        <div class="two-col" style="margin-top:20px">
+            <div style="background:#0c1328;border:1px solid rgba(247,118,142,0.3);border-radius:12px;padding:18px">
+                <h4 style="color:var(--red);margin:0 0 12px">❌ Without MCP Apps</h4>
+                <p style="color:var(--muted);font-size:13px">User asks → LLM calls tool → Returns wall of text:</p>
+                <pre style="font-size:12px;margin-top:10px">/path/api.http, keyword_count=1
+/path/README.md, keyword_count=3
+/path/pom.xml, keyword_count=2
+... 55 more files</pre>
+                <p style="color:var(--muted);font-size:12px;margin-top:8px">Hard to explore, no interactivity, no visualization</p>
+            </div>
+            <div style="background:#0c1328;border:1px solid rgba(158,206,106,0.3);border-radius:12px;padding:18px">
+                <h4 style="color:var(--green);margin:0 0 12px">✅ With MCP Apps</h4>
+                <p style="color:var(--muted);font-size:13px">User asks → LLM calls tool → Interactive dashboard appears inline:</p>
+                <div style="background:#1e2940;border-radius:8px;padding:12px;margin-top:10px;font-size:12px">
+                    <div style="color:var(--accent);margin-bottom:6px">🔍 Keyword Search Results</div>
+                    <div style="color:var(--muted)">Found 58 files • 400+ matches</div>
+                    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">api.http ×1</span>
+                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">README.md ×3</span>
+                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">pom.xml ×2</span>
+                    </div>
+                    <div style="margin-top:8px;color:var(--accent);font-size:11px;cursor:pointer">[ Search Again ] [ Filter ] [ Export ]</div>
+                </div>
+                <p style="color:var(--muted);font-size:12px;margin-top:8px">Sortable, filterable, interactive — stays in context</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Core Pattern: Tool + Resource = App</h2>
+        <div class="big-concept">
+            <div class="concept-block">
+                <span class="icon">🔧</span>
+                <h4>Tool</h4>
+            </div>
+            <span class="plus-sign">+</span>
+            <div class="concept-block">
+                <span class="icon">📄</span>
+                <h4>Resource<br/><small style="color:var(--muted);font-size:11px">(ui:// URI)</small></h4>
+            </div>
+            <span class="plus-sign">+</span>
+            <div class="concept-block">
+                <span class="icon">🏷️</span>
+                <h4>_meta field</h4>
+            </div>
+            <span class="equals-sign">=</span>
+            <div class="result-block">
+                <span class="icon">🖥️</span>
+                <h4>Interactive App</h4>
+            </div>
+        </div>
+        <p>The tool continues to work exactly as before. The only addition is a <code>_meta</code> field in the tool definition that points the host to an HTML resource to render alongside the tool result.</p>
+    </section>
+
+    <section class="card">
+        <h2>What You Add to the Protocol</h2>
+        <h3>1. Declare the extension in initialize</h3>
+        <pre>{
+  "capabilities": {
+    "experimental": {
+      "io.modelcontextprotocol/apps": {}
+    }
+  }
+}</pre>
+        <p>The host checks this field during the handshake. If absent, the app never appears — the tool still works normally.</p>
+
+        <h3>2. Add _meta to your tool definition</h3>
+        <pre>{
+  "name": "key_word_search",
+  "description": "Searches for a keyword across all project files.",
+  "inputSchema": { "...": "..." },
+  "_meta": {
+    "ui": {
+      "resourceUri": "ui://keyword-search/mcp-app.html"
+    }
+  }
+}</pre>
+
+        <h3>3. Serve the HTML when the host requests it</h3>
+        <pre>// In your resources/read handler:
+if (uri.startsWith("ui://")) {
+    // Return the bundled HTML
+    return new ResourceContent(uri,
+        "application/vnd.mcp-ui.app+html",
+        readHtmlFromClasspath("mcp-app.html"));
+}</pre>
+        <p>The MIME type <code>application/vnd.mcp-ui.app+html</code> tells the host this is an MCP App, not a regular HTML resource.</p>
+    </section>
+
+    <section class="card">
+        <h2>How It Works: Step by Step</h2>
+        <div class="flow-steps">
+            <div class="flow-step">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                    <h4>User asks a question</h4>
+                    <p>"Show me keyword search results for 'mcp'"</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                    <h4>Host calls tools/list</h4>
+                    <p>Sees <code>key_word_search</code> has <code>_meta.ui.resourceUri</code> set. Preloads the UI resource.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                    <h4>Host fetches resources/read ui://keyword-search/mcp-app.html</h4>
+                    <p>Server returns the HTML page. Host prepares the sandboxed iframe.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">4</span>
+                <div class="step-content">
+                    <h4>LLM calls tools/call key_word_search</h4>
+                    <p>Server returns the matching file list as text content.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">5</span>
+                <div class="step-content">
+                    <h4>Host renders HTML + pushes tool result</h4>
+                    <p>The iframe appears inline in the conversation. The app receives the tool result via <code>postMessage</code> and updates its UI.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">6</span>
+                <div class="step-content">
+                    <h4>User clicks "Search Again"</h4>
+                    <p>The app calls back through <code>postMessage</code> → host routes → <code>tools/call</code> → fresh results → UI updates. No page reload, no context switch.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Three New Java Types</h2>
+        <div class="three-col">
+            <div class="feature-card">
+                <h4>UiMeta</h4>
+                <p>Holds the <code>resourceUri</code> pointing to the HTML resource at the <code>ui://</code> URI.</p>
+            </div>
+            <div class="feature-card">
+                <h4>AppMeta</h4>
+                <p>Wraps <code>UiMeta</code> as the <code>_meta</code> field on a tool definition.</p>
+            </div>
+            <div class="feature-card">
+                <h4>AppTool + AppToolBuilder</h4>
+                <p>A tool record that includes <code>_meta</code> alongside name, description, and inputSchema. Fluent builder for construction.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Security Model — Sandboxed Iframes</h2>
+        <div class="security-grid">
+            <div class="security-item">
+                <h4>🚫 Cannot access parent DOM</h4>
+                <p>The app runs in a sandbox. It cannot read or modify the host page.</p>
+            </div>
+            <div class="security-item">
+                <h4>🚫 Cannot read cookies</h4>
+                <p>No access to the host's cookies or local storage.</p>
+            </div>
+            <div class="security-item">
+                <h4>🚫 Cannot navigate parent</h4>
+                <p>The app cannot redirect the conversation or navigate away.</p>
+            </div>
+            <div class="security-item">
+                <h4>✅ Controlled postMessage</h4>
+                <p>All communication goes through a strict JSON-RPC postMessage channel managed by the host.</p>
+            </div>
+        </div>
+        <p style="margin-top:16px">Hosts can safely render third-party MCP Apps without fully trusting the server author.</p>
+    </section>
+
+    <section class="card">
+        <h2>When to Use MCP Apps</h2>
+        <div class="two-col">
+            <div>
+                <h3>✅ Good Fit</h3>
+                <ul>
+                    <li>Exploring complex data (tables, charts, maps)</li>
+                    <li>Configuring with many options (forms)</li>
+                    <li>Rich media (PDF viewers, image galleries)</li>
+                    <li>Real-time monitoring dashboards</li>
+                    <li>Multi-step workflows with approve/reject</li>
+                </ul>
+            </div>
+            <div>
+                <h3>❌ Not Needed</h3>
+                <ul>
+                    <li>Simple text responses</li>
+                    <li>Single-value lookups</li>
+                    <li>Linear workflows with no branching</li>
+                    <li>Cases where a list or table in markdown is sufficient</li>
+                </ul>
+            </div>
+        </div>
+
+        <h3>Supported By</h3>
+        <div class="supported-grid">
+            <div class="supported-item">✅ Claude (web)</div>
+            <div class="supported-item">✅ Claude Desktop</div>
+            <div class="supported-item">✅ VS Code Copilot</div>
+            <div class="supported-item">✅ Goose</div>
+            <div class="supported-item">✅ Postman</div>
+            <div class="supported-item">✅ MCPJam</div>
+        </div>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. MCP Apps — Interactive UI in the Conversation — Chapter 6.</div>
+</main>
+</body>
+</html>
