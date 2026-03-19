@@ -26,16 +26,12 @@
         .page-card .timing{font-size:11px;color:var(--orange);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
         .intro{text-align:center;margin-bottom:32px}
         .intro h2{color:var(--accent);margin-bottom:12px}
-        .agenda-table{width:100%;border-collapse:collapse;margin-top:16px}
-        .agenda-table th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740;font-size:13px}
-        .agenda-table td{padding:10px 12px;border-bottom:1px solid #1f2740;font-size:14px;vertical-align:top}
-        .agenda-table tr:last-child td{border-bottom:none}
-        .agenda-table tr:hover td{background:rgba(122,162,247,0.04)}
         .badge-time{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:var(--orange);min-width:60px;text-align:center}
         .badge-demo{display:inline-block;background:rgba(122,162,247,0.15);border:1px solid var(--accent);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px}
         .badge-chapter{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple)}
         h2{color:var(--accent);margin-top:0}
     </style>
+    <link rel="stylesheet" href="theme.css">
 </head>
 <body>
 <header>
@@ -55,96 +51,11 @@
         <a href="runtime-facts.html">📋 Runtime Facts</a>
         <a href="trace-log.html">🔍 Trace Log</a>
         <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
     </div>
 
-    <div class="intro">
-        <h2>Presentation Agenda</h2>
-        <p>A hands-on journey through every layer of the Model Context Protocol — with live IDE demos at each milestone.</p>
-    </div>
-
-    <section class="card">
-        <h2>45-Minute Agenda</h2>
-        <table class="agenda-table">
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Topic</th>
-                    <th>Chapter</th>
-                    <th>Page</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><span class="badge-time">0–3 min</span></td>
-                    <td>Introduction &amp; Presentation Goals</td>
-                    <td>—</td>
-                    <td><a href="index.html" style="color:var(--accent)">Home</a></td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">3–10 min</span></td>
-                    <td>What is MCP? Architecture, actors, protocol features</td>
-                    <td><span class="badge-chapter">Overview</span></td>
-                    <td><a href="overview.html" style="color:var(--accent)">Overview</a></td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">10–16 min</span></td>
-                    <td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td>
-                    <td><span class="badge-chapter">Ch 1–2</span></td>
-                    <td><a href="protocol.html" style="color:var(--accent)">Protocol</a></td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">16–20 min</span></td>
-                    <td>Full JSON-RPC sequence diagram — every message annotated</td>
-                    <td><span class="badge-chapter">Ch 2</span></td>
-                    <td><a href="flow-diagram.html" style="color:var(--accent)">Flow Diagram</a></td>
-                </tr>
-                <tr style="background:rgba(122,162,247,0.06)">
-                    <td><span class="badge-time">20–23 min</span></td>
-                    <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Launch MCP Inspector → show initialization handshake + ping live</td>
-                    <td><span class="badge-chapter">Ch 3</span></td>
-                    <td>—</td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">23–30 min</span></td>
-                    <td>Implementing Resources, Tools &amp; Prompts — the three core capabilities</td>
-                    <td><span class="badge-chapter">Ch 3–4</span></td>
-                    <td><a href="capabilities.html" style="color:var(--accent)">Capabilities</a></td>
-                </tr>
-                <tr style="background:rgba(122,162,247,0.06)">
-                    <td><span class="badge-time">30–33 min</span></td>
-                    <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Inspector: List Resources, Tools, Prompts → call <code>key_word_search</code></td>
-                    <td><span class="badge-chapter">Ch 4</span></td>
-                    <td><a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a></td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">33–37 min</span></td>
-                    <td>MCP Extensions (experimental map) + Elicitation capability</td>
-                    <td><span class="badge-chapter">Ch 5</span></td>
-                    <td><a href="extensions.html" style="color:var(--accent)">Extensions</a></td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">37–41 min</span></td>
-                    <td>MCP Apps — interactive UI rendered inside the conversation</td>
-                    <td><span class="badge-chapter">Ch 6</span></td>
-                    <td><a href="mcp-apps.html" style="color:var(--accent)">MCP Apps</a></td>
-                </tr>
-                <tr style="background:rgba(122,162,247,0.06)">
-                    <td><span class="badge-time">41–43 min</span></td>
-                    <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Show elicitation flow + MCP App HTML rendered in Inspector</td>
-                    <td><span class="badge-chapter">Ch 5–6</span></td>
-                    <td>—</td>
-                </tr>
-                <tr>
-                    <td><span class="badge-time">43–45 min</span></td>
-                    <td>Claude Code Plugin — supervised agent with checkpoint</td>
-                    <td><span class="badge-chapter">Agent</span></td>
-                    <td><a href="agent.html" style="color:var(--accent)">Agent</a></td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
-
-    <div class="pages-grid" style="margin-top:32px">
+    <div class="pages-grid" style="margin-top:24px">
         <a href="overview.html" class="page-card">
             <span class="icon">📐</span>
             <div class="timing">3 – 10 min</div>
@@ -218,5 +129,105 @@
 
     <div class="footer">© 2025 MCP Presentation. 45-minute deep dive into the Model Context Protocol.</div>
 </main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:var(--card,#141a2e);border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:var(--accent,#7aa2f7);font-size:22px}
+#agenda-overlay .agenda-popup p.agenda-sub{margin:0 0 16px;color:var(--muted,#9aa4b2);font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:var(--muted,#9aa4b2);font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:var(--fg,#e6e9ef);background:rgba(255,255,255,.08)}
+#agenda-overlay .agenda-table{width:100%;border-collapse:collapse}
+#agenda-overlay .agenda-table th{text-align:left;color:var(--accent,#7aa2f7);padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .agenda-table td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .agenda-table tr:last-child td{border-bottom:none}
+#agenda-overlay .agenda-table tr:hover td{background:rgba(122,162,247,.04)}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Presentation Agenda</h2>
+<p class="agenda-sub">A hands-on journey through every layer of the Model Context Protocol — with live IDE demos at each milestone.</p>
+<table class="agenda-table">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Topic</th>
+            <th>Chapter</th>
+            <th>Page</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><span class="badge-time">0–3 min</span></td>
+            <td>Introduction &amp; Presentation Goals</td>
+            <td>—</td>
+            <td><a href="index.html" style="color:var(--accent)">Home</a></td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">3–10 min</span></td>
+            <td>What is MCP? Architecture, actors, protocol features</td>
+            <td><span class="badge-chapter">Overview</span></td>
+            <td><a href="overview.html" style="color:var(--accent)">Overview</a></td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">10–16 min</span></td>
+            <td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td>
+            <td><span class="badge-chapter">Ch 1–2</span></td>
+            <td><a href="protocol.html" style="color:var(--accent)">Protocol</a></td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">16–20 min</span></td>
+            <td>Full JSON-RPC sequence diagram — every message annotated</td>
+            <td><span class="badge-chapter">Ch 2</span></td>
+            <td><a href="flow-diagram.html" style="color:var(--accent)">Flow Diagram</a></td>
+        </tr>
+        <tr style="background:rgba(122,162,247,0.06)">
+            <td><span class="badge-time">20–23 min</span></td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Launch MCP Inspector → show initialization handshake + ping live</td>
+            <td><span class="badge-chapter">Ch 3</span></td>
+            <td>—</td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">23–30 min</span></td>
+            <td>Implementing Resources, Tools &amp; Prompts — the three core capabilities</td>
+            <td><span class="badge-chapter">Ch 3–4</span></td>
+            <td><a href="capabilities.html" style="color:var(--accent)">Capabilities</a></td>
+        </tr>
+        <tr style="background:rgba(122,162,247,0.06)">
+            <td><span class="badge-time">30–33 min</span></td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Inspector: List Resources, Tools, Prompts → call <code>key_word_search</code></td>
+            <td><span class="badge-chapter">Ch 4</span></td>
+            <td><a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a></td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">33–37 min</span></td>
+            <td>MCP Extensions (experimental map) + Elicitation capability</td>
+            <td><span class="badge-chapter">Ch 5</span></td>
+            <td><a href="extensions.html" style="color:var(--accent)">Extensions</a></td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">37–41 min</span></td>
+            <td>MCP Apps — interactive UI rendered inside the conversation</td>
+            <td><span class="badge-chapter">Ch 6</span></td>
+            <td><a href="mcp-apps.html" style="color:var(--accent)">MCP Apps</a></td>
+        </tr>
+        <tr style="background:rgba(122,162,247,0.06)">
+            <td><span class="badge-time">41–43 min</span></td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Show elicitation flow + MCP App HTML rendered in Inspector</td>
+            <td><span class="badge-chapter">Ch 5–6</span></td>
+            <td>—</td>
+        </tr>
+        <tr>
+            <td><span class="badge-time">43–45 min</span></td>
+            <td>Claude Code Plugin — supervised agent with checkpoint</td>
+            <td><span class="badge-chapter">Agent</span></td>
+            <td><a href="agent.html" style="color:var(--accent)">Agent</a></td>
+        </tr>
+    </tbody>
+</table>
+</div>
+</div>
+<script src="theme.js"></script>
 </body>
 </html>
