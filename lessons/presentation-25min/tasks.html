@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Tasks &mdash; Call-Now Fetch-Later</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--orange:#ff9e64;--red:#f7768e;--purple:#bb9af7;--green:#9ece6a}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:18px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center}
+        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:18px;margin-bottom:10px}
+        ul{margin:12px 0;padding-left:22px}
+        li{margin:6px 0}
+        .badge{display:inline-block;background:rgba(247,118,142,.15);border:1px solid var(--red);color:var(--red);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:14px;overflow-x:auto;font-size:13px;line-height:1.55;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+        .mermaid{background:white;border-radius:12px;padding:24px;margin:8px auto}
+        table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:8px 10px;border-bottom:2px solid #1f2740}
+        td{padding:8px 10px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#7aa2f7',
+                primaryTextColor: '#0b1020',
+                primaryBorderColor: '#1f2740',
+                lineColor: '#7aa2f7'
+            }
+        });
+    </script>
+</head>
+<body>
+<header>
+    <h1>MCP Tasks &mdash; Call Now, Fetch Later <span class="badge">2025-11-25 experimental</span></h1>
+    <p class="subtitle">A 60-second tour of the new task-augmentation pattern in the Model Context Protocol</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="overview.html">Overview</a>
+        <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="runtime-facts.html">Runtime Facts</a>
+        <a href="trace-log.html">Trace Log</a>
+        <a href="contact.html">Contact</a>
+    </div>
+
+    <section class="card">
+        <h2>The Idea in One Sentence</h2>
+        <p>Instead of holding a JSON-RPC request open until the work completes, the receiver immediately replies with a <strong>task handle</strong> and runs the work in the background. The requestor polls (<code>tasks/get</code>) and later retrieves the actual result (<code>tasks/result</code>) &mdash; on its own schedule, even across reconnects.</p>
+    </section>
+
+    <section class="card">
+        <h2>The Lifecycle</h2>
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> working
+    working --> input_required
+    input_required --> working
+    working --> completed
+    working --> failed
+    working --> cancelled
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin:0">Three terminal states. Receivers MUST NOT move a terminal task back to <code>working</code>.</p>
+    </section>
+
+    <section class="card">
+        <h2>Capabilities &mdash; Both Sides Opt In</h2>
+        <div class="two-col">
+            <div>
+                <h3 style="margin-top:0">Server declares</h3>
+                <pre>{
+  "capabilities": {
+    "tasks": {
+      "list": {},
+      "cancel": {},
+      "requests": {
+        "tools": { "call": {} }
+      }
+    }
+  }
+}</pre>
+            </div>
+            <div>
+                <h3 style="margin-top:0">Client declares</h3>
+                <pre>{
+  "capabilities": {
+    "tasks": {
+      "list": {},
+      "cancel": {},
+      "requests": {
+        "sampling":    { "createMessage": {} },
+        "elicitation": { "create": {} }
+      }
+    }
+  }
+}</pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Wire Flow</h2>
+        <div class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: tools/call + task: {ttl: 60000}
+    S-->>C: CreateTaskResult { taskId, status: working }
+    Note over S: Tool runs in background
+    C->>S: tasks/get { taskId }
+    S-->>C: { status: working }
+    Note over S: Task completes
+    C->>S: tasks/get { taskId }
+    S-->>C: { status: completed }
+    C->>S: tasks/result { taskId }
+    S-->>C: actual ToolCallResult<br/>+ _meta.related-task
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Five New Methods</h2>
+        <table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>tools/call</code> + <code>task</code></td><td>Augmentation &mdash; opts the call into deferred execution</td></tr>
+                <tr><td><code>tasks/get</code></td><td>Poll current status without blocking</td></tr>
+                <tr><td><code>tasks/result</code></td><td>Block until terminal, return underlying result</td></tr>
+                <tr><td><code>tasks/list</code></td><td>Paginated list of tasks</td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>Best-effort cancel (<code>-32602</code> if already terminal)</td></tr>
+                <tr><td><code>notifications/tasks/status</code></td><td>Optional push from receiver on status change</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Tasks utility (SEP-1686, MCP 2025-11-25).</div>
+</main>
+</body>
+</html>

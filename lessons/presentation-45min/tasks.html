@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MCP Extensions &amp; Elicitation – MCP Presentation</title>
+    <title>MCP Tasks &mdash; Call-Now Fetch-Later</title>
     <style>
         :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
         html,body{height:100%}
@@ -23,6 +23,7 @@
         li{margin:8px 0}
         .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
         .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        .experimental-badge{display:inline-block;background:rgba(247,118,142,0.15);border:1px solid var(--red);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--red);margin-right:8px}
         code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
         pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
         .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
@@ -30,17 +31,11 @@
         .ext-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:18px}
         .ext-card h4{margin:0 0 10px;font-size:15px;color:var(--fg)}
         .ext-card p{color:var(--muted);margin:0 0 10px;font-size:13px}
-        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:24px 0}
-        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
-        .ide-demo h3{color:var(--fg);margin:0 0 12px;font-size:17px}
-        .ide-demo ul{margin:8px 0 0;padding-left:22px}
-        .ide-demo li{margin:6px 0;font-size:14px}
-        .ide-demo code{color:var(--green)}
         table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
         th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740}
         td{padding:10px 12px;border-bottom:1px solid #1f2740;vertical-align:top}
         tr:last-child td{border-bottom:none}
-        .handshake-table td:first-child{color:var(--orange);font-weight:600}
+        .lifecycle-table td:first-child{color:var(--orange);font-weight:600;white-space:nowrap}
         .key-concept{background:rgba(187,154,247,0.08);border:1px solid rgba(187,154,247,0.3);border-radius:10px;padding:16px;margin:12px 0}
         .key-concept strong{color:var(--purple)}
         .flow-steps{display:flex;flex-direction:column;gap:10px;margin:16px 0}
@@ -48,13 +43,20 @@
         .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:13px;font-weight:700;flex-shrink:0}
         .step-content h4{margin:0 0 4px;font-size:14px;color:var(--fg)}
         .step-content p{margin:0;font-size:13px;color:var(--muted)}
+        .status-pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;font-family:ui-monospace,Menlo,monospace}
+        .s-working{background:rgba(122,162,247,.18);color:#7aa2f7}
+        .s-input{background:rgba(187,154,247,.18);color:#bb9af7}
+        .s-done{background:rgba(158,206,106,.18);color:#9ece6a}
+        .s-fail{background:rgba(247,118,142,.18);color:#f7768e}
+        .s-cancel{background:rgba(154,164,178,.18);color:#9aa4b2}
+        .mermaid{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;margin:12px 0}
     </style>
     <link rel="stylesheet" href="theme.css">
 </head>
 <body>
 <header>
-    <h1>MCP Extensions &amp; Elicitation</h1>
-    <p class="subtitle">The experimental capability map — how MCP evolves without breaking existing implementations</p>
+    <h1>MCP Tasks &mdash; Call Now, Fetch Later</h1>
+    <p class="subtitle">The 2025-11-25 utility for deferred execution, polling, and durable results</p>
 </header>
 <main>
     <div class="nav">
@@ -74,192 +76,209 @@
         <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
     </div>
 
-    <!-- Extensions Overview -->
+    <!-- Why Tasks -->
     <section class="card">
-        <div class="timing-badge">33 – 35 min</div>
-        <span class="chapter-badge">Chapter 5</span>
-        <h2>What Are MCP Extensions?</h2>
-        <p>MCP Extensions are <strong>optional additions</strong> to the core specification. They allow the protocol to evolve without breaking backwards compatibility. An extension is only active when <em>both sides</em> explicitly declare support for it.</p>
+        <div class="timing-badge">38 – 41 min</div>
+        <span class="chapter-badge">Chapter 7</span>
+        <span class="experimental-badge">Experimental — 2025-11-25</span>
+        <h2>The Problem Tasks Solve</h2>
+        <p>The synchronous <code>tools/call</code> shape works fine for fast operations &mdash; sub-second searches, lookups, small computations. It falls apart for anything that takes longer than a polite roundtrip: large-scale processing, batch jobs, ML inference, external API calls with retries.</p>
 
         <div class="key-concept">
-            <strong>The Experimental Map:</strong> Extensions live in the <code>experimental</code> field of <code>ServerCapabilities</code>. It's a <code>Map&lt;String, Object&gt;</code> where each key is an extension identifier and each value is extension-specific configuration.
+            <strong>Tasks split a request into two trips:</strong> the receiver immediately acknowledges with a <code>taskId</code> and a status of <code>working</code>, runs the work in the background, and lets the requestor poll, retrieve, or cancel on its own schedule.
         </div>
 
-        <pre style="margin-top:16px">{
-  "protocolVersion": "2025-06-18",
+        <h3>What Changes vs. Plain <code>tools/call</code></h3>
+        <table>
+            <thead><tr><th>Concern</th><th>Without Tasks</th><th>With Tasks</th></tr></thead>
+            <tbody>
+                <tr><td>Long operations</td><td>Hold the connection open</td><td>Acknowledge fast, poll later</td></tr>
+                <tr><td>Crash recovery</td><td>Result lost when stream drops</td><td>Retrievable until TTL expires</td></tr>
+                <tr><td>Concurrent work</td><td>One slow call blocks the LLM</td><td>LLM dispatches and continues</td></tr>
+                <tr><td>Stateless HTTP</td><td>Needs SSE or webhooks</td><td>Just request/response polling</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Capability negotiation -->
+    <section class="card">
+        <h2>Capability Negotiation</h2>
+        <p>Both sides advertise <strong>which categories of request</strong> may be task-augmented. Empty <code>{}</code> markers are intentional &mdash; presence is the signal.</p>
+
+        <div class="two-col">
+            <div class="ext-card">
+                <h4>Server declares (in <code>initialize</code> response)</h4>
+                <pre style="margin:6px 0">{
   "capabilities": {
-    "tools": { "listChanged": true },
-    "prompts": { "listChanged": true },
-    "resources": { "listChanged": false },
-    "experimental": {
-      "io.modelcontextprotocol/elicitation": {},
-      "io.modelcontextprotocol/apps": {}
+    "tasks": {
+      "list": {},
+      "cancel": {},
+      "requests": {
+        "tools": { "call": {} }
+      }
     }
   }
 }</pre>
-    </section>
-
-    <section class="card">
-        <h2>Extension Identifier Format</h2>
-        <p>Every extension uses a <strong>namespaced identifier</strong> to avoid naming collisions:</p>
-        <pre>{vendor-prefix}/{extension-name}</pre>
-
-        <div class="two-col" style="margin-top:16px">
-            <div class="ext-card">
-                <h4>Official MCP Extensions</h4>
-                <p>Maintained by the MCP organization under the <code>io.modelcontextprotocol</code> namespace:</p>
-                <ul style="margin:0;padding-left:20px;font-size:13px">
-                    <li><code>io.modelcontextprotocol/elicitation</code></li>
-                    <li><code>io.modelcontextprotocol/oauth-client-credentials</code></li>
-                    <li><code>io.modelcontextprotocol/enterprise-managed-authorization</code></li>
-                    <li><code>io.modelcontextprotocol/apps</code></li>
-                </ul>
             </div>
             <div class="ext-card">
-                <h4>Your Own Extensions</h4>
-                <p>Use your organization's reverse-domain prefix:</p>
-                <ul style="margin:0;padding-left:20px;font-size:13px">
-                    <li><code>com.mycompany/analytics-dashboard</code></li>
-                    <li><code>com.mycompany/audit-trail</code></li>
-                    <li><code>io.github.username/custom-ext</code></li>
-                </ul>
-                <p style="margin-top:8px">Any MCP client that doesn't recognize your extension key simply ignores it. Neither side breaks.</p>
+                <h4>Client declares (in <code>initialize</code> request)</h4>
+                <pre style="margin:6px 0">{
+  "capabilities": {
+    "tasks": {
+      "list": {},
+      "cancel": {},
+      "requests": {
+        "sampling":    { "createMessage": {} },
+        "elicitation": { "create": {} }
+      }
+    }
+  }
+}</pre>
             </div>
         </div>
+
+        <h3>Tool-Level Override</h3>
+        <p>Each tool declares its own appetite via <code>execution.taskSupport</code> in the <code>tools/list</code> response:</p>
+        <pre>{
+  "name": "key_word_search",
+  "execution": { "taskSupport": "optional" }
+}</pre>
+        <ul style="font-size:13px;padding-left:22px">
+            <li><code>"required"</code> &mdash; client MUST task-augment</li>
+            <li><code>"optional"</code> &mdash; client MAY task-augment</li>
+            <li><code>"forbidden"</code> or absent &mdash; client MUST NOT</li>
+        </ul>
     </section>
 
+    <!-- Lifecycle -->
     <section class="card">
-        <h2>The Two Official Extension Repositories</h2>
+        <h2>The Task Lifecycle</h2>
+        <p>Tasks are state machines with three terminal states. Receivers are forbidden from moving a terminal task back into <code>working</code>.</p>
+
         <div class="two-col">
             <div class="ext-card">
-                <h4>🔐 ext-auth — Authorization</h4>
-                <p>Covers authorization scenarios the core protocol doesn't address:</p>
-                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
-                    <li><strong>OAuth 2.0 Client Credentials</strong> — machine-to-machine auth for servers calling protected APIs on their own behalf</li>
-                    <li><strong>Enterprise-Managed Authorization</strong> — centralized access control via corporate identity providers (Okta, Azure AD, etc.)</li>
-                </ul>
+                <div class="mermaid">
+<pre style="background:transparent;border:none;padding:0;margin:0;font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace">
+                [*]
+                 │
+                 ▼
+        ┌────────────────┐
+        │    working     │◄─────┐
+        └────────────────┘      │
+            │      │            │
+            ▼      ▼            │
+   input_required  │            │
+            │      │            │
+            └──────┴──┐         │
+                     ▼          │
+        ┌─────────────────┐     │
+        │ completed │      │     │
+        │ failed    │ ─── terminal
+        │ cancelled │      │
+        └─────────────────┘
+</pre>
+                </div>
             </div>
             <div class="ext-card">
-                <h4>🖥️ ext-apps — Interactive UI</h4>
-                <p>Allows MCP servers to render interactive HTML UI elements inside the conversation:</p>
-                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
-                    <li>Charts and data visualizations</li>
-                    <li>Forms for structured input collection</li>
-                    <li>Video and media players</li>
-                    <li>Custom interactive components</li>
-                </ul>
-                <p style="font-size:13px;margin-top:8px">This is what powers <strong>MCP Apps</strong> — covered on the next page.</p>
+                <h4>Status values</h4>
+                <table class="lifecycle-table">
+                    <tbody>
+                        <tr><td><span class="status-pill s-working">working</span></td><td>Initial state. Receiver is processing.</td></tr>
+                        <tr><td><span class="status-pill s-input">input_required</span></td><td>Receiver needs more input before it can continue.</td></tr>
+                        <tr><td><span class="status-pill s-done">completed</span></td><td>Terminal &mdash; success. Result is retrievable.</td></tr>
+                        <tr><td><span class="status-pill s-fail">failed</span></td><td>Terminal &mdash; underlying request failed.</td></tr>
+                        <tr><td><span class="status-pill s-cancel">cancelled</span></td><td>Terminal &mdash; cancelled by requestor.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </section>
 
-    <!-- Elicitation -->
+    <!-- Message Flow -->
     <section class="card">
-        <div class="timing-badge">35 – 37 min</div>
-        <h2>Elicitation — Server-Initiated User Input</h2>
-        <p>Elicitation lets the <strong>server</strong> ask the <strong>user</strong> for structured input mid-session. Instead of the tool requiring all parameters upfront, the server can pause execution, present a form, collect responses, and continue.</p>
-
-        <h3>The Elicitation Flow</h3>
+        <h2>Message Flow &mdash; Augmented <code>tools/call</code></h2>
         <div class="flow-steps">
             <div class="flow-step">
                 <span class="step-num">1</span>
                 <div class="step-content">
-                    <h4>Client declares support</h4>
-                    <p>During <code>initialize</code>, the client includes <code>"elicitation": {}</code> in its capabilities.</p>
+                    <h4>Request augmentation</h4>
+                    <p>Client sends a regular <code>tools/call</code> with one extra field: <code>params.task = { ttl: 60000 }</code>.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">2</span>
                 <div class="step-content">
-                    <h4>Server checks and declares</h4>
-                    <p>Server reads <code>clientCapabilities.elicitation()</code>. If present, sets <code>hasElicitation = true</code> and adds <code>io.modelcontextprotocol/elicitation</code> to the experimental map in its response.</p>
+                    <h4>Immediate <code>CreateTaskResult</code></h4>
+                    <p>Server replies in milliseconds: <code>{ task: { taskId, status: "working", ttl, pollInterval } }</code>. The underlying tool has not run yet.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">3</span>
                 <div class="step-content">
-                    <h4>Server sends elicitation/create — <em>lazily</em></h4>
-                    <p>The server does <strong>not</strong> elicit at startup. It defers the elicitation until it actually needs the missing piece — here, the first <code>tools/call key_word_search</code> arriving with an empty roots set. The original <code>tools/call</code> response is paused (the requestor's request id is remembered) while the form goes out.</p>
+                    <h4>Background execution</h4>
+                    <p>Server spawns a thread (or hands off to a queue). The router keeps processing other requests while the task runs.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">4</span>
                 <div class="step-content">
-                    <h4>Client presents form to user</h4>
-                    <p>The host renders a UI form based on the schema. The user fills it in and submits.</p>
+                    <h4>Polling &mdash; <code>tasks/get</code></h4>
+                    <p>Client polls at the server's suggested <code>pollInterval</code>. Each call returns the current <code>Task</code> snapshot without blocking.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">5</span>
                 <div class="step-content">
-                    <h4>Client returns result, server resumes the deferred call</h4>
-                    <p>The form result arrives as a <code>JsonRpcResponse</code> with <code>id == ELICITATION_REQUEST_ID</code>. The server adds <code>content.directory</code> to its roots set, then sends the <strong>delayed</strong> response to the original <code>tools/call</code> using the request id it remembered in step&nbsp;3.</p>
+                    <h4>Retrieval &mdash; <code>tasks/result</code></h4>
+                    <p>Once terminal (or if the client is willing to block), <code>tasks/result</code> returns exactly what the original <code>tools/call</code> would have returned, with <code>_meta.io.modelcontextprotocol/related-task</code> attached.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">6</span>
+                <div class="step-content">
+                    <h4>Optional notification</h4>
+                    <p>Receivers MAY push <code>notifications/tasks/status</code> on transition. Requestors MUST NOT depend on it &mdash; polling stays the contract.</p>
                 </div>
             </div>
         </div>
 
-        <h3>Elicitation Request (Server → Client)</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">The workshop's <code>key_word_search</code> tool needs a directory to search in. If the client did not supply one via <code>roots/list</code>, the server asks the user directly:</p>
-        <pre>{
-  "jsonrpc": "2.0",
-  "id": -4000,
-  "method": "elicitation/create",
-  "params": {
-    "message": "Pick a directory for the keyword-search tool to search in:",
-    "requestedSchema": {
-      "type": "object",
-      "required": ["directory"],
-      "properties": {
-        "directory": {
-          "title": "Search Directory",
-          "type": "string",
-          "description": "Absolute path to the directory the keyword search should look in"
-        }
-      }
-    }
-  }
-}</pre>
-
-        <h3>User Response (Client → Server)</h3>
-        <pre>{
-  "jsonrpc": "2.0",
-  "id": -4000,
-  "result": {
-    "action": "accept",
-    "content": {
-      "directory": "/Users/davidparry/code/github/agent-command"
-    }
-  }
-}</pre>
-        <p style="color:var(--muted);font-size:13px;margin-top:8px">The server's response handler adds <code>content.directory</code> to its <code>roots</code> set so subsequent <code>tools/call</code> invocations have a search target — without ever exposing the directory as a tool parameter.</p>
-
-        <h3>Backwards Compatibility — The Core Principle</h3>
-        <table class="handshake-table">
-            <thead><tr><th>Direction</th><th>Mechanism</th><th>Where Implemented</th></tr></thead>
+        <h3>The Five New Methods</h3>
+        <table>
+            <thead><tr><th>Method</th><th>Direction</th><th>Purpose</th></tr></thead>
             <tbody>
-                <tr><td>Client → Server</td><td><code>capabilities.elicitation: {}</code> in initialize request</td><td>Client (Inspector, Claude)</td></tr>
-                <tr><td>Server → Client</td><td><code>capabilities.experimental["io.modelcontextprotocol/elicitation"]</code></td><td>IORouter INITIALIZE handler</td></tr>
-                <tr><td>Server sends form</td><td><code>elicitation/create</code> deferred until <code>tools/call</code> needs a directory</td><td>IORouter TOOLS_CALL branch</td></tr>
-                <tr><td>Client responds</td><td><code>JsonRpcResponse</code> with id <code>-4000</code> &mdash; server adds directory to roots and resumes the held <code>tools/call</code></td><td>IORouter process(JsonRpcResponse)</td></tr>
+                <tr><td><code>tools/call</code> + <code>task</code></td><td>req &rarr; rec</td><td>Implicit task creation via augmentation</td></tr>
+                <tr><td><code>tasks/get</code></td><td>req &rarr; rec</td><td>Non-blocking status poll</td></tr>
+                <tr><td><code>tasks/result</code></td><td>req &rarr; rec</td><td>Blocks until terminal, returns underlying result</td></tr>
+                <tr><td><code>tasks/list</code></td><td>req &rarr; rec</td><td>Cursor-paginated enumeration</td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>req &rarr; rec</td><td>Best-effort cancel; <code>-32602</code> if terminal</td></tr>
+                <tr><td><code>notifications/tasks/status</code></td><td>rec &rarr; req</td><td>Optional status push</td></tr>
             </tbody>
         </table>
     </section>
 
-    <!-- IDE Demo -->
-    <div class="ide-demo">
-        <span class="ide-demo-badge">⌨️ IDE Demo — 41–43 min</span>
-        <h3>Inspector: See the Elicitation Flow Live</h3>
-        <p style="color:var(--muted);font-size:14px">Restart the server from the Chapter 5 branch to see elicitation in action.</p>
-        <ul>
-            <li>Connect to the server — nothing is asked yet, just the <code>roots/list</code> request goes out after <code>notifications/initialized</code></li>
-            <li>Open <strong>Tools</strong> and invoke <code>key_word_search</code> with a keyword</li>
-            <li>If the client did not supply roots, the Inspector now renders the single-field elicitation form asking for the search <code>directory</code> (absolute path) &mdash; <em>and the <code>tools/call</code> response has not arrived yet</em></li>
-            <li>Submit the form — watch the server add the directory to its roots set, then the original <code>tools/call</code> response finally arrives with the search hits</li>
-            <li>See the <code>experimental</code> map in the initialize response containing <code>io.modelcontextprotocol/elicitation</code></li>
-        </ul>
-    </div>
+    <!-- Related-task meta -->
+    <section class="card">
+        <h2>Related-Task Metadata</h2>
+        <p>Every response or notification belonging to a task carries this key in its <code>_meta</code>:</p>
+        <pre>"_meta": {
+  "io.modelcontextprotocol/related-task": { "taskId": "786512e2-..." }
+}</pre>
+        <p>This is how a server-initiated <code>elicitation/create</code> (triggered <em>inside</em> a task) gets correlated back to its parent task &mdash; required for the <code>input_required</code> flow.</p>
+    </section>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Elicitation — Chapter 5.</div>
+    <!-- When not to use -->
+    <section class="card">
+        <h2>When <em>Not</em> to Use Tasks</h2>
+        <p>Tasks add round trips. For short operations they cost more than they save. Skip task augmentation when:</p>
+        <ul>
+            <li>The call returns in under a second &mdash; the polling overhead dwarfs the work</li>
+            <li>You're inside a tight loop &mdash; batch the calls instead</li>
+            <li>You need ordered streaming output &mdash; tasks are point-in-time, not a stream</li>
+            <li>Your transport already supports server-push (WebSockets, SSE) and you don't need durability</li>
+        </ul>
+    </section>
+
+    <div class="footer">© 2025 MCP Presentation. Tasks &mdash; Chapter 7.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

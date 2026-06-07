@@ -4,6 +4,9 @@ import com.workshop.mcp.spec.Capability;
 import com.workshop.mcp.spec.InitializeResult;
 import com.workshop.mcp.spec.ServerCapabilities;
 import com.workshop.mcp.spec.ServerInfo;
+import com.workshop.mcp.spec.ServerTaskRequests;
+import com.workshop.mcp.spec.TasksCapability;
+import com.workshop.mcp.spec.ToolsTaskRequests;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,6 +38,7 @@ public class InitializeResultBuilder {
     private String protocolVersion;
     private ServerCapabilities capabilities;
     private ServerInfo serverInfo;
+    private TasksCapability tasks;
     private final Map<String, Object> experimental = new HashMap<>();
 
     /**
@@ -128,14 +132,49 @@ public class InitializeResultBuilder {
      */
     public InitializeResultBuilder withDefaultCapabilities() {
         Capability capabilityTrue = new Capability();
+        TasksCapability tasksCapability = (this.tasks != null) ? this.tasks : defaultTasksCapability();
         this.capabilities = new ServerCapabilities(
             capabilityTrue,
             capabilityTrue,
             new Capability(false, false),
             new Capability(null, null),
+            tasksCapability,
             experimental.isEmpty() ? null : experimental
         );
         return this;
+    }
+
+    /**
+     * Declares the server's task capability sent during initialization.
+     * <p>
+     * Per MCP 2025-11-25 spec § "Server Capabilities", this advertises that
+     * the server supports the {@code tasks/list} and {@code tasks/cancel}
+     * operations and which inbound request types may be task-augmented.
+     * </p>
+     *
+     * @param tasks the {@link TasksCapability} to send, or {@code null} to
+     *              opt the server out of task support
+     * @return this builder instance for method chaining
+     */
+    public InitializeResultBuilder withTasksCapability(TasksCapability tasks) {
+        this.tasks = tasks;
+        return this;
+    }
+
+    /**
+     * Returns the default tasks capability advertised by this workshop server:
+     * supports {@code tasks/list}, {@code tasks/cancel}, and accepts task
+     * augmentation on {@code tools/call}.
+     *
+     * @return the default {@link TasksCapability}
+     */
+    public static TasksCapability defaultTasksCapability() {
+        Capability marker = new Capability(null, null);
+        return new TasksCapability(
+            marker,
+            marker,
+            new ServerTaskRequests(new ToolsTaskRequests(marker))
+        );
     }
 
     /**

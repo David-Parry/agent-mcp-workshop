@@ -43,5 +43,6 @@ public record AppTool(
         String name,
         String description,
         InputSchema inputSchema,
-        AppMeta _meta
+        AppMeta _meta,
+        ToolExecution execution
 ) {}

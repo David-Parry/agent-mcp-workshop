@@ -10,5 +10,6 @@ public record ServerCapabilities(
     Capability prompts,
     Capability resources,
     Capability completions,
+    TasksCapability tasks,
     Map<String, Object> experimental
 ) {}

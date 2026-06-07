@@ -38,6 +38,7 @@
         <a href="index.html">Home</a>
         <a href="overview.html">Overview</a>
         <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="tasks.html">Tasks</a>
         <a href="runtime-facts.html">Runtime Facts</a>
         <a href="trace-log.html">Trace Log</a>
         <a href="contact.html">Contact</a>
@@ -97,7 +98,7 @@
                 <ul>
                     <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
                     <li><strong>Description:</strong> Searches for keywords across project files</li>
-                    <li><strong>Parameters:</strong> keyword, root_directory</li>
+                    <li><strong>Parameters:</strong> keyword <em>(directory comes from <code>roots/list</code> or the elicitation, not a tool arg)</em></li>
                 </ul>
             </div>
 
@@ -125,10 +126,10 @@
                 <ul>
                     <li><strong>Method:</strong> <code>elicitation/create</code></li>
                     <li><strong>Request ID:</strong> -4000</li>
-                    <li><strong>Message:</strong> "Please provide the Jira project details for summarization:"</li>
-                    <li><strong>Schema Fields:</strong> projectKey, timeRange</li>
-                    <li><strong>User Response:</strong> projectKey="ENG", timeRange="last 30 days"</li>
-                    <li><strong>Action:</strong> accept</li>
+                    <li><strong>Message:</strong> "Pick a directory for the keyword-search tool to search in:"</li>
+                    <li><strong>Schema Fields:</strong> directory (absolute path)</li>
+                    <li><strong>User Response:</strong> directory = <code>/Users/.../some-repo</code></li>
+                    <li><strong>Action:</strong> accept &rarr; directory added to server's roots set</li>
                 </ul>
             </div>
 

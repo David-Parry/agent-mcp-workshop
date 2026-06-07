@@ -107,7 +107,36 @@ public enum UniqueKeys {
      * Method for creating a new elicitation message.
      * Used to initiate an elicitation operation with questions for the user.
      */
-    ELICITATION_CREATE_MESSAGE("elicitation/create");
+    ELICITATION_CREATE_MESSAGE("elicitation/create"),
+
+    /**
+     * Method for polling a task's current state (MCP 2025-11-25 tasks utility).
+     * Returns the {@link Task} snapshot without blocking.
+     */
+    TASKS_GET("tasks/get"),
+
+    /**
+     * Method for retrieving the final result of a task (MCP 2025-11-25).
+     * Blocks until the task reaches a terminal state, then returns exactly
+     * what the underlying request would have returned.
+     */
+    TASKS_RESULT("tasks/result"),
+
+    /**
+     * Method for listing all tasks visible to the requestor (MCP 2025-11-25).
+     */
+    TASKS_LIST("tasks/list"),
+
+    /**
+     * Method for explicitly cancelling a task (MCP 2025-11-25).
+     */
+    TASKS_CANCEL("tasks/cancel"),
+
+    /**
+     * Notification sent by a receiver when a task transitions to a new status
+     * (MCP 2025-11-25). The params field is the full {@link Task} object.
+     */
+    NOTIFICATIONS_TASKS_STATUS("notifications/tasks/status");
 
     private final String value;
 

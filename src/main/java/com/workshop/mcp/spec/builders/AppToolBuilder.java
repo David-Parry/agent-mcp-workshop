@@ -3,6 +3,7 @@ package com.workshop.mcp.spec.builders;
 import com.workshop.mcp.spec.AppMeta;
 import com.workshop.mcp.spec.AppTool;
 import com.workshop.mcp.spec.InputSchema;
+import com.workshop.mcp.spec.ToolExecution;
 import com.workshop.mcp.spec.UiMeta;
 
 import java.util.function.Consumer;
@@ -42,6 +43,7 @@ public class AppToolBuilder {
     private String description;
     private InputSchema inputSchema;
     private String resourceUri;
+    private ToolExecution execution;
 
     /**
      * Private constructor to enforce use of the static factory method.
@@ -124,6 +126,26 @@ public class AppToolBuilder {
     }
 
     /**
+     * Sets the per-tool task-execution declaration that appears in
+     * {@code tools/list} under {@code execution.taskSupport}.
+     * <p>
+     * Per MCP 2025-11-25 spec § "Tool-Level Negotiation", this signals whether
+     * task augmentation is {@code "required"}, {@code "optional"}, or
+     * {@code "forbidden"} for this tool. Servers that do not also declare
+     * {@code tasks.requests.tools.call} in their capabilities will have this
+     * value ignored by clients.
+     * </p>
+     *
+     * @param execution the per-tool execution hint
+     * @return this builder instance for method chaining
+     * @see ToolExecution
+     */
+    public AppToolBuilder withExecution(ToolExecution execution) {
+        this.execution = execution;
+        return this;
+    }
+
+    /**
      * Builds and returns the configured {@link AppTool}.
      *
      * @return a new AppTool with the configured name, description, schema, and UI metadata
@@ -140,6 +162,6 @@ public class AppToolBuilder {
             throw new IllegalStateException("resourceUri is required for AppTool — use withResourceUri(\"ui://...\")" );
         }
         AppMeta meta = new AppMeta(new UiMeta(resourceUri));
-        return new AppTool(name, description, inputSchema, meta);
+        return new AppTool(name, description, inputSchema, meta, execution);
     }
 }

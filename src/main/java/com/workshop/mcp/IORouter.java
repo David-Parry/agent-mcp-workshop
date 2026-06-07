@@ -6,16 +6,19 @@ import com.workshop.mcp.io.LogFileWriter;
 import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
+import com.workshop.mcp.tasks.TaskStore;
 
 import com.workshop.mcp.tools.KeyWordSearch;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.workshop.mcp.spec.Message.KEY_WORD_MESSAGE;
 import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
-import static com.workshop.mcp.spec.builders.ElicitationBuilder.buildJiraProjectElicitation;
+import static com.workshop.mcp.spec.builders.ElicitationBuilder.buildSearchDirectoryElicitation;
 
 public class IORouter implements Router {
     private static final LogFile logger = LogFileWriter.getInstance();
@@ -28,12 +31,17 @@ public class IORouter implements Router {
     private final IOHandler io;
     private final Set<String> roots = new HashSet<>();
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
+    private final TaskStore taskStore = new TaskStore();
     private boolean hasRoots = false;
     private boolean hasSampling = false;
     private boolean hasElicitation = false;
+    private boolean hasTasks = false;
+    private Long pendingToolsCallRequestId = null;
+    private ToolCallParams pendingToolCallParams = null;
 
     public IORouter(IOHandler io) {
         this.io = io;
+        this.taskStore.onStatusChange(this::sendTaskStatusNotification);
     }
 
     public void route(String message) {
@@ -55,6 +63,12 @@ public class IORouter implements Router {
         io.emit(response);
     }
 
+    private void error(Long id, int code, String message) {
+        JsonRpcErrorResponse response = new JsonRpcErrorResponse(
+                JSON_RPC_VERSION, id, new JsonRpcError(code, message, null));
+        io.emit(response);
+    }
+
     private void process(JsonRpcRequest message) {
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
         switch (uniqueKey) {
@@ -70,11 +84,16 @@ public class IORouter implements Router {
                 if(clientCapabilities.elicitation() != null){
                     hasElicitation = true;
                 }
+                if (clientCapabilities.tasks() != null) {
+                    hasTasks = true;
+                    logger.log("Client declared tasks capability — task-augmented requests enabled");
+                }
                 InitializeResultBuilder builder = InitializeResultBuilder
                         .builder()
                         .withProtocolVersion(initializeParams.protocolVersion())
                         .withExperimentalCapability("io.modelcontextprotocol/elicitation", new Object())
                         .withExperimentalCapability("io.modelcontextprotocol/apps", new Object())
+                        .withTasksCapability(InitializeResultBuilder.defaultTasksCapability())
                         .withDefaultCapabilities()
                         .withDefaultServerInfo();
                 success(message.id(), builder.build());
@@ -110,20 +129,85 @@ public class IORouter implements Router {
                         .withDescription(keyWordSearch.description())
                         .withInputSchema(keyWordSearch.schema())
                         .withResourceUri("ui://keyword-search/mcp-app.html")
+                        .withExecution(ToolExecution.optional())
                         .build();
                 success(message.id(), new AppToolsListResult(List.of(appTool)));
             }
             case TOOLS_CALL -> {
                 KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
-                if (keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
-                    success(message.id(), keyWordSearch.call(toolCallParams));
-                } else {
+                if (!keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
                     success(message.id(), ToolCallResultBuilder
                             .builder()
                             .addTextContent("Tool not found: " + toolCallParams.name())
                             .asError()
                             .build());
+                } else if (roots.isEmpty() && hasElicitation && pendingToolsCallRequestId == null) {
+                    // No search directory available — defer the response, ask the user
+                    // for one via elicitation, and resume the call once the directory
+                    // arrives in process(JsonRpcResponse).
+                    pendingToolsCallRequestId = message.id();
+                    pendingToolCallParams = toolCallParams;
+                    logger.log("tools/call deferred — roots empty, eliciting search directory"
+                               + " (toolsCallId=" + message.id() + ")");
+                    sendElicitationMessage();
+                } else if (roots.isEmpty() && hasElicitation) {
+                    // Another tools/call is already mid-elicitation — refuse this one
+                    // rather than queueing, to keep the workshop flow easy to follow.
+                    logger.log("tools/call rejected — another elicitation is already in flight"
+                               + " (pendingToolsCallId=" + pendingToolsCallRequestId + ")");
+                    success(message.id(), ToolCallResultBuilder
+                            .builder()
+                            .addTextContent("Another keyword search is currently waiting on the directory " +
+                                            "elicitation form — finish that one first.")
+                            .asError()
+                            .build());
+                } else {
+                    executeKeyWordSearchCall(message.id(), toolCallParams);
+                }
+            }
+            case TASKS_GET -> {
+                TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
+                Task task = taskStore.get(params.taskId());
+                if (task == null) {
+                    logger.log("tasks/get — unknown taskId=" + params.taskId());
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
+                } else {
+                    logger.log("tasks/get taskId=" + task.taskId() + " status=" + task.status());
+                    success(message.id(), task);
+                }
+            }
+            case TASKS_RESULT -> {
+                TasksResultParams params = deserializer.deserializeParams(message, TasksResultParams.class);
+                Long requestId = message.id();
+                boolean terminalNow = taskStore.isTerminal(params.taskId());
+                logger.log("tasks/result taskId=" + params.taskId()
+                           + (terminalNow ? " — terminal, replying immediately"
+                                          : " — awaiting terminal status before reply"));
+                taskStore.awaitTerminal(params.taskId(), terminal -> emitTaskResult(requestId, params.taskId(), terminal));
+            }
+            case TASKS_LIST -> {
+                List<Task> all = taskStore.list();
+                logger.log("tasks/list — returning " + all.size() + " task(s)");
+                success(message.id(), new TasksListResult(all, null));
+            }
+            case TASKS_CANCEL -> {
+                TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
+                Task before = taskStore.get(params.taskId());
+                if (before == null) {
+                    logger.log("tasks/cancel — unknown taskId=" + params.taskId());
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
+                } else {
+                    Task cancelled = taskStore.cancel(params.taskId());
+                    if (cancelled == null) {
+                        logger.log("tasks/cancel rejected — taskId=" + params.taskId()
+                                   + " already terminal (" + before.status() + ")");
+                        error(message.id(), ErrorCodes.INVALID_PARAMS,
+                              "Cannot cancel task: already in terminal status '" + before.status() + "'");
+                    } else {
+                        logger.log("tasks/cancel — taskId=" + cancelled.taskId() + " cancelled");
+                        success(message.id(), cancelled);
+                    }
                 }
             }
             case RESOURCES_LIST -> {
@@ -200,12 +284,11 @@ public class IORouter implements Router {
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
         switch (uniqueKey) {
             case NOTIFICATIONS_INITIALIZED -> {
-                // if server has roots, request the roots list
+                // if server has roots, request the roots list. Elicitation is
+                // intentionally NOT triggered here — it now fires lazily, only
+                // when a tools/call needs a directory and none is available.
                 if (hasRoots) {
                     io.emit(rootsRequest);
-                }
-                if(hasElicitation) {
-                    sendElicitationMessage();
                 }
             }
             case NOTIFICATIONS_ROOTS_LIST_CHANGED -> {
@@ -227,6 +310,48 @@ public class IORouter implements Router {
             for (Root root : rootsResponse.roots()) {
                 roots.add(root.uri());
             }
+            logger.log("roots/list response — populated " + roots.size() + " root(s)");
+        } else if (ELICITATION_REQUEST_ID.equals(message.id())) {
+            ElicitationCreateResult result = deserializer.deserializeResult(message, ElicitationCreateResult.class);
+            logger.log("elicitation/create response — action=" + result.action());
+            if ("accept".equalsIgnoreCase(result.action()) && result.content() instanceof Map<?, ?> contentMap) {
+                Object directory = contentMap.get("directory");
+                if (directory instanceof String s && !s.isBlank()) {
+                    roots.add(s);
+                    logger.log("elicitation/create — added directory to roots: " + s);
+                } else {
+                    logger.log("elicitation/create — accepted but no usable directory field in content: " + contentMap);
+                }
+            }
+            // Resume any tools/call that was waiting on the user's directory choice.
+            if (pendingToolsCallRequestId != null) {
+                Long resumeId = pendingToolsCallRequestId;
+                ToolCallParams resumeParams = pendingToolCallParams;
+                pendingToolsCallRequestId = null;
+                pendingToolCallParams = null;
+                logger.log("tools/call resumed after elicitation — toolsCallId=" + resumeId
+                           + " rootsAvailable=" + !roots.isEmpty());
+                executeKeyWordSearchCall(resumeId, resumeParams);
+            }
+        }
+    }
+
+    /**
+     * Runs the keyword search either synchronously or as a task-augmented call
+     * depending on whether the requestor included {@code params.task}. Shared
+     * by the immediate-dispatch path in {@code TOOLS_CALL} and the deferred
+     * resumption path after an elicitation response arrives.
+     */
+    private void executeKeyWordSearchCall(Long requestId, ToolCallParams params) {
+        KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
+        if (params.task() != null && hasTasks) {
+            Task task = taskStore.create(params.task().ttl());
+            logger.log("tools/call augmented with task — created taskId=" + task.taskId()
+                       + " status=" + task.status() + " ttl=" + task.ttl());
+            success(requestId, new CreateTaskResult(task, relatedTaskMeta(task.taskId())));
+            runToolAsTask(task.taskId(), params);
+        } else {
+            success(requestId, keyWordSearch.call(params));
         }
     }
 
@@ -252,11 +377,104 @@ public class IORouter implements Router {
     }
 
     private void sendElicitationMessage() {
-        ElicitationCreateParams params = ElicitationBuilder.buildJiraProjectElicitation();
+        ElicitationCreateParams params = ElicitationBuilder.buildSearchDirectoryElicitation();
         JsonRpcRequest elicitationRequest = new JsonRpcRequest(JSON_RPC_VERSION, ELICITATION_REQUEST_ID,
                                                                UniqueKeys.ELICITATION_CREATE_MESSAGE.getValue(),
                                                                params);
         io.emit(elicitationRequest);
+    }
+
+    /**
+     * Builds the {@code _meta} bag that ties a response to its parent task per
+     * spec § "Related Task Metadata".
+     */
+    private static Map<String, Object> relatedTaskMeta(String taskId) {
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("io.modelcontextprotocol/related-task", Map.of("taskId", taskId));
+        return meta;
+    }
+
+    /**
+     * Spawn a background thread that runs the actual tool work and records
+     * its outcome in the {@link TaskStore}. A small sleep is included so the
+     * "working → completed" transition is observable in the inspector.
+     */
+    private void runToolAsTask(String taskId, ToolCallParams params) {
+        new Thread(() -> {
+            logger.log("task " + taskId + " — background tool execution started for tool="
+                       + params.name());
+            try {
+                Thread.sleep(2000L);
+                KeyWordSearch tool = new KeyWordSearch(this.roots);
+                ToolCallResult result = tool.call(params);
+                taskStore.complete(taskId, result);
+                logger.log("task " + taskId + " — tool completed, transitioning to completed");
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                logger.log("task " + taskId + " — interrupted: " + ie.getMessage());
+                taskStore.fail(taskId, "Interrupted: " + ie.getMessage());
+            } catch (Exception e) {
+                logger.log("task " + taskId + " — tool execution failed: " + e.getMessage());
+                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
+            }
+        }, "task-" + taskId).start();
+    }
+
+    /**
+     * Emit the {@code tasks/result} response once the task is terminal.
+     * Returns the underlying request's payload wrapped with the required
+     * {@code io.modelcontextprotocol/related-task} metadata.
+     */
+    private void emitTaskResult(Long requestId, String taskId, Task terminal) {
+        if (terminal == null) {
+            logger.log("tasks/result — taskId=" + taskId + " not found at delivery time");
+            error(requestId, ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
+            return;
+        }
+        TaskStatus status = TaskStatus.fromValue(terminal.status());
+        logger.log("tasks/result — delivering for taskId=" + taskId + " terminal=" + terminal.status());
+        if (status == TaskStatus.CANCELLED) {
+            error(requestId, ErrorCodes.INVALID_PARAMS,
+                  "Cannot retrieve result: task was cancelled");
+            return;
+        }
+        if (status == TaskStatus.FAILED) {
+            error(requestId, ErrorCodes.INTERNAL_ERROR,
+                  terminal.statusMessage() != null
+                          ? terminal.statusMessage()
+                          : "Task failed");
+            return;
+        }
+        Object stored = taskStore.resultFor(taskId);
+        if (stored instanceof ToolCallResult tcr) {
+            // Attach the related-task meta to the tool call result wrapper. We
+            // construct a plain map so the workshop's records stay unchanged
+            // and Gson still serializes the expected shape.
+            Map<String, Object> envelope = new HashMap<>();
+            envelope.put("content", tcr.content());
+            envelope.put("isError", tcr.isError());
+            envelope.put("_meta", relatedTaskMeta(taskId));
+            success(requestId, envelope);
+        } else if (stored != null) {
+            success(requestId, stored);
+        } else {
+            logger.log("tasks/result — taskId=" + taskId + " terminal but no stored payload");
+            error(requestId, ErrorCodes.INTERNAL_ERROR, "No stored result for task");
+        }
+    }
+
+    /**
+     * Emit a {@code notifications/tasks/status} for the given task snapshot.
+     * Called for every status transition by the {@link TaskStore} listener
+     * registered in the constructor.
+     */
+    private void sendTaskStatusNotification(Task task) {
+        logger.log("notifications/tasks/status — taskId=" + task.taskId() + " status=" + task.status());
+        JsonRpcNotification notification = new JsonRpcNotification(
+                JSON_RPC_VERSION,
+                UniqueKeys.NOTIFICATIONS_TASKS_STATUS.getValue(),
+                task);
+        io.emit(notification);
     }
 
 }

@@ -199,7 +199,7 @@ InitializeResultBuilder builder = InitializeResultBuilder
  * Uses ElicitationBuilder to construct a structured question with a JSON schema.
  */
 private void sendElicitationMessage() {
-    ElicitationCreateParams params = ElicitationBuilder.buildJiraProjectElicitation();
+    ElicitationCreateParams params = ElicitationBuilder.buildSearchDirectoryElicitation();
     JsonRpcRequest elicitationRequest = new JsonRpcRequest(JSON_RPC_VERSION, ELICITATION_REQUEST_ID,
                                                            UniqueKeys.ELICITATION_CREATE_MESSAGE.getValue(),
                                                            params);
@@ -208,43 +208,72 @@ private void sendElicitationMessage() {
 ```
 
 **Key components:**
-- `ElicitationBuilder.buildJiraProjectElicitation()` — creates the elicitation parameters with a prompt and a JSON schema defining a dropdown for Project Key and a dropdown for Time Range
+- `ElicitationBuilder.buildSearchDirectoryElicitation()` — creates the elicitation parameters with a prompt and a JSON schema defining a single required `directory` string field (an absolute path) that the `key_word_search` tool will use as its search root
 - `ELICITATION_REQUEST_ID` — the unique ID we defined in Step 1; the response will arrive as a `JsonRpcResponse` with this same ID
 - `io.emit()` — sends the request to the client
 
-### Step 5: Send elicitation after initialization (~line 185)
+### Step 5: Trigger elicitation lazily inside `TOOLS_CALL`
 
-**Action Required**: In the `NOTIFICATIONS_INITIALIZED` case of `process(JsonRpcNotification message)`, add the elicitation trigger after the existing roots request:
+**Action Required**: The elicitation is **not** sent at startup. It's only sent when the tool actually needs a search directory and the client did not provide one via `roots/list`. Defer the response to the original `tools/call` until the user submits the form, then resume.
+
+Add two fields next to the capability flags so the router remembers which `tools/call` it owes a response to:
 
 ```java
-case NOTIFICATIONS_INITIALIZED -> {
-    // if server has roots, request the roots list
-    if (hasRoots) {
-        io.emit(rootsRequest);
-    }
-    if (hasElicitation) {
+private Long pendingToolsCallRequestId = null;
+private ToolCallParams pendingToolCallParams = null;
+```
+
+In the `TOOLS_CALL` case, branch on whether roots are available before dispatching:
+
+```java
+case TOOLS_CALL -> {
+    KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
+    ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
+    if (!keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
+        success(message.id(), ToolCallResultBuilder.builder()
+                .addTextContent("Tool not found: " + toolCallParams.name())
+                .asError()
+                .build());
+    } else if (roots.isEmpty() && hasElicitation && pendingToolsCallRequestId == null) {
+        // No directory yet — remember the call, ask the user, resume on response
+        pendingToolsCallRequestId = message.id();
+        pendingToolCallParams = toolCallParams;
         sendElicitationMessage();
+    } else {
+        executeKeyWordSearchCall(message.id(), toolCallParams);
     }
 }
 ```
 
-This sends the elicitation request immediately after the client confirms initialization. `NOTIFICATIONS_INITIALIZED` is the correct moment — the client has confirmed the connection is ready and can accept server-initiated requests.
+Where `executeKeyWordSearchCall(...)` contains the actual tool dispatch (synchronous or task-augmented), shared between the immediate and resumed paths.
 
-### Step 6: Handle elicitation responses (~line 160)
+### Step 6: Consume the elicitation response and resume the deferred call
 
-**Action Required**: Add a case to handle incoming `elicitation/create` method calls from the client in the `process(JsonRpcRequest message)` switch statement, before the `default` case:
+**Action Required**: The form submission arrives as a `JsonRpcResponse` with `id == ELICITATION_REQUEST_ID`. Add a branch in `process(JsonRpcResponse)` that adds the chosen directory to `roots` and then resumes the pending `tools/call`:
 
 ```java
-case ELICITATION_CREATE_MESSAGE -> {
-    // Handle elicitation method calls from client
-    logger.log("Received elicitation/create method call from client: " + message);
-    // Parse the elicitation response and handle it appropriately
-    // For now, just acknowledge the elicitation request
-    success(message.id(), new Object());
+else if (ELICITATION_REQUEST_ID.equals(message.id())) {
+    ElicitationCreateResult result =
+        deserializer.deserializeResult(message, ElicitationCreateResult.class);
+    if ("accept".equalsIgnoreCase(result.action())
+            && result.content() instanceof Map<?, ?> contentMap
+            && contentMap.get("directory") instanceof String dir
+            && !dir.isBlank()) {
+        roots.add(dir);
+    }
+    if (pendingToolsCallRequestId != null) {
+        Long resumeId = pendingToolsCallRequestId;
+        ToolCallParams resumeParams = pendingToolCallParams;
+        pendingToolsCallRequestId = null;
+        pendingToolCallParams = null;
+        executeKeyWordSearchCall(resumeId, resumeParams);
+    }
 }
 ```
 
-**Note:** The elicitation flow is bidirectional — the server can send elicitation requests to the client (via `sendElicitationMessage()`), and the client can also send elicitation requests to the server. This handler processes the client-to-server direction and acknowledges it.
+If the user declines or cancels, `roots` stays empty and the resumed call returns a clean "no search directory available" error from the tool itself — no extra error-handling code needed.
+
+**Why lazy instead of eager?** Asking for a directory at server startup is annoying when the user just wants to look at prompts or resources. By deferring until the tool actually needs the directory, the elicitation form only appears when it's relevant.
 
 ---
 
@@ -269,13 +298,14 @@ cd inspector
 - In the MCP Inspector message log, find the `initialize` response from the server
 - Expand the `capabilities` object — you should now see an `experimental` field containing `"io.modelcontextprotocol/elicitation": {}`
 
-### 4. Observe the elicitation flow:
+### 4. Observe the lazy elicitation flow:
 
-- After clicking **Connect**, the server sends an `elicitation/create` request in response to `notifications/initialized`
-- The MCP Inspector displays the Jira project elicitation form with:
-  - A **Project Key** dropdown: ENG (Engineering), HR (Human Resources), OPS (Operations)
-  - A **Time Range** dropdown: Last 7 Days, Last 30 Days, Custom Range
-- Select values and click **Submit** — the server log confirms receipt
+- After clicking **Connect**, the server does **not** immediately ask anything — `notifications/initialized` only triggers the `roots/list` request.
+- Open **List Tools** and call `key_word_search` with a keyword.
+  - If the client supplied roots via `roots/list`, the call returns synchronously.
+  - If the client supplied no roots, the server now sends `elicitation/create` and **defers** the `tools/call` response.
+- The MCP Inspector displays the search-directory elicitation form with a single **Search Directory** text field — paste an absolute path (e.g. `/Users/you/code/some-repo`).
+- Click **Submit** — the server log shows the directory being added to the roots set, then the originally-deferred `tools/call` response arrives carrying the search results.
 
 ## What You Should Observe
 
@@ -284,8 +314,9 @@ cd inspector
 - The `completions` capability is present alongside tools, prompts, and resources
 
 ### In the elicitation flow:
-- The server sends `elicitation/create` immediately after `notifications/initialized`
-- The inspector renders the structured form from `ElicitationBuilder`
+- Nothing is asked at startup — the inspector only sees the `roots/list` request after `notifications/initialized`
+- The first `tools/call key_word_search` that finds an empty roots set causes the server to emit `elicitation/create`
+- The original `tools/call` response arrives only after the user accepts the form (or returns an error if they decline)
 - Submitting, declining, or cancelling produces different log entries on the server
 
 ---
