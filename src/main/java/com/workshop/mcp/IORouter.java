@@ -123,6 +123,7 @@ public class IORouter implements Router {
                 success(message.id(), builder.build());
             }
             case TOOLS_LIST -> {
+                this.roots.clear();
                 KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
                 AppTool appTool = AppToolBuilder.builder()
                         .withName(keyWordSearch.name())
@@ -284,9 +285,7 @@ public class IORouter implements Router {
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
         switch (uniqueKey) {
             case NOTIFICATIONS_INITIALIZED -> {
-                // if server has roots, request the roots list. Elicitation is
-                // intentionally NOT triggered here — it now fires lazily, only
-                // when a tools/call needs a directory and none is available.
+                // if server has roots, request the roots list.
                 if (hasRoots) {
                     io.emit(rootsRequest);
                 }
