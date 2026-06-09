@@ -26,8 +26,12 @@ import java.util.Date;
  * </ul>
  * </p>
  *
- * <p>Log files are created with the naming pattern: {@code agent-mcp-workshop-<PID>.log}
- * in the {@code logs/} directory relative to the application's working directory.</p>
+ * <p>Log files are created with the naming pattern:
+ * {@code agent-mcp-workshop-<PID>-<yyyyMMdd-HHmmss>.log} in the {@code logs/}
+ * directory relative to the application's working directory. The startup
+ * timestamp is captured once at singleton construction so every log line for
+ * the run goes to the same file even if logging happens minutes after
+ * startup.</p>
  *
  * <p>Thread Safety: This class is thread-safe for initialization. However, individual
  * logging operations are not synchronized, so concurrent logging from multiple threads
@@ -57,11 +61,21 @@ public class LogFileWriter implements LogFile {
     /** Date formatter for timestamp generation in log entries */
     private final SimpleDateFormat timestampFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
+    /** Date formatter for the per-run timestamp embedded in the log file name */
+    private static final SimpleDateFormat FILE_TIMESTAMP_FORMAT = new SimpleDateFormat("yyyyMMdd-HHmmss");
+
     /**
      * Process ID resolved once at initialization and cached for subsequent log operations.
      * This ensures consistent file naming throughout the application lifecycle.
      */
     private final String processId = resolveProcessId();
+
+    /**
+     * Startup timestamp resolved once at singleton construction and embedded in
+     * the log file name. Captured here so every invocation of this run writes
+     * to the same file even if the first log message is delayed.
+     */
+    private final String startupTimestamp = FILE_TIMESTAMP_FORMAT.format(new Date());
 
     /** PrintWriter for writing log entries to the file */
     private PrintWriter logWriter;
@@ -88,16 +102,20 @@ public class LogFileWriter implements LogFile {
     }
 
     /**
-     * Constructs the full log file path using the specified directory and process ID.
+     * Constructs the full log file path using the specified directory, process
+     * ID, and startup timestamp.
      *
-     * <p>The resulting path follows the pattern: {@code <logDir>/<baseName>-<processId>.log}</p>
+     * <p>The resulting path follows the pattern:
+     * {@code <logDir>/<baseName>-<processId>-<startupTimestamp>.log}</p>
      *
      * @param logDir the directory where the log file should be created
      * @param processId the process ID to include in the filename
+     * @param startupTimestamp the run's startup timestamp (yyyyMMdd-HHmmss)
      * @return the complete file path for the log file
      */
-    private static String getDefaultLogFileName(String logDir, String processId) {
-        return logDir + "/" + DEFAULT_LOG_FILE_NAME + "-" + processId + DEFAULT_LOG_FILE_EXTENSION;
+    private static String getDefaultLogFileName(String logDir, String processId, String startupTimestamp) {
+        return logDir + "/" + DEFAULT_LOG_FILE_NAME + "-" + processId + "-" + startupTimestamp
+                + DEFAULT_LOG_FILE_EXTENSION;
     }
 
     /**
@@ -126,12 +144,13 @@ public class LogFileWriter implements LogFile {
             logWriter.close();
         }
         initialize();
-        String currentLogFile = getDefaultLogFileName(DEFAULT_LOG_DIR, processId);
+        String currentLogFile = getDefaultLogFileName(DEFAULT_LOG_DIR, processId, startupTimestamp);
         try {
             logWriter = new PrintWriter(new FileWriter(currentLogFile, true));
         } catch (IOException e) {
             // If we can't write to the specified log directory, try the system temp directory
-            String tempLogFile = getDefaultLogFileName(System.getProperty("java.io.tmpdir"), processId);
+            String tempLogFile = getDefaultLogFileName(System.getProperty("java.io.tmpdir"), processId,
+                                                      startupTimestamp);
             logWriter = new PrintWriter(new FileWriter(tempLogFile, true));
         }
     }

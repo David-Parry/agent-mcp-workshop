@@ -86,7 +86,7 @@
                 <pre>{
   "method": "initialize",
   "params": {
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-11-25",
     "capabilities": {
       "sampling": {},
       "elicitation": {},
@@ -103,7 +103,7 @@
                 <h4>Initialize Response (Server → Client)</h4>
                 <pre>{
   "result": {
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-11-25",
     "capabilities": {
       "tools": { "listChanged": true },
       "prompts": { "listChanged": true },
@@ -245,7 +245,8 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
 
         <h3>KeyWordSearch Implementation</h3>
         <ul>
-            <li>Walks the directory tree recursively from <code>root_directory</code></li>
+            <li>Walks the directory tree recursively from each configured root</li>
+            <li>Roots are populated via <code>roots/list</code> or, if absent, via the lazy elicitation in Ch&nbsp;5 &mdash; never as a tool parameter</li>
             <li>Counts occurrences of <code>keyword</code> per file (case-insensitive)</li>
             <li>Returns one text content item per matching file with its count</li>
             <li>The JSON Schema <code>required</code> array enables client-side validation before the request is even sent</li>

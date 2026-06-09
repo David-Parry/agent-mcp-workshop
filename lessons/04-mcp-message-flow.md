@@ -31,7 +31,7 @@ sequenceDiagram
         Note right of Client: Gets tool info:<br/>- name: "key_word_search"<br/>- description<br/>- JSON schema
         
         Client->>Server: tools/call (request)
-        Note right of Client: Sends tool name and params:<br/>- keyword: "class"<br/>- root_directory: (optional)
+        Note right of Client: Sends tool name and params:<br/>- keyword: "class"<br/>(directory comes from roots, not args)
         Note right of Server: Executes KeyWordSearch<br/>Searches files for keyword
         Server-->>Client: tools/call (response)
         Note right of Client: Receives search results:<br/>- file paths<br/>- occurrence counts

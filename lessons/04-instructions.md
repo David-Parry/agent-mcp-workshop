@@ -178,7 +178,7 @@ case TOOLS_CALL -> {
 2. **Builds the tools list response**:
    - Uses `ToolsListResultBuilder` to construct the response
    - Adds the tool with its name, description, and JSON schema
-   - The schema defines the parameters the tool accepts (keyword and optional root_directory)
+   - The schema defines the parameters the tool accepts — just `keyword`. The search directory is **not** a tool parameter; it is supplied at runtime via the MCP roots mechanism or, in Ch 5, via an elicitation form.
 
 3. **Enables client autocomplete**:
    - When the client receives this list, it knows what tools are available
@@ -353,8 +353,9 @@ cd inspector
 
 ### For Tools:
 - The "List Tools" button shows the key_word_search tool
-- The tool's schema shows it accepts a "keyword" parameter and optional "root_directory"
-- Calling the tool returns a list of files containing the keyword with occurrence counts
+- The tool's schema shows it accepts a single "keyword" parameter
+- Calling the tool with roots configured returns a list of files containing the keyword with occurrence counts
+- Calling the tool **without** roots configured returns a clear error message — Ch 5 wires up the elicitation flow that asks the user for a directory just-in-time
 
 ### For Prompts:
 - The "List Prompts" button shows the search_keyword prompt

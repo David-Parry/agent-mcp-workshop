@@ -18,6 +18,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 public class KeyWordSearch implements Tool {
     private static final LogFile logger = LogFileWriter.getInstance();
@@ -139,15 +140,21 @@ public class KeyWordSearch implements Tool {
 
     /**
      * Checks if a file is likely a text file by attempting to read it as text.
+     * <p>
+     * Uses try-with-resources so the underlying {@code BufferedReader} is
+     * always closed, even when the iteration short-circuits at the 10-line
+     * limit or the file is not valid UTF-8. Without this, large recursive
+     * walks (e.g. across a {@code node_modules} tree) leak a file descriptor
+     * per file and quickly exhaust the per-process FD limit — at which point
+     * every subsequent open fails and the tool starts returning empty results.
+     * </p>
      *
      * @param file The file to check
      * @return true if the file appears to be a text file, false otherwise
      */
     private boolean isTextFile(Path file) {
-        try {
-            // Try to read the first few lines as text
-            Files.lines(file, StandardCharsets.UTF_8).limit(10).forEach(line -> {
-            });
+        try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
+            lines.limit(10).forEach(line -> { /* just force iteration */ });
             return true;
         } catch (Exception e) {
             return false;

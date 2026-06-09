@@ -18,6 +18,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 public class KeyWordSearch implements Tool {
     private static final LogFile logger = LogFileWriter.getInstance();
@@ -42,36 +43,23 @@ public class KeyWordSearch implements Tool {
 
     @Override
     public InputSchema schema() {
-        InputSchemaBuilder builder = InputSchemaBuilder
+        return InputSchemaBuilder
                 .builder()
                 .withType("object")
                 .addProperty(PropertySchemaBuilder
                                      .builder()
                                      .withKey("keyword")
                                      .withType("string")
-                                     .withDescription("the keyword to search for in a file").required());
-        if (this.roots == null || this.roots.isEmpty()) {
-            builder.addProperty(PropertySchemaBuilder
-                                        .builder()
-                                        .withKey("root_directory")
-                                        .withType("string")
-                                        .withDescription("The absolute path to the root directory to start the search from.")
-                                        .required());
-        }
-        return builder.build();
+                                     .withDescription("the keyword to search for in a file").required())
+                .build();
     }
 
     public ToolCallResult call(ToolCallParams toolCallParams) {
         String keyword = toolCallParams.arguments().get("keyword");
-        if (roots.isEmpty()) {
-            String rootDirectory = toolCallParams.arguments().get("root_directory");
-            if (rootDirectory != null && !rootDirectory.trim().isEmpty()) {
-                roots.add(rootDirectory);
-            }
-        }
         ToolCallResultBuilder builder = ToolCallResultBuilder.builder();
         if (roots.isEmpty()) {
-            builder.addTextContent("No root directories specified for search. Please provide a valid root directory.");
+            builder.addTextContent("No search directory available. Provide one via the MCP roots/list mechanism " +
+                                   "or by accepting the directory elicitation form.");
             builder.asError();
         } else {
             List<ContentItem> contentItems = searchKeywordInDirectories(roots, keyword);
@@ -157,10 +145,12 @@ public class KeyWordSearch implements Tool {
      * @return true if the file appears to be a text file, false otherwise
      */
     private boolean isTextFile(Path file) {
-        try {
-            // Try to read the first few lines as text
-            Files.lines(file, StandardCharsets.UTF_8).limit(10).forEach(line -> {
-            });
+        // try-with-resources: Files.lines() returns a Stream that holds a
+        // BufferedReader open. Without closing it, large recursive walks
+        // (e.g. node_modules) leak a file descriptor per file and exhaust
+        // the per-process FD limit.
+        try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
+            lines.limit(10).forEach(line -> { /* just force iteration */ });
             return true;
         } catch (Exception e) {
             return false;

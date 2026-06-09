@@ -54,7 +54,7 @@ public class IORouter implements Router {
             case JsonRpcNotification notification -> process(notification);
             case JsonRpcResponse successResponse -> process(successResponse);
             case JsonRpcErrorResponse errorResponse -> process(errorResponse);
-            default -> logger.log("Unknown message type: " + object);
+            default -> logger.log("[API][RECEIVED] unknown message type: " + object);
         }
     }
 
@@ -86,7 +86,7 @@ public class IORouter implements Router {
                 }
                 if (clientCapabilities.tasks() != null) {
                     hasTasks = true;
-                    logger.log("Client declared tasks capability — task-augmented requests enabled");
+                    logger.log("[API][RECEIVED] initialize — client declared tasks capability, task-augmented requests enabled");
                 }
                 InitializeResultBuilder builder = InitializeResultBuilder
                         .builder()
@@ -148,13 +148,13 @@ public class IORouter implements Router {
                     // arrives in process(JsonRpcResponse).
                     pendingToolsCallRequestId = message.id();
                     pendingToolCallParams = toolCallParams;
-                    logger.log("tools/call deferred — roots empty, eliciting search directory"
+                    logger.log("[API][RECEIVED] tools/call deferred — roots empty, eliciting search directory"
                                + " (toolsCallId=" + message.id() + ")");
                     sendElicitationMessage();
                 } else if (roots.isEmpty() && hasElicitation) {
                     // Another tools/call is already mid-elicitation — refuse this one
                     // rather than queueing, to keep the workshop flow easy to follow.
-                    logger.log("tools/call rejected — another elicitation is already in flight"
+                    logger.log("[API][RECEIVED] tools/call rejected — another elicitation is already in flight"
                                + " (pendingToolsCallId=" + pendingToolsCallRequestId + ")");
                     success(message.id(), ToolCallResultBuilder
                             .builder()
@@ -170,10 +170,10 @@ public class IORouter implements Router {
                 TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
                 Task task = taskStore.get(params.taskId());
                 if (task == null) {
-                    logger.log("tasks/get — unknown taskId=" + params.taskId());
+                    logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
                 } else {
-                    logger.log("tasks/get taskId=" + task.taskId() + " status=" + task.status());
+                    logger.log("[API][SENT] tasks/get taskId=" + task.taskId() + " status=" + task.status());
                     success(message.id(), task);
                 }
             }
@@ -181,31 +181,31 @@ public class IORouter implements Router {
                 TasksResultParams params = deserializer.deserializeParams(message, TasksResultParams.class);
                 Long requestId = message.id();
                 boolean terminalNow = taskStore.isTerminal(params.taskId());
-                logger.log("tasks/result taskId=" + params.taskId()
+                logger.log("[API][RECEIVED] tasks/result taskId=" + params.taskId()
                            + (terminalNow ? " — terminal, replying immediately"
                                           : " — awaiting terminal status before reply"));
                 taskStore.awaitTerminal(params.taskId(), terminal -> emitTaskResult(requestId, params.taskId(), terminal));
             }
             case TASKS_LIST -> {
                 List<Task> all = taskStore.list();
-                logger.log("tasks/list — returning " + all.size() + " task(s)");
+                logger.log("[API][SENT] tasks/list — returning " + all.size() + " task(s)");
                 success(message.id(), new TasksListResult(all, null));
             }
             case TASKS_CANCEL -> {
                 TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
                 Task before = taskStore.get(params.taskId());
                 if (before == null) {
-                    logger.log("tasks/cancel — unknown taskId=" + params.taskId());
+                    logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
                 } else {
                     Task cancelled = taskStore.cancel(params.taskId());
                     if (cancelled == null) {
-                        logger.log("tasks/cancel rejected — taskId=" + params.taskId()
-                                   + " already terminal (" + before.status() + ")");
+                        logger.log("[API][SENT] tasks/cancel rejected — taskId=" + params.taskId()
+                                   + " already terminal (" + before.status() + ", returning -32602)");
                         error(message.id(), ErrorCodes.INVALID_PARAMS,
                               "Cannot cancel task: already in terminal status '" + before.status() + "'");
                     } else {
-                        logger.log("tasks/cancel — taskId=" + cancelled.taskId() + " cancelled");
+                        logger.log("[API][SENT] tasks/cancel — taskId=" + cancelled.taskId() + " cancelled");
                         success(message.id(), cancelled);
                     }
                 }
@@ -232,7 +232,7 @@ public class IORouter implements Router {
                         String html = JavadocResources.readResourceContent("lesson/mcp-app.html");
                         builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, html);
                     } catch (Exception e) {
-                        logger.log("Error reading UI app resource: " + resourceUri);
+                        logger.log("[API][SENT] resources/read — error reading UI app resource: " + resourceUri);
                         builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, e.getMessage()).asError();
                     }
                 } else if (resourceUri != null && !resourceUri.isEmpty()) {
@@ -240,7 +240,7 @@ public class IORouter implements Router {
                         String content = JavadocResources.readResourceContent(resourceUri);
                         builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
                     } catch (Exception e) {
-                        logger.log("Error reading resource: " + resourceUri);
+                        logger.log("[API][SENT] resources/read — error reading resource: " + resourceUri);
                         builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
                     }
                 } else {
@@ -270,13 +270,13 @@ public class IORouter implements Router {
                 }
             }
             case ELICITATION_CREATE_MESSAGE -> {
-                // Handle elicitation method calls from client
-                logger.log("Received elicitation/create method call from client: " + message);
+                // Handle elicitation method calls from client (client-initiated direction)
+                logger.log("[API][RECEIVED] elicitation/create from client: " + message);
                 // Parse the elicitation response and handle it appropriately
                 // For now, just acknowledge the elicitation request
                 success(message.id(), new Object());
             }
-            default -> logger.log("Unhandled RpcRequest method: " + uniqueKey + " for message: " + message);
+            default -> logger.log("[API][RECEIVED] unhandled RpcRequest method: " + uniqueKey + " for message: " + message);
         }
     }
 
@@ -297,9 +297,9 @@ public class IORouter implements Router {
             case NOTIFICATION_CANCELLED -> {
                 NotificationCancelledParams params = deserializer.deserializeParams(message,
                                                                                     NotificationCancelledParams.class);
-                logger.log("Notification cancelled reason " + params.reason());
+                logger.log("[API][RECEIVED] notifications/cancelled reason=" + params.reason());
             }
-            default -> logger.log("Unhandled notification method: " + uniqueKey + " for message: " + message);
+            default -> logger.log("[API][RECEIVED] unhandled notification method: " + uniqueKey + " for message: " + message);
         }
     }
 
@@ -310,17 +310,17 @@ public class IORouter implements Router {
             for (Root root : rootsResponse.roots()) {
                 roots.add(root.uri());
             }
-            logger.log("roots/list response — populated " + roots.size() + " root(s)");
+            logger.log("[API][RECEIVED] roots/list response — populated " + roots.size() + " root(s)");
         } else if (ELICITATION_REQUEST_ID.equals(message.id())) {
             ElicitationCreateResult result = deserializer.deserializeResult(message, ElicitationCreateResult.class);
-            logger.log("elicitation/create response — action=" + result.action());
+            logger.log("[API][RECEIVED] elicitation/create response — action=" + result.action());
             if ("accept".equalsIgnoreCase(result.action()) && result.content() instanceof Map<?, ?> contentMap) {
                 Object directory = contentMap.get("directory");
                 if (directory instanceof String s && !s.isBlank()) {
                     roots.add(s);
-                    logger.log("elicitation/create — added directory to roots: " + s);
+                    logger.log("[API][RECEIVED] elicitation/create — added directory to roots: " + s);
                 } else {
-                    logger.log("elicitation/create — accepted but no usable directory field in content: " + contentMap);
+                    logger.log("[API][RECEIVED] elicitation/create — accepted but no usable directory field in content: " + contentMap);
                 }
             }
             // Resume any tools/call that was waiting on the user's directory choice.
@@ -329,7 +329,7 @@ public class IORouter implements Router {
                 ToolCallParams resumeParams = pendingToolCallParams;
                 pendingToolsCallRequestId = null;
                 pendingToolCallParams = null;
-                logger.log("tools/call resumed after elicitation — toolsCallId=" + resumeId
+                logger.log("[API][RECEIVED] tools/call resumed after elicitation — toolsCallId=" + resumeId
                            + " rootsAvailable=" + !roots.isEmpty());
                 executeKeyWordSearchCall(resumeId, resumeParams);
             }
@@ -346,7 +346,7 @@ public class IORouter implements Router {
         KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
         if (params.task() != null && hasTasks) {
             Task task = taskStore.create(params.task().ttl());
-            logger.log("tools/call augmented with task — created taskId=" + task.taskId()
+            logger.log("[API][SENT] tools/call augmented with task — created taskId=" + task.taskId()
                        + " status=" + task.status() + " ttl=" + task.ttl());
             success(requestId, new CreateTaskResult(task, relatedTaskMeta(task.taskId())));
             runToolAsTask(task.taskId(), params);
@@ -356,7 +356,7 @@ public class IORouter implements Router {
     }
 
     private void process(JsonRpcErrorResponse message) {
-        logger.log("Error from Client " + message);
+        logger.log("[API][RECEIVED] error from client: " + message);
     }
 
     /**
@@ -401,20 +401,19 @@ public class IORouter implements Router {
      */
     private void runToolAsTask(String taskId, ToolCallParams params) {
         new Thread(() -> {
-            logger.log("task " + taskId + " — background tool execution started for tool="
-                       + params.name());
+            logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Thread.sleep(2000L);
                 KeyWordSearch tool = new KeyWordSearch(this.roots);
                 ToolCallResult result = tool.call(params);
                 taskStore.complete(taskId, result);
-                logger.log("task " + taskId + " — tool completed, transitioning to completed");
+                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
-                logger.log("task " + taskId + " — interrupted: " + ie.getMessage());
+                logger.log("[TASK " + taskId + "] interrupted: " + ie.getMessage());
                 taskStore.fail(taskId, "Interrupted: " + ie.getMessage());
             } catch (Exception e) {
-                logger.log("task " + taskId + " — tool execution failed: " + e.getMessage());
+                logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
                 taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
             }
         }, "task-" + taskId).start();
@@ -427,12 +426,12 @@ public class IORouter implements Router {
      */
     private void emitTaskResult(Long requestId, String taskId, Task terminal) {
         if (terminal == null) {
-            logger.log("tasks/result — taskId=" + taskId + " not found at delivery time");
+            logger.log("[API][SENT] tasks/result — taskId=" + taskId + " not found at delivery time (returning -32602)");
             error(requestId, ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
             return;
         }
         TaskStatus status = TaskStatus.fromValue(terminal.status());
-        logger.log("tasks/result — delivering for taskId=" + taskId + " terminal=" + terminal.status());
+        logger.log("[API][SENT] tasks/result — delivering for taskId=" + taskId + " terminal=" + terminal.status());
         if (status == TaskStatus.CANCELLED) {
             error(requestId, ErrorCodes.INVALID_PARAMS,
                   "Cannot retrieve result: task was cancelled");
@@ -458,7 +457,7 @@ public class IORouter implements Router {
         } else if (stored != null) {
             success(requestId, stored);
         } else {
-            logger.log("tasks/result — taskId=" + taskId + " terminal but no stored payload");
+            logger.log("[API][SENT] tasks/result — taskId=" + taskId + " terminal but no stored payload (returning -32603)");
             error(requestId, ErrorCodes.INTERNAL_ERROR, "No stored result for task");
         }
     }
@@ -469,7 +468,7 @@ public class IORouter implements Router {
      * registered in the constructor.
      */
     private void sendTaskStatusNotification(Task task) {
-        logger.log("notifications/tasks/status — taskId=" + task.taskId() + " status=" + task.status());
+        logger.log("[API][SENT] notifications/tasks/status — taskId=" + task.taskId() + " status=" + task.status());
         JsonRpcNotification notification = new JsonRpcNotification(
                 JSON_RPC_VERSION,
                 UniqueKeys.NOTIFICATIONS_TASKS_STATUS.getValue(),

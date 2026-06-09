@@ -66,29 +66,30 @@
             document.body.appendChild(tooltip);
 
             const tooltips = {
-                'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"sampling":{},"elicitation":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.16.5"}},"jsonrpc":"2.0","id":0}',
-                'initialize result': '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}',
+                'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"sampling":{},"elicitation":{"form":{},"url":{}},"roots":{"listChanged":true},"tasks":{"list":{},"cancel":{},"requests":{"sampling":{"createMessage":{}},"elicitation":{"create":{}}}}},"clientInfo":{"name":"inspector-client","version":"0.22.0"}},"jsonrpc":"2.0","id":0}',
+                'initialize result': '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"completions":{},"tasks":{"list":{},"cancel":{},"requests":{"tools":{"call":{}}}},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}',
                 'notifications/initialized': '{"jsonrpc":"2.0","method":"notifications/initialized"}',
-                'elicitation/create': '{"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Please provide the Jira project details for summarization:","requestedSchema":{"properties":{"projectKey":{"title":"Project Key","enum":["ENG","HR","OPS"],"description":"The Jira project key to summarize","type":"string","enumNames":["Engineering","Human Resources","Operations"]},"timeRange":{"title":"Time Range","enum":["last 7 days","last 30 days","custom"],"description":"The time period to include in the summary","type":"string","enumNames":["Last 7 Days","Last 30 Days","Custom Range"]}},"type":"object","required":["projectKey","timeRange"]}}}',
-                'elicitation/create result': '{"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"projectKey":"ENG","timeRange":"last 30 days"}}}',
+                'elicitation/create': '{"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"required":["directory"],"type":"object","properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","title":"Search Directory","type":"string"}}}}}',
+                'elicitation/create result': '{"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/agent-command"}}}',
                 'roots/list': '{"jsonrpc":"2.0","id":-1000,"method":"roots/list"}',
-                'roots/list result': '{"jsonrpc":"2.0","id":-1000,"result":{"roots":["/opt/project/app"]}}',
+                'roots/list result': '{"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}',
                 'ping': '{"method":"ping","params":{"_meta":{"progressToken":1}},"jsonrpc":"2.0","id":1}',
                 'ping result': '{"jsonrpc":"2.0","id":1,"result":{}}',
-                'sampling/createMessage': '{"method":"sampling/createMessage","params":{"messages":[{"role":"user","content":{"text":"Figure out what the single best word to search for in a Java project is.","type":"text"}}],"systemPrompt":"You are a brilliant Java developer.","maxTokens":0},"jsonrpc":"2.0","id":-2000}',
-                'sampling/createMessage result': '{"jsonrpc":"2.0","id":-2000,"result":{"model":"stub-model","stopReason":"endTurn","role":"assistant","content":{"type":"text","text":"the answer is 42"}}}',
                 'resources/list': '{"method":"resources/list","params":{"_meta":{"progressToken":2}},"jsonrpc":"2.0","id":2}',
-                'resources/list result': '{"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"javadoc/com/workshop/mcp/spec/Annotations.html","name":"Annotations","description":"Represents annotations...","mimeType":"text/html"}],"nextCursor":"pageNext"}}',
-                'resources/read': '{"method":"resources/read","params":{"_meta":{"progressToken":3},"uri":"javadoc/com/workshop/mcp/spec/Capability.html"},"jsonrpc":"2.0","id":3}',
-                'resources/read result': '{"jsonrpc":"2.0","id":3,"result":{"contents":[{"uri":"javadoc/com/workshop/mcp/spec/Capability.html","mimeType":"text/html","text":"<!DOCTYPE HTML>..."}],"isError":false}}',
-                'prompts/list': '{"method":"prompts/list","params":{"_meta":{"progressToken":4}},"jsonrpc":"2.0","id":4}',
-                'prompts/list result': '{"jsonrpc":"2.0","id":4,"result":{"prompts":[{"name":"search_keyword","description":"Creates a prompt, to search for a word using the key_word_search tool.","arguments":[{"name":"keyword","description":"The word to search for","required":true}]}],"nextCursor":"nextPage"}}',
-                'prompts/get': '{"method":"prompts/get","params":{"_meta":{"progressToken":5},"name":"search_keyword","arguments":{"keyword":""}},"jsonrpc":"2.0","id":5}',
-                'prompts/get result': '{"jsonrpc":"2.0","id":5,"result":{"description":"keyword","messages":[{"role":"user","content":{"text":"Start from the root of the project and use the key_word_search tool to search for this specific keyword:\'\'","type":"text"}}]}}',
-                'tools/list': '{"method":"tools/list","params":{"_meta":{"progressToken":6}},"jsonrpc":"2.0","id":6}',
-                'tools/list result': '{"jsonrpc":"2.0","id":6,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string"},"root_directory":{"type":"string"}},"required":["keyword","root_directory"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}}}]}}',
-                'tools/call': '{"method":"tools/call","params":{"_meta":{"progressToken":7},"name":"key_word_search","arguments":{"keyword":"mcp","root_directory":"/Users/davidparry/code/github/agent-command"}},"jsonrpc":"2.0","id":7}',
-                'tools/call result': '{"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/path/api.http, keyword_count=1","type":"text"},...57 more files],"isError":false}}',
+                'resources/list result': '{"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"ui://keyword-search/mcp-app.html","name":"Keyword Search App","mimeType":"text/html;profile=mcp-app"},{"uri":"javadoc/.../Capability.html","name":"Capability","mimeType":"text/html"}],"nextCursor":"pageNext"}}',
+                'tools/list': '{"method":"tools/list","params":{"_meta":{"progressToken":3}},"jsonrpc":"2.0","id":3}',
+                'tools/list result': '{"jsonrpc":"2.0","id":3,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}},"execution":{"taskSupport":"optional"}}]}}',
+                'tools/call (sync)': '{"method":"tools/call","params":{"_meta":{"progressToken":4},"name":"key_word_search","arguments":{"keyword":"mcp"}},"jsonrpc":"2.0","id":4}',
+                'tools/call (sync) result': '{"jsonrpc":"2.0","id":4,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false}}',
+                'tools/call (task)': '{"method":"tools/call","params":{"_meta":{"progressToken":5},"name":"key_word_search","arguments":{"keyword":"mcp"},"task":{"ttl":60000}},"jsonrpc":"2.0","id":5}',
+                'CreateTaskResult': '{"jsonrpc":"2.0","id":5,"result":{"task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"working","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:02Z","ttl":60000,"pollInterval":1000},"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
+                'tasks/get': '{"method":"tasks/get","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":6}',
+                'tasks/get result': '{"jsonrpc":"2.0","id":6,"result":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
+                'notifications/tasks/status': '{"jsonrpc":"2.0","method":"notifications/tasks/status","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
+                'tasks/result': '{"method":"tasks/result","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":7}',
+                'tasks/result result': '{"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false,"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
+                'tasks/list': '{"method":"tasks/list","params":{},"jsonrpc":"2.0","id":8}',
+                'tasks/list result': '{"jsonrpc":"2.0","id":8,"result":{"tasks":[{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}],"nextCursor":null}}',
                 'notifications/roots/list_changed': '{"jsonrpc":"2.0","method":"notifications/roots/list_changed"}'
             };
 
@@ -178,67 +179,58 @@
             participant Client as mcp-inspector (Client)
             participant Server as agent-mcp-workshop (Server)
 
-            Note over Client,Server: Initialization Phase
+            Note over Client,Server: Initialization Phase (2025-11-25)
 
             Client->>Server: initialize
+            Note over Client,Server: Client declares: sampling, elicitation, roots, tasks
             Server-->>Client: initialize result
-
+            Note over Client,Server: Server declares: tools, prompts, resources, completions,<br/>tasks (list/cancel + tools.call), experimental (elicitation, apps)
 
             Client->>Server: notifications/initialized
 
-            Note over Client,Server: Elicitation Phase - User Input Collection
-            Server->>Client: elicitation/create
-            Note over Client: Client presents elicitation form to user<br/>User selects: projectKey="ENG", timeRange="last 30 days"
-            Client-->>Server: elicitation/create result
-            Note over Server: Server processes elicitation response<br/>and stores user preferences for session
-
-            Note over Client,Server: Follow-up Elicitation - Additional Context
-            Server->>Client: elicitation/create
-            Note over Client: Client presents additional options to user<br/>User selects: priority="High", status="Open", includeAssignee=false
-            Client-->>Server: elicitation/create result
-            Note over Server: Server combines all elicitation responses<br/>to configure comprehensive search parameters
-
-            Note over Client,Server: Roots Discovery Phase
+            Note over Client,Server: Roots Discovery (no elicitation at startup)
             Server->>Client: roots/list
             Client-->>Server: roots/list result
 
-            Note over Client,Server: Ping & Sampling Phase
+            Note over Client,Server: Ping
             Client->>Server: ping
             Server-->>Client: ping result
-            Server->>Client: sampling/createMessage
 
-            Note over Client,Server: Resources Discovery Phase
+            Note over Client,Server: Resources & Tools Discovery
             Client->>Server: resources/list
             Server-->>Client: resources/list result
-
-            Note over Client,Server: Resource Reading Phase
-            Client->>Server: resources/read
-            Server-->>Client: resources/read result
-
-            Note over Client,Server: Prompts Discovery Phase
-            Client->>Server: prompts/list
-            Server-->>Client: prompts/list result
-
-            Note over Client,Server: Prompt Execution Phase
-            Client->>Server: prompts/get
-            Server-->>Client: prompts/get result
-
-            Note over Client,Server: Tools Discovery Phase
             Client->>Server: tools/list
             Server-->>Client: tools/list result
+            Note over Server: tool advertises execution.taskSupport="optional"
 
-            Note over Client,Server: Tool Execution Phase
-            Client->>Server: tools/call
-            Server-->>Client: tools/call result
+            Note over Client,Server: Synchronous tools/call — lazy elicitation
+            Client->>Server: tools/call (sync)
+            Note over Server: roots empty + hasElicitation → defer response
+            Server->>Client: elicitation/create
+            Note over Client: Inspector renders single-field form:<br/>directory = (absolute path)
+            Client-->>Server: elicitation/create result
+            Note over Server: action=accept → add directory to roots,<br/>resume the held tools/call (id reused)
+            Server-->>Client: tools/call (sync) result
 
-            Note over Client,Server: Sampling Response & Roots Changes
-            Client-->>Server: sampling/createMessage result
-            Server->>Client: notifications/roots/list_changed
-            Server->>Client: roots/list
-            Client-->>Server: roots/list result
-            Server->>Client: notifications/roots/list_changed
-            Server->>Client: roots/list
-            Client-->>Server: roots/list result
+            Note over Client,Server: Task-augmented tools/call — call now, fetch later
+            Client->>Server: tools/call (task)
+            Note over Client,Server: params.task = { ttl: 60000 }
+            Server-->>Client: CreateTaskResult
+            Note over Server: status=working, taskId returned in ms<br/>tool runs on background thread
+
+            Client->>Server: tasks/get
+            Server-->>Client: tasks/get result
+            Note over Server: tool completes
+            Server->>Client: notifications/tasks/status
+            Note over Client,Server: status: working → completed (optional push)
+
+            Client->>Server: tasks/result
+            Server-->>Client: tasks/result result
+            Note over Client,Server: _meta.io.modelcontextprotocol/related-task = { taskId }
+
+            Note over Client,Server: Task Management
+            Client->>Server: tasks/list
+            Server-->>Client: tasks/list result
 
             Note over Client,Server: Session End
             Note over Client,Server: Stopping and closing resources

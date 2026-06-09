@@ -2,15 +2,15 @@
 
 ## Workshop Overview
 
-This instructor-led workshop teaches you to build a Java-based Model Context Protocol (MCP) server from scratch. By the end, you'll have a fully functional MCP server that integrates with AI coding assistants like Claude Code, Cursor, and Windsurf.
+This instructor-led workshop teaches you to build a Java-based Model Context Protocol (MCP) server from scratch. By the end, you'll have a fully functional MCP server that integrates with AI coding assistants like Claude Code, Cursor, and Windsurf — and you'll understand the protocol's full surface, including the experimental Tasks utility from the 2025-11-25 specification.
 
-**Duration**: 5 chapters (instructor-paced)
+**Duration**: 7 chapters + optional agent bonus (instructor-paced)
 **Prerequisites**: Java fundamentals, familiarity with JSON
 **Tools Required**: JDK 21+, Gradle, Node.js (for MCP Inspector)
 
 ---
 
-## Chapter 1: MCP Transport Layer - The Foundation
+## Chapter 1: MCP Transport Layer — The Foundation
 
 **Branch**: `01-chapter`
 
@@ -18,8 +18,8 @@ This instructor-led workshop teaches you to build a Java-based Model Context Pro
 Build the bidirectional I/O infrastructure that enables communication between MCP clients and servers.
 
 ### What You'll Build
-- `IOHandlerImpl` - Manages input/output streams
-- `LogFileWriter` - Thread-safe logging to files
+- `IOHandlerImpl` — manages input/output streams
+- `LogFileWriter` — thread-safe logging to files
 - Event-driven listener architecture
 
 ### Key Concepts
@@ -29,9 +29,9 @@ Build the bidirectional I/O infrastructure that enables communication between MC
 - JSON serialization with Gson
 
 ### Tasks
-1. Implement `startInputReader()` - Read lines from System.in
-2. Implement `publishLine()` - Distribute input to listeners
-3. Implement `emit()` - Send JSON responses to System.out
+1. Implement `startInputReader()` — read lines from `System.in`
+2. Implement `publishLine()` — distribute input to listeners
+3. Implement `emit()` — send JSON responses to `System.out`
 
 ### Outcome
 A working transport layer that can read input, publish to listeners, and emit JSON responses.
@@ -58,9 +58,9 @@ Understand the JSON-RPC 2.0 protocol that MCP uses for all communication.
 - Structured data exchange with schemas
 
 ### Supporting Materials
-- `02-message-class-diagram.md` - Class relationships
-- `02-mcp-message-flow.md` - Message sequence diagrams
-- `02-mcp-json-communication-flow-diagram.md` - JSON examples
+- `02-message-class-diagram.md` — class relationships
+- `02-mcp-message-flow.md` — message sequence diagrams
+- `02-mcp-json-communication-flow-diagram.md` — JSON examples
 
 ### Outcome
 Understanding of how MCP messages are structured and exchanged.
@@ -105,69 +105,163 @@ A server that completes the MCP handshake and handles basic requests.
 
 ---
 
-## Chapter 4: Resources, Tools, Prompts & Elicitation
+## Chapter 4: Resources, Tools & Prompts
 
 **Branch**: `04-chapter`
 
 ### Objective
-Implement all MCP capabilities to create a fully functional server.
+Implement the three core MCP capabilities to create a useful server.
 
 ### What You'll Build
 
 #### Resources Capability
 - `JavadocResources` helper class
-- RESOURCES_LIST handler (discovery)
-- RESOURCES_READ handler (content retrieval)
+- `RESOURCES_LIST` handler (discovery)
+- `RESOURCES_READ` handler (content retrieval)
 
 #### Tools Capability
-- `KeyWordSearch` tool implementation
-- TOOLS_LIST handler (tool discovery)
-- TOOLS_CALL handler (tool execution)
+- `KeyWordSearch` tool implementation — accepts a single `keyword` parameter; the search directory is supplied later via roots or elicitation (Ch 5), **not** as a tool argument
+- `TOOLS_LIST` handler (tool discovery)
+- `TOOLS_CALL` handler (tool execution)
 
 #### Prompts Capability
-- PROMPTS_LIST handler
-- PROMPTS_GET handler (already implemented)
-
-#### Elicitation Capability
-- `sendElicitationMessage()` method
-- Client capability detection
-- ELICITATION_CREATE_MESSAGE handler
+- `PROMPTS_LIST` handler
+- `PROMPTS_GET` handler
 
 ### Key Concepts
 - Builder pattern for response construction
 - JSON Schema for tool parameters
 - Classpath resource loading
-- Bidirectional elicitation flow
+- Roots-based directory configuration (clean separation between tool args and runtime context)
 
 ### Verification
 - "List Resources" shows Javadoc files
-- "List Tools" shows `key_word_search`
+- "List Tools" shows `key_word_search` with one input field (`keyword`)
 - "List Prompts" shows `search_keyword`
-- Tool execution returns search results
+- Calling the tool without roots returns a clear error directing the user to either set MCP roots or accept the directory elicitation in Ch 5
 
 ### Outcome
-A complete MCP server with all advertised capabilities implemented.
+A working MCP server with all three core capabilities — ready to be extended with experimental features.
 
 ---
 
-## Chapter 5: Live LLM Integration
+## Chapter 5: Extensions & Lazy Elicitation
 
 **Branch**: `05-chapter`
 
 ### Objective
-Connect your MCP server to a real AI coding assistant and use it in conversation.
+Wire up the MCP extension mechanism and use it to ask the user for the missing search directory only when needed.
+
+### What You'll Build
+- `experimental` capability map in `ServerCapabilities`
+- `withExperimentalCapability()` builder method
+- `sendElicitationMessage()` using `ElicitationBuilder.buildSearchDirectoryElicitation()`
+- **Lazy elicitation**: `TOOLS_CALL` defers its response, sends `elicitation/create`, and resumes the original call once the user submits a directory
+- `process(JsonRpcResponse)` branch that consumes the elicitation result and populates `roots`
+
+### Key Concepts
+- Extension identifier format (`{vendor-prefix}/{extension-name}`)
+- Both sides must declare support before extension messages flow
+- The `experimental` map keeps extensions out of the core capability shape
+- Request-response correlation by id — used here to hold a `tools/call` open while a server-initiated `elicitation/create` runs
+- Why lazy beats eager: elicit only when the missing data is actually about to be used
+
+### Verification
+- Initialize response carries `experimental: { "io.modelcontextprotocol/elicitation": {} }`
+- Nothing is asked at startup
+- The first `tools/call key_word_search` with empty roots fires `elicitation/create` and the `tools/call` response is held until the form is submitted
+- Accepting the form adds the directory to roots and the held response arrives with real search hits
+
+### Outcome
+A server that uses the protocol's extensibility surface and asks for what it needs, exactly when it needs it.
+
+---
+
+## Chapter 6: MCP Apps — Interactive UI
+
+**Branch**: `06-chapter`
+
+### Objective
+Extend the existing tool with an interactive HTML UI that renders inside the conversation.
+
+### What You'll Build
+- Three new spec records: `UiMeta`, `AppMeta`, `AppTool`
+- `AppToolBuilder` with `withResourceUri(...)` and `withExecution(...)` (the latter advertises task support — used in Ch 7)
+- Declare `io.modelcontextprotocol/apps` in experimental capabilities
+- Serve `ui://keyword-search/mcp-app.html` from the classpath via `RESOURCES_READ`
+
+### Key Concepts
+- Pattern: **Tool + Resource + `_meta` = interactive app**
+- MIME type `text/html;profile=mcp-app` signals an interactive app
+- Sandboxed iframes for security
+- Progressive enhancement — tools still work in text-only clients
+
+### Verification
+- `tools/list` returns the tool with `_meta.ui.resourceUri`
+- `resources/list` advertises the `ui://` URI
+- `resources/read` returns the HTML body
+- Inspector's "Refresh Apps" renders the dashboard inside the chat
+
+### Outcome
+A tool that returns plain text **and** a rendered interactive dashboard, depending on host capability.
+
+---
+
+## Chapter 7: Tasks — Call Now, Fetch Later
+
+**Branch**: `07-chapter`
+
+### Objective
+Implement the **experimental tasks utility** from the MCP 2025-11-25 specification (SEP-1686) — turn any expensive `tools/call` into a deferred, pollable, cancellable operation.
+
+### What You'll Build
+- 16 new spec records (`Task`, `TaskStatus`, `TaskParams`, `CreateTaskResult`, per-method params/results, server- and client-side `TasksCapability` shapes, `ToolExecution`)
+- `TaskStore` — framework-free in-memory state machine with status listeners and pending-result delivery callbacks
+- `TasksCapability` declaration in the `initialize` response (`{ list:{}, cancel:{}, requests:{ tools:{ call:{} } } }`)
+- Per-tool `execution.taskSupport: "optional"` on the keyword search tool
+- `TOOLS_CALL` augmentation branch — when `params.task` is present, return `CreateTaskResult` and run the work on a background thread
+- Four new request handlers: `tasks/get`, `tasks/result`, `tasks/list`, `tasks/cancel`
+- One new outbound notification: `notifications/tasks/status`
+
+### Key Concepts
+- **Request augmentation** — opt into deferred execution by adding `task: { ttl }` to existing request params, without inventing a new method
+- The lifecycle state machine: `working → input_required ⇄ working → completed | failed | cancelled`
+- `tasks/result` MUST block until terminal — the router holds the response until the `TaskStore` signals
+- Related-task metadata: every task-correlated message carries `_meta["io.modelcontextprotocol/related-task"]`
+- Tool-level `execution.taskSupport` (`required` / `optional` / `forbidden`) sits on top of the server-level capability declaration
+
+### Verification
+- Initialize response carries the `tasks` capability shape
+- `tools/list` shows `execution.taskSupport: "optional"`
+- A `tools/call` with `params.task = { ttl: 60000 }` returns a `CreateTaskResult` in ms
+- `tasks/get` reports `working` then `completed`
+- `tasks/result` returns the actual `ToolCallResult` with `_meta.io.modelcontextprotocol/related-task.taskId` matching
+- `tasks/cancel` of a terminal task returns JSON-RPC error `-32602`
+- `notifications/tasks/status` arrives on every status transition
+
+### Outcome
+A server that implements the call-now / fetch-later pattern at the protocol level — the same pattern used by production batch APIs and long-running ML jobs.
+
+---
+
+## Bonus: Agent Chapter — Live LLM Integration & Supervised Workflow
+
+**Branch**: `agent-chapter`
+
+### Objective
+Connect your MCP server to a real AI coding assistant and use it in conversation, then layer on a Claude Code plugin that supervises a multi-step workflow against the server.
 
 ### What You'll Do
-1. Create `mcp.json` configuration file
-2. Register server with your chosen client
-3. Verify tool discovery
-4. Have real conversations using your tool
+1. Create / register `mcp.json` for your chosen client
+2. Verify tool discovery
+3. Have real conversations using your tool
+4. Build a Claude Code plugin with four composable skills and a 6-step audit workflow that pauses at an approval checkpoint
 
 ### Supported Clients
 | Client | Configuration Location |
 |--------|------------------------|
 | Claude Code | Project `mcp.json` (auto-discovered) |
-| Cursor | Settings > MCP Servers |
+| Cursor | Settings → MCP Servers |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
 | Cline | VS Code extension settings |
 
@@ -177,7 +271,7 @@ Connect your MCP server to a real AI coding assistant and use it in conversation
 - "Compare occurrences of 'error' vs 'exception' in the codebase"
 
 ### Outcome
-Your MCP server running with a live LLM, demonstrating the complete development lifecycle.
+Your MCP server running with a live LLM, and a supervised plugin demonstrating safe agent orchestration on top of it.
 
 ---
 
@@ -188,22 +282,26 @@ Your MCP server running with a live LLM, demonstrating the complete development 
 | 1 | Transport Layer | Bidirectional I/O with event publishing |
 | 2 | Protocol Review | Understanding of JSON-RPC and MCP |
 | 3 | Handshake & Routing | Working protocol handshake and ping |
-| 4 | Capabilities | Complete server with Resources, Tools, Prompts, Elicitation |
-| 5 | Live Integration | MCP server running with AI assistant |
+| 4 | Resources, Tools, Prompts | Three core capabilities wired up |
+| 5 | Extensions & Lazy Elicitation | Experimental map + on-demand directory elicitation |
+| 6 | MCP Apps | Interactive HTML UI inside the conversation |
+| 7 | Tasks | Deferred-execution lifecycle (call-now / fetch-later) |
+| Bonus | Agent / Live LLM | Server connected to a real assistant + supervised plugin |
 
 ## What You'll Have Built
 
 By completing this workshop, you'll have:
 
 - A production-ready MCP server in Java
-- Understanding of the Model Context Protocol specification
-- Experience with MCP Inspector for testing
-- A custom `key_word_search` tool
+- Understanding of the Model Context Protocol specification through 2025-11-25
+- Experience with MCP Inspector for testing every flow — sync calls, elicitation, MCP Apps, and task-augmented calls
+- A custom `key_word_search` tool that handles its own runtime configuration via roots **or** lazy elicitation
 - Integration with your preferred AI coding assistant
 
 ## Next Steps After Workshop
 
-- Add additional tools to your server
+- Add additional tools to your server, advertising `execution.taskSupport` where appropriate
 - Implement custom resources for your domain
 - Create specialized prompts for your workflows
+- Extend task augmentation to `sampling/createMessage` or `elicitation/create` (Ch 7 covers tools-only as the primary path)
 - Share your MCP server with your team

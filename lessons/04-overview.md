@@ -31,10 +31,10 @@ The Resources feature allows servers to expose various types of content that cli
 Tools provide executable functionality that clients can discover and invoke:
 
 - **KeyWordSearch Tool**: A practical example tool that:
-  - Searches for keywords across files in specified directories
-  - Accepts parameters defined by JSON Schema (keyword and optional root_directory)
+  - Searches for the supplied keyword across every file under the server's configured roots
+  - Accepts a single parameter defined by JSON Schema (`keyword`) — the search directory is supplied at runtime via the MCP roots mechanism or, starting in Ch 5, via an on-demand elicitation form
   - Returns structured results with file paths and occurrence counts
-  - Demonstrates proper tool implementation patterns
+  - Demonstrates proper tool implementation patterns and a clean separation between tool arguments and runtime context
 
 - **TOOLS_LIST Handler**: Enables tool discovery:
   - Creates a `KeyWordSearch` instance with configured root directories
