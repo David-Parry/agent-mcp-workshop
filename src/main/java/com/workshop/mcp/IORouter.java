@@ -402,7 +402,7 @@ public class IORouter implements Router {
         new Thread(() -> {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
-                Thread.sleep(2000L);
+                Thread.sleep(4000L);
                 KeyWordSearch tool = new KeyWordSearch(this.roots);
                 ToolCallResult result = tool.call(params);
                 taskStore.complete(taskId, result);
