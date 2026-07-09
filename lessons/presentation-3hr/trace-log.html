@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Presentation – Trace Log</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:95%;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px}
+        .log{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:16px;color:#d3d9e8;background:#0f1630;border:1px solid #1f2740;border-radius:12px;padding:12px;overflow:auto;max-height:600px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        .log-controls{margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+        .log-controls button{background:var(--card);border:1px solid #1f2740;color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+        .log-controls button:hover{background:#1f2740}
+        .log-entry{margin-bottom:4px;padding:2px 0}
+        .log-entry.received{color:#7dcfff}
+        .log-entry.sent{color:#9ece6a}
+        .log-entry.system{color:#f7768e}
+        h2{color:var(--accent);margin:0 0 8px}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>MCP Presentation – Trace Log</h1>
+    <p class="subtitle">Raw JSON-RPC communication log — compare against your live Inspector output during demos.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <section class="card">
+        <h2>Communication Trace</h2>
+        <div class="log-controls">
+            <button onclick="toggleFormatting()">Toggle JSON Formatting</button>
+            <button onclick="filterMessages('all')">All</button>
+            <button onclick="filterMessages('received')">Received</button>
+            <button onclick="filterMessages('sent')">Sent</button>
+        </div>
+        <div class="log" id="log">
+<div class="log-entry received">[2026-06-09 09:49:06.310] [API][RECEIVED] {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"sampling":{},"elicitation":{"form":{},"url":{}},"roots":{"listChanged":true},"tasks":{"list":{},"cancel":{},"requests":{"sampling":{"createMessage":{}},"elicitation":{"create":{}}}}},"clientInfo":{"name":"inspector-client","version":"0.22.0"}}}</div>
+<div class="log-entry system">[2026-06-09 09:49:06.314] [API][RECEIVED] initialize — client declared tasks capability, task-augmented requests enabled</div>
+<div class="log-entry sent">[2026-06-09 09:49:06.316] [API][SENT]: {"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"completions":{},"tasks":{"list":{},"cancel":{},"requests":{"tools":{"call":{}}}},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}</div>
+<div class="log-entry received">[2026-06-09 09:49:06.320] [API][RECEIVED] {"jsonrpc":"2.0","method":"notifications/initialized"}</div>
+<div class="log-entry sent">[2026-06-09 09:49:06.321] [API][SENT]: {"jsonrpc":"2.0","id":-1000,"method":"roots/list"}</div>
+<div class="log-entry received">[2026-06-09 09:49:06.340] [API][RECEIVED] {"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}</div>
+<div class="log-entry system">[2026-06-09 09:49:06.342] [API][RECEIVED] roots/list response — populated 0 root(s)</div>
+<div class="log-entry received">[2026-06-09 09:49:08.140] [API][RECEIVED] {"jsonrpc":"2.0","id":1,"method":"ping","params":{"_meta":{"progressToken":1}}}</div>
+<div class="log-entry sent">[2026-06-09 09:49:08.142] [API][SENT]: {"jsonrpc":"2.0","id":1,"result":{}}</div>
+<div class="log-entry received">[2026-06-09 09:49:09.864] [API][RECEIVED] {"jsonrpc":"2.0","id":2,"method":"resources/list","params":{"_meta":{"progressToken":2}}}</div>
+<div class="log-entry sent">[2026-06-09 09:49:10.002] [API][SENT]: {"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"ui://keyword-search/mcp-app.html","name":"Keyword Search App","description":"Interactive keyword search results dashboard","mimeType":"text/html;profile=mcp-app"},{"uri":"javadoc/com/workshop/mcp/spec/Annotations.html","name":"Annotations","description":"Represents annotations that provide additional metadata for resources...","mimeType":"text/html"}],"nextCursor":"pageNext"}}</div>
+<div class="log-entry received">[2026-06-09 09:49:11.022] [API][RECEIVED] {"jsonrpc":"2.0","id":3,"method":"tools/list","params":{"_meta":{"progressToken":3}}}</div>
+<div class="log-entry sent">[2026-06-09 09:49:11.032] [API][SENT]: {"jsonrpc":"2.0","id":3,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}},"execution":{"taskSupport":"optional"}}]}}</div>
+<div class="log-entry received">[2026-06-09 09:49:18.104] [API][RECEIVED] {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"_meta":{"progressToken":4},"name":"key_word_search","arguments":{"keyword":"mcp"}}}</div>
+<div class="log-entry system">[2026-06-09 09:49:18.112] [API][RECEIVED] tools/call deferred — roots empty, eliciting search directory (toolsCallId=4)</div>
+<div class="log-entry sent">[2026-06-09 09:49:18.119] [API][SENT]: {"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"required":["directory"],"type":"object","properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","title":"Search Directory","type":"string"}}}}}</div>
+<div class="log-entry received">[2026-06-09 09:49:24.002] [API][RECEIVED] {"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/agent-command"}}}</div>
+<div class="log-entry system">[2026-06-09 09:49:24.003] [API][RECEIVED] elicitation/create response — action=accept</div>
+<div class="log-entry system">[2026-06-09 09:49:24.003] [API][RECEIVED] elicitation/create — added directory to roots: /Users/davidparry/code/github/agent-command</div>
+<div class="log-entry system">[2026-06-09 09:49:24.004] [API][RECEIVED] tools/call resumed after elicitation — toolsCallId=4 rootsAvailable=true</div>
+<div class="log-entry sent">[2026-06-09 09:49:24.078] [API][SENT]: {"jsonrpc":"2.0","id":4,"result":{"content":[{"text":"/Users/davidparry/code/github/agent-command/README.md, keyword_count=3","type":"text"},{"text":"/Users/davidparry/code/github/agent-command/api.http, keyword_count=1","type":"text"}],"isError":false}}</div>
+<div class="log-entry received">[2026-06-09 09:50:02.560] [API][RECEIVED] {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"_meta":{"progressToken":5},"name":"key_word_search","arguments":{"keyword":"mcp"},"task":{"ttl":60000}}}</div>
+<div class="log-entry system">[2026-06-09 09:50:02.562] [API][SENT] tools/call augmented with task — created taskId=786512e2-9e0d-44bd-8f29-789f320fe840 status=working ttl=60000</div>
+<div class="log-entry sent">[2026-06-09 09:50:02.564] [API][SENT]: {"jsonrpc":"2.0","id":5,"result":{"task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:02Z","ttl":60000,"pollInterval":1000},"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}</div>
+<div class="log-entry system">[2026-06-09 09:50:02.566] [TASK 786512e2-9e0d-44bd-8f29-789f320fe840] background tool execution started for tool=key_word_search</div>
+<div class="log-entry received">[2026-06-09 09:50:03.110] [API][RECEIVED] {"jsonrpc":"2.0","id":6,"method":"tasks/get","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}</div>
+<div class="log-entry system">[2026-06-09 09:50:03.111] [API][SENT] tasks/get taskId=786512e2-9e0d-44bd-8f29-789f320fe840 status=working</div>
+<div class="log-entry sent">[2026-06-09 09:50:03.112] [API][SENT]: {"jsonrpc":"2.0","id":6,"result":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"working","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:02Z","ttl":60000,"pollInterval":1000}}</div>
+<div class="log-entry system">[2026-06-09 09:50:04.580] [TASK 786512e2-9e0d-44bd-8f29-789f320fe840] tool completed, transitioning to completed</div>
+<div class="log-entry system">[2026-06-09 09:50:04.581] [API][SENT] notifications/tasks/status — taskId=786512e2-9e0d-44bd-8f29-789f320fe840 status=completed</div>
+<div class="log-entry sent">[2026-06-09 09:50:04.582] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/tasks/status","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}</div>
+<div class="log-entry received">[2026-06-09 09:50:05.220] [API][RECEIVED] {"jsonrpc":"2.0","id":7,"method":"tasks/result","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}</div>
+<div class="log-entry system">[2026-06-09 09:50:05.220] [API][RECEIVED] tasks/result taskId=786512e2-9e0d-44bd-8f29-789f320fe840 — terminal, replying immediately</div>
+<div class="log-entry system">[2026-06-09 09:50:05.221] [API][SENT] tasks/result — delivering for taskId=786512e2-9e0d-44bd-8f29-789f320fe840 terminal=completed</div>
+<div class="log-entry sent">[2026-06-09 09:50:05.222] [API][SENT]: {"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/Users/davidparry/code/github/agent-command/README.md, keyword_count=3","type":"text"},{"text":"/Users/davidparry/code/github/agent-command/api.http, keyword_count=1","type":"text"}],"isError":false,"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}</div>
+<div class="log-entry received">[2026-06-09 09:50:09.030] [API][RECEIVED] {"jsonrpc":"2.0","id":8,"method":"tasks/list","params":{}}</div>
+<div class="log-entry system">[2026-06-09 09:50:09.031] [API][SENT] tasks/list — returning 1 task(s)</div>
+<div class="log-entry sent">[2026-06-09 09:50:09.032] [API][SENT]: {"jsonrpc":"2.0","id":8,"result":{"tasks":[{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}],"nextCursor":null}}</div>
+<div class="log-entry received">[2026-06-09 09:50:12.110] [API][RECEIVED] {"jsonrpc":"2.0","id":9,"method":"tasks/cancel","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}</div>
+<div class="log-entry system">[2026-06-09 09:50:12.111] [API][SENT] tasks/cancel rejected — taskId=786512e2-9e0d-44bd-8f29-789f320fe840 already terminal (completed, returning -32602)</div>
+<div class="log-entry sent">[2026-06-09 09:50:12.112] [API][SENT]: {"jsonrpc":"2.0","id":9,"error":{"code":-32602,"message":"Cannot cancel task: already in terminal status 'completed'"}}</div>
+<div class="log-entry system">[2026-06-09 09:52:32.615] Stopping and closing resources</div>
+        </div>
+        <div class="hint" style="margin-top:12px;font-size:13px;color:var(--muted)">Trace truncated for clarity. Real-world <code>key_word_search</code> results can list hundreds of files (e.g. when walking <code>node_modules</code>); the file dump is intentionally compact here so the protocol flow — synchronous call &rarr; lazy elicitation &rarr; task-augmented call &rarr; lifecycle &mdash; reads cleanly.</div>
+        <div class="hint">
+            Color coding:
+            <span style="color:#7dcfff">Blue = Received (Client → Server)</span> &nbsp;|&nbsp;
+            <span style="color:#9ece6a">Green = Sent (Server → Client)</span> &nbsp;|&nbsp;
+            <span style="color:#f7768e">Red = System events</span>
+        </div>
+    </section>
+
+    <div class="footer">© 2025 MCP Presentation. Raw trace data from MCP communication session — 3-hour class reference.</div>
+</main>
+
+<script>
+let formatJson = false;
+
+function toggleFormatting() {
+    formatJson = !formatJson;
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        const text = entry.dataset.originalText || entry.textContent;
+        if (!entry.dataset.originalText) entry.dataset.originalText = text;
+        if (formatJson) {
+            try {
+                const jsonMatch = text.match(/(\{.*\})/);
+                if (jsonMatch) {
+                    const prefix = text.substring(0, jsonMatch.index);
+                    const jsonStr = jsonMatch[1];
+                    const parsed = JSON.parse(jsonStr);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    entry.innerHTML = prefix + '<br>' + formatted.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
+                }
+            } catch (e) {}
+        } else {
+            entry.textContent = text;
+        }
+    });
+}
+
+function filterMessages(type) {
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        if (type === 'all') {
+            entry.style.display = 'block';
+        } else {
+            entry.style.display = entry.classList.contains(type) ? 'block' : 'none';
+        }
+    });
+}
+</script>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

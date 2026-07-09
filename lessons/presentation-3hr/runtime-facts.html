@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Presentation – Runtime Facts</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .badge{display:inline-flex;gap:8px;align-items:center;background:#0c1328;border:1px solid #1f2740;border-radius:999px;padding:6px 10px;color:#cbd5ff;font-size:12px;margin-bottom:16px}
+        .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        .facts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+        .fact-card{background:var(--card);border:1px solid #1f2740;border-radius:12px;padding:16px}
+        .fact-card h3{margin:0 0 12px;color:var(--accent);font-size:18px}
+        .fact-card ul{margin:0;padding-left:20px}
+        .fact-card li{margin-bottom:8px}
+        .fact-card code{background:#0c1328;padding:2px 6px;border-radius:4px;font-size:13px}
+        h2{color:var(--accent);margin-top:0}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>MCP Presentation – Runtime Facts</h1>
+    <p class="subtitle">Key information about the MCP communication session and server capabilities — reference during IDE demos.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <section class="card">
+        <div class="badge"><span class="dot"></span> Runtime Facts — Pre-recorded Session Reference</div>
+
+        <div class="facts-grid">
+            <div class="fact-card">
+                <h3>Protocol Information</h3>
+                <ul>
+                    <li><strong>Protocol Version:</strong> 2025‑06‑18</li>
+                    <li><strong>JSON-RPC Version:</strong> 2.0</li>
+                    <li><strong>Transport:</strong> STDIO</li>
+                    <li><strong>Communication:</strong> Bidirectional</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Client Details</h3>
+                <ul>
+                    <li><strong>Name:</strong> mcp‑inspector</li>
+                    <li><strong>Version:</strong> 0.16.5</li>
+                    <li><strong>Role:</strong> MCP Client</li>
+                    <li><strong>Session Duration:</strong> ~2 min (17:37–17:39)</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Server Details</h3>
+                <ul>
+                    <li><strong>Name:</strong> agent‑mcp‑workshop</li>
+                    <li><strong>Version:</strong> 0.0.1</li>
+                    <li><strong>Role:</strong> MCP Server</li>
+                    <li><strong>Runtime:</strong> JVM / Java 21</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Client Capabilities</h3>
+                <ul>
+                    <li><strong>Sampling:</strong> ✓</li>
+                    <li><strong>Elicitation:</strong> ✓</li>
+                    <li><strong>Roots:</strong> ✓ (listChanged: true)</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Server Capabilities</h3>
+                <ul>
+                    <li><strong>Tools:</strong> ✓ (listChanged: true)</li>
+                    <li><strong>Prompts:</strong> ✓ (listChanged: true)</li>
+                    <li><strong>Resources:</strong> ✓ (listChanged: false)</li>
+                    <li><strong>Completions:</strong> ✓</li>
+                    <li><strong>Experimental:</strong> elicitation + apps</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Experimental Extensions</h3>
+                <ul>
+                    <li><code>io.modelcontextprotocol/elicitation</code></li>
+                    <li><code>io.modelcontextprotocol/apps</code></li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Available Tools</h3>
+                <ul>
+                    <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
+                    <li><strong>Description:</strong> Searches for keywords across project files</li>
+                    <li><strong>Parameters:</strong> keyword <em>(the directory comes from <code>roots/list</code> or the elicitation form, not a tool arg)</em></li>
+                    <li><strong>Task Support:</strong> <code>execution.taskSupport: "optional"</code></li>
+                    <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code></li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Available Prompts</h3>
+                <ul>
+                    <li><strong>Prompt Name:</strong> <code>search_keyword</code></li>
+                    <li><strong>Description:</strong> Creates a prompt to search for a word using the key_word_search tool</li>
+                    <li><strong>Arguments:</strong> keyword (required)</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Available Resources</h3>
+                <ul>
+                    <li><strong>Resource Count:</strong> 70+ Javadoc files</li>
+                    <li><strong>Resource Type:</strong> HTML documentation</li>
+                    <li><strong>Example:</strong> <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
+                    <li><strong>Pagination:</strong> ✓ (nextCursor: "pageNext")</li>
+                    <li><strong>UI Resource:</strong> <code>ui://keyword-search/mcp-app.html</code></li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Elicitation Details</h3>
+                <ul>
+                    <li><strong>Method:</strong> <code>elicitation/create</code></li>
+                    <li><strong>Request ID:</strong> -4000</li>
+                    <li><strong>Message:</strong> "Pick a directory for the keyword-search tool to search in"</li>
+                    <li><strong>Schema Fields:</strong> directory (absolute path)</li>
+                    <li><strong>User Response:</strong> directory = <code>/Users/.../some-repo</code></li>
+                    <li><strong>Action:</strong> accept &rarr; directory added to server's roots set</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Session Flow</h3>
+                <ul>
+                    <li><strong>1.</strong> Initialization handshake</li>
+                    <li><strong>2.</strong> Elicitation — user input collection</li>
+                    <li><strong>3.</strong> Roots discovery</li>
+                    <li><strong>4.</strong> Ping &amp; sampling</li>
+                    <li><strong>5.</strong> Resources discovery</li>
+                    <li><strong>6.</strong> Resource reading</li>
+                    <li><strong>7.</strong> Prompts discovery</li>
+                    <li><strong>8.</strong> Prompt execution</li>
+                    <li><strong>9.</strong> Tools discovery</li>
+                    <li><strong>10.</strong> Tool execution</li>
+                    <li><strong>11.</strong> Sampling response</li>
+                    <li><strong>12.</strong> Roots changes</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Tool Execution Results</h3>
+                <ul>
+                    <li><strong>Search Keyword:</strong> "mcp"</li>
+                    <li><strong>Files Found:</strong> 58 files</li>
+                    <li><strong>Total Matches:</strong> 400+ occurrences</li>
+                    <li><strong>Search Directory:</strong> /Users/davidparry/code/github/agent-command</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="hint">Reference this page during IDE demos to compare live Inspector output with the pre-recorded session data.</div>
+    </section>
+
+    <div class="footer">© 2025 MCP Presentation. Runtime information extracted from session logs — 3-hour class reference.</div>
+</main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Tasks &mdash; Call-Now Fetch-Later</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:24px 0}
+        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+        .demo-steps{counter-reset:step;list-style:none;padding-left:0}
+        .demo-steps>li{counter-increment:step;position:relative;padding-left:38px;margin:12px 0}
+        .demo-steps>li::before{content:counter(step);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        .experimental-badge{display:inline-block;background:rgba(247,118,142,0.15);border:1px solid var(--red);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--red);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+        .ext-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:18px}
+        .ext-card h4{margin:0 0 10px;font-size:15px;color:var(--fg)}
+        .ext-card p{color:var(--muted);margin:0 0 10px;font-size:13px}
+        table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+        .lifecycle-table td:first-child{color:var(--orange);font-weight:600;white-space:nowrap}
+        .key-concept{background:rgba(187,154,247,0.08);border:1px solid rgba(187,154,247,0.3);border-radius:10px;padding:16px;margin:12px 0}
+        .key-concept strong{color:var(--purple)}
+        .flow-steps{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+        .flow-step{display:flex;gap:14px;align-items:flex-start}
+        .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:13px;font-weight:700;flex-shrink:0}
+        .step-content h4{margin:0 0 4px;font-size:14px;color:var(--fg)}
+        .step-content p{margin:0;font-size:13px;color:var(--muted)}
+        .status-pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;font-family:ui-monospace,Menlo,monospace}
+        .s-working{background:rgba(122,162,247,.18);color:#7aa2f7}
+        .s-input{background:rgba(187,154,247,.18);color:#bb9af7}
+        .s-done{background:rgba(158,206,106,.18);color:#9ece6a}
+        .s-fail{background:rgba(247,118,142,.18);color:#f7768e}
+        .s-cancel{background:rgba(154,164,178,.18);color:#9aa4b2}
+        .mermaid{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;margin:12px 0}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>MCP Tasks &mdash; Call Now, Fetch Later</h1>
+    <p class="subtitle">The 2025-11-25 utility for deferred execution, polling, and durable results</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <!-- Why Tasks -->
+    <section class="card">
+        <span class="chapter-badge">Chapter 7</span>
+        <span class="experimental-badge">Experimental — 2025-11-25</span>
+        <h2>The Problem Tasks Solve</h2>
+        <p>The synchronous <code>tools/call</code> shape works fine for fast operations &mdash; sub-second searches, lookups, small computations. It falls apart for anything that takes longer than a polite roundtrip: large-scale processing, batch jobs, ML inference, external API calls with retries.</p>
+
+        <div class="key-concept">
+            <strong>Tasks split a request into two trips:</strong> the receiver immediately acknowledges with a <code>taskId</code> and a status of <code>working</code>, runs the work in the background, and lets the requestor poll, retrieve, or cancel on its own schedule.
+        </div>
+
+        <h3>What Changes vs. Plain <code>tools/call</code></h3>
+        <table>
+            <thead><tr><th>Concern</th><th>Without Tasks</th><th>With Tasks</th></tr></thead>
+            <tbody>
+                <tr><td>Long operations</td><td>Hold the connection open</td><td>Acknowledge fast, poll later</td></tr>
+                <tr><td>Crash recovery</td><td>Result lost when stream drops</td><td>Retrievable until TTL expires</td></tr>
+                <tr><td>Concurrent work</td><td>One slow call blocks the LLM</td><td>LLM dispatches and continues</td></tr>
+                <tr><td>Stateless HTTP</td><td>Needs SSE or webhooks</td><td>Just request/response polling</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Capability negotiation -->
+    <section class="card">
+        <h2>Capability Negotiation</h2>
+        <p>Both sides advertise <strong>which categories of request</strong> may be task-augmented. Empty <code>{}</code> markers are intentional &mdash; presence is the signal.</p>
+
+        <div class="two-col">
+            <div class="ext-card">
+                <h4>Server declares (in <code>initialize</code> response)</h4>
+                <pre style="margin:6px 0">{
+  "capabilities": {
+    "tasks": {
+      "list": {},
+      "cancel": {},
+      "requests": {
+        "tools": { "call": {} }
+      }
+    }
+  }
+}</pre>
+            </div>
+            <div class="ext-card">
+                <h4>Client declares (in <code>initialize</code> request)</h4>
+                <pre style="margin:6px 0">{
+  "capabilities": {
+    "tasks": {
+      "list": {},
+      "cancel": {},
+      "requests": {
+        "sampling":    { "createMessage": {} },
+        "elicitation": { "create": {} }
+      }
+    }
+  }
+}</pre>
+            </div>
+        </div>
+
+        <h3>Tool-Level Override</h3>
+        <p>Each tool declares its own appetite via <code>execution.taskSupport</code> in the <code>tools/list</code> response:</p>
+        <pre>{
+  "name": "key_word_search",
+  "execution": { "taskSupport": "optional" }
+}</pre>
+        <ul style="font-size:13px;padding-left:22px">
+            <li><code>"required"</code> &mdash; client MUST task-augment</li>
+            <li><code>"optional"</code> &mdash; client MAY task-augment</li>
+            <li><code>"forbidden"</code> or absent &mdash; client MUST NOT</li>
+        </ul>
+    </section>
+
+    <!-- Lifecycle -->
+    <section class="card">
+        <h2>The Task Lifecycle</h2>
+        <p>Tasks are state machines with three terminal states. Receivers are forbidden from moving a terminal task back into <code>working</code>.</p>
+
+        <div class="two-col">
+            <div class="ext-card">
+                <div class="mermaid">
+<pre style="background:transparent;border:none;padding:0;margin:0;font-size:12px;color:var(--muted);font-family:ui-monospace,Menlo,monospace">
+                [*]
+                 │
+                 ▼
+        ┌────────────────┐
+        │    working     │◄─────┐
+        └────────────────┘      │
+            │      │            │
+            ▼      ▼            │
+   input_required  │            │
+            │      │            │
+            └──────┴──┐         │
+                     ▼          │
+        ┌─────────────────┐     │
+        │ completed │      │     │
+        │ failed    │ ─── terminal
+        │ cancelled │      │
+        └─────────────────┘
+</pre>
+                </div>
+            </div>
+            <div class="ext-card">
+                <h4>Status values</h4>
+                <table class="lifecycle-table">
+                    <tbody>
+                        <tr><td><span class="status-pill s-working">working</span></td><td>Initial state. Receiver is processing.</td></tr>
+                        <tr><td><span class="status-pill s-input">input_required</span></td><td>Receiver needs more input before it can continue.</td></tr>
+                        <tr><td><span class="status-pill s-done">completed</span></td><td>Terminal &mdash; success. Result is retrievable.</td></tr>
+                        <tr><td><span class="status-pill s-fail">failed</span></td><td>Terminal &mdash; underlying request failed.</td></tr>
+                        <tr><td><span class="status-pill s-cancel">cancelled</span></td><td>Terminal &mdash; cancelled by requestor.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Message Flow -->
+    <section class="card">
+        <h2>Message Flow &mdash; Augmented <code>tools/call</code></h2>
+        <div class="flow-steps">
+            <div class="flow-step">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                    <h4>Request augmentation</h4>
+                    <p>Client sends a regular <code>tools/call</code> with one extra field: <code>params.task = { ttl: 60000 }</code>.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                    <h4>Immediate <code>CreateTaskResult</code></h4>
+                    <p>Server replies in milliseconds: <code>{ task: { taskId, status: "working", ttl, pollInterval } }</code>. The underlying tool has not run yet.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                    <h4>Background execution</h4>
+                    <p>Server spawns a thread (or hands off to a queue). The router keeps processing other requests while the task runs.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">4</span>
+                <div class="step-content">
+                    <h4>Polling &mdash; <code>tasks/get</code></h4>
+                    <p>Client polls at the server's suggested <code>pollInterval</code>. Each call returns the current <code>Task</code> snapshot without blocking.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">5</span>
+                <div class="step-content">
+                    <h4>Retrieval &mdash; <code>tasks/result</code></h4>
+                    <p>Once terminal (or if the client is willing to block), <code>tasks/result</code> returns exactly what the original <code>tools/call</code> would have returned, with <code>_meta.io.modelcontextprotocol/related-task</code> attached.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">6</span>
+                <div class="step-content">
+                    <h4>Optional notification</h4>
+                    <p>Receivers MAY push <code>notifications/tasks/status</code> on transition. Requestors MUST NOT depend on it &mdash; polling stays the contract.</p>
+                </div>
+            </div>
+        </div>
+
+        <h3>The Five New Methods</h3>
+        <table>
+            <thead><tr><th>Method</th><th>Direction</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>tools/call</code> + <code>task</code></td><td>req &rarr; rec</td><td>Implicit task creation via augmentation</td></tr>
+                <tr><td><code>tasks/get</code></td><td>req &rarr; rec</td><td>Non-blocking status poll</td></tr>
+                <tr><td><code>tasks/result</code></td><td>req &rarr; rec</td><td>Blocks until terminal, returns underlying result</td></tr>
+                <tr><td><code>tasks/list</code></td><td>req &rarr; rec</td><td>Cursor-paginated enumeration</td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>req &rarr; rec</td><td>Best-effort cancel; <code>-32602</code> if terminal</td></tr>
+                <tr><td><code>notifications/tasks/status</code></td><td>rec &rarr; req</td><td>Optional status push</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Related-task meta -->
+    <section class="card">
+        <h2>Related-Task Metadata</h2>
+        <p>Every response or notification belonging to a task carries this key in its <code>_meta</code>:</p>
+        <pre>"_meta": {
+  "io.modelcontextprotocol/related-task": { "taskId": "786512e2-..." }
+}</pre>
+        <p>This is how a server-initiated <code>elicitation/create</code> (triggered <em>inside</em> a task) gets correlated back to its parent task &mdash; required for the <code>input_required</code> flow.</p>
+    </section>
+
+    <!-- When not to use -->
+    <section class="card">
+        <h2>When <em>Not</em> to Use Tasks</h2>
+        <p>Tasks add round trips. For short operations they cost more than they save. Skip task augmentation when:</p>
+        <ul>
+            <li>The call returns in under a second &mdash; the polling overhead dwarfs the work</li>
+            <li>You're inside a tight loop &mdash; batch the calls instead</li>
+            <li>You need ordered streaming output &mdash; tasks are point-in-time, not a stream</li>
+            <li>Your transport already supports server-push (WebSockets, SSE) and you don't need durability</li>
+        </ul>
+    </section>
+
+    <!-- IDE Demo: Chapter 7 -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 7</span>
+        <h3>Chapter 7 Live: Call Now, Fetch Later</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/07-instructions.md</code> open as the script.</p>
+        <ol class="demo-steps">
+            <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskParams</code>, <code>CreateTaskResult</code>, and the per-method params/results. One <code>Task</code> shape is reused across get, cancel, list, and status notifications.</li>
+            <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL.</li>
+            <li><strong>In <code>IORouter.java</code></strong>, show the capability negotiation — <code>tasks</code> in <code>ServerCapabilities</code> with <code>requests.tools.call</code>, and the tool advertising <code>execution.taskSupport = "optional"</code> in <code>tools/list</code>.</li>
+            <li><strong>Walk the augmented <code>TOOLS_CALL</code> branch</strong> — when <code>params.task</code> is present: create the task, reply immediately with <code>CreateTaskResult</code>, and run <code>key_word_search</code> on a background thread (<code>runToolAsTask</code> sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable in Inspector). The synchronous path is untouched.</li>
+            <li><strong>In Inspector:</strong> first make a plain <code>tools/call</code> — results return synchronously, proving nothing broke. Then send a task-augmented call with <code>task: { "ttl": 60000 }</code> — a <code>CreateTaskResult</code> with <code>status: "working"</code> comes back in milliseconds.</li>
+            <li><strong>Poll the lifecycle:</strong> <code>tasks/get</code> until <code>completed</code> (or catch the <code>notifications/tasks/status</code> push), then <code>tasks/result</code> to retrieve the search hits — note the <code>related-task</code> key in <code>_meta</code>.</li>
+            <li><strong>Finish with management:</strong> <code>tasks/list</code> to enumerate, then start another augmented call and <code>tasks/cancel</code> it — show the terminal <code>cancelled</code> state and that a second cancel is rejected.</li>
+        </ol>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> task augmentation is additive — the same tool, the same handler, one extra branch. The requestor decides per-call whether it wants sync or async semantics.</p>
+    </div>
+
+    <div class="footer">© 2025 MCP Presentation. Tasks &mdash; Chapter 7.</div>
+</main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

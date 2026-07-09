@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Presentation – JSON-RPC Flow Diagram</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:95%;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:12px}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:18px 0}
+        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+        .demo-steps{counter-reset:step;list-style:none;padding-left:0}
+        .demo-steps>li{counter-increment:step;position:relative;padding-left:38px;margin:12px 0}
+        .demo-steps>li::before{content:counter(step);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .ide-demo h3{color:var(--fg);margin:0 0 10px;font-size:17px}
+        .ide-demo ul{margin:6px 0 0;padding-left:22px}
+        .ide-demo li{margin:5px 0;font-size:14px}
+        .ide-demo code{background:#0c1328;padding:1px 5px;border-radius:4px;font-size:12px;color:var(--green)}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+    <!-- Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            sequence: {
+                showSequenceNumbers: true
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                addHoverTooltips();
+            }, 1000);
+        });
+
+        function addHoverTooltips() {
+            const tooltip = document.createElement('div');
+            tooltip.id = 'mermaid-tooltip';
+            tooltip.style.cssText = `
+                position: absolute;
+                background: #1a1a2e;
+                color: #e6e9ef;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 18px;
+                border: 1px solid #7aa2f7;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 1000;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s;
+                max-width: 70vw;
+                word-wrap: break-word;
+            `;
+            document.body.appendChild(tooltip);
+
+            const tooltips = {
+                'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"sampling":{},"elicitation":{"form":{},"url":{}},"roots":{"listChanged":true},"tasks":{"list":{},"cancel":{},"requests":{"sampling":{"createMessage":{}},"elicitation":{"create":{}}}}},"clientInfo":{"name":"inspector-client","version":"0.22.0"}},"jsonrpc":"2.0","id":0}',
+                'initialize result': '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"completions":{},"tasks":{"list":{},"cancel":{},"requests":{"tools":{"call":{}}}},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}',
+                'notifications/initialized': '{"jsonrpc":"2.0","method":"notifications/initialized"}',
+                'elicitation/create': '{"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"required":["directory"],"type":"object","properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","title":"Search Directory","type":"string"}}}}}',
+                'elicitation/create result': '{"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/agent-command"}}}',
+                'roots/list': '{"jsonrpc":"2.0","id":-1000,"method":"roots/list"}',
+                'roots/list result': '{"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}',
+                'ping': '{"method":"ping","params":{"_meta":{"progressToken":1}},"jsonrpc":"2.0","id":1}',
+                'ping result': '{"jsonrpc":"2.0","id":1,"result":{}}',
+                'resources/list': '{"method":"resources/list","params":{"_meta":{"progressToken":2}},"jsonrpc":"2.0","id":2}',
+                'resources/list result': '{"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"ui://keyword-search/mcp-app.html","name":"Keyword Search App","mimeType":"text/html;profile=mcp-app"},{"uri":"javadoc/.../Capability.html","name":"Capability","mimeType":"text/html"}],"nextCursor":"pageNext"}}',
+                'tools/list': '{"method":"tools/list","params":{"_meta":{"progressToken":3}},"jsonrpc":"2.0","id":3}',
+                'tools/list result': '{"jsonrpc":"2.0","id":3,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}},"execution":{"taskSupport":"optional"}}]}}',
+                'tools/call (sync)': '{"method":"tools/call","params":{"_meta":{"progressToken":4},"name":"key_word_search","arguments":{"keyword":"mcp"}},"jsonrpc":"2.0","id":4}',
+                'tools/call (sync) result': '{"jsonrpc":"2.0","id":4,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false}}',
+                'tools/call (task)': '{"method":"tools/call","params":{"_meta":{"progressToken":5},"name":"key_word_search","arguments":{"keyword":"mcp"},"task":{"ttl":60000}},"jsonrpc":"2.0","id":5}',
+                'CreateTaskResult': '{"jsonrpc":"2.0","id":5,"result":{"task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"working","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:02Z","ttl":60000,"pollInterval":1000},"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
+                'tasks/get': '{"method":"tasks/get","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":6}',
+                'tasks/get result': '{"jsonrpc":"2.0","id":6,"result":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
+                'notifications/tasks/status': '{"jsonrpc":"2.0","method":"notifications/tasks/status","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
+                'tasks/result': '{"method":"tasks/result","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":7}',
+                'tasks/result result': '{"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false,"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
+                'tasks/list': '{"method":"tasks/list","params":{},"jsonrpc":"2.0","id":8}',
+                'tasks/list result': '{"jsonrpc":"2.0","id":8,"result":{"tasks":[{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}],"nextCursor":null}}',
+                'notifications/roots/list_changed': '{"jsonrpc":"2.0","method":"notifications/roots/list_changed"}'
+            };
+
+            setTimeout(() => {
+                const messageSelectors = ['.messageText','.messageLine0','.messageLine1','text[class*="messageText"]','text[class*="messageLine"]','.message-text','g.message text','g[class*="message"] text'];
+                let messageElements = [];
+                messageSelectors.forEach(selector => {
+                    const elements = document.querySelectorAll(selector);
+                    messageElements = messageElements.concat(Array.from(elements));
+                });
+                messageElements = [...new Set(messageElements)];
+
+                messageElements.forEach((element) => {
+                    const text = (element.textContent || element.innerHTML || '').trim();
+                    let tooltipText = '';
+                    let matchedKey = '';
+                    const sortedKeys = Object.keys(tooltips).sort((a, b) => b.length - a.length);
+                    for (const key of sortedKeys) {
+                        if (text === key) { tooltipText = tooltips[key]; matchedKey = key; break; }
+                        if (text.toLowerCase() === key.toLowerCase()) { tooltipText = tooltips[key]; matchedKey = key; break; }
+                        if (key.length >= 4 && text.includes(key)) { tooltipText = tooltips[key]; matchedKey = key; break; }
+                    }
+                    if (tooltipText) {
+                        element.addEventListener('mouseenter', (e) => {
+                            tooltip.innerHTML = `<strong>${matchedKey}</strong><br/>${tooltipText}`;
+                            tooltip.style.opacity = '1';
+                            updateTooltipPosition(e, tooltip);
+                        });
+                        element.addEventListener('mousemove', (e) => { updateTooltipPosition(e, tooltip); });
+                        element.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+                        element.style.cursor = 'help';
+                        element.style.textDecoration = 'underline';
+                        element.style.textDecorationStyle = 'dotted';
+                    }
+                });
+            }, 500);
+        }
+
+        function updateTooltipPosition(e, tooltip) {
+            const x = e.pageX + 10;
+            const y = e.pageY - 10;
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+            tooltip.offsetHeight;
+            const rect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            let finalX = x;
+            let finalY = y;
+            if (rect.right > viewportWidth) finalX = e.pageX - rect.width - 10;
+            if (rect.top < 0) finalY = e.pageY + 20;
+            if (rect.bottom > viewportHeight) finalY = e.pageY - rect.height - 10;
+            tooltip.style.left = finalX + 'px';
+            tooltip.style.top = finalY + 'px';
+        }
+    </script>
+</head>
+<body>
+<header>
+    <h1>MCP Presentation – JSON‑RPC Communication Flow</h1>
+    <p class="subtitle">Sequence diagram showing the complete MCP communication flow including all phases. Hover message labels to see full JSON payloads.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+
+    <section class="card">
+        <div class="mermaid">
+            sequenceDiagram
+            autonumber
+            participant Client as mcp-inspector (Client)
+            participant Server as agent-mcp-workshop (Server)
+
+            Note over Client,Server: Initialization Phase (2025-11-25)
+
+            Client->>Server: initialize
+            Note over Client,Server: Client declares: sampling, elicitation, roots, tasks
+            Server-->>Client: initialize result
+            Note over Client,Server: Server declares: tools, prompts, resources, completions,<br/>tasks (list/cancel + tools.call), experimental (elicitation, apps)
+
+            Client->>Server: notifications/initialized
+
+            Note over Client,Server: Roots Discovery (no elicitation at startup)
+            Server->>Client: roots/list
+            Client-->>Server: roots/list result
+
+            Note over Client,Server: Ping
+            Client->>Server: ping
+            Server-->>Client: ping result
+
+            Note over Client,Server: Resources & Tools Discovery
+            Client->>Server: resources/list
+            Server-->>Client: resources/list result
+            Client->>Server: tools/list
+            Server-->>Client: tools/list result
+            Note over Server: tool advertises execution.taskSupport="optional"
+
+            Note over Client,Server: Synchronous tools/call — lazy elicitation
+            Client->>Server: tools/call (sync)
+            Note over Server: roots empty + hasElicitation → defer response
+            Server->>Client: elicitation/create
+            Note over Client: Inspector renders single-field form:<br/>directory = (absolute path)
+            Client-->>Server: elicitation/create result
+            Note over Server: action=accept → add directory to roots,<br/>resume the held tools/call (id reused)
+            Server-->>Client: tools/call (sync) result
+
+            Note over Client,Server: Task-augmented tools/call — call now, fetch later
+            Client->>Server: tools/call (task)
+            Note over Client,Server: params.task = { ttl: 60000 }
+            Server-->>Client: CreateTaskResult
+            Note over Server: status=working, taskId returned in ms<br/>tool runs on background thread
+
+            Client->>Server: tasks/get
+            Server-->>Client: tasks/get result
+            Note over Server: tool completes
+            Server->>Client: notifications/tasks/status
+            Note over Client,Server: status: working → completed (optional push)
+
+            Client->>Server: tasks/result
+            Server-->>Client: tasks/result result
+            Note over Client,Server: _meta.io.modelcontextprotocol/related-task = { taskId }
+
+            Note over Client,Server: Task Management
+            Client->>Server: tasks/list
+            Server-->>Client: tasks/list result
+
+            Note over Client,Server: Session End
+            Note over Client,Server: Stopping and closing resources
+        </div>
+        <div class="hint">💡 Hover or tap message labels to see full JSON payloads. This diagram shows the complete MCP communication lifecycle from initialization to shutdown.</div>
+    </section>
+
+    <!-- IDE Demo lead-in -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ Up Next: IDE Demo — Chapter 3</span>
+        <h3>Chapter 3: Bring the Handshake to Life</h3>
+        <p style="color:var(--muted);font-size:14px">The first three arrows of this diagram — <strong>initialize → initialize result → notifications/initialized</strong> — are exactly what the Chapter 3 demo makes real. Switch to the IDE and follow the full script on the <a href="capabilities.html" style="color:var(--accent)">Capabilities</a> page: walk the INITIALIZE and PING handlers in <code>IORouter</code>, launch MCP Inspector, and watch these messages appear live. Keep the <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> open to compare against Inspector's message pane.</p>
+    </div>
+
+    <div class="footer">© 2025 MCP Presentation. Diagram rendered with Mermaid — hover labels for JSON payloads.</div>
+</main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>
