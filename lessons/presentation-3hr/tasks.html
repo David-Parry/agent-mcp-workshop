@@ -83,7 +83,7 @@
 
     <!-- Why Tasks -->
     <section class="card">
-        <span class="chapter-badge">Chapter 7</span>
+        <span class="chapter-badge">Tasks</span>
         <span class="experimental-badge">Experimental — 2025-11-25</span>
         <h2>The Problem Tasks Solve</h2>
         <p>The synchronous <code>tools/call</code> shape works fine for fast operations &mdash; sub-second searches, lookups, small computations. It falls apart for anything that takes longer than a polite roundtrip: large-scale processing, batch jobs, ML inference, external API calls with retries.</p>
@@ -282,24 +282,24 @@
         </ul>
     </section>
 
-    <!-- IDE Demo: Chapter 7 -->
+    <!-- IDE Demo: Tasks -->
     <div class="ide-demo">
-        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 7</span>
-        <h3>Chapter 7 Live: Call Now, Fetch Later</h3>
-        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/07-instructions.md</code> open as the script.</p>
+        <span class="ide-demo-badge">⌨️ IDE Demo — Steps 27–33</span>
+        <h3>Live: Call Now, Fetch Later</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/presentation-3hr/walkthrough.md</code> open — continue at <strong>Step 27</strong>.</p>
         <ol class="demo-steps">
             <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskParams</code>, <code>CreateTaskResult</code>, and the per-method params/results. One <code>Task</code> shape is reused across get, cancel, list, and status notifications.</li>
-            <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL.</li>
-            <li><strong>In <code>IORouter.java</code></strong>, show the capability negotiation — <code>tasks</code> in <code>ServerCapabilities</code> with <code>requests.tools.call</code>, and the tool advertising <code>execution.taskSupport = "optional"</code> in <code>tools/list</code>.</li>
-            <li><strong>Walk the augmented <code>TOOLS_CALL</code> branch</strong> — when <code>params.task</code> is present: create the task, reply immediately with <code>CreateTaskResult</code>, and run <code>key_word_search</code> on a background thread (<code>runToolAsTask</code> sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable in Inspector). The synchronous path is untouched.</li>
-            <li><strong>In Inspector:</strong> first make a plain <code>tools/call</code> — results return synchronously, proving nothing broke. Then send a task-augmented call with <code>task: { "ttl": 60000 }</code> — a <code>CreateTaskResult</code> with <code>status: "working"</code> comes back in milliseconds.</li>
+            <li><strong>Step 27 — copy <code>files/TaskStore.java</code> into <code>src/main/java/com/workshop/mcp/tasks/</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL. Then <strong>paste Step 28</strong> — the store field, the status listener, and the <code>_meta</code>/notification helpers in <code>IORouter</code>.</li>
+            <li><strong>Paste Step 29 — the final INITIALIZE</strong> — <code>tasks</code> in <code>ServerCapabilities</code> with <code>requests.tools.call</code>; and <strong>Step 30 — the final TOOLS_LIST</strong> — the tool advertising <code>execution.taskSupport = "optional"</code>.</li>
+            <li><strong>Paste Step 31 — the augmented execution path</strong> — when <code>params.task</code> is present: create the task, reply immediately with <code>CreateTaskResult</code>, and run <code>key_word_search</code> on a background thread (<code>runToolAsTask</code> sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable in Inspector). The synchronous path is untouched. Then <strong>paste Steps 32 and 33</strong> — the <code>tasks/get</code>, <code>tasks/list</code>, <code>tasks/cancel</code>, and <code>tasks/result</code> handlers.</li>
+            <li><strong>Rebuild, then in Inspector:</strong> first make a plain <code>tools/call</code> — results return synchronously, proving nothing broke. Then send a task-augmented call with <code>task: { "ttl": 60000 }</code> — a <code>CreateTaskResult</code> with <code>status: "working"</code> comes back in milliseconds.</li>
             <li><strong>Poll the lifecycle:</strong> <code>tasks/get</code> until <code>completed</code> (or catch the <code>notifications/tasks/status</code> push), then <code>tasks/result</code> to retrieve the search hits — note the <code>related-task</code> key in <code>_meta</code>.</li>
             <li><strong>Finish with management:</strong> <code>tasks/list</code> to enumerate, then start another augmented call and <code>tasks/cancel</code> it — show the terminal <code>cancelled</code> state and that a second cancel is rejected.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> task augmentation is additive — the same tool, the same handler, one extra branch. The requestor decides per-call whether it wants sync or async semantics.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. Tasks &mdash; Chapter 7.</div>
+    <div class="footer">© 2025 MCP Presentation. Tasks.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>
@@ -324,20 +324,20 @@
 <h2>Class Flow</h2>
 <p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
 <table class="at">
-<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<thead><tr><th>#</th><th>Topic</th><th>Steps</th><th>Page</th></tr></thead>
 <tbody>
 <tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
-<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
-<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td>&mdash;</td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td>&mdash;</td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Transport layer &mdash; <code>IOHandlerImpl</code>, log writer, red-to-green tests</td><td><span class="bc">1&ndash;3</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td>&mdash;</td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">4&ndash;9</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Resources &amp; Tools + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">10&ndash;15</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">16&ndash;18</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">19&ndash;22</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">23&ndash;26</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">27&ndash;33</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td>&mdash;</td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
 <tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
 </tbody>
 </table>

@@ -79,7 +79,7 @@
 
     <!-- Extensions Overview -->
     <section class="card">
-        <span class="chapter-badge">Chapter 5</span>
+        <span class="chapter-badge">Extensions</span>
         <h2>What Are MCP Extensions?</h2>
         <p>MCP Extensions are <strong>optional additions</strong> to the core specification. They allow the protocol to evolve without breaking backwards compatibility. An extension is only active when <em>both sides</em> explicitly declare support for it.</p>
 
@@ -246,24 +246,24 @@
         </table>
     </section>
 
-    <!-- IDE Demo: Chapter 5 -->
+    <!-- IDE Demo: Elicitation -->
     <div class="ide-demo">
-        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 5</span>
-        <h3>Chapter 5 Live: The Lazy Elicitation Flow</h3>
-        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/05-instructions.md</code> open as the script.</p>
+        <span class="ide-demo-badge">⌨️ IDE Demo — Steps 19–22</span>
+        <h3>Live: Build the Lazy Elicitation Flow</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/presentation-3hr/walkthrough.md</code> open — continue at <strong>Step 19</strong>.</p>
         <ol class="demo-steps">
             <li><strong>Open <code>ServerCapabilities.java</code></strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — show the <code>experimental</code> map field, and <code>withExperimentalCapability()</code> in <code>InitializeResultBuilder</code>. Note the ordering rule: it must be chained <em>before</em> <code>withDefaultCapabilities()</code>.</li>
-            <li><strong>In <code>IORouter.java</code></strong>, show the <code>hasElicitation</code> flag set from <code>clientCapabilities.elicitation()</code> during INITIALIZE, and the <code>io.modelcontextprotocol/elicitation</code> declaration in the builder chain.</li>
-            <li><strong>Walk the lazy trigger</strong> — the <code>TOOLS_CALL</code> branch: when <code>roots</code> is empty and the client supports elicitation, the router remembers <code>pendingToolsCallRequestId</code> and sends <code>elicitation/create</code> via <code>sendElicitationMessage()</code> instead of answering.</li>
-            <li><strong>Walk the resume path</strong> in <code>process(JsonRpcResponse)</code> — id <code>-4000</code> matches, the accepted <code>directory</code> is added to roots, and the held <code>tools/call</code> is executed with its original id.</li>
-            <li><strong>In Inspector:</strong> disconnect/reconnect for a clean session. Connect — nothing is asked at startup; only <code>roots/list</code> goes out. You don't need to clear roots by hand: on the <code>complete</code> branch, <code>TOOLS_LIST</code> clears the roots set every time it runs, so clicking <strong>List Tools</strong> guarantees the elicitation path.</li>
+            <li><strong>Paste Step 19</strong> — the <code>hasElicitation</code> flag, then replace the INITIALIZE handler with the version that reads <code>clientCapabilities.elicitation()</code> and declares <code>io.modelcontextprotocol/elicitation</code> in the builder chain.</li>
+            <li><strong>Paste Step 20</strong> — the reserved <code>ELICITATION_REQUEST_ID</code>, the pending-call state, and <code>sendElicitationMessage()</code>. Then <strong>paste Step 21 — the lazy trigger</strong>: the replacement <code>TOOLS_CALL</code> branch remembers <code>pendingToolsCallRequestId</code> and sends <code>elicitation/create</code> instead of answering when <code>roots</code> is empty.</li>
+            <li><strong>Paste Step 22 — the resume path</strong> in <code>process(JsonRpcResponse)</code> — id <code>-4000</code> matches, the accepted <code>directory</code> is added to roots, and the held <code>tools/call</code> is executed with its original id.</li>
+            <li><strong>Rebuild, then in Inspector:</strong> disconnect/reconnect for a clean session. Connect — nothing is asked at startup; only <code>roots/list</code> goes out. Clear the roots (or start without any) so the tool has no search directory.</li>
             <li><strong>Call <code>key_word_search</code></strong> with a keyword — the single-field <strong>Search Directory</strong> form appears, and point out the tool call response has <em>not</em> arrived yet.</li>
             <li><strong>Submit an absolute path</strong> — the deferred <code>tools/call</code> response arrives carrying the search hits. Show the initialize response's <code>experimental</code> map and the server log entries for the whole exchange.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> lazy beats eager — the form only appears when the tool actually needs the directory. The same four-step declare/detect/send/handle pattern applies to every MCP extension, including the Apps extension up next.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Elicitation — Chapter 5.</div>
+    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Elicitation.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>
@@ -288,20 +288,20 @@
 <h2>Class Flow</h2>
 <p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
 <table class="at">
-<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<thead><tr><th>#</th><th>Topic</th><th>Steps</th><th>Page</th></tr></thead>
 <tbody>
 <tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
-<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
-<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td>&mdash;</td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td>&mdash;</td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Transport layer &mdash; <code>IOHandlerImpl</code>, log writer, red-to-green tests</td><td><span class="bc">1&ndash;3</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td>&mdash;</td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">4&ndash;9</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Resources &amp; Tools + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">10&ndash;15</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">16&ndash;18</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">19&ndash;22</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">23&ndash;26</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">27&ndash;33</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td>&mdash;</td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
 <tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
 </tbody>
 </table>

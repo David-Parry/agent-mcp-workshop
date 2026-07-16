@@ -77,9 +77,9 @@
         <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
     </div>
 
-    <!-- Chapter 1: Transport Layer -->
+    <!-- Transport Layer -->
     <section class="card">
-        <span class="chapter-badge">Chapter 1</span>
+        <span class="chapter-badge">Transport</span>
         <h2>Transport Layer — The STDIO Foundation</h2>
         <p>MCP communicates over <strong>standard I/O streams</strong> by default. The host process starts your server as a subprocess and communicates through stdin/stdout. Every message is a single JSON line.</p>
 
@@ -145,9 +145,9 @@
         </ul>
     </section>
 
-    <!-- Chapter 2: JSON-RPC Protocol -->
+    <!-- JSON-RPC Protocol -->
     <section class="card">
-        <span class="chapter-badge">Chapter 2</span>
+        <span class="chapter-badge">JSON-RPC</span>
         <h2>JSON-RPC 2.0 — The Message Protocol</h2>
         <p>MCP uses <strong>JSON-RPC 2.0</strong> as its wire format. Every message is a JSON object with a defined structure. There are four message types:</p>
 
@@ -246,24 +246,24 @@
         <p>During <code>initialize</code>, both sides declare what they support. The server only sends elicitation requests if the client advertised <code>elicitation: {}</code>. The client only uses sampling if the server didn't advertise it. No guessing — explicit opt-in at every level.</p>
     </section>
 
-    <!-- IDE Demo: Chapter 1 Transport Layer -->
+    <!-- IDE Demo: Transport Layer -->
     <div class="ide-demo">
-        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 1</span>
-        <h3>Chapter 1 Live: The Transport Layer in Code</h3>
-        <p style="color:var(--muted);font-size:14px">Switch to the IDE. Have <code>lessons/01-instructions.md</code> open in a side tab — it is the script for this demo. You are on the <code>complete</code> branch, so everything already works; narrate each block as the lesson presents it.</p>
+        <span class="ide-demo-badge">⌨️ IDE Demo — Steps 1–3</span>
+        <h3>Live: Build the Transport Layer</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE. Open <code>lessons/presentation-3hr/walkthrough.md</code> in a side tab — it is the single script for the whole class. Continue at <strong>Step 1</strong>; every paste site in the code is marked with a matching <code>&gt;&gt;&gt; STEP n</code> comment.</p>
         <ol class="demo-steps">
+            <li><strong>Show it red first:</strong> run <code>./gradlew test --tests "com.workshop.mcp.io.IOHandlerImplTest"</code> — the transport tests fail because the method bodies are stubs.</li>
             <li><strong>Open <code>src/main/java/com/workshop/mcp/io/IOHandlerImpl.java</code></strong> — this class is the entire transport layer. Point out the collaborators at the top: the auto-flush <code>PrintWriter</code> over System.out, the <code>running</code> AtomicBoolean, the <code>lineListeners</code> CopyOnWriteArrayList, and the Gson instance.</li>
-            <li><strong>Walk <code>startInputReader()</code></strong> — the Scanner loop over <code>System.in</code>. Trace the happy path: <code>hasNextLine()</code> → <code>nextLine()</code> → log <code>[API][RECEIVED]</code> → <code>publishLine(line)</code>. Then trace the shutdown path: stream closes → <code>running.set(false)</code> → <code>stopRunning()</code> in the finally block.</li>
-            <li><strong>Walk <code>publishLine()</code></strong> — the observer pattern in six lines. Each listener call is wrapped in its own try-catch so one faulty listener never breaks the others. The router registers itself as a listener; the transport never knows what messages mean.</li>
-            <li><strong>Walk <code>emit()</code></strong> — <code>gson.toJson()</code>, log <code>[API][SENT]</code>, <code>println</code>, explicit <code>flush()</code>. Emphasize the flush: MCP clients expect real-time line-delimited responses.</li>
+            <li><strong>Paste Step 1 — <code>startInputReader()</code></strong> — the Scanner loop over <code>System.in</code>. Trace the happy path: <code>hasNextLine()</code> → <code>nextLine()</code> → log <code>[API][RECEIVED]</code> → <code>publishLine(line)</code>. Then trace the shutdown path: stream closes → <code>running.set(false)</code> → <code>stopRunning()</code> in the finally block.</li>
+            <li><strong>Paste Step 2 — <code>publishLine()</code></strong> — the observer pattern in six lines. Each listener call is wrapped in its own try-catch so one faulty listener never breaks the others. The router registers itself as a listener; the transport never knows what messages mean.</li>
+            <li><strong>Paste Step 3 — <code>emit()</code></strong> — <code>gson.toJson()</code>, log <code>[API][SENT]</code>, <code>println</code>, explicit <code>flush()</code>. Emphasize the flush: MCP clients expect real-time line-delimited responses.</li>
             <li><strong>Open <code>LogFileWriter.java</code></strong> — show that all logging goes to a PID-named file, never stdout. Reinforce the critical rule from the card above: stdout is protocol-only.</li>
-            <li><strong>Build and test:</strong> in the terminal run <code>./gradlew clean build</code>. Open <code>IOHandlerImplTest.java</code> and show the tests exercising the reader loop and emit path passing.</li>
-            <li><strong>Prove it end to end:</strong> run <code>java -jar build/libs/agent-mcp-workshop-0.0.1.jar</code>, paste a raw JSON-RPC line (e.g. a ping request) into stdin, and show the JSON response come back on stdout plus both <code>[API][RECEIVED]</code> and <code>[API][SENT]</code> entries in the log file.</li>
+            <li><strong>Show it green:</strong> rerun the transport tests — red to green with three pastes. Then <code>./gradlew clean build</code> to produce the JAR.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the transport is dumb on purpose — it moves lines and knows nothing about MCP. Everything protocol-aware lives behind the listener boundary. Next we look at what those lines contain: JSON-RPC 2.0, then the full session flow on the <a href="flow-diagram.html" style="color:var(--accent)">Flow Diagram</a>.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. Transport layer and JSON-RPC protocol — Chapters 1 &amp; 2.</div>
+    <div class="footer">© 2025 MCP Presentation. Transport layer and JSON-RPC protocol.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>
@@ -288,20 +288,20 @@
 <h2>Class Flow</h2>
 <p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
 <table class="at">
-<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<thead><tr><th>#</th><th>Topic</th><th>Steps</th><th>Page</th></tr></thead>
 <tbody>
 <tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
-<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
-<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td>&mdash;</td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td>&mdash;</td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Transport layer &mdash; <code>IOHandlerImpl</code>, log writer, red-to-green tests</td><td><span class="bc">1&ndash;3</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td>&mdash;</td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">4&ndash;9</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Resources &amp; Tools + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">10&ndash;15</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">16&ndash;18</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">19&ndash;22</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">23&ndash;26</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">27&ndash;33</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td>&mdash;</td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
 <tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
 </tbody>
 </table>

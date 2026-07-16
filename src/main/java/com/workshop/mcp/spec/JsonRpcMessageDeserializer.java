@@ -94,7 +94,8 @@ public class JsonRpcMessageDeserializer {
      * @throws com.google.gson.JsonSyntaxException if the params cannot be deserialized to the specified type
      */
     public <T> T deserializeParams(JsonRpcRequest request, Class<T> paramsClass) {
-        return gson.fromJson(gson.toJson(request.params()), paramsClass);
+        // >>> STEP 5: paste the Gson round-trip body here (lessons/presentation-3hr/walkthrough.md)
+        throw new UnsupportedOperationException("STEP 5 not pasted yet — see lessons/presentation-3hr/walkthrough.md");
     }
 
     /**
@@ -112,7 +113,8 @@ public class JsonRpcMessageDeserializer {
      * @throws com.google.gson.JsonSyntaxException if the result cannot be deserialized to the specified type
      */
     public <T> T deserializeResult(JsonRpcResponse response, Class<T> resultClass) {
-        return gson.fromJson(gson.toJson(response.result()), resultClass);
+        // >>> STEP 5: paste the Gson round-trip body here (lessons/presentation-3hr/walkthrough.md)
+        throw new UnsupportedOperationException("STEP 5 not pasted yet — see lessons/presentation-3hr/walkthrough.md");
     }
 
     /**
@@ -130,6 +132,7 @@ public class JsonRpcMessageDeserializer {
      * @throws com.google.gson.JsonSyntaxException if the params cannot be deserialized to the specified type
      */
     public <T> T deserializeParams(JsonRpcNotification request, Class<T> paramsClass) {
-        return gson.fromJson(gson.toJson(request.params()), paramsClass);
+        // >>> STEP 5: paste the Gson round-trip body here (lessons/presentation-3hr/walkthrough.md)
+        throw new UnsupportedOperationException("STEP 5 not pasted yet — see lessons/presentation-3hr/walkthrough.md");
     }
 }

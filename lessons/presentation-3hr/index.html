@@ -41,7 +41,7 @@
 <body>
 <header>
     <h1>Building an MCP Server — 3-Hour Class</h1>
-    <p class="subtitle">A demo-driven deep dive into the Model Context Protocol — short concept segments anchoring long live IDE demonstrations of every chapter lesson, from JSON-RPC transport to a supervised AI agent.</p>
+    <p class="subtitle">A demo-driven deep dive into the Model Context Protocol — short concept segments anchoring one continuous live-coding walkthrough, from JSON-RPC transport to a supervised AI agent.</p>
 </header>
 <main>
     <div class="nav">
@@ -63,15 +63,15 @@
 
     <section class="card" style="margin-top:24px">
         <h2>How This Class Runs</h2>
-        <p>This is not a slides-first presentation. The deck anchors short concept segments; the bulk of the class happens <strong>live in the IDE</strong>, walking through each chapter of the workshop lessons on the finished codebase. Each chapter follows the same rhythm:</p>
+        <p>This is not a slides-first presentation. The deck anchors short concept segments; the bulk of the class happens <strong>live in the IDE</strong> as one continuous walkthrough. The codebase starts stubbed, with every paste site marked <code>&gt;&gt;&gt; STEP n</code>, and <code>lessons/presentation-3hr/walkthrough.md</code> is the single script — Steps 1&ndash;33 in presentation order. Each section follows the same rhythm:</p>
         <div class="rhythm-steps">
             <div class="rhythm-step">
                 <h4>1. Concept (slides)</h4>
-                <p>A few minutes on this page's cards — what the chapter adds to the protocol and why it exists.</p>
+                <p>A few minutes on this page's cards — what the section adds to the protocol and why it exists.</p>
             </div>
             <div class="rhythm-step">
-                <h4>2. Demo (IDE)</h4>
-                <p>Switch to the IDE. Walk the lesson's <code>lessons/NN-instructions.md</code> against the real code in <code>src/main/java/com/workshop/mcp/</code>.</p>
+                <h4>2. Build (IDE)</h4>
+                <p>Switch to the IDE. Paste the next steps from <code>lessons/presentation-3hr/walkthrough.md</code> into the marked spots in <code>src/main/java/com/workshop/mcp/</code>.</p>
             </div>
             <div class="rhythm-step">
                 <h4>3. Verify (Inspector)</h4>
@@ -90,39 +90,39 @@
         </a>
         <a href="protocol.html" class="page-card">
             <span class="icon">⚡</span>
-            <div class="timing">Stop 2 · Ch 1–2</div>
-            <h3>Transport &amp; Protocol + Ch 1 Demo</h3>
-            <p>STDIO transport layer, IOHandler implementation, JSON-RPC 2.0 message types — then a long IDE demo through the Chapter 1 transport code.</p>
+            <div class="timing">Stop 2 · Steps 1–3</div>
+            <h3>Transport &amp; Protocol + Demo</h3>
+            <p>STDIO transport layer, IOHandler implementation, JSON-RPC 2.0 message types — then a long IDE demo building the transport code live.</p>
         </a>
         <a href="flow-diagram.html" class="page-card">
             <span class="icon">📊</span>
-            <div class="timing">Stop 3 · Ch 2</div>
+            <div class="timing">Stop 3</div>
             <h3>Flow Diagram</h3>
             <p>Interactive sequence diagram — every JSON-RPC message from initialize through tools/call. Hover messages to see full JSON payloads.</p>
         </a>
         <a href="capabilities.html" class="page-card">
             <span class="icon">🔧</span>
-            <div class="timing">Stop 4 · Ch 3–4</div>
-            <h3>Handshake &amp; Capabilities + Ch 3–4 Demos</h3>
-            <p>Chapter 3 handshake and routing with the first Inspector connect, then Resources, Tools, and Prompts — a two-part demo.</p>
+            <div class="timing">Stop 4 · Steps 4–18</div>
+            <h3>Handshake &amp; Capabilities + Demos</h3>
+            <p>The handshake and routing with the first Inspector connect, then Resources, Tools, and Prompts — a two-part demo.</p>
         </a>
         <a href="extensions.html" class="page-card">
             <span class="icon">🧩</span>
-            <div class="timing">Stop 5 · Ch 5</div>
-            <h3>Extensions + Ch 5 Demo</h3>
-            <p>The experimental capability map, MCP extension identifiers, and the full lazy Elicitation flow demonstrated live in Inspector.</p>
+            <div class="timing">Stop 5 · Steps 19–22</div>
+            <h3>Extensions + Demo</h3>
+            <p>The experimental capability map, MCP extension identifiers, and the full lazy Elicitation flow built and demonstrated live in Inspector.</p>
         </a>
         <a href="mcp-apps.html" class="page-card">
             <span class="icon">🖥️</span>
-            <div class="timing">Stop 6 · Ch 6</div>
-            <h3>MCP Apps + Ch 6 Demo</h3>
+            <div class="timing">Stop 6 · Steps 23–26</div>
+            <h3>MCP Apps + Demo</h3>
             <p>Interactive HTML UI rendered inside the conversation — Tool + Resource + _meta pattern, then the dashboard rendered live in the Inspector Apps tab.</p>
         </a>
         <a href="tasks.html" class="page-card">
             <span class="icon">🧵</span>
-            <div class="timing">Stop 7 · Ch 7</div>
-            <h3>Tasks + Ch 7 Demo <span style="font-size:10px;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle">2025-11-25</span></h3>
-            <p>Call-now / fetch-later via task augmentation. CreateTaskResult, tasks/get, tasks/result, tasks/list, tasks/cancel — demonstrated end to end.</p>
+            <div class="timing">Stop 7 · Steps 27–33</div>
+            <h3>Tasks + Demo <span style="font-size:10px;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle">2025-11-25</span></h3>
+            <p>Call-now / fetch-later via task augmentation. CreateTaskResult, tasks/get, tasks/result, tasks/list, tasks/cancel — built and demonstrated end to end.</p>
         </a>
         <a href="agent.html" class="page-card">
             <span class="icon">🤖</span>
@@ -146,7 +146,7 @@
 
     <section class="card" style="margin-top:32px">
         <h2>What You'll See Built</h2>
-        <p>By the end of this class, you will have watched a complete Java MCP server demonstrated layer by layer:</p>
+        <p>By the end of this class, you will have watched a complete Java MCP server built up live, layer by layer:</p>
         <ul style="margin:16px 0;padding-left:24px">
             <li style="margin:8px 0"><strong>Speaks JSON-RPC 2.0</strong> over STDIO with full bidirectional communication</li>
             <li style="margin:8px 0"><strong>Exposes Resources</strong> — 70+ Javadoc HTML files served from the JAR classpath</li>
@@ -186,7 +186,7 @@
         <tr>
             <th>#</th>
             <th>Topic</th>
-            <th>Chapter</th>
+            <th>Steps</th>
             <th>Page</th>
         </tr>
     </thead>
@@ -200,67 +200,67 @@
         <tr>
             <td><span class="badge-time">2</span></td>
             <td>What is MCP? Architecture, the four actors, why Java</td>
-            <td><span class="badge-chapter">Overview</span></td>
+            <td>—</td>
             <td><a href="overview.html" style="color:var(--accent)">Overview</a></td>
         </tr>
         <tr>
             <td><span class="badge-time">3</span></td>
             <td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td>
-            <td><span class="badge-chapter">Ch 1–2</span></td>
+            <td>—</td>
             <td><a href="protocol.html" style="color:var(--accent)">Protocol</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">4</span></td>
-            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Ch 1 transport layer — <code>IOHandlerImpl</code>, log writer, build &amp; tests</td>
-            <td><span class="badge-chapter">Ch 1</span></td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Transport layer — <code>IOHandlerImpl</code>, log writer, red-to-green tests</td>
+            <td><span class="badge-chapter">1–3</span></td>
             <td><a href="protocol.html" style="color:var(--accent)">Protocol</a></td>
         </tr>
         <tr>
             <td><span class="badge-time">5</span></td>
             <td>Full JSON-RPC sequence diagram — every message annotated</td>
-            <td><span class="badge-chapter">Ch 2</span></td>
+            <td>—</td>
             <td><a href="flow-diagram.html" style="color:var(--accent)">Flow Diagram</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">6</span></td>
-            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Ch 3 handshake &amp; routing — first MCP Inspector connect</td>
-            <td><span class="badge-chapter">Ch 3</span></td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Handshake &amp; routing — first MCP Inspector connect</td>
+            <td><span class="badge-chapter">4–9</span></td>
             <td><a href="capabilities.html" style="color:var(--accent)">Capabilities</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">7</span></td>
-            <td>Ch 4 concepts + <span class="badge-demo">⌨️ IDE Demo</span> part 1 — Resources and the <code>key_word_search</code> tool</td>
-            <td><span class="badge-chapter">Ch 4</span></td>
+            <td>Resources &amp; Tools + <span class="badge-demo">⌨️ IDE Demo</span> part 1 — Resources and the <code>key_word_search</code> tool</td>
+            <td><span class="badge-chapter">10–15</span></td>
             <td><a href="capabilities.html" style="color:var(--accent)">Capabilities</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">8</span></td>
-            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Ch 4 part 2 — Prompts, then all three capabilities in Inspector</td>
-            <td><span class="badge-chapter">Ch 4</span></td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;part 2 — Prompts, then all three capabilities in Inspector</td>
+            <td><span class="badge-chapter">16–18</span></td>
             <td><a href="capabilities.html" style="color:var(--accent)">Capabilities</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">9</span></td>
-            <td>Ch 5 Extensions + <span class="badge-demo">⌨️ IDE Demo</span> — lazy elicitation flow</td>
-            <td><span class="badge-chapter">Ch 5</span></td>
+            <td>Extensions + <span class="badge-demo">⌨️ IDE Demo</span> — lazy elicitation flow</td>
+            <td><span class="badge-chapter">19–22</span></td>
             <td><a href="extensions.html" style="color:var(--accent)">Extensions</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">10</span></td>
-            <td>Ch 6 MCP Apps + <span class="badge-demo">⌨️ IDE Demo</span> — interactive dashboard in Inspector</td>
-            <td><span class="badge-chapter">Ch 6</span></td>
+            <td>MCP Apps + <span class="badge-demo">⌨️ IDE Demo</span> — interactive dashboard in Inspector</td>
+            <td><span class="badge-chapter">23–26</span></td>
             <td><a href="mcp-apps.html" style="color:var(--accent)">MCP Apps</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">11</span></td>
-            <td>Ch 7 Tasks + <span class="badge-demo">⌨️ IDE Demo</span> — task-augmented <code>tools/call</code>, poll, cancel</td>
-            <td><span class="badge-chapter">Ch 7</span></td>
+            <td>Tasks + <span class="badge-demo">⌨️ IDE Demo</span> — task-augmented <code>tools/call</code>, poll, cancel</td>
+            <td><span class="badge-chapter">27–33</span></td>
             <td><a href="tasks.html" style="color:var(--accent)">Tasks</a></td>
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">12</span></td>
-            <td>Agent chapter + <span class="badge-demo">⌨️ IDE Demo</span> — Claude Code plugin, supervised audit</td>
-            <td><span class="badge-chapter">Agent</span></td>
+            <td>Agent + <span class="badge-demo">⌨️ IDE Demo</span> — Claude Code plugin, supervised audit</td>
+            <td>—</td>
             <td><a href="agent.html" style="color:var(--accent)">Agent</a></td>
         </tr>
         <tr>

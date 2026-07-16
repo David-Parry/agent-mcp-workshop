@@ -88,7 +88,7 @@
     </div>
 
     <section class="card">
-        <span class="chapter-badge">Chapter 6</span>
+        <span class="chapter-badge">MCP Apps</span>
         <h2>What Are MCP Apps?</h2>
         <p>Text responses can only go so far. MCP Apps let your server return an <strong>interactive HTML interface</strong> that renders directly inside the conversation — right next to the chat that triggered it.</p>
 
@@ -305,23 +305,23 @@ if (uri.startsWith("ui://")) {
         </div>
     </section>
 
-    <!-- IDE Demo: Chapter 6 -->
+    <!-- IDE Demo: MCP Apps -->
     <div class="ide-demo">
-        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 6</span>
-        <h3>Chapter 6 Live: The Keyword Search Dashboard</h3>
-        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/06-instructions.md</code> open as the script.</p>
+        <span class="ide-demo-badge">⌨️ IDE Demo — Steps 23–26</span>
+        <h3>Live: Build the Keyword Search Dashboard</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/presentation-3hr/walkthrough.md</code> open — continue at <strong>Step 23</strong>.</p>
         <ol class="demo-steps">
             <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (wraps it as <code>ui</code>), and <code>AppTool</code> (a Tool plus <code>_meta</code>). Three tiny records produce the entire <code>_meta.ui.resourceUri</code> structure the spec requires.</li>
             <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>.</li>
             <li><strong>Open <code>lessons/mcp-app.html</code> directly in the browser</strong> — the standalone dashboard with mock data. Point at the comments explaining where <code>app.ontoolresult</code> and <code>app.callServerTool</code> take over in a real host.</li>
-            <li><strong>Walk the four <code>IORouter</code> changes:</strong> the <code>io.modelcontextprotocol/apps</code> declaration in INITIALIZE, <code>AppToolsListResult</code> from TOOLS_LIST, the <code>ui://</code> resource added in RESOURCES_LIST, and the <code>ui://</code> branch in RESOURCES_READ serving the HTML with MIME type <code>text/html;profile=mcp-app</code>.</li>
-            <li><strong>In Inspector — Tools tab:</strong> <code>key_word_search</code> now carries <code>_meta.ui.resourceUri</code>. <strong>Resources tab:</strong> <code>ui://keyword-search/mcp-app.html</code> appears; read it and show the MIME type.</li>
+            <li><strong>Paste the four <code>IORouter</code> changes:</strong> Step 23 — the <code>io.modelcontextprotocol/apps</code> declaration in INITIALIZE; Step 24 — the replacement TOOLS_LIST returning <code>AppToolsListResult</code>; Step 25 — the <code>ui://</code> resource added to RESOURCES_LIST; Step 26 — the <code>ui://</code> branch in RESOURCES_READ serving the HTML with the MCP-App MIME type.</li>
+            <li><strong>Rebuild, then in Inspector — Tools tab:</strong> <code>key_word_search</code> now carries <code>_meta.ui.resourceUri</code>. <strong>Resources tab:</strong> <code>ui://keyword-search/mcp-app.html</code> appears; read it and show the MIME type.</li>
             <li><strong>Apps tab:</strong> click <strong>Refresh Apps</strong> — <em>Keyword Search App</em> appears. Run a search from inside the rendered dashboard and watch the tool round-trip happen from the iframe.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> MCP Apps are just a tool plus a resource plus <code>_meta</code> — no new protocol machinery. Hosts that don't support Apps ignore <code>_meta</code> and the tool keeps working as text.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Apps — Interactive UI in the Conversation — Chapter 6.</div>
+    <div class="footer">© 2025 MCP Presentation. MCP Apps — Interactive UI in the Conversation.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>
@@ -346,20 +346,20 @@ if (uri.startsWith("ui://")) {
 <h2>Class Flow</h2>
 <p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
 <table class="at">
-<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<thead><tr><th>#</th><th>Topic</th><th>Steps</th><th>Page</th></tr></thead>
 <tbody>
 <tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
-<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
-<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
-<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td>&mdash;</td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td>&mdash;</td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Transport layer &mdash; <code>IOHandlerImpl</code>, log writer, red-to-green tests</td><td><span class="bc">1&ndash;3</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td>&mdash;</td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">4&ndash;9</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Resources &amp; Tools + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">10&ndash;15</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">16&ndash;18</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">19&ndash;22</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">23&ndash;26</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">27&ndash;33</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td>&mdash;</td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
 <tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
 </tbody>
 </table>
