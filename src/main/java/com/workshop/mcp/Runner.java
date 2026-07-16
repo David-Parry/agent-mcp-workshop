@@ -8,6 +8,8 @@ import java.util.concurrent.CountDownLatch;
 public class Runner {
 
     public static void main(String[] args) {
-        // >>> STEP 4: paste the transport + router + server wiring here (lessons/presentation-3hr/walkthrough.md)
+        IOHandler io = new IOHandlerImpl();
+        Server server = new Server(io,new IORouter(io), new CountDownLatch(1));
+        server.start();
     }
 }
