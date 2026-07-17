@@ -2,13 +2,19 @@
 plugins {
     id 'java'
     id 'application'
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'com.gradleup.shadow' version '9.6.0'
     id 'jacoco'
 }
 
 group = 'com.workshop.mcp'
 version = '0.0.1'
 jar.enabled = false
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
 
 repositories {
     mavenCentral()
@@ -33,10 +39,18 @@ dependencies {
     implementation 'org.slf4j:slf4j-nop:1.7.36'
     implementation 'com.google.code.gson:gson:2.13.1'
     implementation 'org.jsoup:jsoup:1.17.2'
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    // Provide a launcher aligned with the platform engine version; otherwise Gradle
+    // injects its own (older) launcher and JUnit fails discovery with an
+    // "OutputDirectoryProvider not available" version-mismatch error.
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.mockito:mockito-core:5.23.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.23.0'
+    // Byte Buddy must support the Java 25 class file format (v69) to mock/instrument
+    // classes at runtime. Force the latest so Mockito can run on JDK 25.
+    testImplementation 'net.bytebuddy:byte-buddy:1.18.11'
+    testImplementation 'net.bytebuddy:byte-buddy-agent:1.18.11'
 }
 
 test {
