@@ -10,11 +10,6 @@ group = 'com.workshop.mcp'
 version = '0.0.1'
 jar.enabled = false
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
 
 repositories {
     mavenCentral()
