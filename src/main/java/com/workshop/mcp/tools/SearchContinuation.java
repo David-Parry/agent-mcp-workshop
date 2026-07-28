@@ -51,9 +51,7 @@ public record SearchContinuation(String stage) {
      * @return the continuation state
      */
     public static SearchContinuation awaitingDirectory() {
-        // Chapter 05: implement awaitingDirectory(...).
-        throw new UnsupportedOperationException(
-                "Chapter 05: awaitingDirectory(...) is not implemented yet");
+        return new SearchContinuation(STAGE_DIRECTORY);
     }
 
     /**
@@ -62,9 +60,8 @@ public record SearchContinuation(String stage) {
      * @return base64-encoded JSON, safe to place in {@code requestState}
      */
     public String encode() {
-        // Chapter 05: implement encode(...).
-        throw new UnsupportedOperationException(
-                "Chapter 05: encode(...) is not implemented yet");
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                GSON.toJson(this).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -79,8 +76,15 @@ public record SearchContinuation(String stage) {
      * @return the decoded state, or null when there is nothing usable to decode
      */
     public static SearchContinuation decode(String requestState) {
-        // Chapter 05: implement decode(...).
-        throw new UnsupportedOperationException(
-                "Chapter 05: decode(...) is not implemented yet");
+        if (requestState == null || requestState.isBlank()) {
+            return null;
+        }
+        try {
+            String json = new String(Base64.getUrlDecoder().decode(requestState), StandardCharsets.UTF_8);
+            SearchContinuation decoded = GSON.fromJson(json, SearchContinuation.class);
+            return (decoded == null || decoded.stage == null) ? null : decoded;
+        } catch (IllegalArgumentException | JsonSyntaxException e) {
+            return null;
+        }
     }
 }

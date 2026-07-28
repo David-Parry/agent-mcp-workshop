@@ -247,17 +247,7 @@ public class IORouter implements Router {
                                + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
                 } else {
-                    String directory = directoryArgument(toolCallParams);
-                    if (directory == null) {
-                        success(message.id(), ToolCallResultBuilder
-                                .builder()
-                                .addTextContent("No directory was given. Call key_word_search again with "
-                                                + "the directory to search.")
-                                .asError()
-                                .build());
-                    } else {
-                        success(message.id(), keyWordSearch.call(toolCallParams, Set.of(directory)));
-                    }
+                    handleKeywordSearch(message.id(), toolCallParams, envelope);
                 }
             }
             case RESOURCES_LIST -> {
@@ -414,7 +404,52 @@ public class IORouter implements Router {
      * @param envelope  this request's declared client capabilities
      */
     private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
-        // Chapter 05: implement handleKeywordSearch(...).
+        SearchContinuation continuation = SearchContinuation.decode(params.requestState());
+        String stage = continuation != null ? continuation.stage() : null;
+
+        Set<String> directories = new LinkedHashSet<>();
+
+        // A directory argument settles the question outright, so a client that
+        // cannot answer an input_required can still call the tool in one hop.
+        String argument = directoryArgument(params);
+        if (argument != null) {
+            directories.add(argument);
+        }
+
+        if (SearchContinuation.STAGE_DIRECTORY.equals(stage)) {
+            String directory = elicitedDirectory(params.inputResponse(SearchContinuation.KEY_DIRECTORY));
+            if (directory != null) {
+                directories.add(directory);
+            }
+            logger.log("[API][RECEIVED] tools/call retry — elicited directory=" + directory);
+        }
+
+        if (!directories.isEmpty()) {
+            executeKeyWordSearchCall(requestId, params, directories, envelope);
+            return;
+        }
+
+        // Asking the user for a directory is the only question this tool has
+        // left. It used to embed a roots/list first, since a client answers
+        // that from configuration without troubling anyone, but roots is
+        // deprecated under SEP-2577 and the directory argument above is the
+        // migration the spec names in its place.
+        if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
+            logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
+            success(requestId, InputRequiredResult.of(
+                    SearchContinuation.KEY_DIRECTORY,
+                    InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
+                    SearchContinuation.awaitingDirectory().encode()));
+            return;
+        }
+
+        // There is nothing left to ask, or nothing that may be asked. Rather
+        // than fail, search from wherever the server was started — the same
+        // place a shell command with no path argument would look.
+        String workingDirectory = workingDirectory();
+        logger.log("[API][SENT] tools/call — no directory to search, using the working directory "
+                   + workingDirectory);
+        executeKeyWordSearchCall(requestId, params, Set.of(workingDirectory), envelope);
     }
 
     /**
@@ -456,9 +491,15 @@ public class IORouter implements Router {
      * which the user may also have declined or cancelled.
      */
     private String elicitedDirectory(Object inputResponse) {
-        // Chapter 05: implement elicitedDirectory(...).
-        throw new UnsupportedOperationException(
-                "Chapter 05: elicitedDirectory(...) is not implemented yet");
+        ElicitationCreateResult result = deserializer.convert(inputResponse, ElicitationCreateResult.class);
+        if (result == null || !"accept".equalsIgnoreCase(result.action())) {
+            return null;
+        }
+        if (result.content() instanceof Map<?, ?> content && content.get("directory") instanceof String directory
+            && !directory.isBlank()) {
+            return directory;
+        }
+        return null;
     }
 
     private void process(JsonRpcNotification message) {
