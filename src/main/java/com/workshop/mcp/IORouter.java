@@ -159,9 +159,29 @@ public class IORouter implements Router {
     private void process(JsonRpcRequest message) {
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
 
-        // Chapter 03: before anything is routed, reject a
-        // method this server does not answer, validate the
-        // params._meta envelope, and answer server/discover.
+        // Method existence is settled before the envelope is looked at.
+        // Deletions in this revision are physical: a method absent from the
+        // registry is -32601 by absence, and answering a removed method like
+        // initialize with a complaint about its _meta would tell a legacy
+        // client the wrong thing about why it failed.
+        if (uniqueKey == UniqueKeys.NOT_FOUND || !INBOUND_METHODS.contains(uniqueKey)) {
+            rejectUnknownMethod(message);
+            return;
+        }
+
+        // server/discover is answered whatever version it names: a client uses
+        // it precisely to find out which versions this server speaks, so
+        // rejecting it for asking with the wrong one would be circular. It is
+        // still a request, though, so it must carry the required envelope.
+        RequestEnvelope envelope = envelopeFor(message, uniqueKey != UniqueKeys.SERVER_DISCOVER);
+        if (envelope == null) {
+            return;
+        }
+        if (uniqueKey == UniqueKeys.SERVER_DISCOVER) {
+            success(message.id(), discoverResult());
+            logger.log("[API][SENT] server/discover — advertised " + RequestEnvelope.SUPPORTED_VERSIONS);
+            return;
+        }
 
         switch (uniqueKey) {
             case SUBSCRIPTIONS_LISTEN -> acknowledgeSubscription(message);
@@ -209,9 +229,24 @@ public class IORouter implements Router {
      *         emitted and the caller should stop
      */
     private RequestEnvelope envelopeFor(JsonRpcRequest message, boolean versionMatters) {
-        // Chapter 03: implement envelopeFor(...).
-        throw new UnsupportedOperationException(
-                "Chapter 03: envelopeFor(...) is not implemented yet");
+        RequestEnvelope envelope = deserializer.deserializeEnvelope(message);
+        if (!envelope.isComplete()) {
+            logger.log("[API][SENT] " + message.method() + " — incomplete _meta envelope (returning -32602)");
+            error(message.id(), ErrorCodes.INVALID_PARAMS,
+                  "Requests must carry " + MetaKeys.PROTOCOL_VERSION + " and "
+                  + MetaKeys.CLIENT_CAPABILITIES + " in params._meta");
+            return null;
+        }
+        if (versionMatters && !envelope.isSupportedVersion()) {
+            logger.log("[API][SENT] " + message.method() + " — unsupported protocol version '"
+                       + envelope.protocolVersion() + "' (returning -32022)");
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("supported", RequestEnvelope.SUPPORTED_VERSIONS);
+            data.put("requested", envelope.protocolVersion());
+            error(message.id(), ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", data);
+            return null;
+        }
+        return envelope;
     }
 
     /**
@@ -224,15 +259,31 @@ public class IORouter implements Router {
      * @return the discovery result
      */
     private DiscoverResult discoverResult() {
-        // Chapter 03: implement discoverResult(...).
-        throw new UnsupportedOperationException(
-                "Chapter 03: discoverResult(...) is not implemented yet");
+        return DiscoverResultBuilder
+                .builder()
+                .withDefaultCapabilities()
+                .withInstructions("Searches a project for a keyword.")
+                .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
+                .withDefaultServerInfo()
+                .build();
     }
 
     private void process(JsonRpcNotification message) {
-        // Chapter 03: deserialize a cancellation's params
-        // into NotificationCancelledParams and log it; ignore any
-        // other notification rather than rejecting it.
+        UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
+        switch (uniqueKey) {
+            case NOTIFICATION_CANCELLED -> {
+                NotificationCancelledParams params = deserializer.deserializeParams(message,
+                                                                                    NotificationCancelledParams.class);
+                // There is never an in-flight request to abandon: this server
+                // answers every request before returning, and its one
+                // long-lived request, subscriptions/listen, is closed as it is
+                // acknowledged. So the cancellation is recorded and nothing else.
+                logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
+                           + " reason=" + params.reason());
+            }
+            default -> logger.log("[API][RECEIVED] unhandled notification method: " + message.method()
+                                  + " for message: " + message);
+        }
     }
 
     private void process(JsonRpcErrorResponse message) {
@@ -268,6 +319,21 @@ public class IORouter implements Router {
      * </p>
      */
     private void acknowledgeSubscription(JsonRpcRequest message) {
-        // Chapter 03: implement acknowledgeSubscription(...).
+        SubscriptionsListenParams params = deserializer.deserializeParams(message,
+                                                                         SubscriptionsListenParams.class);
+        SubscriptionFilter requested = params.notifications() == null
+                ? new SubscriptionFilter(null, null, null, null)
+                : params.notifications();
+        SubscriptionFilter honored = requested.honoredUnder(discoverResult().capabilities());
+
+        logger.log("[API][SENT] subscriptions/listen — acknowledging id=" + message.id()
+                   + " honored=" + honored);
+        io.emit(new JsonRpcNotification(
+                JSON_RPC_VERSION,
+                UniqueKeys.NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED.getValue(),
+                SubscriptionsAcknowledgedParams.of(message.id(), honored)));
+
+        logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
+        success(message.id(), SubscriptionsListenResult.closing(message.id()));
     }
 }
