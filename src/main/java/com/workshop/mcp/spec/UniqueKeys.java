@@ -124,8 +124,26 @@ public enum UniqueKeys {
      */
     NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged"),
 
+    /**
+     * Method for polling a task's current state (tasks extension).
+     * Returns the {@link Task} snapshot without blocking.
+     */
+    TASKS_GET("tasks/get"),
 
+    /**
+     * Method for delivering input to a task that is waiting for it (tasks extension).
+     * <p>
+     * This replaced the blocking {@code tasks/result} method. Its only job is
+     * to hand {@code inputResponses} to a task sitting in
+     * {@link TaskStatus#INPUT_REQUIRED}.
+     * </p>
+     */
+    TASKS_UPDATE("tasks/update"),
 
+    /**
+     * Method for explicitly cancelling a task (tasks extension).
+     */
+    TASKS_CANCEL("tasks/cancel"),
 
     /**
      * Name of an embedded {@code elicitation/create} request.

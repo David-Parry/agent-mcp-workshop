@@ -53,9 +53,7 @@ dependencies {
 }
 
 test {
-    useJUnitPlatform {
-        includeTags 'chapter01', 'chapter02', 'chapter03', 'chapter04', 'chapter05', 'chapter06'
-    }
+    useJUnitPlatform()
 }
 
 application {
@@ -206,13 +204,11 @@ jacocoTestCoverageVerification {
 // rather than quietly showing up in a report nobody opened. The report is
 // built alongside it so there is something to read when it does fail.
 check {
-    // Coverage is a property of the finished server on `complete`, not of a chapter in progress.
+    dependsOn jacocoTestReport, jacocoTestCoverageVerification
 }
 
 test {
-    useJUnitPlatform {
-        includeTags 'chapter01', 'chapter02', 'chapter03', 'chapter04', 'chapter05', 'chapter06'
-    }
+    useJUnitPlatform()
 
     testLogging {
         events "passed", "skipped", "failed", "standardOut", "standardError"

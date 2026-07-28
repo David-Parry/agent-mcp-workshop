@@ -163,6 +163,17 @@ class IORouterTest {
         assertEquals(new JsonObject(), extensions.getAsJsonObject(MetaKeys.UI_EXTENSION));
     }
 
+    @Test
+    @Tag("chapter07")
+    void discoverDeclaresTheTasksExtension() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject extensions = io.only().getAsJsonObject("result")
+                .getAsJsonObject("capabilities").getAsJsonObject("extensions");
+        assertTrue(extensions.has(MetaKeys.TASKS_EXTENSION));
+    }
+
     // --- the per-request envelope --------------------------------------
 
     @Test
@@ -589,6 +600,216 @@ class IORouterTest {
                      io.only().getAsJsonObject("result").get("resultType").getAsString());
     }
 
+    // --- tasks ---------------------------------------------------------
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    void aTaskCapableClientGetsAHandleItCanPoll(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        router.route("""
+                {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                           "io.modelcontextprotocol/clientCapabilities":{
+                             "extensions":{"io.modelcontextprotocol/tasks":{}}}},
+                  "name":"key_word_search","arguments":{"keyword":"record"},
+                  "requestState":"%s",
+                  "inputResponses":{"search_directory":{"action":"accept",
+                                     "content":{"directory":"%s"}}}}}"""
+                             .formatted(SearchContinuation.awaitingDirectory().encode(), directory));
+
+        JsonObject handle = io.responses().get(0).getAsJsonObject("result");
+        assertEquals(ResultType.TASK, handle.get("resultType").getAsString());
+        assertNotNull(handle.get("taskId"));
+        assertTrue(handle.has("ttlMs"), "renamed from ttl in the tasks extension");
+        assertTrue(handle.has("pollIntervalMs"), "renamed from pollInterval in the tasks extension");
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskSendsNoStatusNotificationsThatNobodySubscribedTo(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        // A server must not send a notification type the client did not ask
+        // for, and the only way to ask for notifications/tasks is a
+        // subscriptions/listen that names the task. This client only polls.
+        router.route(taskCallWithADirectory(63, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "completed");
+
+        assertTrue(io.notificationsEverSent().isEmpty(), "nothing was subscribed to: " + io.notificationsEverSent());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void theTaskMethodsRefuseAClientThatDidNotDeclareTheExtension() {
+        // Capabilities travel with each request, so a client that leaves the
+        // extension off a task method is refused even if it holds a task id.
+        for (String method : List.of("tasks/get", "tasks/update", "tasks/cancel")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":64,"method":"%s","params":{%s,"taskId":"no-such-task"}}"""
+                                 .formatted(method, FULL_META));
+
+            JsonObject error = io.onlyError();
+            assertEquals(ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, error.get("code").getAsInt(), method);
+            assertTrue(error.getAsJsonObject("data").getAsJsonObject("requiredCapabilities")
+                               .getAsJsonObject("extensions").has(MetaKeys.TASKS_EXTENSION),
+                       "the error names what the client has to declare: " + error);
+        }
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aListenForTaskStatusIsRefusedToAClientThatDidNotDeclareTheExtension() {
+        // taskIds is the extension's filter, so asking a listen stream for
+        // task status takes the same declaration as calling a task method.
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:tasks","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":["no-such-task"]}}}""".formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, error.get("code").getAsInt());
+        assertTrue(error.getAsJsonObject("data").getAsJsonObject("requiredCapabilities")
+                           .getAsJsonObject("extensions").has(MetaKeys.TASKS_EXTENSION),
+                   "the error names what the client has to declare: " + error);
+        assertTrue(io.notifications().isEmpty(), "a refused listen is not acknowledged");
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aListenThatNamesNoTasksIsNotAskingForTaskStatus() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:none","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":[]}}}""".formatted(FULL_META));
+
+        assertEquals("notifications/subscriptions/acknowledged",
+                     io.notifications().get(0).get("method").getAsString());
+        assertEquals("listen:none", io.responses().get(0).get("id").getAsString());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aClientThatDeclaredTheExtensionIsAgreedNoTaskStatus() {
+        // A server may agree to fewer task ids than it was asked for, and
+        // this one pushes no task status at all, so it agrees to none.
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:declared","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":["no-such-task"]}}}""".formatted(TASKS_META));
+
+        JsonObject acknowledged = io.notifications().get(0);
+        assertEquals("notifications/subscriptions/acknowledged", acknowledged.get("method").getAsString());
+        assertFalse(acknowledged.getAsJsonObject("params").getAsJsonObject("notifications").has("taskIds"),
+                    "no task id is agreed to: " + acknowledged);
+        assertEquals("listen:declared", io.responses().get(0).get("id").getAsString(),
+                     "with nothing agreed to, the stream closes");
+    }
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    void aTaskClientIsNeverAskedForInputOnTheCallItself() {
+        // input_required and task are alternative result types for the same
+        // response, so a request already committed to a handle cannot also
+        // carry a question. The Inspector's task path rejects the attempt with
+        // "Unsupported result type 'input_required' for tools/call", and it
+        // never enables auto-fulfilment. Note that this client can show a
+        // form, so the tool would very much like to ask.
+        router.route("""
+                {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                           "io.modelcontextprotocol/clientCapabilities":{
+                             "roots":{"listChanged":true},
+                             "elicitation":{"form":{},"url":{}},
+                             "extensions":{"io.modelcontextprotocol/tasks":{}}}},
+                  "name":"key_word_search","arguments":{"keyword":"record"}}}""");
+
+        JsonObject result = io.responses().get(0).getAsJsonObject("result");
+        assertEquals(ResultType.TASK, result.get("resultType").getAsString(),
+                     "a task-declaring client must get a handle, not a question");
+        assertNotNull(result.get("taskId"));
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskAsksForItsDirectoryAsAStatusAndResumesOnTasksUpdate(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        router.route(taskCallWithoutADirectory(11, """
+                "elicitation":{"form":{}}"""));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        // The question could not ride on the call's result, because that was
+        // already spent on the handle. It surfaces as the task's own status.
+        JsonObject asking = awaitTaskStatus(taskId, "input_required");
+        assertEquals("elicitation/create",
+                     asking.getAsJsonObject("inputRequests")
+                             .getAsJsonObject(SearchContinuation.KEY_DIRECTORY).get("method").getAsString(),
+                     "a task in input_required must publish what it is waiting for");
+
+        // Answering it has to be accepted. Before requireInput was wired up,
+        // no task ever reached input_required, so this always came back as
+        // -32602 "Cannot update task: it is not waiting for input".
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":12,"method":"tasks/update","params":{%s,
+                  "taskId":"%s",
+                  "inputResponses":{"search_directory":{"action":"accept",
+                                     "content":{"directory":"%s"}}}}}"""
+                             .formatted(TASKS_META, taskId, directory));
+        JsonObject update = io.responses().get(0);
+        assertNull(update.get("error"), "answering what the task asked for must not be rejected");
+        assertEquals(ResultType.COMPLETE, update.getAsJsonObject("result").get("resultType").getAsString());
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean());
+        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"),
+                   "the task must search the directory it was handed: " + done);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskWhoseFormIsDeclinedStillFinishesFromTheWorkingDirectory() throws Exception {
+        router.route(taskCallWithoutADirectory(13, """
+                "elicitation":{"form":{},"url":{}}"""));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route("""
+                {"jsonrpc":"2.0","id":14,"method":"tasks/update","params":{%s,
+                  "taskId":"%s","inputResponses":{"search_directory":{"action":"decline"}}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
+                    "declining is not a failure — the task falls back to the working directory");
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt() throws Exception {
+        router.route(taskCallWithoutADirectory(15, """
+                "elicitation":{"form":{}}"""));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route("""
+                {"jsonrpc":"2.0","id":16,"method":"tasks/cancel","params":{%s,"taskId":"%s"}}"""
+                             .formatted(TASKS_META, taskId));
+
+        // The waiting thread has to notice and give up; a cancelled task must
+        // not go on to report a result.
+        JsonObject cancelled = awaitTaskStatus(taskId, "cancelled");
+        assertNull(cancelled.get("result"), "a cancelled task must not produce a result: " + cancelled);
+    }
+
     /** A {@code tools/call} from a task client that supplies no directory. */
     private static String taskCallWithoutADirectory(int id, String extraCapability) {
         return """
@@ -617,6 +838,30 @@ class IORouterTest {
             Thread.sleep(50L);
         }
         throw new AssertionError("task never reached " + status + "; last snapshot was " + snapshot);
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aTaskHandleIsNeverGivenToAClientThatCannotPollForIt(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        router.route(toolCall(9, SearchContinuation.awaitingDirectory().encode(), """
+                "search_directory":{"action":"accept","content":{"directory":"%s"}}"""
+                                     .formatted(directory)));
+
+        assertEquals(ResultType.COMPLETE,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void pollingAnUnknownTaskIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"ext-1","method":"tasks/get",
+                 "params":{%s,"taskId":"no-such-task"}}""".formatted(TASKS_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
 
     // --- subscriptions -------------------------------------------------
@@ -749,6 +994,22 @@ class IORouterTest {
                  "params":{%s,"ref":{"type":"ref/prompt","name":"search_keyword"}}}""".formatted(FULL_META));
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId() {
+        // Reading a null id into the store threw out of route(), and because
+        // the throw escaped instead of becoming an error, the client was left
+        // holding a request that was never going to be answered.
+        for (String method : List.of("tasks/get", "tasks/update", "tasks/cancel")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":61,"method":"%s","params":{%s}}""".formatted(method, TASKS_META));
+
+            assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(),
+                         method + " must answer a request with no taskId");
+        }
     }
 
     @Test
@@ -1137,6 +1398,226 @@ class IORouterTest {
                      io.only().getAsJsonObject("result").get("resultType").getAsString());
     }
 
+    // --- tasks: rejected updates and cancels ------------------------------
+
+    @Test
+    @Tag("chapter07")
+    void updatingATaskThatDoesNotExistIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":40,"method":"tasks/update",
+                 "params":{%s,"taskId":"no-such-task","inputResponses":{}}}""".formatted(TASKS_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void answeringATaskThatIsNoLongerAskingIsAcknowledgedAndChangesNothing(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        router.route(taskCallWithADirectory(41, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "completed");
+
+        // The task exists but has no outstanding question for these answers
+        // to belong to, which the extension says to ignore rather than refuse.
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":42,"method":"tasks/update",
+                 "params":{%s,"taskId":"%s","inputResponses":{"search_directory":{"action":"decline"}}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        assertEmptyAcknowledgement(io.only());
+        assertEquals("completed", awaitTaskStatus(taskId, "completed").get("status").getAsString());
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void anUpdateThatAnswersNothingTheTaskAskedLeavesItWaiting() throws Exception {
+        router.route(taskCallWithoutADirectory(65, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "input_required");
+
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":66,"method":"tasks/update",
+                 "params":{%s,"taskId":"%s","inputResponses":{"not_a_key_it_asked":{"action":"decline"}}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        assertEmptyAcknowledgement(io.only());
+        assertEquals("input_required", awaitTaskStatus(taskId, "input_required").get("status").getAsString(),
+                     "the question it asked is still standing");
+        router.route(cancel(67, taskId));
+    }
+
+    @Test
+    @Tag("chapter07")
+    void cancellingATaskThatDoesNotExistIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":43,"method":"tasks/cancel",
+                 "params":{%s,"taskId":"no-such-task"}}""".formatted(TASKS_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aCancelIsAcknowledgedWithAnEmptyResultAndASecondOneToo() throws Exception {
+        router.route(taskCallWithoutADirectory(44, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        io.clear();
+        router.route(cancel(45, taskId));
+        assertEmptyAcknowledgement(io.only());
+
+        io.clear();
+        router.route(cancel(46, taskId));
+        assertEmptyAcknowledgement(io.only());
+        awaitTaskStatus(taskId, "cancelled");
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void cancellingAFinishedTaskIsAcknowledgedAndLeavesItFinished(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        router.route(taskCallWithADirectory(68, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "completed");
+
+        io.clear();
+        router.route(cancel(69, taskId));
+
+        assertEmptyAcknowledgement(io.only());
+        JsonObject after = awaitTaskStatus(taskId, "completed");
+        assertNotNull(after.get("result"), "a terminal status never changes, so the result stays: " + after);
+    }
+
+    // --- tasks: the virtual thread's own outcomes ----------------------
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskWithNothingLeftToAskRunsTheSearchAndCompletes(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        router.route(taskCallWithADirectory(47, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean());
+        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"), "" + done);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskWhoseSearchBlowsUpIsFailedRatherThanLeftWorking() throws Exception {
+        // A NUL byte cannot appear in a path, so resolving this one throws
+        // straight out of the search and into the task's own catch.
+        router.route(taskCallWithADirectory(48, "/tmp/\\u0000nope"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        JsonObject failed = awaitTaskStatus(taskId, "failed");
+        assertNotNull(failed.get("error"), "a failed task must say what went wrong: " + failed);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskThatIsInterruptedMidFlightIsFailedRatherThanLeftWorking() throws Exception {
+        router.route(taskCallWithADirectory(49, System.getProperty("user.dir")));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        interruptTaskThread(taskId);
+
+        JsonObject failed = awaitTaskStatus(taskId, "failed");
+        assertTrue(failed.getAsJsonObject("error").get("message").getAsString().contains("Interrupted"),
+                   "" + failed);
+    }
+
+    @Test
+    @Tag("chapter07")
+    void interruptTaskWorkerReturnsFalseWhenThatTaskIsNotRunning() {
+        assertFalse(router.interruptTaskWorker("no-such-task"));
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskWhoseFormIsAcceptedSearchesTheDirectoryItWasGiven(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        router.route(taskCallWithoutADirectory(52, "\"elicitation\":{\"form\":{},\"url\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route("""
+                {"jsonrpc":"2.0","id":53,"method":"tasks/update","params":{%s,"taskId":"%s",
+                  "inputResponses":{"search_directory":{"action":"accept",
+                                                        "content":{"directory":"%s"}}}}}"""
+                             .formatted(TASKS_META, taskId, directory));
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"),
+                   "an accepted form must be searched, not fallen back from: " + done);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskForAClientThatCannotShowAFormNeverWaitsAndSearchesTheWorkingDirectory() throws Exception {
+        // This client declares only the deprecated capability the server
+        // dropped, so there is nothing the task can usefully ask. It must run
+        // straight through rather than parking in input_required forever
+        // waiting for an answer that was never requested.
+        router.route(taskCallWithoutADirectory(59, "\"roots\":{\"listChanged\":true}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
+                    "an unaskable task still searches, from the working directory: " + done);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskAnsweredWithNothingUsableFallsBackToTheWorkingDirectory() throws Exception {
+        // The form came back with an answer that resolves to no directory at
+        // all, and there is no second question to escalate to.
+        router.route(taskCallWithoutADirectory(57, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route("""
+                {"jsonrpc":"2.0","id":58,"method":"tasks/update","params":{%s,
+                  "taskId":"%s","inputResponses":{"search_directory":{"action":"accept",
+                                                   "content":{}}}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
+                    "an unusable answer is not a failure: " + done);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void cancellingATaskThatIsWaitingOnItsFormStopsItToo() throws Exception {
+        router.route(taskCallWithoutADirectory(55, "\"elicitation\":{\"form\":{},\"url\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route(cancel(56, taskId));
+
+        JsonObject cancelled = awaitTaskStatus(taskId, "cancelled");
+        assertNull(cancelled.get("result"), "a cancelled task must not fall back and search anyway: " + cancelled);
+    }
+
     @Test
     @Tag("chapter05")
     void aCallThatNamesADirectoryButNoKeywordSearchesForNothingRatherThanFailing(
@@ -1151,6 +1632,39 @@ class IORouterTest {
         assertTrue(result.getAsJsonArray("content").isEmpty(), "an absent keyword matches nothing");
     }
 
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking() throws Exception {
+        router.route(taskCallWithoutADirectory(50, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route("""
+                {"jsonrpc":"2.0","id":51,"method":"tasks/update","params":{%s,"taskId":"%s",
+                  "inputResponses":{"search_directory":{"action":"accept",
+                                     "content":{"directory":"/tmp/\\u0000nope"}}}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        JsonObject failed = awaitTaskStatus(taskId, "failed");
+        assertNotNull(failed.get("error"));
+    }
+
+    /**
+     * Interrupts the virtual thread a task runs on.
+     * Sleeping virtual threads are unmounted, so they do not appear in
+     * {@link Thread#getAllStackTraces()}.
+     */
+    private void interruptTaskThread(String taskId) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (router.interruptTaskWorker(taskId)) {
+                return;
+            }
+            Thread.sleep(10L);
+        }
+        throw new AssertionError("no thread was ever running task " + taskId);
+    }
 
     // --- helpers -------------------------------------------------------
 

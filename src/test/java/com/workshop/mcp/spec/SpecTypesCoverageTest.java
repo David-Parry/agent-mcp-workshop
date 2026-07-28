@@ -66,9 +66,41 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter07")
+        void onlyTheThreeFinalTaskStatusesAreTerminal() {
+            assertFalse(TaskStatus.WORKING.isTerminal());
+            assertFalse(TaskStatus.INPUT_REQUIRED.isTerminal());
+            assertTrue(TaskStatus.COMPLETED.isTerminal());
+            assertTrue(TaskStatus.FAILED.isTerminal());
+            assertTrue(TaskStatus.CANCELLED.isTerminal());
+        }
+
+        @Test
+        @Tag("chapter07")
+        void everyTaskStatusIsFoundFromItsWireValueWhateverItsCase() {
+            for (TaskStatus status : TaskStatus.values()) {
+                assertSame(status, TaskStatus.fromValue(status.getValue()));
+                assertSame(status, TaskStatus.fromValue(status.getValue().toUpperCase(Locale.ROOT)));
+            }
+        }
+
+        @Test
+        @Tag("chapter07")
+        void anUnknownOrAbsentTaskStatusIsNotFound() {
+            assertNull(TaskStatus.fromValue("paused"));
+            assertNull(TaskStatus.fromValue(null));
+        }
+
+        @Test
         @Tag("chapter03")
         void aMethodKeyPrintsAsTheMethodNameItStandsFor() {
             assertEquals("tools/call", UniqueKeys.TOOLS_CALL.toString());
+        }
+
+        @Test
+        @Tag("chapter07")
+        void aTaskMethodKeyPrintsAsTheMethodNameItStandsFor() {
+            assertEquals("tasks/update", UniqueKeys.TASKS_UPDATE.getValue());
         }
 
         @Test
@@ -347,6 +379,15 @@ class SpecTypesCoverageTest {
                         "a url-only client cannot be shown an in-conversation form");
             assertFalse(envelope(null, capabilities()).supportsElicitationForm());
             assertFalse(envelope(null, null).supportsElicitationForm());
+        }
+
+        @Test
+        @Tag("chapter07")
+        void tasksSupportIsReadFromExtensionsRatherThanARetiredTopLevelSlot() {
+            assertTrue(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsTasks());
+            assertFalse(envelope(null, declaring(MetaKeys.UI_EXTENSION)).supportsTasks());
+            assertFalse(envelope(null, capabilities()).supportsTasks());
+            assertFalse(envelope(null, null).supportsTasks());
         }
 
         @Test
