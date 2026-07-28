@@ -200,28 +200,112 @@ public class IORouter implements Router {
 
         switch (uniqueKey) {
             case PROMPTS_LIST -> {
-                // Chapter 04: answer PROMPTS_LIST.
+                PromptsListResultBuilder builder = PromptsListResultBuilder
+                        .builder()
+                        .withPrompt("search_keyword",
+                                    "Creates a prompt, to search for a word using the key_word_search tool.")
+                        .withPromptArgument("keyword", "The word to search for", true);
+                PromptsListResult result = builder.build();
+                success(message.id(), new PromptsListResult(result.prompts(), result.nextCursor(),
+                                                            LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case PROMPTS_GET -> {
-                // Chapter 04: answer PROMPTS_GET.
+                // There is a single prompt, so any other name is unknown. With
+                // more than one, the name would be looked up instead.
+                PromptsGetParams params = deserializer.deserializeParams(message, PromptsGetParams.class);
+                String keyword = params.arguments() == null ? null : params.arguments().get("keyword");
+                if (!"search_keyword".equals(params.name())) {
+                    logger.log("[API][SENT] prompts/get — unknown prompt " + params.name() + " (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown prompt: " + params.name());
+                } else if (keyword == null || keyword.isBlank()) {
+                    logger.log("[API][SENT] prompts/get — no keyword argument (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Missing required argument: keyword");
+                } else {
+                    PromptsGetResultBuilder builder = PromptsGetResultBuilder
+                            .builder()
+                            .withDescription("keyword")
+                            .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
+                    success(message.id(), builder.build());
+                }
             }
             case TOOLS_LIST -> {
-                // Chapter 04: answer TOOLS_LIST.
+                KeyWordSearch keyWordSearch = new KeyWordSearch();
+                ToolsListResult result = ToolsListResultBuilder.builder()
+                        .addTool(keyWordSearch.name(), keyWordSearch.description(), keyWordSearch.schema())
+                        .build();
+                success(message.id(), new ToolsListResult(result.tools(), LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case TOOLS_CALL -> {
-                // Chapter 04: answer TOOLS_CALL.
+                ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
+                KeyWordSearch keyWordSearch = new KeyWordSearch();
+                if (!keyWordSearch.name().equals(toolCallParams.name())) {
+                    logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
+                               + " (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
+                } else {
+                    String directory = directoryArgument(toolCallParams);
+                    if (directory == null) {
+                        success(message.id(), ToolCallResultBuilder
+                                .builder()
+                                .addTextContent("No directory was given. Call key_word_search again with "
+                                                + "the directory to search.")
+                                .asError()
+                                .build());
+                    } else {
+                        success(message.id(), keyWordSearch.call(toolCallParams, Set.of(directory)));
+                    }
+                }
             }
             case RESOURCES_LIST -> {
-                // Chapter 04: answer RESOURCES_LIST.
+                ResourcesListResultBuilder builder = ResourcesListResultBuilder
+                        .builder()
+                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"));
+                ResourcesListResult result = builder.build();
+                success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
+                                                              LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case RESOURCES_TEMPLATES_LIST -> {
-                // Chapter 04: answer RESOURCES_TEMPLATES_LIST.
+                // Clients fetch this whenever a server declares any resource
+                // capability, so it has to be answered even though this server
+                // exposes no templates.
+                success(message.id(), ResourceTemplatesListResult.empty(LIST_TTL_MILLIS));
             }
             case RESOURCES_READ -> {
-                // Chapter 04: answer RESOURCES_READ.
+                ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
+                String resourceUri = param.uri();
+                if (resourceUri == null || resourceUri.isEmpty()) {
+                    logger.log("[API][SENT] resources/read — no uri (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "resources/read requires a uri");
+                } else {
+                    try {
+                        String content = JavadocResources.readResourceContent(resourceUri);
+                        ReadResourceResult result = ReadResourceResultBuilder.builder()
+                                .addTextContent(resourceUri, DEFAULT_MIME_TYPE, content)
+                                .build();
+                        success(message.id(), new ReadResourceResult(result.contents(),
+                                                                     LIST_TTL_MILLIS, CacheScope.PUBLIC));
+                    } catch (IOException e) {
+                        logger.log("[API][SENT] resources/read — " + e.getMessage() + " (returning -32602)");
+                        error(message.id(), ErrorCodes.INVALID_PARAMS, "Resource not found",
+                              Map.of("uri", resourceUri));
+                    }
+                }
             }
             case COMPLETION_COMPLETE -> {
-                // Chapter 04: answer COMPLETION_COMPLETE.
+                CompletionCompleteParams params = deserializer.deserializeParams(message,
+                                                                                 CompletionCompleteParams.class);
+                CompletionArgument argument = params.argument();
+                if (argument == null) {
+                    logger.log("[API][SENT] completion/complete — no argument to complete (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "completion/complete requires an argument");
+                } else if ("keyword".equals(argument.name())) {
+                    // Simulating a keyword search completion
+                    CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
+                    response.value("the").value("and").total(3).hasMore(false);
+                    success(message.id(), response.build());
+                } else {
+                    success(message.id(), new CompletionCompleteBuilder().total(0).hasMore(false).build());
+                }
             }
             case SUBSCRIPTIONS_LISTEN -> acknowledgeSubscription(message);
         }
