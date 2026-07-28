@@ -34,8 +34,6 @@ public record AppMeta(
      * @return the metadata block
      */
     public static AppMeta of(String resourceUri) {
-        // Chapter 06: implement of(...).
-        throw new UnsupportedOperationException(
-                "Chapter 06: of(...) is not implemented yet");
+        return new AppMeta(new UiMeta(resourceUri, null), resourceUri);
     }
 }

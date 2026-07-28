@@ -119,9 +119,8 @@ public class AppToolBuilder {
      * @return this builder instance for method chaining
      */
     public AppToolBuilder withResourceUri(String resourceUri) {
-        // Chapter 06: implement withResourceUri(...).
-        throw new UnsupportedOperationException(
-                "Chapter 06: withResourceUri(...) is not implemented yet");
+        this.resourceUri = resourceUri;
+        return this;
     }
 
     /**
@@ -137,8 +136,18 @@ public class AppToolBuilder {
      * @throws IllegalStateException if name, description, resourceUri or inputSchema is missing
      */
     public AppTool build() {
-        // Chapter 06: implement build(...).
-        throw new UnsupportedOperationException(
-                "Chapter 06: build(...) is not implemented yet");
+        if (name == null || name.isBlank()) {
+            throw new IllegalStateException("name is required for AppTool");
+        }
+        if (description == null || description.isBlank()) {
+            throw new IllegalStateException("description is required for AppTool");
+        }
+        if (resourceUri == null || resourceUri.isBlank()) {
+            throw new IllegalStateException("resourceUri is required for AppTool — use withResourceUri(\"ui://...\")");
+        }
+        if (inputSchema == null) {
+            throw new IllegalStateException("inputSchema is required for AppTool, even one that takes no arguments");
+        }
+        return new AppTool(name, description, inputSchema, AppMeta.of(resourceUri));
     }
 }
