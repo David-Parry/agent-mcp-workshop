@@ -3,6 +3,7 @@ plugins {
     id 'java'
     id 'application'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'jacoco'
 }
 
 group = 'com.workshop.mcp'
@@ -13,7 +14,8 @@ jar.enabled = false
 // 21 to 25, and setup asks only for "21 or later", so a toolchain block would
 // hard-fail everyone who does not happen to have that exact JDK installed —
 // there is no auto-provisioner configured to go and fetch it. Setting release
-// instead compiles against the Java 21 API on whichever JDK is present.
+// instead compiles against the Java 21 API on whichever JDK is present, so the
+// class files a student produces match the ones the lessons describe.
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
 }
@@ -51,7 +53,9 @@ dependencies {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        includeTags 'chapter01'
+    }
 }
 
 application {
@@ -89,4 +93,200 @@ tasks.named('startScripts') {
 
 tasks.named('javadoc') {
     include '**/com/workshop/mcp/spec/**'
+}
+
+// The spec javadoc is the corpus this server serves as MCP resources, not just
+// documentation, so the committed copy under src/main/resources has to track the
+// source. JavadocResources enumerates it from html-files.txt, which lists only the
+// class pages directly under spec/ — builders/ ships but stays unlisted.
+//
+// This is deliberately not wired into `build`: a build that rewrites tracked
+// source files is a surprise, and tools/slice_chapter.py prunes the pages and the
+// listing together when it cuts chapter branches.
+def servedJavadoc = layout.projectDirectory.dir('src/main/resources/javadoc/com/workshop/mcp/spec')
+
+tasks.register('syncSpecJavadoc', Sync) {
+    description = 'Refreshes the javadoc corpus the server serves as MCP resources.'
+    group = 'documentation'
+
+    dependsOn javadoc
+    from layout.buildDirectory.dir('docs/javadoc/com/workshop/mcp/spec')
+    into servedJavadoc
+    include '**/*.html'
+
+    // Sync removes anything it did not copy, which is what keeps a deleted class
+    // from lingering in the corpus — but it also takes the listing with it, so the
+    // listing is rebuilt here rather than preserved.
+    doLast {
+        def root = servedJavadoc.asFile
+        def pages = (root.listFiles() ?: [] as File[])
+                .findAll { it.isFile() && it.name.endsWith('.html') }
+                .collect { it.name }
+                .findAll { !(it in ['package-summary.html', 'package-tree.html']) }
+                .toSorted()
+        new File(root, 'html-files.txt').text =
+                pages.collect { "javadoc/com/workshop/mcp/spec/$it" }.join('\n') + '\n'
+        logger.lifecycle("syncSpecJavadoc: ${pages.size()} served pages listed")
+    }
+}
+
+// Configure JaCoCo test report
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+
+        // Set custom output directory for HTML report (optional)
+        html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+    }
+}
+
+// The one class coverage cannot reach. Runner.main installs the real stdio
+// handler and blocks until the JVM exits, so exercising it in-process calls
+// System.exit and takes the test runner down with it. It holds no logic of its
+// own — three constructor calls and a start() — and everything it wires up is
+// covered directly by ServerTest and IOHandlerImplTest.
+def coverageExclusions = ['com/workshop/mcp/Runner.class']
+
+jacocoTestCoverageVerification {
+    dependsOn test
+    violationRules {
+        // Every class but IORouter is fully covered and must stay that way.
+        rule {
+            element = 'CLASS'
+            excludes = ['com.workshop.mcp.Runner', 'com.workshop.mcp.IORouter']
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 1.0
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.0
+            }
+        }
+
+        // IORouter is fully covered on instructions, and on 135 of its 136
+        // branches. The odd one out is not code anyone wrote: javac emits a
+        // default target for a switch over an enum even when every value that
+        // can reach it is handled, and JaCoCo counts that synthetic target as
+        // a branch. INBOUND_METHODS gates the switch, so nothing else can
+        // arrive at it.
+        //
+        // Keep the floor loose enough for that one branch but tight enough to
+        // catch a second: 0.99 admits exactly one miss while the class has
+        // between 100 and 199 branches.
+        rule {
+            element = 'CLASS'
+            includes = ['com.workshop.mcp.IORouter']
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 1.0
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.99
+            }
+        }
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: coverageExclusions)
+        }))
+    }
+}
+
+// Coverage is verified as part of `check`, so a regression fails the build
+// rather than quietly showing up in a report nobody opened. The report is
+// built alongside it so there is something to read when it does fail.
+check {
+    // Coverage is a property of the finished server on `complete`, not of a chapter in progress.
+}
+
+test {
+    useJUnitPlatform {
+        includeTags 'chapter01'
+    }
+
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+        exceptionFormat = 'full'
+
+        // Show reasons for skipped tests
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "\nTest result: ${result.resultType}"
+                println "Test summary: ${result.testCount} tests, " +
+                        "${result.successfulTestCount} succeeded, " +
+                        "${result.failedTestCount} failed, " +
+                        "${result.skippedTestCount} skipped "
+            }
+        }
+    }
+}
+
+// The self-check a student runs while working through a chapter:
+//
+//     ./gradlew chapterTest -Pchapter=03
+//
+// It runs only the tests tagged for that chapter, so the failures a student
+// sees are about the code they are currently writing. Running the full `test`
+// task on a chapter branch reports failures from every chapter not yet
+// reached, which buries the ones that matter.
+//
+// This deliberately skips the coverage gate. Coverage is a property of the
+// finished server, not of a chapter in progress.
+tasks.register('chapterTest', Test) {
+    group = 'verification'
+    description = 'Runs one chapter\'s tests, e.g. ./gradlew chapterTest -Pchapter=03'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    // Accept 3 or 03 so a student who types the obvious thing is not punished.
+    def requested = providers.gradleProperty('chapter').getOrNull()
+    def chapter = requested?.trim()?.padLeft(2, '0')
+
+    useJUnitPlatform {
+        // An unmatched tag would run everything, so fall back to a tag that
+        // deliberately matches nothing and let doFirst report the real problem.
+        includeTags(chapter ? "chapter${chapter}" : 'chapter-not-specified')
+    }
+
+    doFirst {
+        if (!chapter) {
+            throw new GradleException(
+                    'Which chapter? Pass one, for example: ./gradlew chapterTest -Pchapter=01')
+        }
+        if (!(chapter ==~ /0[1-7]/)) {
+            throw new GradleException(
+                    "There is no chapter '${requested}'. The workshop has chapters 01 to 07.")
+        }
+        println "Running the chapter ${chapter} tests. Red until your implementation is right."
+    }
+
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                if (result.testCount == 0) {
+                    println "\nNo tests are tagged for chapter ${chapter}."
+                } else if (result.failedTestCount == 0) {
+                    println "\nChapter ${chapter}: all ${result.testCount} tests pass. On to the next one."
+                } else {
+                    println "\nChapter ${chapter}: ${result.failedTestCount} of ${result.testCount} " +
+                            'tests still failing.'
+                }
+            }
+        }
+    }
 }
