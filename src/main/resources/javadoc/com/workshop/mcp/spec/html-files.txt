@@ -1,4 +1,7 @@
 javadoc/com/workshop/mcp/spec/Annotations.html
+javadoc/com/workshop/mcp/spec/AppMeta.html
+javadoc/com/workshop/mcp/spec/AppTool.html
+javadoc/com/workshop/mcp/spec/AppToolsListResult.html
 javadoc/com/workshop/mcp/spec/CacheScope.html
 javadoc/com/workshop/mcp/spec/Capability.html
 javadoc/com/workshop/mcp/spec/ClientCapabilities.html
@@ -61,5 +64,6 @@ javadoc/com/workshop/mcp/spec/ToolCallParams.html
 javadoc/com/workshop/mcp/spec/ToolCallResult.html
 javadoc/com/workshop/mcp/spec/ToolsListParams.html
 javadoc/com/workshop/mcp/spec/ToolsListResult.html
+javadoc/com/workshop/mcp/spec/UiMeta.html
 javadoc/com/workshop/mcp/spec/UniqueKeys.html
 javadoc/com/workshop/mcp/spec/Unknown.html

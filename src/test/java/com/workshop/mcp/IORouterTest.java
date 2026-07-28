@@ -150,6 +150,19 @@ class IORouterTest {
                     "advertising listChanged would make clients hold a subscription open for nothing");
     }
 
+    @Test
+    @Tag("chapter06")
+    void discoverDeclaresTheUiExtensionWithNoSettings() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject extensions = io.only().getAsJsonObject("result")
+                .getAsJsonObject("capabilities").getAsJsonObject("extensions");
+        // mimeTypes is a host's setting, the list of what it can render. MCP
+        // Apps defines no settings for a server.
+        assertEquals(new JsonObject(), extensions.getAsJsonObject(MetaKeys.UI_EXTENSION));
+    }
+
     // --- the per-request envelope --------------------------------------
 
     @Test
@@ -250,6 +263,20 @@ class IORouterTest {
         assertEquals(ResultType.COMPLETE, promptsGet.get("resultType").getAsString());
         assertNull(promptsGet.get("ttlMs"), "prompts/get is not a cacheable method");
         assertNull(promptsGet.get("cacheScope"), "prompts/get is not a cacheable method");
+    }
+
+    @Test
+    @Tag("chapter06")
+    void appToolsCarryTheResourceUriUnderBothMetaKeys() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject meta = io.only().getAsJsonObject("result")
+                .getAsJsonArray("tools").get(0).getAsJsonObject()
+                .getAsJsonObject("_meta");
+        String expected = "ui://keyword-search/mcp-app.html";
+        assertEquals(expected, meta.getAsJsonObject("ui").get("resourceUri").getAsString());
+        assertEquals(expected, meta.get("ui/resourceUri").getAsString());
     }
 
     @Test
@@ -835,19 +862,6 @@ class IORouterTest {
                    "an unrecognised notification should still be logged: " + log.lines);
     }
 
-
-    @Test
-    @Tag("chapter04")
-    void resourcesListDoesNotAdvertiseTheAppYet() {
-        router.route("""
-                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
-
-        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
-        assertFalse(resources.asList().stream()
-                            .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("ui://")),
-                    "the MCP App resource belongs to chapter 6");
-    }
-
     // --- prompts, resources, completion ---------------------------------
 
     @Test
@@ -893,6 +907,20 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter06")
+    void resourcesListServesTheJavadocPagesAndTheAppAlongside() {
+        router.route("""
+                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
+        assertTrue(resources.size() > 1, "the javadoc pages plus the app: " + resources.size());
+        assertTrue(resources.asList().stream()
+                           .anyMatch(r -> "ui://keyword-search/mcp-app.html"
+                                   .equals(r.getAsJsonObject().get("uri").getAsString())),
+                   "the app must be listed beside the javadoc");
+    }
+
+    @Test
     @Tag("chapter04")
     void theTemplateListIsAnsweredEmptyRatherThanNotAtAll() {
         // Clients fetch this whenever a server declares any resource
@@ -904,6 +932,16 @@ class IORouterTest {
         JsonObject result = io.only().getAsJsonObject("result");
         assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
         assertTrue(result.getAsJsonArray("resourceTemplates").isEmpty());
+    }
+
+    @Test
+    @Tag("chapter06")
+    void readingTheAppUriReturnsTheHtmlUnderTheAppMimeType() {
+        router.route(read(23, "ui://keyword-search/mcp-app.html"));
+
+        JsonObject content = firstContent();
+        assertEquals("text/html;profile=mcp-app", content.get("mimeType").getAsString());
+        assertTrue(content.get("text").getAsString().contains("<"), "expected markup");
     }
 
     @Test

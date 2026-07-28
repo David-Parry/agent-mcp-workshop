@@ -453,6 +453,17 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter06")
+        void anAppToolsListIsCompleteAndUnshareableUnlessToldOtherwise() {
+            AppToolsListResult defaults = new AppToolsListResult(List.of(appTool()));
+
+            assertEquals(ResultType.COMPLETE, defaults.resultType());
+            assertEquals(CacheScope.DEFAULT_TTL_MS, defaults.ttlMs());
+            assertEquals(CacheScope.PRIVATE, defaults.cacheScope());
+            assertEquals("ui://keyword-search/mcp-app.html", defaults.tools().get(0)._meta().resourceUri());
+        }
+
+        @Test
         @Tag("chapter04")
         void aPromptsListIsCompleteAndUnshareableUnlessToldOtherwise() {
             PromptsListResult defaults = new PromptsListResult(List.of(prompt()), null);
@@ -677,6 +688,10 @@ class SpecTypesCoverageTest {
         return new Tool("key_word_search", "Searches for a keyword across all project files.", inputSchema());
     }
 
+    private static AppTool appTool() {
+        return new AppTool("key_word_search", "Searches for a keyword across all project files.",
+                           inputSchema(), AppMeta.of("ui://keyword-search/mcp-app.html"));
+    }
 
     private static Prompt prompt() {
         return new Prompt("search_keyword", "Search the project for a keyword",

@@ -1,0 +1,180 @@
+# Overview: MCP Apps — Interactive UI Inside the Conversation
+
+## What Are MCP Apps?
+
+Text responses can only go so far. **MCP Apps** let your server return an interactive HTML interface that renders directly inside the conversation — no new tab, no separate link, no context switch.
+
+When a user asks "show me the keyword search results," instead of a wall of text they see a live, interactive dashboard right inside Claude or whatever MCP-compatible host they're using.
+
+MCP Apps is an official extension, identified as `io.modelcontextprotocol/ui`, and it is **Stable**: its specification is revision `2026-01-26`.
+
+```mermaid
+graph LR
+    subgraph "Without MCP Apps"
+        A[User asks] --> B[Wall of text]
+    end
+
+    subgraph "With MCP Apps"
+        C[User asks] --> D[Tool runs]
+        D --> E[Interactive UI rendered in chat]
+    end
+
+    style B fill:#ffcdd2
+    style E fill:#c8e6c9
+```
+
+## Why Not Just Build a Web App?
+
+You could build a standalone web app and send users a link. MCP Apps offer advantages a separate page cannot match:
+
+| Advantage | What It Means |
+|-----------|---------------|
+| **Context preservation** | The UI lives inside the conversation. Users never switch tabs, lose their place, or wonder which chat thread had that dashboard. |
+| **Bidirectional data flow** | The app can call your server's tools, and the host can push fresh results to it. A standalone web app would need its own API and auth. MCP Apps get this through MCP itself. |
+| **Host integration** | The app can delegate actions to the host, which, with the user's consent, routes them through the tools and connectors the user already has connected. |
+| **Security** | MCP Apps run in a sandboxed iframe. They cannot access the parent page, steal cookies, or escape their container. |
+
+If your use case is a simple static page, a regular web app is fine. If you want tight integration with the LLM conversation, MCP Apps are the right tool.
+
+## The Core Pattern: Tool + Resource
+
+MCP Apps combine two primitives you already know:
+
+```
+Tool  (with _meta.ui.resourceUri)
+  +
+Resource  (at a ui:// URI, returns HTML)
+  =
+Interactive App
+```
+
+The tool continues to work exactly as before — it runs, returns data, and the LLM interprets it. The only addition is a `_meta` field in the tool definition that points the host to an HTML resource it should also render.
+
+## How It Works: Step by Step
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Host as MCP Host (Claude)
+    participant Server as Your MCP Server
+    participant App as App iframe
+
+    User->>Host: "show me keyword search results"
+    Host->>Server: tools/list
+    Server-->>Host: key_word_search (_meta.ui.resourceUri set)
+    Note over Host: Host may read the page before the call
+    Host->>Server: resources/read ui://keyword-search/mcp-app.html
+    Server-->>Host: HTML page
+    Host->>Server: tools/call key_word_search("mcp")
+    Server-->>Host: tool result (file list)
+    Host-->>App: render HTML in sandboxed iframe
+    Host-->>App: push tool result to app
+    App-->>User: interactive results dashboard
+    User->>App: clicks "search again"
+    App->>Host: tools/call request (via postMessage)
+    Host->>Server: tools/call key_word_search("todo")
+    Server-->>Host: fresh results
+    Host-->>App: updated data
+```
+
+## What You Add to the Protocol
+
+To make a tool into an MCP App you add **three things**:
+
+### 1. Declare the extension in `server/discover`
+
+The server's `server/discover` result advertises MCP Apps support in the `extensions` map, keyed by identifier:
+
+```json
+{
+  "capabilities": {
+    "extensions": {
+      "io.modelcontextprotocol/ui": {}
+    }
+  }
+}
+```
+
+The settings object is empty. MCP Apps defines one setting, `mimeTypes`, and it is the **host's**: the page types the host can render, declared in the client capabilities it sends, as `{"mimeTypes": ["text/html;profile=mcp-app"]}`. A server has no settings to declare.
+
+A host only uses an extension that both sides declare. If the server leaves this out, the host treats MCP Apps as unsupported: the tool still works, but the page never appears.
+
+### 2. `_meta` on the tool definition
+
+```json
+{
+  "name": "key_word_search",
+  "description": "Searches for a keyword across all project files.",
+  "inputSchema": { "..." : "..." },
+  "_meta": {
+    "ui": {
+      "resourceUri": "ui://keyword-search/mcp-app.html"
+    },
+    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
+  }
+}
+```
+
+The URI appears twice on purpose, and the direction of travel is the opposite of what most people guess. The nested `ui.resourceUri` is the **canonical** form; the flat `ui/resourceUri` is **deprecated** by the MCP Apps extension and marked for removal before GA. Hosts read one or the other depending on their vintage, so the server writes both and `AppMeta.of` keeps them in step — but new code should be written against the nested key.
+
+### 3. A resource handler for the `ui://` URI
+
+When the host requests `ui://keyword-search/mcp-app.html` via `resources/read`, your server returns the bundled HTML. The host renders it in a sandboxed iframe.
+
+A page MUST be served as `text/html;profile=mcp-app`, available here as `Resource.MIME_TYPE_UI_APP`. The specification reserves other types for future extensions.
+
+## The New Spec Objects
+
+This lesson adds four new Java types to the workshop codebase that represent these protocol additions:
+
+| Class | Purpose |
+|-------|---------|
+| `UiMeta` | Holds the `resourceUri` pointing to the `ui://` HTML resource, plus an optional `visibility` list that says who may see and call the tool: the model, the app, or both |
+| `AppMeta` | Wraps `UiMeta` as the `_meta` field on a tool, and mirrors the URI under the deprecated flat `ui/resourceUri` key |
+| `AppTool` | A tool record that includes `_meta` alongside name, description, and inputSchema |
+| `AppToolsListResult` | The `tools/list` result for a list of `AppTool` |
+
+And a builder:
+
+| Class | Purpose |
+|-------|---------|
+| `AppToolBuilder` | Fluent builder for constructing `AppTool` objects |
+
+## When to Use MCP Apps
+
+MCP Apps are a good fit when your use case involves:
+
+- **Exploring complex data** — interactive maps, charts, tables with drill-down
+- **Configuring with many options** — forms where users see all choices at once
+- **Rich media** — embedded PDF viewers, 3D models, image previews
+- **Real-time monitoring** — dashboards with live updates
+- **Multi-step workflows** — approve/reject flows, step-by-step wizards
+
+If your use case is answered well by a text response, you do not need MCP Apps.
+
+## The Security Model
+
+The app runs in a sandboxed iframe controlled by the host. It:
+- Cannot access the parent window's DOM
+- Cannot read the host's cookies or local storage
+- Cannot navigate the parent page
+- Communicates only through a controlled `postMessage` channel
+
+This means hosts can safely render third-party apps without fully trusting the server author.
+
+## Client Support
+
+MCP Apps are supported by Claude (web), Claude Desktop, VS Code GitHub Copilot, Microsoft 365 Copilot, Goose, Postman, MCPJam and Archestra.AI. The [client matrix](https://modelcontextprotocol.io/extensions/client-matrix) tracks which clients support which extensions. Any MCP-compatible host can add support using the `@mcp-ui/client` package or the App Bridge module from the `@modelcontextprotocol/ext-apps` SDK.
+
+## Summary
+
+MCP Apps extend the protocol you already understand — tools and resources — with one new idea: a tool can declare a UI resource, and the host renders that UI inside the conversation. The rest (sandboxing, communication, security) is handled by the host.
+
+Your job as the server author is simple:
+
+1. Declare `"io.modelcontextprotocol/ui": {}` in `extensions` in the `server/discover` result
+2. Add `_meta.ui.resourceUri` to your tool definition
+3. Serve the HTML when the host requests it
+4. Write the HTML app that presents your tool's data
+
+Follow the instructions to see how to put this together.

@@ -45,6 +45,7 @@ import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
 public class IORouter implements Router {
     private static final Gson GSON = McpGson.create();
     private static final String JSON_RPC_VERSION = "2.0";
+    private static final String KEYWORD_APP_URI = "ui://keyword-search/mcp-app.html";
     private static final long LIST_TTL_MILLIS = 60_000L;
 
     /**
@@ -234,10 +235,13 @@ public class IORouter implements Router {
             }
             case TOOLS_LIST -> {
                 KeyWordSearch keyWordSearch = new KeyWordSearch();
-                ToolsListResult result = ToolsListResultBuilder.builder()
-                        .addTool(keyWordSearch.name(), keyWordSearch.description(), keyWordSearch.schema())
+                AppTool appTool = AppToolBuilder.builder()
+                        .withName(keyWordSearch.name())
+                        .withDescription(keyWordSearch.description())
+                        .withInputSchema(keyWordSearch.schema())
+                        .withResourceUri(KEYWORD_APP_URI)
                         .build();
-                success(message.id(), new ToolsListResult(result.tools(), LIST_TTL_MILLIS, CacheScope.PUBLIC));
+                success(message.id(), new AppToolsListResult(List.of(appTool), LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
@@ -253,7 +257,13 @@ public class IORouter implements Router {
             case RESOURCES_LIST -> {
                 ResourcesListResultBuilder builder = ResourcesListResultBuilder
                         .builder()
-                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"));
+                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
+                        .addResource(ResourceBuilder.builder()
+                                .withUri(KEYWORD_APP_URI)
+                                .withName("Keyword Search App")
+                                .withDescription("Interactive keyword search results dashboard")
+                                .withMimeType(Resource.MIME_TYPE_UI_APP)
+                                .build());
                 ResourcesListResult result = builder.build();
                 success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
                                                               LIST_TTL_MILLIS, CacheScope.PUBLIC));
@@ -271,10 +281,16 @@ public class IORouter implements Router {
                     logger.log("[API][SENT] resources/read — no uri (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "resources/read requires a uri");
                 } else {
+                    // The app is the one resource whose uri is not also its
+                    // classpath path, but it is read and reported like any
+                    // other, so the two share a single failure path.
+                    boolean isApp = KEYWORD_APP_URI.equals(resourceUri);
+                    String mimeType = isApp ? Resource.MIME_TYPE_UI_APP : DEFAULT_MIME_TYPE;
                     try {
-                        String content = JavadocResources.readResourceContent(resourceUri);
+                        String content = JavadocResources.readResourceContent(
+                                isApp ? "lesson/mcp-app.html" : resourceUri);
                         ReadResourceResult result = ReadResourceResultBuilder.builder()
-                                .addTextContent(resourceUri, DEFAULT_MIME_TYPE, content)
+                                .addTextContent(resourceUri, mimeType, content)
                                 .build();
                         success(message.id(), new ReadResourceResult(result.contents(),
                                                                      LIST_TTL_MILLIS, CacheScope.PUBLIC));
@@ -379,6 +395,7 @@ public class IORouter implements Router {
         return DiscoverResultBuilder
                 .builder()
                 .withDefaultCapabilities()
+                .withExtension(MetaKeys.UI_EXTENSION, Map.of())
                 .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
                                   + "for one over a Multi Round-Trip Request, and searches its own working "
                                   + "directory if the client offers nothing.")
