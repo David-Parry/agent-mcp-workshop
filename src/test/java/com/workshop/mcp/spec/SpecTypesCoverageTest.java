@@ -39,6 +39,55 @@ class SpecTypesCoverageTest {
 
     @Nested
     class Enums {
+
+        @Test
+        @Tag("chapter03")
+        void aMethodKeyPrintsAsTheMethodNameItStandsFor() {
+            assertEquals("tools/call", UniqueKeys.TOOLS_CALL.toString());
+        }
+
+        @Test
+        @Tag("chapter03")
+        void aMethodNameThisRevisionRemovedResolvesToNotFoundRatherThanNull() {
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("initialize"));
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue(null));
+        }
+
+        @Test
+        @Tag("chapter03")
+        void methodNamesAreMatchedExactlyBecauseTheyAreCaseSensitive() {
+            assertSame(UniqueKeys.SERVER_DISCOVER, UniqueKeys.fromValue("server/discover"));
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("SERVER/DISCOVER"));
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("Tools/List"));
+        }
+    }
+
+    // --- constant holders ----------------------------------------------
+
+    @Nested
+    @Tag("chapter03")
+    class ConstantHolders {
+
+        @Test
+        void aConstantHolderRefusesToBeInstantiatedEvenReflectively() throws Exception {
+            for (Class<?> holder : List.of(MetaKeys.class, ErrorCodes.class,
+                                           CacheScope.class, ResultType.class)) {
+                Constructor<?> constructor = holder.getDeclaredConstructor();
+                constructor.setAccessible(true);
+                InvocationTargetException refused =
+                        assertThrows(InvocationTargetException.class, constructor::newInstance);
+                assertInstanceOf(AssertionError.class, refused.getCause(), holder.getSimpleName());
+            }
+        }
+
+        @Test
+        void theCodesThisRevisionAddedSitInItsReservedRange() {
+            // 2026-07-28 partitioned the server-error range: -32000 to -32019
+            // is legacy and closed to new codes, -32020 down is the specification's.
+            assertEquals(-32020, ErrorCodes.HEADER_MISMATCH);
+            assertEquals(-32021, ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY);
+            assertEquals(-32022, ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION);
+        }
     }
 
     // --- RequestId and its adapter --------------------------------------
@@ -103,6 +152,64 @@ class SpecTypesCoverageTest {
         }
     }
 
+    // --- ProgressToken and its adapter ----------------------------------
+
+    @Nested
+    @Tag("chapter03")
+    class ProgressTokens {
+
+        @Test
+        void aTokenIsEitherAStringOrAnIntegerButNeverBothAndNeverNeither() {
+            assertThrows(IllegalArgumentException.class, () -> new ProgressToken("1", 1L));
+            assertThrows(IllegalArgumentException.class, () -> new ProgressToken(null, null));
+            assertEquals("upload-1", ProgressToken.of("upload-1").toString());
+            assertEquals("7", ProgressToken.of(7L).toString());
+        }
+
+        @Test
+        void eachTokenFormIsWrittenBackAsItArrived() throws IOException {
+            assertEquals("\"upload-1\"", write(ProgressToken.of("upload-1")));
+            assertEquals("7", write(ProgressToken.of(7L)), "an integer token must not come back as 7.0");
+            assertEquals("null", write(null));
+        }
+
+        @Test
+        void eachTokenFormIsReadWithoutBeingCoercedToTheOther() throws IOException {
+            assertEquals(ProgressToken.of("upload-1"), read("\"upload-1\""));
+            assertEquals(ProgressToken.of(7L), read("7"));
+            assertNull(read("null"));
+        }
+
+        @Test
+        void aTokenThatIsNeitherAStringNorAnIntegerIsRejected() {
+            assertThrows(JsonParseException.class, () -> read("true"));
+            assertThrows(JsonParseException.class, () -> read("1.5"));
+        }
+
+        @Test
+        void aStringTokenReadsIntoMetaInfoThroughTheSharedGson() {
+            // An Integer field rejected this outright, so the request carrying
+            // it could not be read into its params record at all.
+            MetaInfo meta = McpGson.create().fromJson("{\"progressToken\":\"upload-1\"}", MetaInfo.class);
+
+            assertEquals(ProgressToken.of("upload-1"), meta.progressToken());
+        }
+
+        private String write(ProgressToken token) throws IOException {
+            StringWriter json = new StringWriter();
+            try (JsonWriter out = new JsonWriter(json)) {
+                new ProgressTokenTypeAdapter().write(out, token);
+            }
+            return json.toString();
+        }
+
+        private ProgressToken read(String json) throws IOException {
+            try (JsonReader in = new JsonReader(new StringReader(json))) {
+                return new ProgressTokenTypeAdapter().read(in);
+            }
+        }
+    }
+
     // --- the per-request envelope ---------------------------------------
 
     @Nested
@@ -149,6 +256,78 @@ class SpecTypesCoverageTest {
             assertEquals("inspector", envelope.clientInfo().name());
             assertEquals("0.17.0", envelope.clientInfo().version());
             assertEquals("debug", envelope.logLevel());
+        }
+    }
+
+    // --- subscriptions ---------------------------------------------------
+
+    @Nested
+    @Tag("chapter03")
+    class Subscriptions {
+
+        @Test
+        void everyRequestIsHonoredWhenTheServerAdvertisesTheMatchingCapability() {
+            SubscriptionFilter honored = requestingEverything().honoredUnder(
+                    advertising(new Capability(true), new Capability(true, true), new Capability(true)));
+
+            assertEquals(Boolean.TRUE, honored.toolsListChanged());
+            assertEquals(Boolean.TRUE, honored.promptsListChanged());
+            assertEquals(Boolean.TRUE, honored.resourcesListChanged());
+            assertEquals(List.of("file:///a"), honored.resourceSubscriptions());
+            assertFalse(honored.isEmpty());
+        }
+
+        @Test
+        void aServerAdvertisingNothingDropsEveryRequestInsteadOfAnsweringFalse() {
+            SubscriptionFilter honored = requestingEverything()
+                    .honoredUnder(new ServerCapabilities(null, null, null, null, null, null, null));
+
+            // Dropped rather than set to false, so the acknowledgment never
+            // says anything the server cannot back.
+            assertNull(honored.toolsListChanged());
+            assertNull(honored.promptsListChanged());
+            assertNull(honored.resourcesListChanged());
+            assertNull(honored.resourceSubscriptions());
+            assertTrue(honored.isEmpty());
+        }
+
+        @Test
+        void aCapabilityDeclaredWithoutListChangedOrSubscribeHonorsNothing() {
+            SubscriptionFilter honored = new SubscriptionFilter(false, null, null, null).honoredUnder(
+                    advertising(new Capability(false), new Capability(true, false), new Capability(false)));
+
+            assertNull(honored.toolsListChanged());
+            assertNull(honored.promptsListChanged());
+            assertNull(honored.resourcesListChanged());
+            assertNull(honored.resourceSubscriptions());
+        }
+
+        @Test
+        void aFilterAskingForAnyOneNotificationIsNotEmpty() {
+            assertFalse(new SubscriptionFilter(true, null, null, null).isEmpty());
+            assertFalse(new SubscriptionFilter(null, true, null, null).isEmpty());
+            assertFalse(new SubscriptionFilter(null, null, true, null).isEmpty());
+            assertFalse(new SubscriptionFilter(null, null, null, List.of("file:///a")).isEmpty());
+        }
+
+        @Test
+        void aFilterIsEmptyWhetherItsUriListIsAbsentOrMerelyEmpty() {
+            assertTrue(new SubscriptionFilter(null, null, null, null).isEmpty());
+            assertTrue(new SubscriptionFilter(false, false, false, List.of()).isEmpty());
+        }
+
+        @Test
+        void aCapabilityDefaultsToAnnouncingListChangedWithNoSubscribeSupport() {
+            assertEquals(new Capability(true, null), new Capability());
+            assertEquals(new Capability(false, null), new Capability(false));
+        }
+
+        private SubscriptionFilter requestingEverything() {
+            return new SubscriptionFilter(true, true, true, List.of("file:///a"));
+        }
+
+        private ServerCapabilities advertising(Capability prompts, Capability resources, Capability tools) {
+            return new ServerCapabilities(null, null, null, prompts, resources, tools, null);
         }
     }
 
