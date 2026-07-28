@@ -74,9 +74,37 @@ public class JsonRpcMessageDeserializer {
      * @throws com.google.gson.JsonParseException if the text is not JSON at all
      */
     public Object deserialize(String json) {
-        // Chapter 02: implement deserialize(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: deserialize(...) is not implemented yet");
+        JsonElement tree = JsonParser.parseString(json);
+        // An array (a batch, which this revision does not accept), a bare
+        // value, or an object that does not say it is JSON-RPC 2.0 is still
+        // well-formed JSON. Returning it rather than throwing is what keeps it
+        // an invalid request instead of a parse error.
+        if (!tree.isJsonObject() || !JSON_RPC_VERSION.equals(tree.getAsJsonObject().get("jsonrpc"))) {
+            return new Unknown(json);
+        }
+        JsonObject jsonObject = tree.getAsJsonObject();
+        try {
+            if (jsonObject.has("method")) {
+                // An explicit "id": null is still no id. Testing only for the key
+                // being present classified such a message as a request, and the
+                // server then answered a notification with a null id.
+                JsonElement id = jsonObject.get("id");
+                if (id != null && !id.isJsonNull()) {
+                    return gson.fromJson(json, JsonRpcRequest.class);
+                } else {
+                    return gson.fromJson(json, JsonRpcNotification.class);
+                }
+            } else if (jsonObject.has("result")) {
+                return gson.fromJson(json, JsonRpcResponse.class);
+            } else if (jsonObject.has("error")) {
+                return gson.fromJson(json, JsonRpcErrorResponse.class);
+            }
+        } catch (JsonParseException e) {
+            // Well-formed, but a member has the wrong type: an id that is an
+            // object, say. That is an invalid request too, not a parse error.
+            return new Unknown(json);
+        }
+        return new Unknown(json);
     }
 
     /**
@@ -94,9 +122,7 @@ public class JsonRpcMessageDeserializer {
      * @throws com.google.gson.JsonSyntaxException if the params cannot be deserialized to the specified type
      */
     public <T> T deserializeParams(JsonRpcRequest request, Class<T> paramsClass) {
-        // Chapter 02: implement deserializeParams(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: deserializeParams(...) is not implemented yet");
+        return gson.fromJson(gson.toJson(request.params()), paramsClass);
     }
 
     /**
@@ -114,9 +140,7 @@ public class JsonRpcMessageDeserializer {
      * @throws com.google.gson.JsonSyntaxException if the params cannot be deserialized to the specified type
      */
     public <T> T deserializeParams(JsonRpcNotification request, Class<T> paramsClass) {
-        // Chapter 02: implement deserializeParams(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: deserializeParams(...) is not implemented yet");
+        return gson.fromJson(gson.toJson(request.params()), paramsClass);
     }
 
     /**
@@ -133,9 +157,7 @@ public class JsonRpcMessageDeserializer {
      * @return the converted value, or null when there was nothing to convert
      */
     public <T> T convert(Object value, Class<T> type) {
-        // Chapter 02: implement convert(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: convert(...) is not implemented yet");
+        return value == null ? null : gson.fromJson(gson.toJsonTree(value), type);
     }
 
     /**
@@ -157,20 +179,30 @@ public class JsonRpcMessageDeserializer {
      * @return the envelope, never null
      */
     public RequestEnvelope deserializeEnvelope(JsonRpcRequest request) {
-        // Chapter 02: implement deserializeEnvelope(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: deserializeEnvelope(...) is not implemented yet");
+        JsonObject meta = metaObject(request.params());
+        if (meta == null) {
+            return new RequestEnvelope(null, null, null, null);
+        }
+        return new RequestEnvelope(
+                asString(meta.get(MetaKeys.PROTOCOL_VERSION)),
+                gson.fromJson(meta.get(MetaKeys.CLIENT_CAPABILITIES), ClientCapabilities.class),
+                gson.fromJson(meta.get(MetaKeys.CLIENT_INFO), ClientInfo.class),
+                asString(meta.get(MetaKeys.LOG_LEVEL)));
     }
 
     private JsonObject metaObject(Object params) {
-        // Chapter 02: implement metaObject(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: metaObject(...) is not implemented yet");
+        if (params == null) {
+            return null;
+        }
+        JsonElement tree = gson.toJsonTree(params);
+        if (!tree.isJsonObject()) {
+            return null;
+        }
+        JsonElement meta = tree.getAsJsonObject().get("_meta");
+        return (meta != null && meta.isJsonObject()) ? meta.getAsJsonObject() : null;
     }
 
     private String asString(JsonElement element) {
-        // Chapter 02: implement asString(...).
-        throw new UnsupportedOperationException(
-                "Chapter 02: asString(...) is not implemented yet");
+        return (element != null && element.isJsonPrimitive()) ? element.getAsString() : null;
     }
 }
