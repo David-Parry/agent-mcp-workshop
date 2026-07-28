@@ -6,6 +6,7 @@ import com.workshop.mcp.spec.Capability;
 import com.workshop.mcp.spec.CompletionCompleteResponse;
 import com.workshop.mcp.spec.ContentItem;
 import com.workshop.mcp.spec.DiscoverResult;
+import com.workshop.mcp.spec.ElicitationCreateParams;
 import com.workshop.mcp.spec.InputSchema;
 import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.Message;
@@ -189,6 +190,44 @@ class BuildersCoverageTest {
 
             assertEquals("Server info is required",
                          assertThrows(IllegalStateException.class, builder::build).getMessage());
+        }
+    }
+
+    // --- ElicitationBuilder --------------------------------------------
+
+    @Nested
+    @Tag("chapter05")
+    class ElicitationBuilderTest {
+
+        @Test
+        void theDirectoryFormAsksForOneRequiredAbsolutePath() {
+            ElicitationCreateParams params = ElicitationBuilder.buildSearchDirectoryElicitation();
+
+            assertEquals(ElicitationCreateParams.MODE_FORM, params.mode());
+            assertEquals("Pick a directory for the keyword-search tool to search in:", params.message());
+            assertEquals("object", params.requestedSchema().get("type"));
+            assertEquals(List.of("directory"), params.requestedSchema().get("required"));
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> properties = (Map<String, Object>) params.requestedSchema().get("properties");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> directory = (Map<String, Object>) properties.get("directory");
+            assertEquals("string", directory.get("type"));
+            assertEquals("Search Directory", directory.get("title"));
+        }
+
+        @Test
+        void theDirectoryFormGoesOnTheWireInTheSameOrderEveryRun() {
+            assertEquals("{\"type\":\"object\",\"properties\":{\"directory\":{\"type\":\"string\","
+                         + "\"title\":\"Search Directory\",\"description\":\"Absolute path to the directory "
+                         + "the keyword search should look in\"}},\"required\":[\"directory\"]}",
+                         McpGson.create().toJson(ElicitationBuilder.buildSearchDirectoryElicitation()
+                                                         .requestedSchema()));
+        }
+
+        @Test
+        void theFactoryIsStillInstantiableEvenThoughItHoldsOnlyStaticMembers() {
+            assertNotNull(new ElicitationBuilder());
         }
     }
 

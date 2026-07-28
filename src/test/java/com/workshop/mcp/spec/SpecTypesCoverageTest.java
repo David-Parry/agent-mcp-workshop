@@ -630,6 +630,19 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter05")
+        void aRetryLooksUpItsAnswersUnderTheKeysTheServerChose() {
+            Map<String, Object> elicited = Map.of("action", "accept", "content", Map.of("directory", "/srv/code"));
+            ToolCallParams retry = new ToolCallParams(null, "key_word_search", Map.of("keyword", "record"),
+                                                      Map.of("search_directory", elicited),
+                                                      "cmVjb3Jk");
+
+            assertEquals(elicited, retry.inputResponse("search_directory"));
+            assertNull(retry.inputResponse("search_elsewhere"), "an unanswered question reads as absent");
+            assertEquals("cmVjb3Jk", retry.requestState());
+        }
+
+        @Test
         @Tag("chapter04")
         void aFirstAttemptCarriesNoAnswersAtAll() {
             ToolCallParams first =

@@ -122,7 +122,16 @@ public enum UniqueKeys {
      * waits forever with no error and no timeout.
      * </p>
      */
-    NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged");
+    NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged"),
+
+
+
+
+    /**
+     * Name of an embedded {@code elicitation/create} request.
+     * Embedded in an {@link InputRequiredResult} rather than sent as a request.
+     */
+    ELICITATION_CREATE("elicitation/create");
 
     private final String value;
 

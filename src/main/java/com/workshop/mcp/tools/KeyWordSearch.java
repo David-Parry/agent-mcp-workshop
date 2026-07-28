@@ -42,6 +42,7 @@ import java.util.stream.Stream;
  * structural instead of a convention someone has to maintain.
  * </p>
  *
+ * @see SearchContinuation
  * @since 1.0
  */
 public class KeyWordSearch implements Tool {
@@ -62,7 +63,9 @@ public class KeyWordSearch implements Tool {
     @Override
     public String description() {
         return "Searches for a specified keyword across all files in a project. Returns the total count of matches " +
-                "and the absolute file paths of the files containing the keyword. Pass the directory to search.";
+                "and the absolute file paths of the files containing the keyword. Pass a directory to search it " +
+                "directly; omit it and the server asks for one over a Multi Round-Trip Request, falling back to " +
+                "its own working directory if nothing is offered.";
     }
 
     @Override
@@ -79,7 +82,9 @@ public class KeyWordSearch implements Tool {
                                      .builder()
                                      .withKey("directory")
                                      .withType("string")
-                                     .withDescription("the absolute directory to search"))
+                                     .withDescription("the absolute directory to search; omit it to have the "
+                                                      + "server ask for one over a Multi Round-Trip Request and "
+                                                      + "fall back to its working directory"))
                 .build();
     }
 

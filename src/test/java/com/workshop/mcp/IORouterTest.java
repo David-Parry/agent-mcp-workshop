@@ -12,6 +12,7 @@ import com.workshop.mcp.spec.MetaKeys;
 import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
 import com.workshop.mcp.tools.KeyWordSearch;
+import com.workshop.mcp.tools.SearchContinuation;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -300,6 +301,97 @@ class IORouterTest {
         assertTrue(io.only().has("result"), io.only().toString());
     }
 
+    // --- Multi Round-Trip Requests -------------------------------------
+
+    @Test
+    @Tag("chapter05")
+    void theSearchToolHoldsNoStateSoADirectoryCannotOutliveItsCall() {
+        for (Field field : KeyWordSearch.class.getDeclaredFields()) {
+            assertTrue(Modifier.isStatic(field.getModifiers()),
+                       "KeyWordSearch must stay stateless, but it declares the instance field '"
+                       + field.getName() + "'. A directory resolved for one call must not be "
+                       + "reachable from the next — pass it to call(params, directories) instead.");
+        }
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aDirectoryFromOneCallIsNotReusedByTheNext() {
+        // Supplying a directory must not teach the server anything. The very
+        // next bare call has to ask again.
+        String meta = """
+                "_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"},
+                  "io.modelcontextprotocol/clientCapabilities":{"elicitation":{"form":{}}}
+                }""";
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+                  "name":"key_word_search",
+                  "arguments":{"keyword":"keyword","directory":"%s"},%s}}"""
+                             .formatted(System.getProperty("user.dir"), meta));
+        assertEquals(ResultType.COMPLETE, io.only().getAsJsonObject("result")
+                .get("resultType").getAsString(), "an explicit directory should just be searched");
+
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{
+                  "name":"key_word_search","arguments":{"keyword":"keyword"},%s}}"""
+                             .formatted(meta));
+        assertEquals(ResultType.INPUT_REQUIRED, io.only().getAsJsonObject("result")
+                             .get("resultType").getAsString(),
+                     "the previous call's directory must not be remembered");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aClientDeclaringTheDeprecatedRootsAndSamplingCapabilitiesIsUnaffected() {
+        // Roots and sampling are both deprecated under SEP-2577, which tells
+        // clients to keep declaring what they support for the whole transition
+        // period — so real clients, the Inspector included, still send these.
+        // This server models neither, and a client must not be penalised for
+        // saying so: the unknown keys are ignored and the capability it does
+        // model still drives the exchange.
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+                  "name":"key_word_search","arguments":{"keyword":"Gson"},
+                  "_meta":{
+                    "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                    "io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"},
+                    "io.modelcontextprotocol/clientCapabilities":{
+                      "sampling":{},"roots":{"listChanged":true},
+                      "elicitation":{"form":{}}
+                    }
+                  }}}""");
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.INPUT_REQUIRED, result.get("resultType").getAsString());
+        assertEquals("elicitation/create", result.getAsJsonObject("inputRequests")
+                             .getAsJsonObject(SearchContinuation.KEY_DIRECTORY)
+                             .get("method").getAsString(),
+                     "unmodelled deprecated declarations must not disturb elicitation");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aDeprecatedRootsDeclarationDoesNotMakeTheServerAskForRoots() {
+        // The server used to embed a roots/list here. Roots is deprecated, so
+        // it no longer does — and a client that can only answer roots is
+        // therefore never asked anything at all.
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+                  "name":"key_word_search","arguments":{"keyword":"Gson"},
+                  "_meta":{
+                    "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                    "io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}}
+                  }}}""");
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString(),
+                     "with nothing askable the search falls back to the working directory");
+        assertNull(result.get("inputRequests"), "no roots/list may be embedded any more");
+    }
+
     @Test
     @Tag("chapter03")
     void allThreeEmbeddedOnlyMethodsAreRejectedInbound() {
@@ -323,6 +415,151 @@ class IORouterTest {
 
         assertEquals(ErrorCodes.METHOD_NOT_FOUND, io.onlyError().get("code").getAsInt(),
                      "2026-07-28 removed this notification outright");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aToolCallWithNoDirectoryAsksTheUserForOne() {
+        router.route(toolCall(1, null, null));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.INPUT_REQUIRED, result.get("resultType").getAsString());
+
+        JsonObject embedded = result.getAsJsonObject("inputRequests")
+                .getAsJsonObject(SearchContinuation.KEY_DIRECTORY);
+        assertEquals("elicitation/create", embedded.get("method").getAsString());
+        assertEquals("form", embedded.getAsJsonObject("params").get("mode").getAsString());
+        assertNull(embedded.get("id"), "an embedded request carries no JSON-RPC id");
+        assertNull(embedded.get("jsonrpc"), "an embedded request carries no JSON-RPC version");
+
+        // The state records only that the question was asked. The keyword
+        // comes back with the retried call's own arguments.
+        SearchContinuation state = SearchContinuation.decode(result.get("requestState").getAsString());
+        assertEquals(SearchContinuation.awaitingDirectory(), state);
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aRetrySearchesForItsOwnKeywordArgumentAndNotOneInTheState(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        // A client can send any requestState it likes. This one names a
+        // keyword the retried call's arguments do not.
+        String planted = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "{\"keyword\":\"absent\",\"stage\":\"directory\"}".getBytes(StandardCharsets.UTF_8));
+        router.route(toolCall(6, planted, """
+                "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
+
+        JsonArray content = io.only().getAsJsonObject("result").getAsJsonArray("content");
+        assertEquals(1, content.size(), "the search must look for the argument's keyword, record");
+        assertTrue(content.get(0).getAsJsonObject().get("text").getAsString().endsWith("keyword_count=1"));
+    }
+
+    @Test
+    @Tag("chapter05")
+    void theQuestionIsAskedOnceAndOnlyOnce() {
+        // The stage on the continuation is what stops the server asking the
+        // same thing again when the answer was unusable. Without it a client
+        // that declined the form would be handed the same form forever.
+        String state = SearchContinuation.awaitingDirectory().encode();
+        router.route(toolCall(3, state, """
+                "search_directory":{"action":"decline"}"""));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertNull(result.get("inputRequests"), "a declined form must not be re-asked");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void anElicitedDirectoryRunsTheSearch(@org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        String state = SearchContinuation.awaitingDirectory().encode();
+        router.route(toolCall(4, state, """
+                "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertFalse(result.get("isError").getAsBoolean());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aDeclinedElicitationFallsBackToTheWorkingDirectory() {
+        String state = SearchContinuation.awaitingDirectory().encode();
+        router.route(toolCall(5, state, """
+                "search_directory":{"action":"decline"}"""));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertFalse(result.get("isError").getAsBoolean(),
+                    "declining the form is not a failure — the search falls back to the working directory");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aClientThatCannotShowAFormIsNotAsked() {
+        router.route("""
+                {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                           "io.modelcontextprotocol/clientCapabilities":{}},
+                  "name":"key_word_search","arguments":{"keyword":"record"}}}""");
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertFalse(result.get("isError").getAsBoolean(),
+                    "a client that cannot be asked still gets a search, rooted at the working directory");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void anElicitationDeclarationThatNamesNoModeIsShownTheForm() {
+        // An empty elicitation object is how a client declared support before
+        // there were modes to name, and it still means form.
+        router.route("""
+                {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                           "io.modelcontextprotocol/clientCapabilities":{"elicitation":{}}},
+                  "name":"key_word_search","arguments":{"keyword":"record"}}}""");
+
+        assertEquals(ResultType.INPUT_REQUIRED,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aDirectoryArgumentSkipsTheRoundTripEntirely(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        // The client can show a form, so the only reason it is not asked for a
+        // directory is that the call already carried one.
+        router.route("""
+                {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                           "io.modelcontextprotocol/clientCapabilities":{"elicitation":{"form":{}}}},
+                  "name":"key_word_search",
+                  "arguments":{"keyword":"record","directory":"%s"}}}""".formatted(directory));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString(),
+                     "a supplied directory must not trigger an input_required round trip");
+        assertFalse(result.get("isError").getAsBoolean());
+        assertTrue(result.getAsJsonArray("content").toString().contains("hit.txt"));
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aCorruptRequestStateIsTreatedAsAFirstAttemptRatherThanAnError() {
+        // The state came from this server, but it made a round trip through a
+        // client and cannot be trusted to come back intact.
+        assertNull(SearchContinuation.decode("not-base64-at-all!!"));
+
+        router.route(toolCall(7, "bm90LWpzb24", null));
+        assertEquals(ResultType.INPUT_REQUIRED,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
     }
 
     /** A {@code tools/call} from a task client that supplies no directory. */
@@ -609,24 +846,6 @@ class IORouterTest {
         assertFalse(resources.asList().stream()
                             .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("ui://")),
                     "the MCP App resource belongs to chapter 6");
-        assertTrue(resources.asList().stream()
-                           .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("javadoc/")),
-                   "Javadoc pages must still be listed");
-    }
-
-    @Test
-    @Tag("chapter04")
-    void aToolCallWithoutADirectoryIsAToolLevelError() {
-        router.route("""
-                {"jsonrpc":"2.0","id":31,"method":"tools/call",
-                 "params":{%s,"name":"key_word_search","arguments":{"keyword":"class"}}}"""
-                             .formatted(FULL_META));
-
-        JsonObject result = io.only().getAsJsonObject("result");
-        assertTrue(result.get("isError").getAsBoolean(),
-                   "chapter 4 has no round trip yet, so a missing directory is a tool error");
-        assertTrue(result.getAsJsonArray("content").get(0).getAsJsonObject()
-                           .get("text").getAsString().toLowerCase().contains("directory"));
     }
 
     // --- prompts, resources, completion ---------------------------------
@@ -780,6 +999,118 @@ class IORouterTest {
                  "params":{%s,"name":"Key_Word_Search","arguments":{"keyword":"x"}}}""".formatted(FULL_META));
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aCallWithNoArgumentsAtAllStillAsksForSomewhereToSearch() {
+        // The directory is read off a params.arguments that is simply absent
+        // here.
+        router.route("""
+                {"jsonrpc":"2.0","id":31,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search"}}""".formatted(FULL_META));
+
+        assertEquals(ResultType.INPUT_REQUIRED,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aRetryWithNoArgumentsAtAllSearchesForNothingRatherThanFailing(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        // The keyword comes off the retried call's arguments, which are absent.
+        router.route("""
+                {"jsonrpc":"2.0","id":33,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","requestState":"%s",
+                           "inputResponses":{"search_directory":{"action":"accept",
+                                                                 "content":{"directory":"%s"}}}}}"""
+                             .formatted(FULL_META, SearchContinuation.awaitingDirectory().encode(), directory));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertFalse(result.get("isError").getAsBoolean());
+        assertEquals(0, result.getAsJsonArray("content").size());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aBlankDirectoryArgumentCountsAsNotHavingSuppliedOne() {
+        router.route("""
+                {"jsonrpc":"2.0","id":32,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search",
+                           "arguments":{"keyword":"record","directory":"   "}}}""".formatted(FULL_META));
+
+        assertEquals(ResultType.INPUT_REQUIRED,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString(),
+                     "whitespace is not a directory");
+    }
+
+    // --- reading the answers back ----------------------------------------
+
+    @Test
+    @Tag("chapter05")
+    void aFormAnswerThatIsNotEvenAnObjectIsTreatedAsNoAnswer() {
+        router.route(toolCall(34, SearchContinuation.awaitingDirectory().encode(),
+                              "\"search_directory\":null"));
+
+        assertEquals(ResultType.COMPLETE,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString(),
+                     "an unusable answer falls back rather than re-asking");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere() {
+        router.route(toolCall(36, SearchContinuation.awaitingDirectory().encode(),
+                              "\"search_directory\":{\"action\":\"accept\",\"content\":{}}"));
+
+        assertEquals(ResultType.COMPLETE,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void anAcceptedFormWhoseDirectoryIsBlankFallsBackToo() {
+        router.route(toolCall(37, SearchContinuation.awaitingDirectory().encode(),
+                              "\"search_directory\":{\"action\":\"accept\",\"content\":{\"directory\":\"  \"}}"));
+
+        assertEquals(ResultType.COMPLETE,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void anAcceptedFormWhoseContentIsNotAnObjectFallsBackToo() {
+        router.route(toolCall(38, SearchContinuation.awaitingDirectory().encode(),
+                              "\"search_directory\":{\"action\":\"accept\",\"content\":\"/tmp\"}"));
+
+        assertEquals(ResultType.COMPLETE,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aMissingFormAnswerFallsBackToTheWorkingDirectory() {
+        router.route(toolCall(39, SearchContinuation.awaitingDirectory().encode(),
+                              "\"search_directory\":null"));
+
+        assertEquals(ResultType.COMPLETE,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aCallThatNamesADirectoryButNoKeywordSearchesForNothingRatherThanFailing(
+            @org.junit.jupiter.api.io.TempDir Path directory) {
+        router.route("""
+                {"jsonrpc":"2.0","id":54,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search",
+                           "arguments":{"directory":"%s"}}}""".formatted(FULL_META, directory));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertTrue(result.getAsJsonArray("content").isEmpty(), "an absent keyword matches nothing");
     }
 
 

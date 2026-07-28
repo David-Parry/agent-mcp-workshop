@@ -10,10 +10,13 @@ import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
 import com.workshop.mcp.tools.KeyWordSearch;
+import com.workshop.mcp.tools.SearchContinuation;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,11 +34,12 @@ import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
  * happens. There are no fields tracking what the client can do, because those
  * are per-request facts now. And there is no code that sends a request to the
  * client, because modern clients discard inbound requests — the three things
- * this server used to ask for are embedded in an input_required result
+ * this server used to ask for are embedded in an {@link InputRequiredResult}
  * instead.
  * </p>
  *
  * @see RequestEnvelope
+ * @see InputRequiredResult
  * @since 1.0
  */
 public class IORouter implements Router {
@@ -47,7 +51,7 @@ public class IORouter implements Router {
      * The methods this server accepts as inbound requests.
      * <p>
      * The revision also defines three methods that only ever appear embedded
-     * in an input_required result — {@code roots/list},
+     * in an {@link InputRequiredResult} — {@code roots/list},
      * {@code sampling/createMessage}, and {@code elicitation/create}. Only the
      * last is something this server asks for; the other two are deprecated
      * under SEP-2577 and are not built here at all. None is ever answered, so
@@ -385,10 +389,76 @@ public class IORouter implements Router {
         return DiscoverResultBuilder
                 .builder()
                 .withDefaultCapabilities()
-                .withInstructions("Searches a project for a keyword.")
+                .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
+                                  + "for one over a Multi Round-Trip Request, and searches its own working "
+                                  + "directory if the client offers nothing.")
                 .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
                 .withDefaultServerInfo()
                 .build();
+    }
+
+    /**
+     * Runs the keyword search, asking the client for a directory first if it
+     * needs one.
+     * <p>
+     * This is the Multi Round-Trip Requests loop, and it exists in this shape
+     * because there is no session to hold the answer in. Each stage returns an
+     * {@link InputRequiredResult} carrying both the question and a
+     * {@link SearchContinuation} that records how far the exchange has got;
+     * the client answers by re-sending the whole {@code tools/call}, arguments
+     * and all, with a new id.
+     * </p>
+     *
+     * @param requestId the id to answer
+     * @param params    the call parameters, including any prior answers
+     * @param envelope  this request's declared client capabilities
+     */
+    private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
+        // Chapter 05: implement handleKeywordSearch(...).
+    }
+
+    /**
+     * Resolves {@code .} to an absolute path.
+     * <p>
+     * The search reports absolute paths, so the root it walks has to be
+     * absolute too or the results come back relative to a directory the client
+     * cannot see.
+     * </p>
+     *
+     * @return the directory the server process was started in
+     */
+    private String workingDirectory() {
+        return Path.of("").toAbsolutePath().normalize().toString();
+    }
+
+    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params,
+                                          Set<String> directories, RequestEnvelope envelope) {
+        success(requestId, new KeyWordSearch().call(resolvedCall(params), directories));
+    }
+
+    /**
+     * Strips a call down to the arguments the tool itself needs, dropping the
+     * round-trip bookkeeping.
+     */
+    private ToolCallParams resolvedCall(ToolCallParams params) {
+        String keyword = keywordArgument(params);
+        return new ToolCallParams(params._meta(), params.name(),
+                                  Map.of("keyword", keyword == null ? "" : keyword),
+                                  null, null);
+    }
+
+    private String keywordArgument(ToolCallParams params) {
+        return params.arguments() == null ? null : params.arguments().get("keyword");
+    }
+
+    /**
+     * Reads the directory out of an embedded {@code elicitation/create} answer,
+     * which the user may also have declined or cancelled.
+     */
+    private String elicitedDirectory(Object inputResponse) {
+        // Chapter 05: implement elicitedDirectory(...).
+        throw new UnsupportedOperationException(
+                "Chapter 05: elicitedDirectory(...) is not implemented yet");
     }
 
     private void process(JsonRpcNotification message) {
