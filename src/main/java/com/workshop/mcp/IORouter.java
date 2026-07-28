@@ -6,13 +6,20 @@ import com.google.gson.JsonParseException;
 import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
+import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
+import com.workshop.mcp.tools.KeyWordSearch;
 
+import java.io.IOException;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.workshop.mcp.spec.Message.KEY_WORD_MESSAGE;
+import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
 
 /**
  * Routes JSON-RPC messages for protocol revision {@code 2026-07-28}.
@@ -56,6 +63,14 @@ public class IORouter implements Router {
      */
     private static final Set<UniqueKeys> INBOUND_METHODS = EnumSet.of(
             UniqueKeys.SERVER_DISCOVER,
+            UniqueKeys.PROMPTS_LIST,
+            UniqueKeys.PROMPTS_GET,
+            UniqueKeys.TOOLS_LIST,
+            UniqueKeys.TOOLS_CALL,
+            UniqueKeys.RESOURCES_LIST,
+            UniqueKeys.RESOURCES_TEMPLATES_LIST,
+            UniqueKeys.RESOURCES_READ,
+            UniqueKeys.COMPLETION_COMPLETE,
             UniqueKeys.SUBSCRIPTIONS_LISTEN);
 
     private final LogFile logger;
@@ -184,6 +199,30 @@ public class IORouter implements Router {
         }
 
         switch (uniqueKey) {
+            case PROMPTS_LIST -> {
+                // Chapter 04: answer PROMPTS_LIST.
+            }
+            case PROMPTS_GET -> {
+                // Chapter 04: answer PROMPTS_GET.
+            }
+            case TOOLS_LIST -> {
+                // Chapter 04: answer TOOLS_LIST.
+            }
+            case TOOLS_CALL -> {
+                // Chapter 04: answer TOOLS_CALL.
+            }
+            case RESOURCES_LIST -> {
+                // Chapter 04: answer RESOURCES_LIST.
+            }
+            case RESOURCES_TEMPLATES_LIST -> {
+                // Chapter 04: answer RESOURCES_TEMPLATES_LIST.
+            }
+            case RESOURCES_READ -> {
+                // Chapter 04: answer RESOURCES_READ.
+            }
+            case COMPLETION_COMPLETE -> {
+                // Chapter 04: answer COMPLETION_COMPLETE.
+            }
             case SUBSCRIPTIONS_LISTEN -> acknowledgeSubscription(message);
         }
     }
@@ -288,6 +327,11 @@ public class IORouter implements Router {
 
     private void process(JsonRpcErrorResponse message) {
         logger.log("[API][RECEIVED] error from client: " + message);
+    }
+
+    private String directoryArgument(ToolCallParams params) {
+        String directory = params.arguments() == null ? null : params.arguments().get("directory");
+        return directory == null || directory.isBlank() ? null : directory;
     }
 
     /**

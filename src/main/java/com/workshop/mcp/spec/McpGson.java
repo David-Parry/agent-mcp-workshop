@@ -23,12 +23,14 @@ public final class McpGson {
      * Creates a Gson instance configured for MCP messages.
      *
      * @return a Gson instance that round-trips a {@link RequestId} and a
-     *         {@code ProgressToken} faithfully
+     *         {@code ProgressToken} faithfully and writes a
+     *         {@code PropertySchema} as valid JSON Schema
      */
     public static Gson create() {
         return new GsonBuilder()
                 .registerTypeAdapter(RequestId.class, new RequestIdTypeAdapter())
                 .registerTypeAdapter(ProgressToken.class, new ProgressTokenTypeAdapter())
+                .registerTypeAdapter(PropertySchema.class, new PropertySchemaTypeAdapter())
                 .create();
     }
 }

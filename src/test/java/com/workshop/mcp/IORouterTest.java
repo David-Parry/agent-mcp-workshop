@@ -11,6 +11,7 @@ import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.MetaKeys;
 import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
+import com.workshop.mcp.tools.KeyWordSearch;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -228,6 +229,77 @@ class IORouterTest {
         }
     }
 
+    // --- cacheable results ---------------------------------------------
+
+    @Test
+    @Tag("chapter04")
+    @Tag("chapter06")
+    void cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
+        JsonObject toolsList = io.only().getAsJsonObject("result");
+        assertTrue(toolsList.get("ttlMs").getAsLong() >= 0);
+        assertEquals(CacheScope.PUBLIC, toolsList.get("cacheScope").getAsString());
+
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":2,"method":"prompts/get",
+                 "params":{%s,"name":"search_keyword","arguments":{"keyword":"x"}}}""".formatted(FULL_META));
+        JsonObject promptsGet = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, promptsGet.get("resultType").getAsString());
+        assertNull(promptsGet.get("ttlMs"), "prompts/get is not a cacheable method");
+        assertNull(promptsGet.get("cacheScope"), "prompts/get is not a cacheable method");
+    }
+
+    @Test
+    @Tag("chapter04")
+    @Tag("chapter06")
+    void anInputSchemaWritesOnlyJsonSchemaKeywords() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject schema = io.only().getAsJsonObject("result")
+                .getAsJsonArray("tools").get(0).getAsJsonObject()
+                .getAsJsonObject("inputSchema");
+        JsonObject properties = schema.getAsJsonObject("properties");
+
+        // PropertySchema carries a key and a requiredness flag for the
+        // builder's benefit. Both are already expressed by the enclosing
+        // schema, and neither is a JSON Schema keyword, so neither may appear
+        // on the property itself.
+        for (String name : properties.keySet()) {
+            JsonObject property = properties.getAsJsonObject(name);
+            assertNull(property.get("key"),
+                       name + " must be named by its position, not by a 'key' field");
+            assertNull(property.get("isRequired"),
+                       name + " must state requiredness through the schema's 'required' array");
+            assertEquals(List.of("type", "description"), List.copyOf(property.keySet()),
+                         name + " must write only JSON Schema keywords");
+        }
+
+        // Requiredness survives the omission — expressed once, in the one place
+        // JSON Schema defines for it.
+        assertEquals(List.of("keyword"), schema.getAsJsonArray("required").asList().stream()
+                             .map(element -> element.getAsString()).toList(),
+                     "the required keyword must still be advertised as required");
+        assertTrue(properties.has("directory"), "the optional property must still be advertised");
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aStringProgressTokenDoesNotStopARequestBeingAnswered() {
+        // The token used to be read as an Integer, so a string one made the
+        // params unreadable and the request went unanswered.
+        router.route("""
+                {"jsonrpc":"2.0","id":"read-1","method":"resources/read","params":{"_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{},
+                  "progressToken":"read-1"},
+                 "uri":"javadoc/com/workshop/mcp/spec/Capability.html"}}""");
+
+        assertTrue(io.only().has("result"), io.only().toString());
+    }
+
     @Test
     @Tag("chapter03")
     void allThreeEmbeddedOnlyMethodsAreRejectedInbound() {
@@ -377,6 +449,45 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
+    void aPromptWithoutItsRequiredKeywordIsInvalidParams() {
+        // Answering anyway would send the model off to search for nothing,
+        // or for the word null.
+        for (String arguments : List.of("{\"unexpected\":\"value\"}", "{\"keyword\":\"   \"}")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":59,"method":"prompts/get",
+                     "params":{%s,"name":"search_keyword","arguments":%s}}""".formatted(FULL_META, arguments));
+
+            JsonObject error = io.onlyError();
+            assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt(), arguments);
+            assertTrue(error.get("message").getAsString().contains("keyword"), error.toString());
+        }
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aPromptThisServerDoesNotHaveIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":62,"method":"prompts/get",
+                 "params":{%s,"name":"no_such_prompt","arguments":{"keyword":"x"}}}""".formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("Unknown prompt: no_such_prompt", error.get("message").getAsString());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void completingWithNoArgumentIsAnsweredRatherThanFaultedOn() {
+        router.route("""
+                {"jsonrpc":"2.0","id":60,"method":"completion/complete",
+                 "params":{%s,"ref":{"type":"ref/prompt","name":"search_keyword"}}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
     @Tag("chapter03")
     void aBlankLineIsNotAMessageAndIsIgnored() {
         router.route(null);
@@ -485,6 +596,190 @@ class IORouterTest {
         assertTrue(io.responses().isEmpty());
         assertTrue(log.logged("notifications/progress"),
                    "an unrecognised notification should still be logged: " + log.lines);
+    }
+
+
+    @Test
+    @Tag("chapter04")
+    void resourcesListDoesNotAdvertiseTheAppYet() {
+        router.route("""
+                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
+        assertFalse(resources.asList().stream()
+                            .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("ui://")),
+                    "the MCP App resource belongs to chapter 6");
+        assertTrue(resources.asList().stream()
+                           .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("javadoc/")),
+                   "Javadoc pages must still be listed");
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aToolCallWithoutADirectoryIsAToolLevelError() {
+        router.route("""
+                {"jsonrpc":"2.0","id":31,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","arguments":{"keyword":"class"}}}"""
+                             .formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertTrue(result.get("isError").getAsBoolean(),
+                   "chapter 4 has no round trip yet, so a missing directory is a tool error");
+        assertTrue(result.getAsJsonArray("content").get(0).getAsJsonObject()
+                           .get("text").getAsString().toLowerCase().contains("directory"));
+    }
+
+    // --- prompts, resources, completion ---------------------------------
+
+    @Test
+    @Tag("chapter04")
+    void promptsListNamesTheSearchPromptAndItsRequiredArgument() {
+        router.route("""
+                {"jsonrpc":"2.0","id":20,"method":"prompts/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        JsonObject prompt = result.getAsJsonArray("prompts").get(0).getAsJsonObject();
+        assertEquals("search_keyword", prompt.get("name").getAsString());
+        JsonObject argument = prompt.getAsJsonArray("arguments").get(0).getAsJsonObject();
+        assertEquals("keyword", argument.get("name").getAsString());
+        assertTrue(argument.get("required").getAsBoolean());
+        assertEquals(CacheScope.PUBLIC, result.get("cacheScope").getAsString());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aListThatFitsOnOnePageOffersNoCursorToANextOne() {
+        // A client follows nextCursor until it is absent. This server ignores
+        // the cursor it is sent, so offering one would page it in a loop.
+        for (String method : List.of("prompts/list", "resources/list")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":23,"method":"%s","params":{%s}}""".formatted(method, FULL_META));
+
+            assertNull(io.only().getAsJsonObject("result").get("nextCursor"), method + " offered a second page");
+        }
+    }
+
+    @Test
+    @Tag("chapter04")
+    void resourcesListServesTheJavadocPages() {
+        router.route("""
+                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
+        assertTrue(resources.size() >= 1, "expected Javadoc pages, got " + resources.size());
+        assertTrue(resources.asList().stream()
+                           .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("javadoc/")),
+                   "Javadoc pages must be listed");
+    }
+
+    @Test
+    @Tag("chapter04")
+    void theTemplateListIsAnsweredEmptyRatherThanNotAtAll() {
+        // Clients fetch this whenever a server declares any resource
+        // capability, so leaving it unhandled would strand them on -32601.
+        router.route("""
+                {"jsonrpc":"2.0","id":22,"method":"resources/templates/list",
+                 "params":{%s}}""".formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertTrue(result.getAsJsonArray("resourceTemplates").isEmpty());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void readingAJavadocPageReturnsItsMarkup() {
+        router.route(read(24, "javadoc/com/workshop/mcp/spec/RequestId.html"));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertNull(result.get("isError"), "isError belongs to tool results, not to resources/read");
+        assertTrue(firstContent().get("text").getAsString().contains("RequestId"));
+    }
+
+    @Test
+    @Tag("chapter04")
+    void readingAResourceThatIsNotThereIsInvalidParamsNamingTheUri() {
+        router.route(read(25, "javadoc/com/workshop/mcp/spec/NoSuchPage.html"));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt(),
+                     "-32602, the code that replaced the retired -32002");
+        assertEquals("javadoc/com/workshop/mcp/spec/NoSuchPage.html",
+                     error.getAsJsonObject("data").get("uri").getAsString());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void readingSomethingOnTheClasspathThatIsNotAPageIsNotFound() {
+        router.route(read(26, "com/workshop/mcp/IORouter.class"));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void readingWithAnEmptyUriIsInvalidParams() {
+        router.route(read(26, ""));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void readingWithNoUriAtAllIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":27,"method":"resources/read","params":{%s}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void completingTheKeywordArgumentOffersSeveralWords() {
+        router.route(complete(28, "keyword"));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        JsonObject completion = result.getAsJsonObject("completion");
+        assertEquals(3, completion.getAsJsonArray("values").size());
+        assertEquals(3, completion.get("total").getAsInt());
+        assertFalse(completion.get("hasMore").getAsBoolean(), "all three were sent, so there are no more");
+        assertNull(result.get("total"), "total belongs inside completion");
+        assertNull(result.get("hasMore"), "hasMore belongs inside completion");
+    }
+
+    @Test
+    @Tag("chapter04")
+    void completingAnyOtherArgumentOffersNothing() {
+        router.route(complete(29, "something-else"));
+
+        JsonObject completion = io.only().getAsJsonObject("result").getAsJsonObject("completion");
+        assertTrue(completion.getAsJsonArray("values").isEmpty());
+        assertEquals(0, completion.get("total").getAsInt());
+    }
+
+    // --- tools/call argument handling ------------------------------------
+
+    @Test
+    @Tag("chapter04")
+    void callingAToolThisServerDoesNotHaveIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":30,"method":"tools/call",
+                 "params":{%s,"name":"nope","arguments":{}}}""".formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("Unknown tool: nope", error.get("message").getAsString());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void toolNamesAreMatchedCaseSensitively() {
+        router.route("""
+                {"jsonrpc":"2.0","id":30,"method":"tools/call",
+                 "params":{%s,"name":"Key_Word_Search","arguments":{"keyword":"x"}}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
 
 
