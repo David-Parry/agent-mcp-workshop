@@ -54,7 +54,7 @@ dependencies {
 
 test {
     useJUnitPlatform {
-        includeTags 'chapter01'
+        includeTags 'chapter01', 'chapter02'
     }
 }
 
@@ -211,7 +211,7 @@ check {
 
 test {
     useJUnitPlatform {
-        includeTags 'chapter01'
+        includeTags 'chapter01', 'chapter02'
     }
 
     testLogging {
