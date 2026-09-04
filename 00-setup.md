@@ -27,7 +27,7 @@ Install Node.js v22 or later with NPM 10.9+. Download from [Node.js official web
 Install the MCP Inspector tool globally:
 
 ```bash
-npm install -g @modelcontextprotocol/inspector
+npm install -g @modelcontextprotocol/inspector@2.5.0
 ```
 
 ## Verification

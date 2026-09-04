@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MCP Workshop – Runtime Facts</title>
     <style>
-        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7}
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--orange:#ff9e64;--red:#f7768e;--purple:#bb9af7;--green:#9ece6a}
         html,body{height:100%}
         body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
         header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
@@ -18,41 +18,47 @@
         .badge{display:inline-flex;gap:8px;align-items:center;background:#0c1328;border:1px solid #1f2740;border-radius:999px;padding:6px 10px;color:#cbd5ff;font-size:12px;margin-bottom:16px}
         .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
         .nav{margin-bottom:18px;text-align:center}
-        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px 5px;padding:7px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:14px;display:inline-block}
         .nav a:hover{background:#1f2740}
         .facts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
         .fact-card{background:var(--card);border:1px solid #1f2740;border-radius:12px;padding:16px}
         .fact-card h3{margin:0 0 12px;color:var(--accent);font-size:18px}
         .fact-card ul{margin:0;padding-left:20px}
         .fact-card li{margin-bottom:8px}
-        .fact-card code{background:#0c1328;padding:2px 6px;border-radius:4px;font-size:13px}
+        .fact-card code{background:#0c1328;padding:2px 6px;border-radius:4px;font-size:13px;color:#7dcfff}
     </style>
+    <link rel="stylesheet" href="theme.css" />
 </head>
 <body>
 <header>
     <h1>MCP Workshop – Runtime Facts</h1>
-    <p class="subtitle">Key information about the MCP communication session and server capabilities.</p>
+    <p class="subtitle">Reference card for the captured session: versions, negotiated capabilities, and what the server exposes.</p>
 </header>
 <main>
     <div class="nav">
         <a href="index.html">Home</a>
         <a href="overview.html">Overview</a>
         <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="extensions.html">Extensions</a>
+        <a href="mcp-apps.html">MCP Apps</a>
         <a href="tasks.html">Tasks</a>
+        <a href="agent.html">Agent</a>
         <a href="runtime-facts.html">Runtime Facts</a>
         <a href="trace-log.html">Trace Log</a>
         <a href="contact.html">Contact</a>
+        <a href="#" id="theme-toggle">Light</a>
     </div>
 
     <section class="card">
-        <div class="badge"><span class="dot"></span> Runtime Facts</div>
-        
+        <div class="badge"><span class="dot"></span> Runtime Facts &mdash; matches the <a href="trace-log.html" style="color:var(--accent);text-decoration:none">Trace Log</a></div>
+
         <div class="facts-grid">
             <div class="fact-card">
                 <h3>Protocol Information</h3>
                 <ul>
-                    <li><strong>Protocol Version:</strong> 2025‑06‑18</li>
+                    <li><strong>Protocol Version:</strong> 2025&#8209;11&#8209;25</li>
                     <li><strong>JSON-RPC Version:</strong> 2.0</li>
+                    <li><strong>Transport:</strong> stdio</li>
                     <li><strong>Communication:</strong> Bidirectional</li>
                 </ul>
             </div>
@@ -60,8 +66,8 @@
             <div class="fact-card">
                 <h3>Client Details</h3>
                 <ul>
-                    <li><strong>Name:</strong> mcp‑inspector</li>
-                    <li><strong>Version:</strong> 0.16.5</li>
+                    <li><strong>Name:</strong> inspector&#8209;client</li>
+                    <li><strong>Version:</strong> 0.22.0</li>
                     <li><strong>Role:</strong> MCP Client</li>
                 </ul>
             </div>
@@ -69,36 +75,50 @@
             <div class="fact-card">
                 <h3>Server Details</h3>
                 <ul>
-                    <li><strong>Name:</strong> agent‑mcp‑workshop</li>
+                    <li><strong>Name:</strong> agent&#8209;mcp&#8209;workshop</li>
                     <li><strong>Version:</strong> 0.0.1</li>
-                    <li><strong>Role:</strong> MCP Server</li>
+                    <li><strong>Role:</strong> MCP Server (Java)</li>
                 </ul>
             </div>
 
             <div class="fact-card">
                 <h3>Client Capabilities</h3>
                 <ul>
-                    <li><strong>Sampling:</strong> ✓</li>
-                    <li><strong>Elicitation:</strong> ✓</li>
-                    <li><strong>Roots:</strong> ✓ (listChanged: true)</li>
+                    <li><strong>Sampling:</strong> &#10003;</li>
+                    <li><strong>Elicitation:</strong> &#10003; (form, url)</li>
+                    <li><strong>Roots:</strong> &#10003; (listChanged: true)</li>
+                    <li><strong>Tasks:</strong> &#10003; (list, cancel &mdash; for <code>sampling/createMessage</code> and <code>elicitation/create</code>)</li>
                 </ul>
             </div>
 
             <div class="fact-card">
                 <h3>Server Capabilities</h3>
                 <ul>
-                    <li><strong>Tools:</strong> ✓ (listChanged: true)</li>
-                    <li><strong>Prompts:</strong> ✓ (listChanged: true)</li>
-                    <li><strong>Resources:</strong> ✓ (listChanged: false, subscribe: false)</li>
+                    <li><strong>Tools:</strong> &#10003; (listChanged: true)</li>
+                    <li><strong>Prompts:</strong> &#10003; (listChanged: true)</li>
+                    <li><strong>Resources:</strong> &#10003; (listChanged: false, subscribe: false)</li>
+                    <li><strong>Completions:</strong> &#10003;</li>
+                    <li><strong>Tasks:</strong> &#10003; (list, cancel &mdash; for <code>tools/call</code>)</li>
                 </ul>
+            </div>
+
+            <div class="fact-card" style="border-color:var(--accent)">
+                <h3>Experimental Extensions</h3>
+                <ul>
+                    <li><code>io.modelcontextprotocol/elicitation</code></li>
+                    <li><code>io.modelcontextprotocol/apps</code></li>
+                </ul>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Namespaced keys under <code>capabilities.experimental</code> &mdash; unknown keys are ignored by older clients. See <a href="extensions.html" style="color:var(--accent)">Extensions</a>.</p>
             </div>
 
             <div class="fact-card">
                 <h3>Available Tools</h3>
                 <ul>
                     <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
-                    <li><strong>Description:</strong> Searches for keywords across project files</li>
+                    <li><strong>Description:</strong> Searches for a specified keyword across all files in a project</li>
                     <li><strong>Parameters:</strong> keyword <em>(directory comes from <code>roots/list</code> or the elicitation, not a tool arg)</em></li>
+                    <li><strong>UI:</strong> <code>_meta.ui.resourceUri</code> &rarr; <code>ui://keyword-search/mcp-app.html</code></li>
+                    <li><strong>Task support:</strong> <code>execution.taskSupport = "optional"</code></li>
                 </ul>
             </div>
 
@@ -114,10 +134,10 @@
             <div class="fact-card">
                 <h3>Available Resources</h3>
                 <ul>
-                    <li><strong>Resource Count:</strong> 70+ Javadoc files</li>
-                    <li><strong>Resource Type:</strong> HTML documentation</li>
+                    <li><strong>Javadoc:</strong> 60+ HTML files</li>
                     <li><strong>Example:</strong> <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
-                    <li><strong>Pagination:</strong> ✓ (nextCursor: "pageNext")</li>
+                    <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code> served as <code>text/html;profile=mcp-app</code></li>
+                    <li><strong>Pagination:</strong> &#10003; (nextCursor: "pageNext")</li>
                 </ul>
             </div>
 
@@ -125,29 +145,39 @@
                 <h3>Elicitation Details</h3>
                 <ul>
                     <li><strong>Method:</strong> <code>elicitation/create</code></li>
-                    <li><strong>Request ID:</strong> -4000</li>
-                    <li><strong>Message:</strong> "Pick a directory for the keyword-search tool to search in:"</li>
+                    <li><strong>Request ID:</strong> <code>-4000</code> (reserved, server-initiated)</li>
+                    <li><strong>Trigger:</strong> first <code>tools/call</code> while roots are empty</li>
                     <li><strong>Schema Fields:</strong> directory (absolute path)</li>
-                    <li><strong>User Response:</strong> directory = <code>/Users/.../some-repo</code></li>
-                    <li><strong>Action:</strong> accept &rarr; directory added to server's roots set</li>
+                    <li><strong>Action:</strong> accept &rarr; directory added to roots, parked call resumed</li>
+                </ul>
+            </div>
+
+            <div class="fact-card">
+                <h3>Task Details</h3>
+                <ul>
+                    <li><strong>Augmentation:</strong> <code>tools/call</code> + <code>task: {ttl: 60000}</code></li>
+                    <li><strong>Immediate reply:</strong> <code>CreateTaskResult</code>, status <code>working</code></li>
+                    <li><strong>Poll interval:</strong> 1000 ms</li>
+                    <li><strong>Push:</strong> <code>notifications/tasks/status</code> on completion</li>
+                    <li><strong>Correlation:</strong> <code>_meta.io.modelcontextprotocol/related-task</code></li>
                 </ul>
             </div>
 
             <div class="fact-card">
                 <h3>Session Flow</h3>
                 <ul>
-                    <li><strong>1.</strong> Initialization handshake</li>
-                    <li><strong>2.</strong> Elicitation - user input collection</li>
-                    <li><strong>3.</strong> Roots discovery</li>
-                    <li><strong>4.</strong> Ping & sampling</li>
-                    <li><strong>5.</strong> Resources discovery</li>
-                    <li><strong>6.</strong> Resource reading</li>
-                    <li><strong>7.</strong> Prompts discovery</li>
-                    <li><strong>8.</strong> Prompt execution</li>
-                    <li><strong>9.</strong> Tools discovery</li>
-                    <li><strong>10.</strong> Tool execution</li>
-                    <li><strong>11.</strong> Sampling response</li>
-                    <li><strong>12.</strong> Roots changes</li>
+                    <li><strong>1.</strong> Initialization handshake (2025&#8209;11&#8209;25)</li>
+                    <li><strong>2.</strong> <code>notifications/initialized</code></li>
+                    <li><strong>3.</strong> Roots discovery &mdash; returns empty</li>
+                    <li><strong>4.</strong> Tools discovery</li>
+                    <li><strong>5.</strong> <code>tools/call</code> &mdash; deferred</li>
+                    <li><strong>6.</strong> Elicitation &mdash; user picks a directory</li>
+                    <li><strong>7.</strong> Parked call resumed, results returned</li>
+                    <li><strong>8.</strong> Task-augmented <code>tools/call</code></li>
+                    <li><strong>9.</strong> <code>tasks/get</code> &mdash; working</li>
+                    <li><strong>10.</strong> Status notification &mdash; completed</li>
+                    <li><strong>11.</strong> <code>tasks/result</code> &mdash; real result</li>
+                    <li><strong>12.</strong> <code>tasks/list</code>, then shutdown</li>
                 </ul>
             </div>
 
@@ -155,17 +185,18 @@
                 <h3>Tool Execution Results</h3>
                 <ul>
                     <li><strong>Search Keyword:</strong> "mcp"</li>
-                    <li><strong>Files Found:</strong> 58 files</li>
-                    <li><strong>Total Matches:</strong> 400+ occurrences</li>
-                    <li><strong>Search Directory:</strong> /Users/davidparry/code/github/agent-command</li>
+                    <li><strong>Search Directory:</strong> supplied by the elicitation</li>
+                    <li><strong>Files Matched:</strong> 2 <em>(a deliberately small repo, so the trace stays readable)</em></li>
+                    <li><strong>Result Shape:</strong> one text content block per file, <code>path, keyword_count=N</code></li>
                 </ul>
             </div>
         </div>
 
-        <div class="hint">This page is designed as a lightweight "presentation": open it full‑screen and use your browser's zoom for big‑room projection.</div>
+        <div class="hint">This page is designed as a lightweight "presentation": open it full&#8209;screen and use your browser's zoom for big&#8209;room projection.</div>
     </section>
 
-    <div class="footer">© 2025 MCP Workshop. Runtime information extracted from session logs.</div>
+    <div class="footer">&copy; 2025 MCP Workshop. Runtime information extracted from session logs.</div>
 </main>
+<script src="theme.js"></script>
 </body>
 </html>

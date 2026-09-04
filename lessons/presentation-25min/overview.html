@@ -15,15 +15,16 @@
         .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px}
         .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
         .nav{margin-bottom:18px;text-align:center}
-        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px 5px;padding:7px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:14px;display:inline-block}
         .nav a:hover{background:#1f2740}
-        .diagram-container{text-align:center;margin:32px 0;width:100%}
-        .mermaid{background:white;border-radius:12px;padding:40px;margin:0 auto;width:100%;max-width:none;transform:scale(1.2);transform-origin:center;overflow:visible}
+        .diagram-container{margin:32px 0;width:100%;overflow-x:auto}
+        .mermaid{background:white;border-radius:12px;padding:32px;display:inline-block;min-width:100%}
         h2{color:var(--accent);margin-top:32px;margin-bottom:16px}
         h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
         ul{margin:16px 0;padding-left:24px}
         li{margin:8px 0}
         .highlight{background:rgba(122,162,247,0.1);padding:2px 6px;border-radius:4px;color:var(--accent)}
+        .badge-time{display:inline-block;background:#0c1328;border:1px solid #1f2740;color:#ff9e64;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <script>
@@ -39,10 +40,11 @@
             }
         });
     </script>
+    <link rel="stylesheet" href="theme.css" />
 </head>
 <body>
 <header>
-    <h1>MCP Protocol Overview</h1>
+    <h1>MCP Protocol Overview <span class="badge-time">2 &ndash; 5 min</span></h1>
     <p class="subtitle">Understanding the Model Context Protocol architecture and communication flow</p>
 </header>
 <main>
@@ -50,10 +52,14 @@
         <a href="index.html">Home</a>
         <a href="overview.html">Overview</a>
         <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="extensions.html">Extensions</a>
+        <a href="mcp-apps.html">MCP Apps</a>
         <a href="tasks.html">Tasks</a>
+        <a href="agent.html">Agent</a>
         <a href="runtime-facts.html">Runtime Facts</a>
         <a href="trace-log.html">Trace Log</a>
         <a href="contact.html">Contact</a>
+        <a href="#" id="theme-toggle">Light</a>
     </div>
 
     <section class="card">
@@ -63,22 +69,22 @@
         <div class="diagram-container">
             <div class="mermaid">
 sequenceDiagram
-    participant User
-    participant App as Application
+    participant Agent
+    participant Client
     participant LLM as LLM (Language Model)
     participant MCP as MCP Server
     
-    User->>App: Send Request
-    App->>LLM: Forward Request
+    Agent->>Client: Send Request
+    Client->>LLM: Forward Request
     LLM->>LLM: Process Request
-    LLM->>App: Request Additional Information<br/>(Tool/Function Call)
-    App->>MCP: Route Request to MCP Server
+    LLM->>Client: Request Additional Information<br/>(Tool/Function Call)
+    Client->>MCP: Route Request to MCP Server
     MCP->>MCP: Process Request
-    MCP->>App: Return Response
-    App->>LLM: Provide Additional Information<br/>(MCP Response)
+    MCP->>Client: Return Response
+    Client->>LLM: Provide Additional Information<br/>(MCP Response)
     LLM->>LLM: Process with New Information
-    LLM->>App: Generate Final Response
-    App->>User: Deliver Response
+    LLM->>Client: Generate Final Response
+    Client->>Agent: Deliver Response
             </div>
         </div>
     </section>
@@ -86,17 +92,17 @@ sequenceDiagram
     <section class="card">
         <h2>Flow Explanation</h2>
         
-        <h3>1. User Interaction</h3>
-        <p>The process begins when a <span class="highlight">User</span> sends a request to the <span class="highlight">Application</span>. This could be a question, command, or any input that requires processing.</p>
+        <h3>1. Agent Interaction</h3>
+        <p>The process begins when an <span class="highlight">Agent</span> sends a request to the <span class="highlight">Client</span>. This could be a question, command, or any input that requires processing.</p>
 
         <h3>2. LLM Processing</h3>
-        <p>The <span class="highlight">Application</span> forwards the request to the <span class="highlight">LLM (Language Model)</span>, which begins processing the user's input. During this processing, the LLM may determine that it needs additional information or capabilities to provide a complete response.</p>
+        <p>The <span class="highlight">Client</span> forwards the request to the <span class="highlight">LLM (Language Model)</span>, which begins processing the agent's input. During this processing, the LLM may determine that it needs additional information or capabilities to provide a complete response.</p>
 
         <h3>3. Tool/Function Call</h3>
-        <p>When the <span class="highlight">LLM</span> requires external data or functionality, it makes a <span class="highlight">Tool/Function Call</span> back to the Application. This is where MCP comes into play - the LLM is requesting access to external resources, data, or capabilities.</p>
+        <p>When the <span class="highlight">LLM</span> requires external data or functionality, it makes a <span class="highlight">Tool/Function Call</span> back to the Client. This is where MCP comes into play - the LLM is requesting access to external resources, data, or capabilities.</p>
 
         <h3>4. MCP Server Interaction</h3>
-        <p>The <span class="highlight">Application</span> routes this request to the appropriate <span class="highlight">MCP Server</span>. The MCP Server processes the request, which might involve:</p>
+        <p>The <span class="highlight">Client</span> routes this request to the appropriate <span class="highlight">MCP Server</span>. The MCP Server processes the request, which might involve:</p>
         <ul>
             <li>Accessing databases or file systems</li>
             <li>Calling external APIs</li>
@@ -105,10 +111,10 @@ sequenceDiagram
         </ul>
 
         <h3>5. Response Chain</h3>
-        <p>The <span class="highlight">MCP Server</span> returns its response to the Application, which then provides this additional information back to the LLM. The LLM processes this new information along with the original request to generate a comprehensive final response.</p>
+        <p>The <span class="highlight">MCP Server</span> returns its response to the Client, which then provides this additional information back to the LLM. The LLM processes this new information along with the original request to generate a comprehensive final response.</p>
 
         <h3>6. Final Delivery</h3>
-        <p>The <span class="highlight">Application</span> delivers the LLM's final response back to the <span class="highlight">User</span>, completing the request-response cycle.</p>
+        <p>The <span class="highlight">Client</span> delivers the LLM's final response back to the <span class="highlight">Agent</span>, completing the request-response cycle.</p>
     </section>
 
     <section class="card">
@@ -131,6 +137,12 @@ sequenceDiagram
             <li><strong>Prompts:</strong> Reusable prompt templates</li>
             <li><strong>Sampling:</strong> AI model interaction capabilities</li>
             <li><strong>Real-time Updates:</strong> Dynamic notifications of changes</li>
+        </ul>
+        <p>Three newer pieces build on those foundations, and this server implements all three:</p>
+        <ul>
+            <li><strong><a href="extensions.html" style="color:var(--accent)">Elicitation</a>:</strong> the server pauses a call to ask the user a question</li>
+            <li><strong><a href="mcp-apps.html" style="color:var(--accent)">MCP Apps</a>:</strong> a tool returns an interactive UI instead of a wall of text</li>
+            <li><strong><a href="tasks.html" style="color:var(--accent)">Tasks</a>:</strong> call now, fetch later &mdash; long-running work stops blocking the session</li>
         </ul>
     </section>
 
@@ -158,5 +170,6 @@ sequenceDiagram
 
     <div class="footer">© 2025 MCP Workshop. Protocol overview and architecture explanation.</div>
 </main>
+<script src="theme.js"></script>
 </body>
 </html>

@@ -124,7 +124,8 @@ Navigate to the `inspector` folder where you'll find two important files:
        "workshop": {
          "command": "java",
          "args": [
-           "-jar ../build/libs/agent-mcp-workshop-0.0.1.jar"
+           "-jar",
+           "../build/libs/agent-mcp-workshop-0.0.1.jar"
          ],
          "env": {
          }
@@ -135,17 +136,29 @@ Navigate to the `inspector` folder where you'll find two important files:
    **Purpose**: This file tells the MCP Inspector how to launch your server. It defines:
    - A server named "workshop"
    - The command to run (`java`)
-   - Arguments to pass (the path to your JAR file)
+   - Arguments to pass (each one its own array element — `-jar` and the JAR path are
+     two separate arguments, not one string)
    - Any environment variables (currently empty)
 
 2. **`run.sh`** - Inspector Launch Script
    ```bash
-   npx @modelcontextprotocol/inspector@0.14.0 --config config.json --server workshop
+   #!/usr/bin/env bash
+   set -euo pipefail
+   cd "$(dirname "${BASH_SOURCE[0]}")"
+
+   npx @modelcontextprotocol/inspector@2.5.0 --web --catalog config.json
    ```
    **Purpose**: This shell script launches the MCP Inspector tool. It:
-   - Uses `npx` to run the MCP Inspector version 0.14.0
-   - Points to the `config.json` file for server configuration
-   - Specifies "workshop" as the server to connect to
+   - Uses `npx` to run the MCP Inspector, pinned to version 2.5.0
+   - `cd`s into the `inspector` folder first, so the server's working directory is always
+     `inspector/` and its logs land in `inspector/logs/`
+   - Points to `config.json` for server configuration via `--catalog`, which opens a
+     *writable* session — you can add or edit servers from the UI. (`--config` also works
+     but opens a read-only session, and the UI will say so.)
+   - `--web` selects the web UI; the Inspector also has `--cli` and `--tui` modes
+
+   > **Note**: the web UI lists every server in the catalog, so there is no `--server`
+   > flag here. `--server workshop` only applies to `--cli` mode.
 
 #### Step 3.3: Launch the MCP Inspector
 
@@ -160,11 +173,12 @@ Navigate to the `inspector` folder where you'll find two important files:
    ./run.sh
    ```
 
-3. Look for console output that includes a URL (typically something like `http://localhost:5173` or similar)
+3. Look for console output that includes a URL (typically `http://127.0.0.1:6274`)
 
 4. Copy the URL from the console output and paste it into your web browser
 
-5. You should see the **MCP Inspector v0.14.0** application interface
+5. You should see the **MCP Inspector v2.5.0** application interface, with `workshop`
+   listed as a server you can connect to
 
 The MCP Inspector is a powerful debugging and testing tool that allows you to:
 - Send requests to your MCP server

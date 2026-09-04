@@ -16,8 +16,9 @@
         .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
         .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
         .nav{margin-bottom:18px;text-align:center}
-        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px 5px;padding:7px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:14px;display:inline-block}
         .nav a:hover{background:#1f2740}
+        .badge-time{display:inline-block;background:#0c1328;border:1px solid #1f2740;color:#ff9e64;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
     </style>
     <!-- Mermaid -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -224,21 +225,26 @@
             tooltip.style.top = finalY + 'px';
         }
     </script>
+    <link rel="stylesheet" href="theme.css" />
 </head>
 <body>
 <header>
-    <h1>MCP Workshop – JSON‑RPC Communication Flow</h1>
-    <p class="subtitle">Sequence diagram showing the complete MCP communication flow including tools discovery and execution.</p>
+    <h1>MCP Workshop – JSON‑RPC Communication Flow <span class="badge-time">5 &ndash; 8 min</span></h1>
+    <p class="subtitle">The whole session as one sequence diagram &mdash; handshake, discovery, a deferred tool call, and a task-augmented call. Hover any message for the real JSON.</p>
 </header>
 <main>
     <div class="nav">
         <a href="index.html">Home</a>
         <a href="overview.html">Overview</a>
         <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="extensions.html">Extensions</a>
+        <a href="mcp-apps.html">MCP Apps</a>
         <a href="tasks.html">Tasks</a>
+        <a href="agent.html">Agent</a>
         <a href="runtime-facts.html">Runtime Facts</a>
         <a href="trace-log.html">Trace Log</a>
         <a href="contact.html">Contact</a>
+        <a href="#" id="theme-toggle">Light</a>
     </div>
 
     <section class="card">
@@ -298,5 +304,6 @@
 
     <div class="footer">© 2025 MCP Workshop. Diagram rendered with Mermaid.</div>
 </main>
+<script src="theme.js"></script>
 </body>
 </html>

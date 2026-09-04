@@ -42,7 +42,7 @@ The **sequence diagram** shows the cancellation notification flow (orange box) w
 ### 4. **Testing with MCP Inspector**
 Students will:
 - Build the project using Gradle
-- Use the MCP Inspector tool (v0.14.0) to test their implementation
+- Use the MCP Inspector tool (v2.5.0) to test their implementation
 - Intentionally trigger errors by clicking "List Resources" to understand capability advertising vs. implementation
 
 ## Architecture Understanding

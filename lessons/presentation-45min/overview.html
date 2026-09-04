@@ -85,13 +85,13 @@
         <h2>The Four Actors</h2>
         <div class="actors-grid">
             <div class="actor-card">
-                <span class="actor-icon">👤</span>
-                <h4>User</h4>
-                <p>The human who initiates a request — types a question or command in the chat interface.</p>
+                <span class="actor-icon">🤖</span>
+                <h4>Agent</h4>
+                <p>Initiates the request — an agent acting on a goal, or a human typing a question in the chat interface.</p>
             </div>
             <div class="actor-card">
                 <span class="actor-icon">📱</span>
-                <h4>Client (Application)</h4>
+                <h4>Client</h4>
                 <p>Claude Desktop, Claude Code, VS Code Copilot, Cursor — the client that owns the conversation and manages MCP connections.</p>
             </div>
             <div class="actor-card">
@@ -113,39 +113,39 @@
         <div class="diagram-container">
             <div class="mermaid">
 sequenceDiagram
-    participant User
-    participant App as Client (Application)
+    participant Agent
+    participant Client
     participant LLM as LLM (Claude)
     participant MCP as MCP Server
 
-    User->>App: Send Request
-    App->>LLM: Forward Request
+    Agent->>Client: Send Request
+    Client->>LLM: Forward Request
     LLM->>LLM: Process Request
-    LLM->>App: Request Additional Information<br/>(Tool/Function Call)
-    App->>MCP: Route Request to MCP Server
+    LLM->>Client: Request Additional Information<br/>(Tool/Function Call)
+    Client->>MCP: Route Request to MCP Server
     MCP->>MCP: Process Request
-    MCP->>App: Return Response
-    App->>LLM: Provide Additional Information<br/>(MCP Response)
+    MCP->>Client: Return Response
+    Client->>LLM: Provide Additional Information<br/>(MCP Response)
     LLM->>LLM: Process with New Information
-    LLM->>App: Generate Final Response
-    App->>User: Deliver Response
+    LLM->>Client: Generate Final Response
+    Client->>Agent: Deliver Response
             </div>
         </div>
     </section>
 
     <section class="card">
         <h2>Flow Explanation</h2>
-        <h3>1. User Interaction</h3>
-        <p>The process begins when a <span class="highlight">User</span> sends a request to the <span class="highlight">Application</span>. This could be a question, command, or any input that requires processing.</p>
+        <h3>1. Agent Interaction</h3>
+        <p>The process begins when an <span class="highlight">Agent</span> sends a request to the <span class="highlight">Client</span>. This could be a question, command, or any input that requires processing.</p>
 
         <h3>2. LLM Processing</h3>
-        <p>The <span class="highlight">Application</span> forwards the request to the <span class="highlight">LLM</span>, which processes the user's input. During processing, the LLM may determine it needs external capabilities to give a complete answer.</p>
+        <p>The <span class="highlight">Client</span> forwards the request to the <span class="highlight">LLM</span>, which processes the agent's input. During processing, the LLM may determine it needs external capabilities to give a complete answer.</p>
 
         <h3>3. Tool/Function Call</h3>
-        <p>When the <span class="highlight">LLM</span> requires external data or functionality, it makes a <span class="highlight">Tool/Function Call</span> back to the Application. This is the MCP entry point — the LLM is requesting access to a registered tool or resource.</p>
+        <p>When the <span class="highlight">LLM</span> requires external data or functionality, it makes a <span class="highlight">Tool/Function Call</span> back to the Client. This is the MCP entry point — the LLM is requesting access to a registered tool or resource.</p>
 
         <h3>4. MCP Server Interaction</h3>
-        <p>The <span class="highlight">Application</span> routes this request to the appropriate <span class="highlight">MCP Server</span>. The server processes the request, which might involve:</p>
+        <p>The <span class="highlight">Client</span> routes this request to the appropriate <span class="highlight">MCP Server</span>. The server processes the request, which might involve:</p>
         <ul>
             <li>Accessing databases or file systems</li>
             <li>Calling external APIs</li>
@@ -154,10 +154,10 @@ sequenceDiagram
         </ul>
 
         <h3>5. Response Chain</h3>
-        <p>The <span class="highlight">MCP Server</span> returns its response to the Application, which provides this additional information back to the LLM. The LLM processes this new information and generates a comprehensive final response.</p>
+        <p>The <span class="highlight">MCP Server</span> returns its response to the Client, which provides this additional information back to the LLM. The LLM processes this new information and generates a comprehensive final response.</p>
 
         <h3>6. Final Delivery</h3>
-        <p>The <span class="highlight">Application</span> delivers the LLM's final response back to the <span class="highlight">User</span>, completing the request-response cycle.</p>
+        <p>The <span class="highlight">Client</span> delivers the LLM's final response back to the <span class="highlight">Agent</span>, completing the request-response cycle.</p>
     </section>
 
     <section class="card">

@@ -100,7 +100,11 @@ public class KeyWordSearch implements Tool {
                 continue;
             }
             try {
-                Files.walkFileTree(rootPath, new SimpleFileVisitor<Path>() {
+                // walkFileTree does not follow symlinks, so a symlinked root (on macOS
+                // /tmp is a link to private/tmp) is visited as a single file and the tree
+                // is never descended into — yielding zero matches. Resolve the link first.
+                Path realRoot = rootPath.toRealPath();
+                Files.walkFileTree(realRoot, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                         // Skip binary files, hidden files, and archive files

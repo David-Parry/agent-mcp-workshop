@@ -391,7 +391,7 @@ private void sendTaskStatusNotification(Task task) {
 ```
 
 ### Inspector smoke test (existing path unchanged)
-1. `./inspector/run.sh` — opens the MCP Inspector connected to the workshop server.
+1. `./inspector/run.sh` — opens the MCP Inspector with `workshop` in its catalog; select it to connect.
 2. Click **List Tools** — `key_word_search` now has `"execution": { "taskSupport": "optional" }`.
 3. Call the tool **without** `task` — it returns synchronously as before.
 

@@ -137,49 +137,22 @@ echo ""
 # Step 6: Verify MCP Inspector can run
 echo "Step 5: Verifying MCP Inspector..."
 echo "----------------------------------"
-echo "Starting MCP Inspector to verify npx functionality..."
-echo "(This will start a server - it will be automatically stopped after verification)"
+echo "Fetching and running the MCP Inspector to verify npx functionality..."
+echo "(The first run downloads the package, which can take a minute)"
 echo ""
 
 MCP_EXIT_CODE=0
 
-# Start the MCP inspector in background and capture output
-npx @modelcontextprotocol/inspector@0.14.0 > mcp_output.log 2>&1 &
-MCP_PID=$!
-
-# Wait for the server to start (max 5 seconds)
-COUNTER=0
-while [ $COUNTER -lt 5 ]; do
-    sleep 1
-    COUNTER=$((COUNTER + 1))
-    
-    # Check if the process is still running
-    if ! ps -p $MCP_PID > /dev/null 2>&1; then
-        break
-    fi
-    
-    # Check if we have the expected output
-    if grep -q "server listening" mcp_output.log 2>/dev/null; then
-        break
-    fi
-done
-
-# Kill the process if it's still running
-if ps -p $MCP_PID > /dev/null 2>&1; then
-    kill $MCP_PID 2>/dev/null
-    wait $MCP_PID 2>/dev/null
-fi
-
-# Check if the expected messages appear in the output
-if grep -q "server listening" mcp_output.log 2>/dev/null; then
+# Run the inspector's --help instead of starting a server: it proves npx can fetch
+# and execute the package without binding ports that may already be in use.
+if npx --yes @modelcontextprotocol/inspector@2.5.0 --help > mcp_output.log 2>&1; then
     echo ""
-    echo "✅ Step 5 PASSED: MCP Inspector started successfully!"
-    echo "Server started and listening - npx can run MCP tools correctly."
+    echo "✅ Step 5 PASSED: MCP Inspector ran successfully!"
+    echo "npx can fetch and run MCP tools correctly."
     MCP_EXIT_CODE=0
 else
     echo ""
-    echo "❌ Step 5 FAILED: MCP Inspector did not start correctly"
-    echo "Expected 'server listening' message was not found."
+    echo "❌ Step 5 FAILED: MCP Inspector did not run correctly"
     if [ -f mcp_output.log ]; then
         echo "Output received:"
         head -n 10 mcp_output.log
@@ -189,8 +162,6 @@ fi
 
 # Clean up
 rm -f mcp_output.log 2>/dev/null
-# Kill any remaining MCP inspector processes
-pkill -f "@modelcontextprotocol/inspector" 2>/dev/null || true
 
 echo ""
 echo "Summary"

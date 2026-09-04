@@ -15,7 +15,7 @@
         .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px 18px}
         .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
         .nav{margin-bottom:18px;text-align:center}
-        .nav a{color:var(--accent);text-decoration:none;margin:0 12px;padding:8px 16px;border:1px solid #1f2740;border-radius:8px;background:var(--card)}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px 5px;padding:7px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:14px;display:inline-block}
         .nav a:hover{background:#1f2740}
         
         .vector-image-container {
@@ -43,6 +43,7 @@
             font-size: 18px;
         }
     </style>
+    <link rel="stylesheet" href="theme.css" />
 </head>
 <body>
 <main>
@@ -50,10 +51,14 @@
         <a href="index.html">Home</a>
         <a href="overview.html">Overview</a>
         <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="extensions.html">Extensions</a>
+        <a href="mcp-apps.html">MCP Apps</a>
         <a href="tasks.html">Tasks</a>
+        <a href="agent.html">Agent</a>
         <a href="runtime-facts.html">Runtime Facts</a>
         <a href="trace-log.html">Trace Log</a>
         <a href="contact.html">Contact</a>
+        <a href="#" id="theme-toggle">Light</a>
     </div>
 
     <div class="vector-image-container">
@@ -72,5 +77,6 @@
 
     <div class="footer">© 2025 MCP Workshop. Contact page.</div>
 </main>
+<script src="theme.js"></script>
 </body>
 </html>

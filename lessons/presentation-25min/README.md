@@ -1,83 +1,54 @@
-# Deep Dive MCP Server Protocol JSON-RPC Communication Analysis
+# Deep Dive MCP Server Protocol — 25 Minute Talk
 
-This directory contains an interactive HTML presentation that explores the Model Context Protocol (MCP) communication flow.
+An interactive HTML deck for a **25-minute, demo-heavy** talk on the Model Context Protocol.
+Roughly half the time is live in the MCP Inspector and the IDE, so these pages stay
+deliberately thin — they are the map, not the talk.
 
-## Presentation Content
-
-The main presentation is located in `index.html`. Below is the rendered content:
-
----
-
-<div style="background: #0b1020; color: #e6e9ef; font-family: Inter, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; margin: 0; padding: 20px;">
-
-<header style="padding: 28px 24px; border-bottom: 1px solid #1f2740; background: linear-gradient(180deg, #0d1530, transparent);">
-<h1 style="font-size: 36px; margin: 0 0 6px; color: #e6e9ef;">Deep Dive MCP Server Protocol JSON‑RPC Communication Analysis</h1>
-<p style="margin: 0; color: #9aa4b2;">Interactive exploration of Model Context Protocol communication flow, runtime facts, and trace logs.</p>
-</header>
-
-<main style="max-width: 1100px; margin: 0 auto; padding: 24px;">
-
-<div style="text-align: center; margin-bottom: 32px;">
-<h2 style="color: #7aa2f7; margin-bottom: 16px;">Explore the MCP Communication Session</h2>
-<p>This workshop breaks down a complete MCP (Model Context Protocol) communication session into three focused views. Each page provides a different perspective on the same underlying JSON-RPC communication between client and server.</p>
-</div>
-
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-top: 24px;">
-
-<div style="background: #141a2e; border: 1px solid #1f2740; border-radius: 12px; padding: 20px;">
-<span style="font-size: 32px; margin-bottom: 12px; display: block;">📊</span>
-<h3 style="margin: 0 0 12px; color: #7aa2f7; font-size: 20px;">Flow Diagram</h3>
-<p style="margin: 0; color: #9aa4b2; line-height: 1.6;">Interactive sequence diagram showing the complete MCP communication lifecycle from initialization through tool discovery and execution to graceful shutdown. Visualizes the bidirectional JSON-RPC message flow between client and server.</p>
-<p><a href="flow-diagram.html" style="color: #7aa2f7;">→ View Flow Diagram</a></p>
-</div>
-
-<div style="background: #141a2e; border: 1px solid #1f2740; border-radius: 12px; padding: 20px;">
-<span style="font-size: 32px; margin-bottom: 12px; display: block;">📋</span>
-<h3 style="margin: 0 0 12px; color: #7aa2f7; font-size: 20px;">Runtime Facts</h3>
-<p style="margin: 0; color: #9aa4b2; line-height: 1.6;">Key information extracted from the communication session including protocol versions, client/server details, capabilities negotiated, available tools, and session flow summary. Perfect for understanding the technical specifications.</p>
-<p><a href="runtime-facts.html" style="color: #7aa2f7;">→ View Runtime Facts</a></p>
-</div>
-
-<div style="background: #141a2e; border: 1px solid #1f2740; border-radius: 12px; padding: 20px;">
-<span style="font-size: 32px; margin-bottom: 12px; display: block;">🔍</span>
-<h3 style="margin: 0 0 12px; color: #7aa2f7; font-size: 20px;">Trace Log</h3>
-<p style="margin: 0; color: #9aa4b2; line-height: 1.6;">Raw communication trace showing all JSON-RPC messages exchanged with timestamps and message types. Includes interactive controls for filtering, formatting, and analyzing the low-level protocol communication.</p>
-<p><a href="trace-log.html" style="color: #7aa2f7;">→ View Trace Log</a></p>
-</div>
-
-</div>
-
-<section style="background: #141a2e; border: 1px solid #1f2740; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); padding: 18px; margin-top: 32px;">
-<h2 style="margin: 0 0 16px; color: #7aa2f7;">About This Session</h2>
-<p>This analysis is based on a real MCP communication session between:</p>
-<ul style="margin: 16px 0;">
-<li><strong>Client:</strong> mcp-workshop v1.0.0</li>
-<li><strong>Server:</strong> agent-mcp-workshop v0.0.1</li>
-<li><strong>Protocol:</strong> MCP 2025-06-18</li>
-<li><strong>Tools Available:</strong> key_word_search</li>
-</ul>
-<p>The session demonstrates the complete MCP lifecycle including initialization, capability negotiation, tool discovery, and graceful shutdown. Each page provides a different lens for understanding this communication pattern.</p>
-</section>
-
-<div style="margin-top: 18px; color: #9aa4b2; font-size: 12px; text-align: center;">© 2025 MCP Workshop. Multi-page analysis of JSON-RPC communication flow.</div>
-
-</main>
-
-</div>
-
----
-
-## Files
-
-- **[index.html](./index.html)** - Main presentation page
-- **[flow-diagram.html](./flow-diagram.html)** - Interactive sequence diagram  
-- **[runtime-facts.html](./runtime-facts.html)** - Session runtime information
-- **[trace-log.html](./trace-log.html)** - Raw communication trace
+Everything shown comes from one real captured session against the workshop server:
+**MCP 2025-11-25**, `inspector-client` v0.22.0 against `agent-mcp-workshop` v0.0.1 over stdio.
 
 ## Usage
-
-To view the full interactive presentation, open the HTML file:
 
 ```bash
 open index.html
 ```
+
+Every page carries the same nav bar, plus a **Light/Dark** toggle for projector or
+bright-room conditions (the choice persists in `localStorage`).
+
+## Run Sheet
+
+| Time | Segment | Point to land |
+|---|---|---|
+| 0 – 2 | Why MCP (`index.html`) | One protocol instead of N bespoke integrations |
+| 2 – 5 | Overview | Four actors, one round trip |
+| 5 – 8 | Flow Diagram | It is just JSON-RPC over stdio |
+| 8 – 13 | **DEMO** — Inspector | Connect, then resources / tools / prompts live |
+| 13 – 15 | Extensions | Server can ask the user a question mid-call |
+| 15 – 18 | MCP Apps | A tool can return a UI, not just text |
+| 18 – 21 | Tasks | Call now, fetch later |
+| 21 – 24 | **DEMO** — Agent | Same tool, now inside a supervised audit |
+| 24 – 25 | Wrap | Where the code and lessons live |
+
+## Files
+
+| File | Role |
+|---|---|
+| `index.html` | Home — card grid, run sheet, and session facts |
+| `overview.html` | Protocol architecture with a Mermaid sequence diagram |
+| `flow-diagram.html` | Full session sequence diagram, hover a message for its JSON |
+| `extensions.html` | `experimental` capabilities and lazy elicitation |
+| `mcp-apps.html` | `ui://` resources and `_meta.ui.resourceUri` |
+| `tasks.html` | The tasks utility — lifecycle and the five new methods |
+| `agent.html` | The plugin skills and the supervised audit workflow |
+| `runtime-facts.html` | Reference card: versions, capabilities, tool and resource inventory |
+| `trace-log.html` | Raw timestamped JSON-RPC trace with filters |
+| `contact.html` | Links and where to find the code |
+| `theme.css` / `theme.js` | Shared light-theme overrides and the toggle |
+
+`trace-log.html` is the ground truth — every other page is a lens on that same traffic.
+
+## Related Decks
+
+Longer versions of the same material live alongside this one, with per-chapter IDE
+demos and an agenda overlay: `../presentation-45min/` and `../presentation-3hr/`.
