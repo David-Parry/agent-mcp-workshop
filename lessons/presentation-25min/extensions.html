@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MCP Extensions &amp; Elicitation</title>
+    <title>MCP Extensions &amp; Multi Round-Trip Requests</title>
     <style>
         :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--orange:#ff9e64;--red:#f7768e;--purple:#bb9af7;--green:#9ece6a}
         html,body{height:100%}
@@ -44,8 +44,8 @@
 </head>
 <body>
 <header>
-    <h1>Extensions &amp; Elicitation <span class="badge-time">13 – 15 min</span></h1>
-    <p class="subtitle">How the protocol grows without breaking &mdash; and how a server asks the user a question mid-call.</p>
+    <h1>Extensions &amp; Round Trips <span class="badge-time">13 – 15 min</span></h1>
+    <p class="subtitle">How the protocol grows without breaking &mdash; and how a server asks a question when it can no longer send requests.</p>
 </header>
 <main>
     <div class="nav">
@@ -64,104 +64,151 @@
 
     <section class="card">
         <h2>Extensions in One Sentence</h2>
-        <p>Anything not yet in the core spec lives under <code>capabilities.experimental</code> as a namespaced key. A client that does not recognise the key simply ignores it &mdash; so new features ship without breaking old clients.</p>
+        <p>Anything beyond the core protocol lives under <code>capabilities.extensions</code> as a namespaced key. A peer that does not recognise the key simply ignores it &mdash; so new features ship without breaking old clients. (<code>capabilities.experimental</code> survives for non-standard, in-house capabilities.)</p>
         <div class="two-col">
             <div>
                 <h3 style="margin-top:0">What this server declares</h3>
-<pre>"experimental": {
-  "io.modelcontextprotocol/elicitation": {},
-  "io.modelcontextprotocol/apps": {}
+<pre>"extensions": {
+  "io.modelcontextprotocol/ui": {
+    "mimeTypes": ["text/html;profile=mcp-app"]
+  },
+  "io.modelcontextprotocol/tasks": {}
 }</pre>
             </div>
             <div>
                 <h3 style="margin-top:0">Identifier format</h3>
                 <p style="margin:0 0 8px"><code>{vendor-prefix}/{extension-name}</code></p>
                 <ul style="margin:0">
-                    <li>Official: <code>io.modelcontextprotocol/apps</code></li>
+                    <li>Official: <code>io.modelcontextprotocol/ui</code></li>
                     <li>Yours: <code>com.acme/audit-trail</code></li>
                 </ul>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Clients declare theirs the same way, inside every request's <code>_meta</code>.</p>
             </div>
         </div>
     </section>
 
     <section class="card">
-        <h2>Elicitation &mdash; The Server Asks You</h2>
-        <p>The <code>key_word_search</code> tool needs a directory to search. It is deliberately <strong>not</strong> a tool argument &mdash; the server gets it from <code>roots/list</code>. So what happens when the client hands back an empty roots list?</p>
-
+        <h2>The Server Can No Longer Call You</h2>
+        <p>On <code>2026-07-28</code> a server MUST NOT send a request to a client &mdash; modern clients silently discard inbound requests. That kills the three things servers used to ask for: <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code>.</p>
         <div class="highlight-box">
-            <strong>Lazy elicitation:</strong> the server does not fail and does not ask at startup. It waits until the first <code>tools/call</code> actually needs a directory, parks that call, asks the user, then resumes the parked call with the answer.
+            <strong>Multi Round-Trip Requests (MRTR):</strong> the server asks by <em>answering</em>. It replies <code>resultType: "input_required"</code> with the question embedded in the result; the client gathers the answers and <strong>re-sends the original request as a brand new request with a brand new id</strong>, carrying <code>inputResponses</code> and the <code>requestState</code> echoed back byte-exact.
         </div>
+        <div class="two-col">
+            <div>
+                <h3 style="margin-top:0">An embedded request</h3>
+<pre>"inputRequests": {
+  "search_roots": {
+    "method": "roots/list"
+  }
+}</pre>
+                <p style="color:var(--muted);font-size:13px;margin:0">A keyed <strong>map</strong>, not an array. Each entry has <code>method</code> plus optional <code>params</code> &mdash; and no <code>jsonrpc</code>, no <code>id</code>. Only those three methods may be embedded.</p>
+            </div>
+            <div>
+                <h3 style="margin-top:0">Why <code>requestState</code> exists</h3>
+                <p style="margin:0 0 8px">Sessions are gone, so the server has nowhere to remember what it was doing. The continuation travels to the client and back:</p>
+<pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"
+
+  decodes to
+  {"keyword":"record","stage":"roots"}</pre>
+                <p style="color:var(--muted);font-size:13px;margin:0">An <strong>opaque string</strong> to the client. This repo happens to base64 its JSON; the protocol only guarantees the exact bytes come back.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Elicitation &mdash; Two Escalating Questions</h2>
+        <p>The <code>key_word_search</code> tool needs a directory, and there are two ways it can get one. Pass <code>arguments.directory</code> and the call finishes in a single hop. Omit it &mdash; which is what a caller working from the tool description alone usually does &mdash; and the server has to ask, so it asks the cheapest question first.</p>
 
         <div class="flow-steps">
-            <div class="flow-step"><span class="step-num">1</span><div><code>tools/call</code> arrives &mdash; roots are empty, so the response is withheld (not answered, not errored).</div></div>
-            <div class="flow-step"><span class="step-num">2</span><div>Server sends <code>elicitation/create</code> (id <code>-4000</code>) with a JSON Schema describing the one field it wants.</div></div>
-            <div class="flow-step"><span class="step-num">3</span><div>Client renders a form; the user picks a directory.</div></div>
-            <div class="flow-step"><span class="step-num">4</span><div>Answer comes back as <code>action: "accept"</code>; the server adds the directory to its roots set.</div></div>
-            <div class="flow-step"><span class="step-num">5</span><div>The parked <code>tools/call</code> resumes and answers with the real search results &mdash; the client never knew it waited.</div></div>
+            <div class="flow-step"><span class="step-num">1</span><div><code>tools/call</code> arrives with no <code>directory</code> argument, so the server answers <code>input_required</code> embedding <code>roots/list</code>.</div></div>
+            <div class="flow-step"><span class="step-num">2</span><div>Clients answer <code>roots/list</code> from their own configuration &mdash; the user is never troubled.</div></div>
+            <div class="flow-step"><span class="step-num">3</span><div>Client re-sends <code>tools/call</code> with a <strong>new id</strong>, the same <code>requestState</code>, and the roots under <code>inputResponses.search_roots</code>.</div></div>
+            <div class="flow-step"><span class="step-num">4</span><div>Got a directory? Search and return <code>resultType: "complete"</code>. Roots came back <em>empty</em>? Escalate &mdash; answer <code>input_required</code> again, this time embedding <code>elicitation/create</code>.</div></div>
+            <div class="flow-step"><span class="step-num">5</span><div>The client renders the form, the user types a path, and the call is re-sent once more. The server never stored a thing.</div></div>
+            <div class="flow-step"><span class="step-num">6</span><div>Declined the form, or could not show one? The server stops asking and searches its own working directory &mdash; the call always returns a result, never a dead end.</div></div>
+        </div>
+
+        <div class="highlight-box">
+            <strong>Always leave a one-hop path.</strong> MRTR is optional for clients, and not every one implements it &mdash; the Inspector's own task-augmented <code>tools/call</code> path rejects <code>input_required</code> outright. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all, so take the input as an optional argument and treat asking as the fallback.
         </div>
 
         <div class="two-col" style="margin-top:18px">
             <div>
-                <h3>Request</h3>
+                <h3>The embedded elicitation</h3>
 <pre>{
-  "id": -4000,
-  "method": "elicitation/create",
+  "resultType": "input_required",
+  "inputRequests": {
+    "search_directory": {
+      "method": "elicitation/create",
+      "params": {
+        "mode": "form",
+        "message": "Pick a directory for the
+           keyword-search tool to search in:",
+        "requestedSchema": {
+          "type": "object",
+          "required": ["directory"],
+          "properties": { "directory": {
+            "type": "string",
+            "title": "Search Directory" } }
+        }
+      }
+    }
+  },
+  "requestState": "eyJrZXl3b3JkIjoi..."
+}</pre>
+                <p style="color:var(--muted);font-size:13px">New: <code>mode</code> is <code>"form"</code> or <code>"url"</code>. Gone: the old <code>elicitationId</code> field &mdash; the retry correlates the answer now.</p>
+            </div>
+            <div>
+                <h3>The answer, on the retry</h3>
+<pre>{
+  "method": "tools/call",
+  "id": 5,
   "params": {
-    "message": "Pick a directory for the
-       keyword-search tool to search in:",
-    "requestedSchema": {
-      "type": "object",
-      "required": ["directory"],
-      "properties": {
-        "directory": {
-          "type": "string",
-          "title": "Search Directory"
+    "_meta": { ...envelope... },
+    "name": "key_word_search",
+    "arguments": { "keyword": "record" },
+    "requestState": "eyJrZXl3b3JkIjoi...",
+    "inputResponses": {
+      "search_directory": {
+        "action": "accept",
+        "content": {
+          "directory": "/Users/.../mcp/tools"
         }
       }
     }
   }
 }</pre>
-            </div>
-            <div>
-                <h3>Response</h3>
-<pre>{
-  "id": -4000,
-  "result": {
-    "action": "accept",
-    "content": {
-      "directory": "/Users/.../agent-command"
-    }
-  }
-}</pre>
-                <p style="color:var(--muted);font-size:13px">Three possible actions: <code>accept</code>, <code>decline</code>, <code>cancel</code>. Only <code>accept</code> carries content.</p>
+                <p style="color:var(--muted);font-size:13px">An input response is the bare result the method would have returned &mdash; nothing JSON-RPC-shaped. Three actions: <code>accept</code>, <code>decline</code>, <code>cancel</code>; only <code>accept</code> carries content.</p>
             </div>
         </div>
     </section>
 
     <section class="card">
-        <h2>Why Negative Request IDs?</h2>
-        <p>Server-initiated requests use a reserved negative id range so they can never collide with client ids. Each flow gets its own block, which makes a raw trace readable at a glance.</p>
+        <h2>Request IDs Are Strings <em>or</em> Numbers</h2>
+        <p>With server-initiated requests gone, so is the reserved negative-id range that used to mark them. What replaced it is a subtler trap: the client picks the id, and it is not always a number. A server MUST echo it back in exactly the form it arrived.</p>
         <table>
-            <thead><tr><th>Reserved ID</th><th>Server-initiated request</th></tr></thead>
+            <thead><tr><th>Request</th><th>Id as sent</th></tr></thead>
             <tbody>
-                <tr><td><code>-1000</code></td><td><code>roots/list</code></td></tr>
-                <tr><td><code>-2000</code></td><td><code>sampling/createMessage</code></td></tr>
-                <tr><td><code>-4000</code></td><td><code>elicitation/create</code></td></tr>
+                <tr><td><code>server/discover</code></td><td><code>"server-discover-probe-1"</code></td></tr>
+                <tr><td><code>subscriptions/listen</code></td><td><code>"listen:0"</code></td></tr>
+                <tr><td><code>tasks/get</code> (polling)</td><td><code>"inspector-ext-1"</code>, <code>"inspector-ext-2"</code>&hellip;</td></tr>
+                <tr><td>everything else</td><td><code>1</code>, <code>2</code>, <code>3</code>&hellip;</td></tr>
             </tbody>
         </table>
-        <p style="color:var(--muted);font-size:13px;margin-bottom:0">Open the <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> and the ids tell you who started each exchange.</p>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:0">This is why <code>spec/RequestId.java</code> and <code>spec/RequestIdTypeAdapter.java</code> exist. Before the migration <code>id</code> was a <code>Long</code>, and the very first message of the new revision crashed the server with <code>NumberFormatException: For input string: "server-discover-probe-1"</code>.</p>
     </section>
 
     <div class="ide-demo">
         <h3>Live Demo</h3>
         <ul style="margin-bottom:0">
-            <li>In the Inspector, call <code>key_word_search</code> with no roots set.</li>
-            <li>The Inspector's elicitation panel pops the directory form &mdash; note the tool call is still pending.</li>
-            <li>Accept, and watch the held response complete with real counts.</li>
+            <li>Call <code>key_word_search</code> with a <code>directory</code> argument first &mdash; one request, one <code>complete</code> result. That is the baseline.</li>
+            <li>Drop the argument and call it again &mdash; now the reply is <code>input_required</code>, neither an answer nor an error.</li>
+            <li>Point at the <code>requestState</code>, then at the <strong>new id</strong> on the retry: two JSON-RPC exchanges, one logical call.</li>
+            <li>Clear the roots and run it again to trigger the escalation to the directory form.</li>
         </ul>
     </div>
 
-    <div class="footer">&copy; 2025 MCP Workshop. Extensions and elicitation &mdash; quick overview.</div>
+    <div class="footer">&copy; 2025 MCP Workshop. Extensions and Multi Round-Trip Requests &mdash; quick overview.</div>
 </main>
 <script src="theme.js"></script>
 </body>

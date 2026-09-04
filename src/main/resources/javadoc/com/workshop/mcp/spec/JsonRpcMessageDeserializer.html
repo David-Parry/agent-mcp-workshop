@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -134,7 +134,7 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-last">Description</div>
 <div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E()" class="member-name-link">JsonRpcMessageDeserializer</a>()</code></div>
 <div class="col-last even-row-color">
-<div class="block">Constructs a new JsonRpcMessageDeserializer with a default Gson configuration.</div>
+<div class="block">Constructs a new JsonRpcMessageDeserializer.</div>
 </div>
 </div>
 </section>
@@ -150,21 +150,39 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserialize(java.lang.String)" class="member-name-link">deserialize</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;json)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;T</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#convert(java.lang.Object,java.lang.Class)" class="member-name-link">convert</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;value,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;type)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Converts an already-parsed JSON value into a specific type.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserialize(java.lang.String)" class="member-name-link">deserialize</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;json)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Deserializes a JSON string into the appropriate JSON-RPC message type.</div>
 </div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="RequestEnvelope.html" title="class in com.workshop.mcp.spec">RequestEnvelope</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeEnvelope(com.workshop.mcp.spec.JsonRpcRequest)" class="member-name-link">deserializeEnvelope</a><wbr>(<a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec">JsonRpcRequest</a>&nbsp;request)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Extracts the stateless lifecycle envelope from a request's
+ <code>params._meta</code>.</div>
+</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;T</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeParams(com.workshop.mcp.spec.JsonRpcRequest,java.lang.Class)" class="member-name-link">deserializeParams</a><wbr>(<a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec">JsonRpcRequest</a>&nbsp;request,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeParams(com.workshop.mcp.spec.JsonRpcNotification,java.lang.Class)" class="member-name-link">deserializeParams</a><wbr>(<a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec">JsonRpcNotification</a>&nbsp;request,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;paramsClass)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Deserializes the params field of a JSON-RPC request into a specific type.</div>
+<div class="block">Deserializes the params field of a JSON-RPC notification into a specific type.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;T</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeResult(com.workshop.mcp.spec.JsonRpcResponse,java.lang.Class)" class="member-name-link">deserializeResult</a><wbr>(<a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec">JsonRpcResponse</a>&nbsp;response,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;resultClass)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeParams(com.workshop.mcp.spec.JsonRpcRequest,java.lang.Class)" class="member-name-link">deserializeParams</a><wbr>(<a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec">JsonRpcRequest</a>&nbsp;request,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;paramsClass)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Deserializes the params field of a JSON-RPC request into a specific type.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;T</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeResult(com.workshop.mcp.spec.JsonRpcResponse,java.lang.Class)" class="member-name-link">deserializeResult</a><wbr>(<a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec">JsonRpcResponse</a>&nbsp;response,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;resultClass)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Deserializes the result field of a JSON-RPC success response into a specific type.</div>
 </div>
 </div>
@@ -188,10 +206,11 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="&lt;init&gt;()">
 <h3>JsonRpcMessageDeserializer</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">JsonRpcMessageDeserializer</span>()</div>
-<div class="block">Constructs a new JsonRpcMessageDeserializer with a default Gson configuration.
+<div class="block">Constructs a new JsonRpcMessageDeserializer.
  <p>
- The deserializer uses a standard Gson instance for JSON parsing and
- object mapping operations.
+ The instance comes from <a href="McpGson.html" title="class in com.workshop.mcp.spec"><code>McpGson</code></a> so that inbound parsing and
+ outbound serialization agree on the representation of a
+ <a href="RequestId.html" title="class in com.workshop.mcp.spec"><code>RequestId</code></a>.
  </p></div>
 </section>
 </li>
@@ -274,6 +293,78 @@ loadScripts(document, 'script');</script>
 <dd>the deserialized result object</dd>
 <dt>Throws:</dt>
 <dd><code>com.google.gson.JsonSyntaxException</code> - if the result cannot be deserialized to the specified type</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="deserializeParams(com.workshop.mcp.spec.JsonRpcNotification,java.lang.Class)">
+<h3>deserializeParams</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">T</span>&nbsp;<span class="element-name">deserializeParams</span><wbr><span class="parameters">(<a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec">JsonRpcNotification</a>&nbsp;request,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;paramsClass)</span></div>
+<div class="block">Deserializes the params field of a JSON-RPC notification into a specific type.
+ <p>
+ This method is useful for converting the generic params Map from a
+ <a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec"><code>JsonRpcNotification</code></a> into a strongly-typed parameter object specific
+ to the notification being sent.
+ </p></div>
+<dl class="notes">
+<dt>Type Parameters:</dt>
+<dd><code>T</code> - the type to deserialize the params into</dd>
+<dt>Parameters:</dt>
+<dd><code>request</code> - the JSON-RPC notification containing the params to deserialize</dd>
+<dd><code>paramsClass</code> - the class of the params type</dd>
+<dt>Returns:</dt>
+<dd>the deserialized params object</dd>
+<dt>Throws:</dt>
+<dd><code>com.google.gson.JsonSyntaxException</code> - if the params cannot be deserialized to the specified type</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="convert(java.lang.Object,java.lang.Class)">
+<h3>convert</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">T</span>&nbsp;<span class="element-name">convert</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;value,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;type)</span></div>
+<div class="block">Converts an already-parsed JSON value into a specific type.
+ <p>
+ Needed for the answers in <code>params.inputResponses</code>: they arrive as
+ a heterogeneous map, since one key may hold a <code>roots/list</code> result
+ and the next an <code>elicitation/create</code> result, so each is converted
+ once the caller knows which it expects.
+ </p></div>
+<dl class="notes">
+<dt>Type Parameters:</dt>
+<dd><code>T</code> - the target type</dd>
+<dt>Parameters:</dt>
+<dd><code>value</code> - the parsed JSON value, may be null</dd>
+<dd><code>type</code> - the class to convert into</dd>
+<dt>Returns:</dt>
+<dd>the converted value, or null when there was nothing to convert</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="deserializeEnvelope(com.workshop.mcp.spec.JsonRpcRequest)">
+<h3>deserializeEnvelope</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="RequestEnvelope.html" title="class in com.workshop.mcp.spec">RequestEnvelope</a></span>&nbsp;<span class="element-name">deserializeEnvelope</span><wbr><span class="parameters">(<a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec">JsonRpcRequest</a>&nbsp;request)</span></div>
+<div class="block">Extracts the stateless lifecycle envelope from a request's
+ <code>params._meta</code>.
+ <p>
+ The envelope keys are namespaced identifiers containing slashes and
+ dots, which are not valid Java identifiers, so they cannot be mapped by
+ a record's component names the way ordinary params are. They are read
+ out of the JSON tree by name instead.
+ </p>
+ <p>
+ A request with no params, non-object params, or no <code>_meta</code> yields
+ an envelope whose fields are all null, which
+ <a href="RequestEnvelope.html#isComplete()"><code>RequestEnvelope.isComplete()</code></a> reports as incomplete.
+ </p></div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>request</code> - the request to inspect</dd>
+<dt>Returns:</dt>
+<dd>the envelope, never null</dd>
 </dl>
 </section>
 </li>

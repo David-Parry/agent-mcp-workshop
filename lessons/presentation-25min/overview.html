@@ -45,7 +45,7 @@
 <body>
 <header>
     <h1>MCP Protocol Overview <span class="badge-time">2 &ndash; 5 min</span></h1>
-    <p class="subtitle">Understanding the Model Context Protocol architecture and communication flow</p>
+    <p class="subtitle">Understanding the Model Context Protocol architecture and communication flow &mdash; revision 2026&#8209;07&#8209;28</p>
 </header>
 <main>
     <div class="nav">
@@ -140,10 +140,22 @@ sequenceDiagram
         </ul>
         <p>Three newer pieces build on those foundations, and this server implements all three:</p>
         <ul>
-            <li><strong><a href="extensions.html" style="color:var(--accent)">Elicitation</a>:</strong> the server pauses a call to ask the user a question</li>
+            <li><strong><a href="extensions.html" style="color:var(--accent)">Round trips</a>:</strong> the server asks the user a question by <em>answering</em> the call, then the client re-sends it with the answer</li>
             <li><strong><a href="mcp-apps.html" style="color:var(--accent)">MCP Apps</a>:</strong> a tool returns an interactive UI instead of a wall of text</li>
-            <li><strong><a href="tasks.html" style="color:var(--accent)">Tasks</a>:</strong> call now, fetch later &mdash; long-running work stops blocking the session</li>
+            <li><strong><a href="tasks.html" style="color:var(--accent)">Tasks</a>:</strong> call now, fetch later &mdash; long-running work stops blocking</li>
         </ul>
+    </section>
+
+    <section class="card">
+        <h2>One Thing to Keep in Mind: It Is Stateless</h2>
+        <p>Revision <span class="highlight">2026-07-28</span> removed the <span class="highlight">initialize</span> handshake, and with it the whole notion of a session. That single change explains almost everything else you will see today.</p>
+        <ul>
+            <li><strong>Discovery replaces the handshake.</strong> <span class="highlight">server/discover</span> reports which revisions a server speaks, what it can do, and who it is &mdash; and creates nothing.</li>
+            <li><strong>Every request re-states the lifecycle.</strong> The protocol version and the client's capabilities travel in <span class="highlight">params._meta</span> on each call, because the server cannot remember them.</li>
+            <li><strong>The server can no longer call the client.</strong> Modern clients discard inbound requests, so questions are embedded in a result and the client re-sends the original request with the answer.</li>
+            <li><strong>State that has to survive travels with the message.</strong> That is what <span class="highlight">requestState</span> is for &mdash; there is nowhere on the server to put it.</li>
+        </ul>
+        <p style="color:var(--muted);font-style:italic">Everything in this deck is one consequence or another of that removal &mdash; see the <a href="flow-diagram.html" style="color:var(--accent)">Flow Diagram</a> for the shape it produces on the wire.</p>
     </section>
 
     <section class="card">

@@ -85,12 +85,14 @@ The message goes directly to stdout as a single line of JSON. No framing, no len
 
 MCP uses JSON-RPC 2.0 over STDIO, which means every message is a self-contained JSON object on a single line. Let's trace through an actual message exchange to see how this works:
 
-### Client → Server: Initialization Request
+### Client → Server: Discovery Request
 ```json
-{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"0.1.0","capabilities":{"roots":{},"sampling":{}},"clientInfo":{"name":"mcp-inspector","version":"0.1.0"}},"id":0}
+{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"}}},"id":"server-discover-probe-1"}
 ```
 
-This single line contains everything needed for initialization. The server reads it from stdin using:
+Note the id: a **string**, not a number. JSON-RPC has always allowed either, and modern clients use strings for out-of-band traffic like discovery probes. A server must echo it back in exactly the form it arrived.
+
+This single line contains everything needed to describe the caller — there is no handshake to establish it once. The server reads it from stdin using:
 
 ```java
 String line = scanner.nextLine();
@@ -98,9 +100,9 @@ logger.log("[API][RECEIVED]" + line);
 publishLine(line);  // Notify the router
 ```
 
-### Server → Client: Initialization Response
+### Server → Client: Discovery Response
 ```json
-{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"0.1.0","capabilities":{"tools":{},"prompts":{},"resources":{}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}
+{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"tools":{},"prompts":{},"resources":{}},"ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}
 ```
 
 The server writes this response directly to stdout. No HTTP headers, no WebSocket frames—just a line of JSON followed by a newline character.
@@ -112,7 +114,7 @@ The implementation uses Java records to model the JSON-RPC message types:
 ```java
 public record JsonRpcRequest(
     String jsonrpc,
-    Long id,
+    RequestId id,
     String method,
     Object params
 ) {}
@@ -125,99 +127,99 @@ public record JsonRpcNotification(
 
 public record JsonRpcResponse(
     String jsonrpc,
-    Long id,
+    RequestId id,
     Object result
 ) {}
 
 public record JsonRpcErrorResponse(
     String jsonrpc,
-    Long id,
+    RequestId id,
     JsonRpcError error
 ) {}
 ```
 
-This type system directly maps to the JSON-RPC 2.0 specification, making the protocol implementation clear and type-safe.
-
-Every MCP session begins with a crucial initialization handshake. The implementation demonstrates how servers advertise their capabilities:
+`RequestId` is the interesting one. Typing `id` as a `Long` seems obvious right up until the first modern client connects and the server dies with `NumberFormatException: For input string: "server-discover-probe-1"`. So the id is modelled as exactly one of two things, and taught to Gson through a `TypeAdapter` that writes a bare scalar rather than an object:
 
 ```java
-case INITIALIZE -> {
-    InitializeParams initializeParams = deserializer.deserializeParams(
-        message, InitializeParams.class
-    );
-    ClientCapabilities clientCapabilities = initializeParams.capabilities();
-    if (clientCapabilities.roots() != null) {
-        hasRoots = true;
-    }
-    if (clientCapabilities.sampling() != null) {
-        hasSampling = true;
-    }
-    InitializeResultBuilder builder = InitializeResultBuilder
-            .builder()
-            .withProtocolVersion(initializeParams.protocolVersion())
-            .withDefaultCapabilities()
-            .withDefaultServerInfo();
-    success(message.id(), builder.build());
-}
-```
-
-The builder pattern used here is particularly elegant:
-
-```java
-public InitializeResultBuilder withDefaultCapabilities() {
-    Capability capabilityTrue = new Capability();
-    this.capabilities = new ServerCapabilities(
-        capabilityTrue,  // tools
-        capabilityTrue,  // prompts
-        new Capability(false, false)  // resources
-    );
-    return this;
-}
-```
-
-This approach allows servers to clearly declare what they support, enabling intelligent capability negotiation between clients and servers.
-
-## Bidirectional Communication: Beyond Request-Response
-
-One of MCP's powerful features is true bidirectional communication. The server can send requests to the client, not just respond to them. This implementation demonstrates this with the roots feature:
-
-```java
-case NOTIFICATIONS_INITIALIZED -> {
-    // Server initiates a request to the client!
-    if (hasRoots) {
-        io.emit(rootsRequest);
-    }
-}
-```
-
-The `rootsRequest` is a server-initiated message:
-
-```java
-private static final JsonRpcRequest rootsRequest = new JsonRpcRequest(
-    JSON_RPC_VERSION, 
-    ROOTS_REQUEST_ID,  // Negative ID to avoid conflicts
-    "roots/list", 
-    null
-);
-```
-
-When the client responds, the server processes it just like any other response:
-
-```java
-private void process(JsonRpcResponse message) {
-    if (ROOTS_REQUEST_ID.equals(message.id())) {
-        RootsResponse rootsResponse = deserializer.deserializeResult(
-            message, RootsResponse.class
-        );
-        roots.clear();
-        for (Root root : rootsResponse.roots()) {
-            roots.add(root.uri());
+public record RequestId(String stringValue, Long numberValue) {
+    public RequestId {
+        if ((stringValue == null) == (numberValue == null)) {
+            throw new IllegalArgumentException(
+                    "A RequestId is either a string or a number, never both and never neither");
         }
     }
 }
 ```
 
-This bidirectional flow over STDIO demonstrates that MCP isn't limited to simple request-response patterns—it's a full-duplex protocol where both parties can initiate communication.
+This type system directly maps to the JSON-RPC 2.0 specification, making the protocol implementation clear and type-safe.
+
+## No Handshake: Where the Session Went
+
+Earlier revisions opened every conversation with an `initialize` request that established a protocol version and exchanged capabilities once. Revision `2026-07-28` deleted it, along with `notifications/initialized` and `ping`. Two mechanisms replace it.
+
+The first is discovery — a plain request that opens nothing:
+
+```java
+// server/discover is answered before any version check: a client uses
+// it precisely to find out which versions this server speaks, so
+// rejecting it for asking with the wrong one would be circular.
+if (uniqueKey == UniqueKeys.SERVER_DISCOVER) {
+    success(message.id(), discoverResult());
+    return;
+}
+```
+
+The second is the envelope. Every request re-declares who is calling and what they can do, in `params._meta`:
+
+```java
+private RequestEnvelope envelopeFor(JsonRpcRequest message) {
+    RequestEnvelope envelope = deserializer.deserializeEnvelope(message);
+    if (!envelope.isComplete()) {
+        error(message.id(), ErrorCodes.INVALID_PARAMS,
+              "Requests must carry the protocol version and client capabilities in params._meta");
+        return null;
+    }
+    if (!envelope.isSupportedVersion()) {
+        error(message.id(), ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version",
+              Map.of("supported", RequestEnvelope.SUPPORTED_VERSIONS,
+                     "requested", envelope.protocolVersion()));
+        return null;
+    }
+    return envelope;
+}
+```
+
+That `-32022` payload is doing real work. Without a handshake there is no moment in which to renegotiate, so the error itself has to tell the client what it could have said instead.
+
+The deeper consequence is architectural: capability flags stop being fields. `hasRoots` and `hasSampling` used to be set once at initialization and read forever after. Now they are per-request facts — `envelope.supportsRoots()` — and a server that caches them has quietly reintroduced the session the revision just removed.
+
+## One-Directional Communication: The Server Cannot Call You
+
+Earlier revisions let a server send requests to a client, and this workshop used to do exactly that: ask for `roots/list` once the handshake completed, correlate the answer by a reserved negative id. On `2026-07-28` that is forbidden. A server MUST NOT send a request, and modern clients **silently discard** any that arrive — no error, the message simply vanishes.
+
+That removes the only mechanism servers had for `roots/list`, `sampling/createMessage`, and `elicitation/create`. What replaces it is Multi Round-Trip Requests: the server asks by *answering*.
+
+```java
+// The tool needs a directory and has none. Ask for one — inside the result.
+success(requestId, InputRequiredResult.of(
+        SearchContinuation.KEY_ROOTS,
+        InputRequest.rootsList(),
+        SearchContinuation.awaitingRoots(keyword).encode()));
+```
+
+The client sees `resultType: "input_required"`, resolves the embedded request from its own configuration, and re-sends the **original** call as a brand new request with a brand new id, carrying the answers under `inputResponses` and the server's `requestState` echoed back byte-exact.
+
+The `requestState` is the whole trick. The server has nowhere to remember what it was doing between two independent requests, so the continuation travels to the client and back:
+
+```java
+SearchContinuation continuation = SearchContinuation.decode(params.requestState());
+String keyword = continuation != null ? continuation.keyword() : keywordArgument(params);
+String stage = continuation != null ? continuation.stage() : null;
+```
+
+To the client it is an opaque string; this implementation happens to base64 a small JSON object into it. The protocol guarantees only that the exact bytes come back.
+
+One design note worth internalising: MRTR is optional for clients, and not every one implements it. The Inspector's own task-augmented `tools/call` path rejects an `input_required` outright. So the keyword-search tool also accepts `directory` as an optional argument, completing in a single hop when one is supplied — and if the asking runs out entirely, it searches its own working directory rather than failing. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all.
 
 The routing mechanism demonstrates how MCP servers handle different message types:
 
@@ -243,14 +245,14 @@ This pattern matching approach (using Java's modern switch expressions) creates 
 private void process(JsonRpcRequest message) {
     UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
     switch (uniqueKey) {
-        case INITIALIZE -> { /* ... */ }
         case PROMPTS_LIST -> { /* ... */ }
         case PROMPTS_GET -> { /* ... */ }
         case TOOLS_LIST -> { /* ... */ }
         case TOOLS_CALL -> { /* ... */ }
         case RESOURCES_LIST -> { /* ... */ }
         case RESOURCES_READ -> { /* ... */ }
-        case PING -> { /* ... */ }
+        case TASKS_GET -> { /* ... */ }
+        case SUBSCRIPTIONS_LISTEN -> { /* ... */ }
         default -> logger.log("Unhandled RpcRequest method: " + uniqueKey);
     }
 }
@@ -282,12 +284,15 @@ java -jar agent-mcp-workshop-0.0.1.jar
 
 ### 3. Message Exchange Begins
 ```
-→ [stdin]  {"jsonrpc":"2.0","method":"initialize","params":{...},"id":0}
-← [stdout] {"jsonrpc":"2.0","id":0,"result":{...}}
-→ [stdin]  {"jsonrpc":"2.0","method":"notifications/initialized"}
-← [stdout] {"jsonrpc":"2.0","method":"roots/list","id":-1000}
-→ [stdin]  {"jsonrpc":"2.0","id":-1000,"result":{"roots":[...]}}
+→ [stdin]  {"jsonrpc":"2.0","method":"server/discover","params":{...},"id":"server-discover-probe-1"}
+← [stdout] {"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete",...}}
+→ [stdin]  {"jsonrpc":"2.0","method":"tools/call","params":{"_meta":{...},...},"id":1}
+← [stdout] {"jsonrpc":"2.0","id":1,"result":{"resultType":"input_required","inputRequests":{...},"requestState":"..."}}
+→ [stdin]  {"jsonrpc":"2.0","method":"tools/call","params":{...,"inputResponses":{...},"requestState":"..."},"id":2}
+← [stdout] {"jsonrpc":"2.0","id":2,"result":{"resultType":"complete",...}}
 ```
+
+Note that every arrow points the same way for requests: the client asks, the server answers. The round trip at the end is two independent exchanges, not a nested one — and the ids differ because the retry genuinely is a new request.
 
 Each arrow represents a complete line written to stdin or stdout. The server never writes partial messages or multiple messages on one line—maintaining the protocol's simplicity.
 
@@ -462,14 +467,6 @@ The implementation includes sophisticated notification handling:
 private void process(JsonRpcNotification message) {
     UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
     switch (uniqueKey) {
-        case NOTIFICATIONS_INITIALIZED -> {
-            if (hasRoots) {
-                io.emit(rootsRequest);
-            }
-        }
-        case NOTIFICATIONS_ROOTS_LIST_CHANGED -> {
-            io.emit(rootsRequest);
-        }
         case NOTIFICATION_CANCELLED -> {
             NotificationCancelledParams params = deserializer.deserializeParams(
                 message, NotificationCancelledParams.class
@@ -533,10 +530,11 @@ Java records provide immutable, self-documenting protocol structures.
 
 ### 2. Builder Pattern for Complex Responses
 ```java
-InitializeResult result = InitializeResultBuilder.builder()
-    .withProtocolVersion("1.0")
-    .withServerInfo("my-server", "1.0.0")
+DiscoverResult result = DiscoverResultBuilder.builder()
     .withDefaultCapabilities()
+    .withInstructions("Searches a project for a keyword.")
+    .withCacheHints(60_000L, CacheScope.PUBLIC)
+    .withDefaultServerInfo()
     .build();
 ```
 
@@ -545,8 +543,7 @@ Builders ensure valid, complete responses while maintaining readability.
 ### 3. Enum-Based Method Routing
 ```java
 public enum UniqueKeys {
-    INITIALIZE("initialize"),
-    NOTIFICATIONS_INITIALIZED("notifications/initialized"),
+    SERVER_DISCOVER("server/discover"),
     PROMPTS_LIST("prompts/list"),
     // ... more methods
     
@@ -580,7 +577,7 @@ This implementation could be ported to any language that can read stdin and writ
 By implementing from scratch, developers gain deep understanding of:
 - How capability negotiation works
 - Why message IDs matter
-- How bidirectional communication flows
+- How a stateless protocol pushes its lifecycle onto every message
 - What makes MCP transport-agnostic
 
 ### 5. **Performance is Transparent**
@@ -620,7 +617,7 @@ If you found this deep dive valuable and want to build your own MCP server from 
 
 1. **Building the Transport Layer** - Create a robust STDIO communication foundation
 2. **Understanding the Protocol** - Implement JSON-RPC message handling
-3. **Protocol Handshake &amp; Routing** - Build initialization and message dispatch
+3. **Discovery &amp; Routing** - Build `server/discover`, envelope validation, and message dispatch
 4. **Implementing Capabilities** - Add Resources, Tools, and Prompts
 5. **Agent Integration** - Connect your MCP server with AI agents
 

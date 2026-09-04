@@ -1,7 +1,7 @@
 package com.workshop.mcp.spec;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -34,14 +34,15 @@ public class JsonRpcMessageDeserializer {
     private final Gson gson;
 
     /**
-     * Constructs a new JsonRpcMessageDeserializer with a default Gson configuration.
+     * Constructs a new JsonRpcMessageDeserializer.
      * <p>
-     * The deserializer uses a standard Gson instance for JSON parsing and
-     * object mapping operations.
+     * The instance comes from {@link McpGson} so that inbound parsing and
+     * outbound serialization agree on the representation of a
+     * {@link RequestId}.
      * </p>
      */
     public JsonRpcMessageDeserializer() {
-        this.gson = new GsonBuilder().create();
+        this.gson = McpGson.create();
     }
 
     /**
@@ -131,5 +132,69 @@ public class JsonRpcMessageDeserializer {
      */
     public <T> T deserializeParams(JsonRpcNotification request, Class<T> paramsClass) {
         return gson.fromJson(gson.toJson(request.params()), paramsClass);
+    }
+
+    /**
+     * Converts an already-parsed JSON value into a specific type.
+     * <p>
+     * Needed for the answers in {@code params.inputResponses}: they arrive as
+     * a heterogeneous map, since one key may hold a {@code roots/list} result
+     * and the next an {@code elicitation/create} result, so each is converted
+     * once the caller knows which it expects.
+     * </p>
+     *
+     * @param <T>   the target type
+     * @param value the parsed JSON value, may be null
+     * @param type  the class to convert into
+     * @return the converted value, or null when there was nothing to convert
+     */
+    public <T> T convert(Object value, Class<T> type) {
+        return value == null ? null : gson.fromJson(gson.toJsonTree(value), type);
+    }
+
+    /**
+     * Extracts the stateless lifecycle envelope from a request's
+     * {@code params._meta}.
+     * <p>
+     * The envelope keys are namespaced identifiers containing slashes and
+     * dots, which are not valid Java identifiers, so they cannot be mapped by
+     * a record's component names the way ordinary params are. They are read
+     * out of the JSON tree by name instead.
+     * </p>
+     * <p>
+     * A request with no params, non-object params, or no {@code _meta} yields
+     * an envelope whose fields are all null, which
+     * {@link RequestEnvelope#isComplete()} reports as incomplete.
+     * </p>
+     *
+     * @param request the request to inspect
+     * @return the envelope, never null
+     */
+    public RequestEnvelope deserializeEnvelope(JsonRpcRequest request) {
+        JsonObject meta = metaObject(request.params());
+        if (meta == null) {
+            return new RequestEnvelope(null, null, null, null);
+        }
+        return new RequestEnvelope(
+                asString(meta.get(MetaKeys.PROTOCOL_VERSION)),
+                gson.fromJson(meta.get(MetaKeys.CLIENT_CAPABILITIES), ClientCapabilities.class),
+                gson.fromJson(meta.get(MetaKeys.CLIENT_INFO), ClientInfo.class),
+                asString(meta.get(MetaKeys.LOG_LEVEL)));
+    }
+
+    private JsonObject metaObject(Object params) {
+        if (params == null) {
+            return null;
+        }
+        JsonElement tree = gson.toJsonTree(params);
+        if (!tree.isJsonObject()) {
+            return null;
+        }
+        JsonElement meta = tree.getAsJsonObject().get("_meta");
+        return (meta != null && meta.isJsonObject()) ? meta.getAsJsonObject() : null;
+    }
+
+    private String asString(JsonElement element) {
+        return (element != null && element.isJsonPrimitive()) ? element.getAsString() : null;
     }
 }

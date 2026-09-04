@@ -24,10 +24,19 @@ package com.workshop.mcp.spec;
  *   "_meta": {
  *     "ui": {
  *       "resourceUri": "ui://keyword-search/mcp-app.html"
- *     }
+ *     },
+ *     "ui/resourceUri": "ui://keyword-search/mcp-app.html"
  *   }
  * }
  * }</pre>
+ *
+ * <p>
+ * There is no {@code execution} field. Revision {@code 2026-07-28} removed
+ * {@code Tool.execution} — clients strip it silently — because its
+ * {@code taskSupport} hint forced a {@code tools/list} warmup before any
+ * task-augmented call. Whether a call becomes a task is now decided by the
+ * server per request.
+ * </p>
  *
  * @param name        the unique identifier for the tool
  * @param description a human-readable description of what the tool does
@@ -43,6 +52,5 @@ public record AppTool(
         String name,
         String description,
         InputSchema inputSchema,
-        AppMeta _meta,
-        ToolExecution execution
+        AppMeta _meta
 ) {}

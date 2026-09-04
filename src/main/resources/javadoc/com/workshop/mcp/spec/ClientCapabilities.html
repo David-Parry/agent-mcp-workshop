@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -92,17 +92,26 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-sampling">sampling</span></code> - the sampling-related capabilities supported by the client</dd>
-<dd><code><span id="param-roots">roots</span></code> - the roots-related capabilities supported by the client</dd>
+<dd><code><span id="param-sampling">sampling</span></code> - the sampling support declared by the client</dd>
+<dd><code><span id="param-roots">roots</span></code> - the roots support declared by the client</dd>
+<dd><code><span id="param-elicitation">elicitation</span></code> - the elicitation modes the client can render</dd>
+<dd><code><span id="param-extensions">extensions</span></code> - optional extension declarations, keyed by identifier</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">ClientCapabilities</span>(<a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a>&nbsp;sampling, <a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a>&nbsp;roots)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">ClientCapabilities</span>(<a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a>&nbsp;sampling, <a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a>&nbsp;roots, <a href="Elicitation.html" title="class in com.workshop.mcp.spec">Elicitation</a>&nbsp;elicitation, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;extensions)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
-<div class="block">Represents the capabilities supported by an MCP (Model Context Protocol) client.
+<div class="block">Represents the capabilities declared by an MCP client.
  <p>
- ClientCapabilities defines what features and operations the client can handle.
- This information is sent during initialization to allow the server to tailor
- its behavior and responses based on what the client supports.
+ Before revision <code>2026-07-28</code> a client sent this once, inside
+ <code>initialize</code>. It now arrives on every request under
+ <code>params._meta["io.modelcontextprotocol/clientCapabilities"]</code>, so the
+ server reads it per request rather than remembering it.
+ </p>
+ <p>
+ Capabilities beyond the core protocol live in <code>extensions</code>, keyed by
+ identifier — <code>io.modelcontextprotocol/tasks</code> and
+ <code>io.modelcontextprotocol/ui</code> are the two this workshop cares about.
+ The pre-<code>2026-07-28</code> top-level <code>tasks</code> slot is gone.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -112,7 +121,8 @@ loadScripts(document, 'script');</script>
 <ul class="tag-list">
 <li><a href="SamplingCapability.html" title="class in com.workshop.mcp.spec"><code>SamplingCapability</code></a></li>
 <li><a href="RootsCapability.html" title="class in com.workshop.mcp.spec"><code>RootsCapability</code></a></li>
-<li><a href="InitializeParams.html" title="class in com.workshop.mcp.spec"><code>InitializeParams</code></a></li>
+<li><a href="Elicitation.html" title="class in com.workshop.mcp.spec"><code>Elicitation</code></a></li>
+<li><a href="RequestEnvelope.html" title="class in com.workshop.mcp.spec"><code>RequestEnvelope</code></a></li>
 </ul>
 </dd>
 </dl>
@@ -127,8 +137,10 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.SamplingCapability,com.workshop.mcp.spec.RootsCapability)" class="member-name-link">ClientCapabilities</a><wbr>(<a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a>&nbsp;sampling,
- <a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a>&nbsp;roots)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.SamplingCapability,com.workshop.mcp.spec.RootsCapability,com.workshop.mcp.spec.Elicitation,java.util.Map)" class="member-name-link">ClientCapabilities</a><wbr>(<a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a>&nbsp;sampling,
+ <a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a>&nbsp;roots,
+ <a href="Elicitation.html" title="class in com.workshop.mcp.spec">Elicitation</a>&nbsp;elicitation,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;extensions)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates an instance of a <code>ClientCapabilities</code> record class.</div>
 </div>
@@ -146,29 +158,44 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="Elicitation.html" title="class in com.workshop.mcp.spec">Elicitation</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#elicitation()" class="member-name-link">elicitation</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-elicitation"><code>elicitation</code></a> record component.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Indicates whether some other object is "equal to" this one.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#extensions()" class="member-name-link">extensions</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-extensions"><code>extensions</code></a> record component.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hasExtension(java.lang.String)" class="member-name-link">hasExtension</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;identifier)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Reports whether the client declared the given extension on this request.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#roots()" class="member-name-link">roots</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#roots()" class="member-name-link">roots</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-roots"><code>roots</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#sampling()" class="member-name-link">sampling</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#sampling()" class="member-name-link">sampling</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-sampling"><code>sampling</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
 </div>
 </div>
@@ -189,15 +216,19 @@ loadScripts(document, 'script');</script>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.SamplingCapability,com.workshop.mcp.spec.RootsCapability)">
+<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.SamplingCapability,com.workshop.mcp.spec.RootsCapability,com.workshop.mcp.spec.Elicitation,java.util.Map)">
 <h3>ClientCapabilities</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ClientCapabilities</span><wbr><span class="parameters">(<a href="SamplingCapability.html" title="class in com.workshop.mcp.spec">SamplingCapability</a>&nbsp;sampling,
- <a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a>&nbsp;roots)</span></div>
+ <a href="RootsCapability.html" title="class in com.workshop.mcp.spec">RootsCapability</a>&nbsp;roots,
+ <a href="Elicitation.html" title="class in com.workshop.mcp.spec">Elicitation</a>&nbsp;elicitation,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;extensions)</span></div>
 <div class="block">Creates an instance of a <code>ClientCapabilities</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>sampling</code> - the value for the <a href="#param-sampling"><code>sampling</code></a> record component</dd>
 <dd><code>roots</code> - the value for the <a href="#param-roots"><code>roots</code></a> record component</dd>
+<dd><code>elicitation</code> - the value for the <a href="#param-elicitation"><code>elicitation</code></a> record component</dd>
+<dd><code>extensions</code> - the value for the <a href="#param-extensions"><code>extensions</code></a> record component</dd>
 </dl>
 </section>
 </li>
@@ -209,6 +240,19 @@ loadScripts(document, 'script');</script>
 <section class="method-details" id="method-detail">
 <h2>Method Details</h2>
 <ul class="member-list">
+<li>
+<section class="detail" id="hasExtension(java.lang.String)">
+<h3>hasExtension</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">hasExtension</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;identifier)</span></div>
+<div class="block">Reports whether the client declared the given extension on this request.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>identifier</code> - the extension identifier, e.g. <a href="MetaKeys.html#TASKS_EXTENSION"><code>MetaKeys.TASKS_EXTENSION</code></a></dd>
+<dt>Returns:</dt>
+<dd>true when the client declared it</dd>
+</dl>
+</section>
+</li>
 <li>
 <section class="detail" id="toString()">
 <h3>toString</h3>
@@ -269,6 +313,28 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <a href="#param-roots"><code>roots</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="elicitation()">
+<h3>elicitation</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="Elicitation.html" title="class in com.workshop.mcp.spec">Elicitation</a></span>&nbsp;<span class="element-name">elicitation</span>()</div>
+<div class="block">Returns the value of the <a href="#param-elicitation"><code>elicitation</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-elicitation"><code>elicitation</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="extensions()">
+<h3>extensions</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</span>&nbsp;<span class="element-name">extensions</span>()</div>
+<div class="block">Returns the value of the <a href="#param-extensions"><code>extensions</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-extensions"><code>extensions</code></a> record component</dd>
 </dl>
 </section>
 </li>

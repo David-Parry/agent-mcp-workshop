@@ -35,7 +35,21 @@ class ServerTest {
     
     @BeforeEach
     void setUp() {
-        server = new Server(mockIOHandler, mockRouter, mockLatch);
+        server = testableServer(mockIOHandler, mockRouter, mockLatch);
+    }
+
+    /**
+     * Creates a Server whose {@code exit()} is a no-op. The production
+     * implementation calls {@link System#exit(int)}, which would kill the
+     * test runner JVM and silently skip every remaining test.
+     */
+    private static Server testableServer(IOHandler io, Router router, CountDownLatch latch) {
+        return new Server(io, router, latch) {
+            @Override
+            void exit() {
+                // no-op in tests
+            }
+        };
     }
     
     @Nested
@@ -257,9 +271,9 @@ class ServerTest {
         @Test
         @DisplayName("Should handle null IOHandler during start")
         void start_WithNullIOHandler_HandlesGracefully() throws Exception {
-            // Given
-            Server serverWithNullIO = new Server(null, mockRouter, mockLatch);
-            when(mockLatch.await(anyLong(), any(TimeUnit.class))).thenReturn(true);
+            // Given (no latch stubbing: with a null IOHandler, start() fails at
+            // addLineListener and never reaches keepRunning)
+            Server serverWithNullIO = testableServer(null, mockRouter, mockLatch);
             
             // When
             Thread testThread = new Thread(() -> {
@@ -416,14 +430,14 @@ class ServerTest {
     @Test
     @DisplayName("Should handle null ioHandler gracefully in stop")
     void stop_WithNullIOHandler_DoesNotThrowException() {
-        Server testServer = new Server(null, null, null);
+        Server testServer = testableServer(null, null, null);
         testServer.start();
     }
 
     @Test
     @DisplayName("IoHandler get add listener called")
     void ioHandler_addListener_called() {
-        Server testServer = new Server(mockIOHandler, mockRouter, null);
+        Server testServer = testableServer(mockIOHandler, mockRouter, null);
         testServer.start();
         verify(mockIOHandler).addLineListener(any());
     }

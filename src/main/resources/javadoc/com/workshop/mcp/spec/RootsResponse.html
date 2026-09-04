@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -99,9 +99,16 @@ loadScripts(document, 'script');</script>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">Represents a response containing a list of roots in the MCP (Model Context Protocol) system.
  <p>
- This response is returned when querying for available roots, providing a list of
- all root directories or resource locations that are accessible through the MCP server.
- Each root represents a base location from which resources can be accessed.
+ This is the answer to a <code>roots/list</code> request, listing the base
+ locations a client has made available. Each root represents a base location
+ from which resources can be accessed.
+ </p>
+ <p>
+ On revision <code>2026-07-28</code> a server never receives this as a JSON-RPC
+ response, because it never sends the request. It arrives as one entry of
+ <code>params.inputResponses</code> when a client retries a call the server
+ answered with an <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a> — the bare result, with no
+ JSON-RPC envelope around it.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -110,7 +117,7 @@ loadScripts(document, 'script');</script>
 <dd>
 <ul class="tag-list">
 <li><a href="Root.html" title="class in com.workshop.mcp.spec"><code>Root</code></a></li>
-<li><a href="RootsListResult.html" title="class in com.workshop.mcp.spec"><code>RootsListResult</code></a></li>
+<li><a href="InputRequest.html#rootsList()"><code>InputRequest.rootsList()</code></a></li>
 </ul>
 </dd>
 </dl>

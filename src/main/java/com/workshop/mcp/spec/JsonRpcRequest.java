@@ -21,7 +21,7 @@ import java.util.Map;
  */
 public record JsonRpcRequest(
     String jsonrpc,
-    Long id,
+    RequestId id,
     String method,
     Object params
 ) {}

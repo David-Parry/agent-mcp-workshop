@@ -61,8 +61,8 @@
     </div>
 
     <div class="intro">
-        <h2>Explore the MCP Communication Session</h2>
-        <p>We build up one real MCP session &mdash; handshake, resources, tools, prompts, then the newer pieces: elicitation, MCP Apps, tasks, and finally a supervised agent driving the same tool. Each page is one lens on the same JSON-RPC traffic.</p>
+        <h2>Explore the MCP Communication Flow</h2>
+        <p>We build up one real MCP exchange &mdash; discovery, resources, tools, prompts, then the newer pieces: round-trip requests, MCP Apps, tasks, and finally a supervised agent driving the same tool. Each page is one lens on the same JSON-RPC traffic.</p>
     </div>
 
     <div class="highlight-box">
@@ -76,10 +76,10 @@
             <thead><tr><th style="width:90px">Time</th><th>Segment</th><th>Point to land</th></tr></thead>
             <tbody>
                 <tr><td><span class="badge-time">0 &ndash; 2</span></td><td><a href="index.html">Why MCP</a></td><td>One protocol instead of N bespoke integrations</td></tr>
-                <tr><td><span class="badge-time">2 &ndash; 5</span></td><td><a href="overview.html">Overview</a></td><td>Four actors, one round trip</td></tr>
+                <tr><td><span class="badge-time">2 &ndash; 5</span></td><td><a href="overview.html">Overview</a></td><td>Four actors, one round trip &mdash; and no session</td></tr>
                 <tr><td><span class="badge-time">5 &ndash; 8</span></td><td><a href="flow-diagram.html">Flow Diagram</a></td><td>It is just JSON-RPC over stdio &mdash; hover for real payloads</td></tr>
-                <tr class="demo-row"><td><span class="badge-time">8 &ndash; 13</span></td><td><span class="badge-demo">DEMO</span> Inspector</td><td>Connect, then resources / tools / prompts live</td></tr>
-                <tr><td><span class="badge-time">13 &ndash; 15</span></td><td><a href="extensions.html">Extensions</a></td><td>Server can ask the user a question mid-call</td></tr>
+                <tr class="demo-row"><td><span class="badge-time">8 &ndash; 13</span></td><td><span class="badge-demo">DEMO</span> Inspector</td><td>Discover, then resources / tools / prompts live</td></tr>
+                <tr><td><span class="badge-time">13 &ndash; 15</span></td><td><a href="extensions.html">Extensions</a></td><td>The server asks a question by answering the call</td></tr>
                 <tr><td><span class="badge-time">15 &ndash; 18</span></td><td><a href="mcp-apps.html">MCP Apps</a></td><td>A tool can return a UI, not just text</td></tr>
                 <tr><td><span class="badge-time">18 &ndash; 21</span></td><td><a href="tasks.html">Tasks</a></td><td>Call now, fetch later &mdash; long work stops blocking</td></tr>
                 <tr class="demo-row"><td><span class="badge-time">21 &ndash; 24</span></td><td><span class="badge-demo">DEMO</span> <a href="agent.html">Agent</a></td><td>Same tool, now inside a supervised audit</td></tr>
@@ -98,25 +98,25 @@
         <a href="flow-diagram.html" class="page-card">
             <span class="icon">&#128202;</span>
             <h3>Flow Diagram <span class="badge-time">5 &ndash; 8</span></h3>
-            <p>The whole session as one numbered sequence diagram &mdash; handshake, roots, discovery, a deferred tool call, and a task-augmented call. Hover any message to see the exact JSON that crossed the wire.</p>
+            <p>The whole exchange as one numbered sequence diagram &mdash; <code>server/discover</code>, cacheable reads, a round-trip tool call, a task handle, and a notification stream. Hover any message to see the exact JSON that crossed the wire.</p>
         </a>
 
         <a href="extensions.html" class="page-card">
             <span class="icon">&#129513;</span>
-            <h3>Extensions &amp; Elicitation <span class="badge-new">new</span></h3>
-            <p>How the protocol grows without breaking clients, via namespaced <code>experimental</code> capabilities &mdash; and lazy elicitation, where the server parks a <code>tools/call</code> to ask the user which directory to search.</p>
+            <h3>Extensions &amp; Round Trips <span class="badge-new">new</span></h3>
+            <p>How the protocol grows without breaking clients, via namespaced <code>extensions</code> keys &mdash; and Multi Round-Trip Requests, where a server that can no longer send requests asks which directory to search by answering the call.</p>
         </a>
 
         <a href="mcp-apps.html" class="page-card">
             <span class="icon">&#128421;&#65039;</span>
             <h3>MCP Apps <span class="badge-new">new</span></h3>
-            <p>Tool + <code>ui://</code> resource + one <code>_meta</code> field = an interactive dashboard rendered inside the conversation. No new methods, and a sandboxed iframe keeps it safe.</p>
+            <p>Tool + <code>ui://</code> resource + one <code>_meta</code> field (written under two keys) = an interactive dashboard rendered inside the conversation. No new methods, and a sandboxed iframe keeps it safe.</p>
         </a>
 
         <a href="tasks.html" class="page-card">
             <span class="icon">&#129525;</span>
-            <h3>Tasks <span class="badge-new">2025-11-25</span></h3>
-            <p>The experimental tasks utility &mdash; call now, fetch later. The capability shape, the lifecycle state machine, and the five new methods (<code>tasks/get</code>, <code>tasks/result</code>, <code>tasks/list</code>, <code>tasks/cancel</code>, <code>notifications/tasks/status</code>).</p>
+            <h3>Tasks <span class="badge-new">2026-07-28</span></h3>
+            <p>The tasks extension &mdash; call now, fetch later, and now the server's decision rather than a client opt-in. The extension shape, the lifecycle state machine, and what is left after <code>tasks/result</code> and <code>tasks/list</code> were removed.</p>
         </a>
 
         <a href="agent.html" class="page-card">
@@ -128,7 +128,7 @@
         <a href="runtime-facts.html" class="page-card">
             <span class="icon">&#128203;</span>
             <h3>Runtime Facts</h3>
-            <p>Reference card for the session: protocol version, client and server details, every capability negotiated, the tool and prompt definitions, and the resource inventory.</p>
+            <p>Reference card: the protocol revision, the per-request <code>_meta</code> envelope, every capability declared, the new error codes, the removed methods, and the tool, prompt, and resource inventory.</p>
         </a>
 
         <a href="trace-log.html" class="page-card">
@@ -139,23 +139,24 @@
     </div>
 
     <section class="card" style="margin-top:32px">
-        <h2 style="margin:0 0 16px;color:var(--accent)">About This Session</h2>
-        <p>Everything on these pages comes from one real captured session:</p>
+        <h2 style="margin:0 0 16px;color:var(--accent)">About This Traffic</h2>
+        <p>Everything on these pages comes from real captured traffic:</p>
         <ul style="margin:16px 0">
-            <li><strong>Client:</strong> inspector-client v0.22.0 (MCP Inspector)</li>
+            <li><strong>Client:</strong> inspector-cli v2.5.0 (MCP Inspector)</li>
             <li><strong>Server:</strong> agent-mcp-workshop v0.0.1 (Java, stdio transport)</li>
-            <li><strong>Protocol:</strong> MCP 2025-11-25</li>
-            <li><strong>Duration:</strong> ~90 seconds (09:49:06 &ndash; 09:50:32)</li>
+            <li><strong>Protocol:</strong> MCP 2026-07-28 &mdash; stateless: no handshake, no session</li>
+            <li><strong>Duration:</strong> ~50 seconds (17:55:28 &ndash; 17:56:16)</li>
         </ul>
-        <p>In that minute and a half the session exercises:</p>
+        <p>In under a minute it exercises:</p>
         <ul style="margin:16px 0">
-            <li><strong>Handshake:</strong> capability negotiation, including two <code>experimental</code> extensions</li>
-            <li><strong>Discovery:</strong> roots, 60+ Javadoc resources, prompts, and tools</li>
-            <li><strong>Elicitation:</strong> a <code>tools/call</code> parked mid-flight while the server asks for a directory</li>
+            <li><strong>Discovery:</strong> <code>server/discover</code> &mdash; supported revisions, capabilities, and identity, with no session created</li>
+            <li><strong>Reads:</strong> 60+ Javadoc resources, prompts, and tools &mdash; all cacheable, so all carrying <code>ttlMs</code> and <code>cacheScope</code></li>
+            <li><strong>Round trips:</strong> a <code>tools/call</code> answered with <code>input_required</code>, then re-sent by the client with the answer</li>
             <li><strong>MCP Apps:</strong> a tool advertising <code>_meta.ui.resourceUri</code> plus its <code>ui://</code> HTML resource</li>
-            <li><strong>Tasks:</strong> a task-augmented call, status notification, and deferred result retrieval</li>
+            <li><strong>Tasks:</strong> a task handle the server chose to return, a status notification, and polling to completion</li>
+            <li><strong>Rejections:</strong> the removed <code>initialize</code> at <code>-32601</code>, plus <code>-32022</code> and <code>-32602</code> for a bad envelope</li>
         </ul>
-        <p>Server capabilities advertised: <code>tools</code>, <code>prompts</code>, <code>resources</code>, <code>completions</code>, <code>tasks</code>, and <code>experimental</code> (<code>elicitation</code>, <code>apps</code>). Client side: <code>sampling</code>, <code>elicitation</code>, <code>roots</code>, and <code>tasks</code>.</p>
+        <p>Server capabilities advertised: <code>completions</code>, <code>prompts</code>, <code>resources</code>, <code>tools</code>, and <code>extensions</code> (<code>io.modelcontextprotocol/ui</code>, <code>io.modelcontextprotocol/tasks</code>). Client side, repeated on every single request: <code>roots</code>, <code>elicitation</code>, and the same two extensions.</p>
     </section>
 
     <div class="footer">&copy; 2025 MCP Workshop. Multi-page analysis of JSON-RPC communication flow.</div>

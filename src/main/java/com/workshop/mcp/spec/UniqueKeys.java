@@ -3,94 +3,97 @@ package com.workshop.mcp.spec;
 /**
  * Represents the unique method keys used in the MCP (Model Context Protocol) for JSON-RPC communication.
  * <p>
- * This enum defines all the standard method names and notification types that can be
- * used in MCP requests and notifications. Each key corresponds to a specific operation
- * or event in the protocol.
+ * This enum defines the method names and notification types of protocol
+ * revision {@code 2026-07-28}. Deletions in that revision are physical: a
+ * method absent from the registry must be answered with
+ * {@link ErrorCodes#METHOD_NOT_FOUND}, even if the server would happily
+ * service it. {@code initialize}, {@code notifications/initialized},
+ * {@code ping}, {@code logging/setLevel},
+ * {@code notifications/roots/list_changed}, {@code resources/subscribe},
+ * {@code resources/unsubscribe}, {@code tasks/result}, and
+ * {@code tasks/list} are all gone for that reason.
  * </p>
- * 
+ *
  * @see JsonRpcRequest
  * @see JsonRpcNotification
  * @since 1.0
  */
 public enum UniqueKeys {
     /**
-     * Method for initializing a connection between client and server.
-     * Used to establish protocol version and exchange capabilities.
+     * Method for discovering a server's supported protocol revisions,
+     * capabilities, and identity.
+     * <p>
+     * Introduced in {@code 2026-07-28} as the sessionless replacement for the
+     * {@code initialize} handshake. Servers MUST implement it. On stdio a
+     * client sends it first as a backward-compatibility probe: an answer means
+     * the server speaks the stateless lifecycle, and silence or an error means
+     * it should fall back to the legacy handshake.
+     * </p>
      */
-    INITIALIZE("initialize"),
-    
-    /**
-     * Notification sent after successful initialization.
-     * Indicates that the connection is ready for use.
-     */
-    NOTIFICATIONS_INITIALIZED("notifications/initialized"),
-    
+    SERVER_DISCOVER("server/discover"),
+
     /**
      * Method for listing all available prompts.
      * Returns a list of prompt templates that can be used.
      */
     PROMPTS_LIST("prompts/list"),
-    
+
     /**
      * Method for retrieving a specific prompt by name.
      * Returns the expanded prompt with provided arguments.
      */
     PROMPTS_GET("prompts/get"),
-    
+
     /**
      * Method for requesting completion suggestions.
      * Used for auto-completion functionality.
      */
     COMPLETION_COMPLETE("completion/complete"),
-    
+
     /**
      * Notification sent when an operation is cancelled.
-     * Indicates that a long-running operation has been terminated.
+     * <p>
+     * Its {@code requestId} is required on this revision. It is also how a
+     * client tears down a {@code subscriptions/listen} stream, since stdio has
+     * no stream to close.
+     * </p>
      */
     NOTIFICATION_CANCELLED("notifications/cancelled"),
-    
+
     /**
      * Method for listing all available tools.
      * Returns the tools that can be invoked by the client.
      */
     TOOLS_LIST("tools/list"),
-    
+
     /**
      * Special key indicating that a method was not found.
      * Used internally for error handling.
      */
     NOT_FOUND("not_found"),
-    
+
     /**
      * Method for invoking a specific tool.
      * Executes a tool with the provided arguments.
      */
     TOOLS_CALL("tools/call"),
-    
-    /**
-     * Method for health check or keep-alive.
-     * Used to verify that the connection is still active.
-     */
-    PING("ping"),
-    
-    /**
-     * Method for listing available roots.
-     * Returns the root directories or locations available in the server.
-     */
-    ROOTS("roots"),
-    
-    /**
-     * Notification sent when the roots list has changed.
-     * Indicates that roots have been added, removed, or modified.
-     */
-    NOTIFICATIONS_ROOTS_LIST_CHANGED("notifications/roots/list_changed"),
-    
+
     /**
      * Method for listing available resources.
      * Returns resources that can be accessed by the client.
      */
     RESOURCES_LIST("resources/list"),
-    
+
+    /**
+     * Method for listing available resource templates.
+     * <p>
+     * Clients fetch this alongside {@code resources/list} whenever the server
+     * declares any resource capability, so a server that advertises resources
+     * must answer it even when it has no templates.
+     * </p>
+     */
+    RESOURCES_TEMPLATES_LIST("resources/templates/list"),
+
     /**
      * Method for reading resource content.
      * Retrieves the actual content of one or more resources.
@@ -98,51 +101,86 @@ public enum UniqueKeys {
     RESOURCES_READ("resources/read"),
 
     /**
-     * Method for creating a new sampling message.
-     * Used to initiate a sampling operation with specific parameters.
+     * Method for opening a long-lived notification stream.
+     * <p>
+     * Introduced in {@code 2026-07-28} to replace the HTTP GET endpoint and
+     * the {@code resources/subscribe} family. On stdio the request is left
+     * unanswered for the life of the subscription; notifications are
+     * interleaved on stdout and demultiplexed by
+     * {@link MetaKeys#SUBSCRIPTION_ID}.
+     * </p>
      */
-    SAMPLING_CREATE_MESSAGE("sampling/createMessage"),
+    SUBSCRIPTIONS_LISTEN("subscriptions/listen"),
 
     /**
-     * Method for creating a new elicitation message.
-     * Used to initiate an elicitation operation with questions for the user.
+     * Notification reporting which subset of a {@code subscriptions/listen}
+     * filter the server honored.
+     * <p>
+     * It must carry {@link MetaKeys#SUBSCRIPTION_ID}; without it the client
+     * waits forever with no error and no timeout.
+     * </p>
      */
-    ELICITATION_CREATE_MESSAGE("elicitation/create"),
+    NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged"),
 
     /**
-     * Method for polling a task's current state (MCP 2025-11-25 tasks utility).
+     * Method for polling a task's current state (tasks extension).
      * Returns the {@link Task} snapshot without blocking.
      */
     TASKS_GET("tasks/get"),
 
     /**
-     * Method for retrieving the final result of a task (MCP 2025-11-25).
-     * Blocks until the task reaches a terminal state, then returns exactly
-     * what the underlying request would have returned.
+     * Method for delivering input to a task that is waiting for it (tasks extension).
+     * <p>
+     * This replaced the blocking {@code tasks/result} method. Its only job is
+     * to hand {@code inputResponses} to a task sitting in
+     * {@link TaskStatus#INPUT_REQUIRED}.
+     * </p>
      */
-    TASKS_RESULT("tasks/result"),
+    TASKS_UPDATE("tasks/update"),
 
     /**
-     * Method for listing all tasks visible to the requestor (MCP 2025-11-25).
-     */
-    TASKS_LIST("tasks/list"),
-
-    /**
-     * Method for explicitly cancelling a task (MCP 2025-11-25).
+     * Method for explicitly cancelling a task (tasks extension).
      */
     TASKS_CANCEL("tasks/cancel"),
 
     /**
-     * Notification sent by a receiver when a task transitions to a new status
-     * (MCP 2025-11-25). The params field is the full {@link Task} object.
+     * Notification sent when a task transitions to a new status (tasks extension).
+     * <p>
+     * The method name is the bare {@code notifications/tasks}, not
+     * {@code notifications/tasks/status}; the {@code notifications/tasks/}
+     * prefix is reserved for future use. The params are the full task
+     * snapshot.
+     * </p>
      */
-    NOTIFICATIONS_TASKS_STATUS("notifications/tasks/status");
+    NOTIFICATIONS_TASKS("notifications/tasks"),
+
+    /**
+     * Name of an embedded {@code roots/list} request.
+     * <p>
+     * Not a method this server receives. Modern clients discard inbound
+     * server-to-client requests, so a server that needs the client's roots
+     * embeds this name in an {@link InputRequiredResult} instead.
+     * </p>
+     */
+    ROOTS_LIST("roots/list"),
+
+    /**
+     * Name of an embedded {@code sampling/createMessage} request.
+     * Embedded in an {@link InputRequiredResult} rather than sent as a request.
+     */
+    SAMPLING_CREATE_MESSAGE("sampling/createMessage"),
+
+    /**
+     * Name of an embedded {@code elicitation/create} request.
+     * Embedded in an {@link InputRequiredResult} rather than sent as a request.
+     */
+    ELICITATION_CREATE("elicitation/create");
 
     private final String value;
 
     /**
      * Constructs a UniqueKeys enum constant with its string representation.
-     * 
+     *
      * @param value the string value used in JSON-RPC method names
      */
     UniqueKeys(String value) {
@@ -151,7 +189,7 @@ public enum UniqueKeys {
 
     /**
      * Gets the string value of this method key.
-     * 
+     *
      * @return the string representation used in JSON-RPC
      */
     public String getValue() {
@@ -160,7 +198,7 @@ public enum UniqueKeys {
 
     /**
      * Returns the string value of this method key.
-     * 
+     *
      * @return the string representation used in JSON-RPC
      */
     @Override
@@ -174,7 +212,7 @@ public enum UniqueKeys {
      * This method performs a case-insensitive lookup and returns
      * {@link #NOT_FOUND} if no matching constant is found.
      * </p>
-     * 
+     *
      * @param value the string value to look up
      * @return the corresponding UniqueKeys enum constant, or {@link #NOT_FOUND} if not found
      */

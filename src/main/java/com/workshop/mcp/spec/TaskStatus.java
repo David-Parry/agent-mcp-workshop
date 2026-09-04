@@ -3,14 +3,15 @@ package com.workshop.mcp.spec;
 /**
  * Enumerates the lifecycle states of a {@link Task}.
  * <p>
- * State transitions defined by the MCP 2025-11-25 specification:
+ * State transitions defined by the {@code io.modelcontextprotocol/tasks}
+ * extension:
+ * </p>
  * <pre>
  *   working &lt;-&gt; input_required
  *     |              |
  *     v              v
  *   { completed | failed | cancelled }   (terminal)
  * </pre>
- * </p>
  * <p>
  * The string values returned by {@link #getValue()} are the on-wire JSON
  * forms — record serialization uses these strings, not the enum constant
@@ -43,6 +44,8 @@ public enum TaskStatus {
     }
 
     /**
+     * Returns the on-wire form of this status.
+     *
      * @return the on-wire JSON string for this status
      */
     public String getValue() {
@@ -50,6 +53,9 @@ public enum TaskStatus {
     }
 
     /**
+     * Reports whether this status is final, meaning no further transition can
+     * follow it.
+     *
      * @return {@code true} if this status is one of the three terminal states
      *         ({@code completed}, {@code failed}, {@code cancelled})
      */

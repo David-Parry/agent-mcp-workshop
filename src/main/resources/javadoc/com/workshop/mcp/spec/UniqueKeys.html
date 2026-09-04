@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -99,9 +99,15 @@ loadScripts(document, 'script');</script>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Enum.html" title="class or interface in java.lang" class="external-link">Enum</a>&lt;<a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a>&gt;</span></div>
 <div class="block">Represents the unique method keys used in the MCP (Model Context Protocol) for JSON-RPC communication.
  <p>
- This enum defines all the standard method names and notification types that can be
- used in MCP requests and notifications. Each key corresponds to a specific operation
- or event in the protocol.
+ This enum defines the method names and notification types of protocol
+ revision <code>2026-07-28</code>. Deletions in that revision are physical: a
+ method absent from the registry must be answered with
+ <a href="ErrorCodes.html#METHOD_NOT_FOUND"><code>ErrorCodes.METHOD_NOT_FOUND</code></a>, even if the server would happily
+ service it. <code>initialize</code>, <code>notifications/initialized</code>,
+ <code>ping</code>, <code>logging/setLevel</code>,
+ <code>notifications/roots/list_changed</code>, <code>resources/subscribe</code>,
+ <code>resources/unsubscribe</code>, <code>tasks/result</code>, and
+ <code>tasks/list</code> are all gone for that reason.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -138,9 +144,9 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color">
 <div class="block">Method for requesting completion suggestions.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#INITIALIZE" class="member-name-link">INITIALIZE</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#ELICITATION_CREATE" class="member-name-link">ELICITATION_CREATE</a></code></div>
 <div class="col-last odd-row-color">
-<div class="block">Method for initializing a connection between client and server.</div>
+<div class="block">Name of an embedded <code>elicitation/create</code> request.</div>
 </div>
 <div class="col-first even-row-color"><code><a href="#NOT_FOUND" class="member-name-link">NOT_FOUND</a></code></div>
 <div class="col-last even-row-color">
@@ -150,48 +156,70 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color">
 <div class="block">Notification sent when an operation is cancelled.</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#NOTIFICATIONS_INITIALIZED" class="member-name-link">NOTIFICATIONS_INITIALIZED</a></code></div>
+<div class="col-first even-row-color"><code><a href="#NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED" class="member-name-link">NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED</a></code></div>
 <div class="col-last even-row-color">
-<div class="block">Notification sent after successful initialization.</div>
+<div class="block">Notification reporting which subset of a <code>subscriptions/listen</code>
+ filter the server honored.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#NOTIFICATIONS_ROOTS_LIST_CHANGED" class="member-name-link">NOTIFICATIONS_ROOTS_LIST_CHANGED</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#NOTIFICATIONS_TASKS" class="member-name-link">NOTIFICATIONS_TASKS</a></code></div>
 <div class="col-last odd-row-color">
-<div class="block">Notification sent when the roots list has changed.</div>
+<div class="block">Notification sent when a task transitions to a new status (tasks extension).</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#PING" class="member-name-link">PING</a></code></div>
+<div class="col-first even-row-color"><code><a href="#PROMPTS_GET" class="member-name-link">PROMPTS_GET</a></code></div>
 <div class="col-last even-row-color">
-<div class="block">Method for health check or keep-alive.</div>
-</div>
-<div class="col-first odd-row-color"><code><a href="#PROMPTS_GET" class="member-name-link">PROMPTS_GET</a></code></div>
-<div class="col-last odd-row-color">
 <div class="block">Method for retrieving a specific prompt by name.</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#PROMPTS_LIST" class="member-name-link">PROMPTS_LIST</a></code></div>
-<div class="col-last even-row-color">
+<div class="col-first odd-row-color"><code><a href="#PROMPTS_LIST" class="member-name-link">PROMPTS_LIST</a></code></div>
+<div class="col-last odd-row-color">
 <div class="block">Method for listing all available prompts.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#RESOURCES_LIST" class="member-name-link">RESOURCES_LIST</a></code></div>
-<div class="col-last odd-row-color">
+<div class="col-first even-row-color"><code><a href="#RESOURCES_LIST" class="member-name-link">RESOURCES_LIST</a></code></div>
+<div class="col-last even-row-color">
 <div class="block">Method for listing available resources.</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#RESOURCES_READ" class="member-name-link">RESOURCES_READ</a></code></div>
-<div class="col-last even-row-color">
+<div class="col-first odd-row-color"><code><a href="#RESOURCES_READ" class="member-name-link">RESOURCES_READ</a></code></div>
+<div class="col-last odd-row-color">
 <div class="block">Method for reading resource content.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#ROOTS" class="member-name-link">ROOTS</a></code></div>
+<div class="col-first even-row-color"><code><a href="#RESOURCES_TEMPLATES_LIST" class="member-name-link">RESOURCES_TEMPLATES_LIST</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">Method for listing available resource templates.</div>
+</div>
+<div class="col-first odd-row-color"><code><a href="#ROOTS_LIST" class="member-name-link">ROOTS_LIST</a></code></div>
 <div class="col-last odd-row-color">
-<div class="block">Method for listing available roots.</div>
+<div class="block">Name of an embedded <code>roots/list</code> request.</div>
 </div>
 <div class="col-first even-row-color"><code><a href="#SAMPLING_CREATE_MESSAGE" class="member-name-link">SAMPLING_CREATE_MESSAGE</a></code></div>
 <div class="col-last even-row-color">
-<div class="block">Method for creating a new sampling message.</div>
+<div class="block">Name of an embedded <code>sampling/createMessage</code> request.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#TOOLS_CALL" class="member-name-link">TOOLS_CALL</a></code></div>
+<div class="col-first odd-row-color"><code><a href="#SERVER_DISCOVER" class="member-name-link">SERVER_DISCOVER</a></code></div>
 <div class="col-last odd-row-color">
+<div class="block">Method for discovering a server's supported protocol revisions,
+ capabilities, and identity.</div>
+</div>
+<div class="col-first even-row-color"><code><a href="#SUBSCRIPTIONS_LISTEN" class="member-name-link">SUBSCRIPTIONS_LISTEN</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">Method for opening a long-lived notification stream.</div>
+</div>
+<div class="col-first odd-row-color"><code><a href="#TASKS_CANCEL" class="member-name-link">TASKS_CANCEL</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">Method for explicitly cancelling a task (tasks extension).</div>
+</div>
+<div class="col-first even-row-color"><code><a href="#TASKS_GET" class="member-name-link">TASKS_GET</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">Method for polling a task's current state (tasks extension).</div>
+</div>
+<div class="col-first odd-row-color"><code><a href="#TASKS_UPDATE" class="member-name-link">TASKS_UPDATE</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">Method for delivering input to a task that is waiting for it (tasks extension).</div>
+</div>
+<div class="col-first even-row-color"><code><a href="#TOOLS_CALL" class="member-name-link">TOOLS_CALL</a></code></div>
+<div class="col-last even-row-color">
 <div class="block">Method for invoking a specific tool.</div>
 </div>
-<div class="col-first even-row-color"><code><a href="#TOOLS_LIST" class="member-name-link">TOOLS_LIST</a></code></div>
-<div class="col-last even-row-color">
+<div class="col-first odd-row-color"><code><a href="#TOOLS_LIST" class="member-name-link">TOOLS_LIST</a></code></div>
+<div class="col-last odd-row-color">
 <div class="block">Method for listing all available tools.</div>
 </div>
 </div>
@@ -255,19 +283,18 @@ the order they are declared.</div>
 <h2>Enum Constant Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="INITIALIZE">
-<h3>INITIALIZE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">INITIALIZE</span></div>
-<div class="block">Method for initializing a connection between client and server.
- Used to establish protocol version and exchange capabilities.</div>
-</section>
-</li>
-<li>
-<section class="detail" id="NOTIFICATIONS_INITIALIZED">
-<h3>NOTIFICATIONS_INITIALIZED</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATIONS_INITIALIZED</span></div>
-<div class="block">Notification sent after successful initialization.
- Indicates that the connection is ready for use.</div>
+<section class="detail" id="SERVER_DISCOVER">
+<h3>SERVER_DISCOVER</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">SERVER_DISCOVER</span></div>
+<div class="block">Method for discovering a server's supported protocol revisions,
+ capabilities, and identity.
+ <p>
+ Introduced in <code>2026-07-28</code> as the sessionless replacement for the
+ <code>initialize</code> handshake. Servers MUST implement it. On stdio a
+ client sends it first as a backward-compatibility probe: an answer means
+ the server speaks the stateless lifecycle, and silence or an error means
+ it should fall back to the legacy handshake.
+ </p></div>
 </section>
 </li>
 <li>
@@ -299,7 +326,11 @@ the order they are declared.</div>
 <h3>NOTIFICATION_CANCELLED</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATION_CANCELLED</span></div>
 <div class="block">Notification sent when an operation is cancelled.
- Indicates that a long-running operation has been terminated.</div>
+ <p>
+ Its <code>requestId</code> is required on this revision. It is also how a
+ client tears down a <code>subscriptions/listen</code> stream, since stdio has
+ no stream to close.
+ </p></div>
 </section>
 </li>
 <li>
@@ -327,35 +358,23 @@ the order they are declared.</div>
 </section>
 </li>
 <li>
-<section class="detail" id="PING">
-<h3>PING</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">PING</span></div>
-<div class="block">Method for health check or keep-alive.
- Used to verify that the connection is still active.</div>
-</section>
-</li>
-<li>
-<section class="detail" id="ROOTS">
-<h3>ROOTS</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">ROOTS</span></div>
-<div class="block">Method for listing available roots.
- Returns the root directories or locations available in the server.</div>
-</section>
-</li>
-<li>
-<section class="detail" id="NOTIFICATIONS_ROOTS_LIST_CHANGED">
-<h3>NOTIFICATIONS_ROOTS_LIST_CHANGED</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATIONS_ROOTS_LIST_CHANGED</span></div>
-<div class="block">Notification sent when the roots list has changed.
- Indicates that roots have been added, removed, or modified.</div>
-</section>
-</li>
-<li>
 <section class="detail" id="RESOURCES_LIST">
 <h3>RESOURCES_LIST</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">RESOURCES_LIST</span></div>
 <div class="block">Method for listing available resources.
  Returns resources that can be accessed by the client.</div>
+</section>
+</li>
+<li>
+<section class="detail" id="RESOURCES_TEMPLATES_LIST">
+<h3>RESOURCES_TEMPLATES_LIST</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">RESOURCES_TEMPLATES_LIST</span></div>
+<div class="block">Method for listing available resource templates.
+ <p>
+ Clients fetch this alongside <code>resources/list</code> whenever the server
+ declares any resource capability, so a server that advertises resources
+ must answer it even when it has no templates.
+ </p></div>
 </section>
 </li>
 <li>
@@ -367,11 +386,97 @@ the order they are declared.</div>
 </section>
 </li>
 <li>
+<section class="detail" id="SUBSCRIPTIONS_LISTEN">
+<h3>SUBSCRIPTIONS_LISTEN</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">SUBSCRIPTIONS_LISTEN</span></div>
+<div class="block">Method for opening a long-lived notification stream.
+ <p>
+ Introduced in <code>2026-07-28</code> to replace the HTTP GET endpoint and
+ the <code>resources/subscribe</code> family. On stdio the request is left
+ unanswered for the life of the subscription; notifications are
+ interleaved on stdout and demultiplexed by
+ <a href="MetaKeys.html#SUBSCRIPTION_ID"><code>MetaKeys.SUBSCRIPTION_ID</code></a>.
+ </p></div>
+</section>
+</li>
+<li>
+<section class="detail" id="NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED">
+<h3>NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED</span></div>
+<div class="block">Notification reporting which subset of a <code>subscriptions/listen</code>
+ filter the server honored.
+ <p>
+ It must carry <a href="MetaKeys.html#SUBSCRIPTION_ID"><code>MetaKeys.SUBSCRIPTION_ID</code></a>; without it the client
+ waits forever with no error and no timeout.
+ </p></div>
+</section>
+</li>
+<li>
+<section class="detail" id="TASKS_GET">
+<h3>TASKS_GET</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">TASKS_GET</span></div>
+<div class="block">Method for polling a task's current state (tasks extension).
+ Returns the <a href="Task.html" title="class in com.workshop.mcp.spec"><code>Task</code></a> snapshot without blocking.</div>
+</section>
+</li>
+<li>
+<section class="detail" id="TASKS_UPDATE">
+<h3>TASKS_UPDATE</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">TASKS_UPDATE</span></div>
+<div class="block">Method for delivering input to a task that is waiting for it (tasks extension).
+ <p>
+ This replaced the blocking <code>tasks/result</code> method. Its only job is
+ to hand <code>inputResponses</code> to a task sitting in
+ <a href="TaskStatus.html#INPUT_REQUIRED"><code>TaskStatus.INPUT_REQUIRED</code></a>.
+ </p></div>
+</section>
+</li>
+<li>
+<section class="detail" id="TASKS_CANCEL">
+<h3>TASKS_CANCEL</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">TASKS_CANCEL</span></div>
+<div class="block">Method for explicitly cancelling a task (tasks extension).</div>
+</section>
+</li>
+<li>
+<section class="detail" id="NOTIFICATIONS_TASKS">
+<h3>NOTIFICATIONS_TASKS</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATIONS_TASKS</span></div>
+<div class="block">Notification sent when a task transitions to a new status (tasks extension).
+ <p>
+ The method name is the bare <code>notifications/tasks</code>, not
+ <code>notifications/tasks/status</code>; the <code>notifications/tasks/</code>
+ prefix is reserved for future use. The params are the full task
+ snapshot.
+ </p></div>
+</section>
+</li>
+<li>
+<section class="detail" id="ROOTS_LIST">
+<h3>ROOTS_LIST</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">ROOTS_LIST</span></div>
+<div class="block">Name of an embedded <code>roots/list</code> request.
+ <p>
+ Not a method this server receives. Modern clients discard inbound
+ server-to-client requests, so a server that needs the client's roots
+ embeds this name in an <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a> instead.
+ </p></div>
+</section>
+</li>
+<li>
 <section class="detail" id="SAMPLING_CREATE_MESSAGE">
 <h3>SAMPLING_CREATE_MESSAGE</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">SAMPLING_CREATE_MESSAGE</span></div>
-<div class="block">Method for creating a new sampling message.
- Used to initiate a sampling operation with specific parameters.</div>
+<div class="block">Name of an embedded <code>sampling/createMessage</code> request.
+ Embedded in an <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a> rather than sent as a request.</div>
+</section>
+</li>
+<li>
+<section class="detail" id="ELICITATION_CREATE">
+<h3>ELICITATION_CREATE</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">ELICITATION_CREATE</span></div>
+<div class="block">Name of an embedded <code>elicitation/create</code> request.
+ Embedded in an <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a> rather than sent as a request.</div>
 </section>
 </li>
 </ul>

@@ -1,18 +1,22 @@
 package com.workshop.mcp.tasks;
 
+import com.workshop.mcp.spec.ErrorCodes;
+import com.workshop.mcp.spec.InputRequest;
+import com.workshop.mcp.spec.JsonRpcError;
 import com.workshop.mcp.spec.Task;
+import com.workshop.mcp.spec.TaskResult;
 import com.workshop.mcp.spec.TaskStatus;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
- * In-memory store for {@link Task} state and underlying results. Kept
+ * In-memory store for {@link Task} state and the payloads tasks produce. Kept
  * framework-free (no executor pool, no DB) to match the workshop's "raw
  * protocol, plain Java" pedagogical style.
  *
@@ -22,10 +26,14 @@ import java.util.function.Consumer;
  * {@link #onStatusChange(Consumer)} fire after the entry's state has been
  * updated, outside the lock, so they cannot deadlock back into the store.</p>
  *
- * <p>Task IDs are randomly generated UUIDs — the spec requires them to be
+ * <p>Task IDs are randomly generated UUIDs — the extension requires them to be
  * unique among all tasks controlled by this receiver and unguessable when
  * authorization is unavailable. The workshop server is stdio-only with no
- * authorization, so the UUID's entropy is the only access control.</p>
+ * authorization, so the UUID's entropy is the only access control. That
+ * unguessability carries more weight now that protocol sessions are gone:
+ * there is no session to scope a task to, which is also why the extension
+ * dropped {@code tasks/list} — a listing would leak other callers' task
+ * ids.</p>
  *
  * @since 1.0
  */
@@ -34,62 +42,31 @@ public class TaskStore {
     /** Default suggested polling interval if none is supplied. */
     public static final long DEFAULT_POLL_INTERVAL_MILLIS = 1000L;
 
-    /** Hard ceiling on TTL — receivers MAY override the requested TTL per spec. */
+    /** Hard ceiling on TTL — receivers MAY override the requested TTL. */
     public static final long MAX_TTL_MILLIS = 5L * 60_000L;
 
     private final ConcurrentHashMap<String, Entry> entries = new ConcurrentHashMap<>();
-    private final List<Consumer<Task>> statusListeners = new CopyOnWriteArrayList<>();
-    private final List<PendingResult> pendingResultDeliveries = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Consumer<TaskResult>> statusListeners = new CopyOnWriteArrayList<>();
 
     /**
-     * Register a callback to be invoked every time a task's status changes.
-     * Used by the router to emit {@code notifications/tasks/status}.
+     * Register a callback invoked every time a task's status changes.
+     * Used by the router to emit {@code notifications/tasks}.
      *
-     * @param listener invoked with the post-change {@link Task} snapshot
+     * @param listener invoked with the post-change notification projection
      */
-    public void onStatusChange(Consumer<Task> listener) {
+    public void onStatusChange(Consumer<TaskResult> listener) {
         statusListeners.add(listener);
-    }
-
-    /**
-     * Register a one-shot callback to be invoked when {@code taskId} reaches a
-     * terminal status. If the task is already terminal, the callback fires
-     * immediately on the calling thread. Used by the router to implement the
-     * blocking semantics of {@code tasks/result} without blocking the routing
-     * thread itself.
-     *
-     * @param taskId   task whose terminal state we are waiting for
-     * @param callback receives the terminal {@link Task} snapshot
-     */
-    public void awaitTerminal(String taskId, Consumer<Task> callback) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            callback.accept(null);
-            return;
-        }
-        Task snapshot;
-        boolean terminal;
-        synchronized (entry) {
-            snapshot = entry.snapshot();
-            terminal = TaskStatus.fromValue(snapshot.status()).isTerminal();
-            if (!terminal) {
-                pendingResultDeliveries.add(new PendingResult(taskId, callback));
-                return;
-            }
-        }
-        callback.accept(snapshot);
     }
 
     /**
      * Create a new task in {@link TaskStatus#WORKING WORKING} status.
      *
-     * @param requestedTtlMillis client-requested TTL; may be {@code null}.
-     *                           The store may override it (spec § TTL).
+     * @param requestedTtlMillis a requested TTL; may be {@code null}. The
+     *                           store may override it.
      * @return a snapshot of the freshly created task
      */
     public Task create(Long requestedTtlMillis) {
         String id = UUID.randomUUID().toString();
-        long ttl = clampTtl(requestedTtlMillis);
         String now = Instant.now().toString();
         Entry entry = new Entry(
             id,
@@ -97,13 +74,12 @@ public class TaskStore {
             "The operation is now in progress.",
             now,
             now,
-            ttl,
-            DEFAULT_POLL_INTERVAL_MILLIS,
-            null
+            clampTtl(requestedTtlMillis),
+            DEFAULT_POLL_INTERVAL_MILLIS
         );
         entries.put(id, entry);
         Task snapshot = entry.snapshot();
-        fireStatusChange(snapshot);
+        fireStatusChange(entry, snapshot);
         return snapshot;
     }
 
@@ -113,47 +89,28 @@ public class TaskStore {
      */
     public Task get(String taskId) {
         Entry entry = entries.get(taskId);
-        if (entry == null) return null;
+        if (entry == null) {
+            return null;
+        }
         synchronized (entry) {
             return entry.snapshot();
         }
     }
 
     /**
-     * @return snapshots of every task currently in the store
+     * Projects a task for {@code tasks/get}, including the payload its status
+     * calls for.
+     *
+     * @param taskId task identifier
+     * @return the detailed snapshot, or {@code null} if no such task
      */
-    public List<Task> list() {
-        List<Task> out = new ArrayList<>(entries.size());
-        for (Entry entry : entries.values()) {
-            synchronized (entry) {
-                out.add(entry.snapshot());
-            }
-        }
-        return out;
-    }
-
-    /**
-     * @return {@code true} if the underlying request payload (success result
-     *         or JSON-RPC error) has been stored for {@code taskId}
-     */
-    public boolean isTerminal(String taskId) {
+    public TaskResult detail(String taskId) {
         Entry entry = entries.get(taskId);
-        if (entry == null) return false;
-        synchronized (entry) {
-            return TaskStatus.fromValue(entry.status).isTerminal();
+        if (entry == null) {
+            return null;
         }
-    }
-
-    /**
-     * @return the stored underlying-request result for a completed task, or
-     *         {@code null} if no result has been recorded (task may be
-     *         cancelled or not yet finished)
-     */
-    public Object resultFor(String taskId) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) return null;
         synchronized (entry) {
-            return entry.result;
+            return TaskResult.detail(entry.snapshot(), entry.result, entry.error, entry.inputRequests);
         }
     }
 
@@ -164,25 +121,140 @@ public class TaskStore {
      * @param result the payload that the original request would have returned
      */
     public void complete(String taskId, Object result) {
-        Task snapshot = transition(taskId, TaskStatus.COMPLETED, "The operation completed successfully.", result);
-        if (snapshot != null) {
-            fireStatusChange(snapshot);
-            drainPending(taskId, snapshot);
+        Entry entry = entries.get(taskId);
+        if (entry == null) {
+            return;
         }
+        Task snapshot;
+        synchronized (entry) {
+            if (entry.isTerminal()) {
+                return;
+            }
+            entry.status = TaskStatus.COMPLETED.getValue();
+            entry.statusMessage = "The operation completed successfully.";
+            entry.lastUpdatedAt = Instant.now().toString();
+            entry.result = result;
+            entry.inputRequests = null;
+            snapshot = entry.snapshot();
+        }
+        fireStatusChange(entry, snapshot);
     }
 
     /**
      * Record failure of the underlying request.
      *
      * @param taskId target task
-     * @param reason human-readable failure message — surfaced via
-     *               {@code statusMessage}
+     * @param reason human-readable failure message, surfaced both as
+     *               {@code statusMessage} and as the {@code error} payload
      */
     public void fail(String taskId, String reason) {
-        Task snapshot = transition(taskId, TaskStatus.FAILED, reason, null);
-        if (snapshot != null) {
-            fireStatusChange(snapshot);
-            drainPending(taskId, snapshot);
+        Entry entry = entries.get(taskId);
+        if (entry == null) {
+            return;
+        }
+        Task snapshot;
+        synchronized (entry) {
+            if (entry.isTerminal()) {
+                return;
+            }
+            entry.status = TaskStatus.FAILED.getValue();
+            entry.statusMessage = reason;
+            entry.lastUpdatedAt = Instant.now().toString();
+            entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
+            entry.inputRequests = null;
+            snapshot = entry.snapshot();
+        }
+        fireStatusChange(entry, snapshot);
+    }
+
+    /**
+     * Move the task into {@link TaskStatus#INPUT_REQUIRED INPUT_REQUIRED},
+     * publishing what it needs so a client polling {@code tasks/get} can see
+     * it and answer with {@code tasks/update}.
+     *
+     * @param taskId        target task
+     * @param inputRequests what the task needs, keyed by identifier
+     * @return the post-transition snapshot, or {@code null} if the task does
+     *         not exist or is already terminal
+     */
+    public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) {
+        Entry entry = entries.get(taskId);
+        if (entry == null) {
+            return null;
+        }
+        Task snapshot;
+        synchronized (entry) {
+            if (entry.isTerminal()) {
+                return null;
+            }
+            entry.status = TaskStatus.INPUT_REQUIRED.getValue();
+            entry.statusMessage = "The operation is waiting for input.";
+            entry.lastUpdatedAt = Instant.now().toString();
+            entry.inputRequests = inputRequests;
+            snapshot = entry.snapshot();
+        }
+        fireStatusChange(entry, snapshot);
+        return snapshot;
+    }
+
+    /**
+     * Deliver {@code tasks/update} input to a task that asked for it, moving
+     * it back to {@link TaskStatus#WORKING WORKING}.
+     * <p>
+     * Only answers the task actually asked for are retained; anything else is
+     * ignored, since the keys are chosen by this server and must not be
+     * reused across a task's lifetime.
+     * </p>
+     *
+     * @param taskId         target task
+     * @param inputResponses the answers, keyed by the identifiers the task asked under
+     * @return the post-transition snapshot, or {@code null} if the task does
+     *         not exist or was not waiting for input
+     */
+    public Task applyInput(String taskId, Map<String, Object> inputResponses) {
+        Entry entry = entries.get(taskId);
+        if (entry == null) {
+            return null;
+        }
+        Task snapshot;
+        synchronized (entry) {
+            if (!TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)) {
+                return null;
+            }
+            Map<String, Object> accepted = new HashMap<>();
+            if (inputResponses != null && entry.inputRequests != null) {
+                for (String key : entry.inputRequests.keySet()) {
+                    Object answer = inputResponses.get(key);
+                    if (answer != null) {
+                        accepted.put(key, answer);
+                    }
+                }
+            }
+            entry.status = TaskStatus.WORKING.getValue();
+            entry.statusMessage = "The operation resumed with the input provided.";
+            entry.lastUpdatedAt = Instant.now().toString();
+            entry.inputRequests = null;
+            entry.inputResponses = accepted;
+            snapshot = entry.snapshot();
+        }
+        fireStatusChange(entry, snapshot);
+        return snapshot;
+    }
+
+    /**
+     * Returns the input a task received through {@code tasks/update}, so the
+     * background work can pick it up and continue.
+     *
+     * @param taskId target task
+     * @return the accepted answers, or an empty map when there are none
+     */
+    public Map<String, Object> inputResponsesFor(String taskId) {
+        Entry entry = entries.get(taskId);
+        if (entry == null) {
+            return Map.of();
+        }
+        synchronized (entry) {
+            return entry.inputResponses == null ? Map.of() : Map.copyOf(entry.inputResponses);
         }
     }
 
@@ -190,7 +262,7 @@ public class TaskStore {
      * Move the task to {@link TaskStatus#CANCELLED CANCELLED}. Returns
      * {@code null} if the task does not exist or is already in a terminal
      * state — callers should treat {@code null} as the {@code -32602}
-     * Invalid params condition required by the spec.
+     * Invalid params condition.
      *
      * @param taskId target task
      * @return the post-cancellation snapshot, or {@code null} if the
@@ -198,57 +270,34 @@ public class TaskStore {
      */
     public Task cancel(String taskId) {
         Entry entry = entries.get(taskId);
-        if (entry == null) return null;
+        if (entry == null) {
+            return null;
+        }
         Task snapshot;
         synchronized (entry) {
-            TaskStatus current = TaskStatus.fromValue(entry.status);
-            if (current.isTerminal()) {
+            if (entry.isTerminal()) {
                 return null;
             }
             entry.status = TaskStatus.CANCELLED.getValue();
             entry.statusMessage = "The task was cancelled by request.";
             entry.lastUpdatedAt = Instant.now().toString();
+            entry.inputRequests = null;
             snapshot = entry.snapshot();
         }
-        fireStatusChange(snapshot);
-        drainPending(taskId, snapshot);
+        fireStatusChange(entry, snapshot);
         return snapshot;
     }
 
-    private Task transition(String taskId, TaskStatus next, String message, Object result) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) return null;
+    private void fireStatusChange(Entry entry, Task snapshot) {
+        Object result;
+        JsonRpcError error;
         synchronized (entry) {
-            TaskStatus current = TaskStatus.fromValue(entry.status);
-            if (current.isTerminal()) {
-                return null;
-            }
-            entry.status = next.getValue();
-            entry.statusMessage = message;
-            entry.lastUpdatedAt = Instant.now().toString();
-            if (result != null) {
-                entry.result = result;
-            }
-            return entry.snapshot();
+            result = entry.result;
+            error = entry.error;
         }
-    }
-
-    private void fireStatusChange(Task snapshot) {
-        for (Consumer<Task> listener : statusListeners) {
-            listener.accept(snapshot);
-        }
-    }
-
-    private void drainPending(String taskId, Task terminalSnapshot) {
-        List<PendingResult> matches = new ArrayList<>();
-        for (PendingResult pending : pendingResultDeliveries) {
-            if (pending.taskId.equals(taskId)) {
-                matches.add(pending);
-            }
-        }
-        pendingResultDeliveries.removeAll(matches);
-        for (PendingResult pending : matches) {
-            pending.callback.accept(terminalSnapshot);
+        TaskResult projection = TaskResult.notification(snapshot, result, error);
+        for (Consumer<TaskResult> listener : statusListeners) {
+            listener.accept(projection);
         }
     }
 
@@ -266,27 +315,32 @@ public class TaskStore {
         String statusMessage;
         final String createdAt;
         String lastUpdatedAt;
-        final Long ttl;
-        final Long pollInterval;
+        final Long ttlMs;
+        final Long pollIntervalMs;
         Object result;
+        JsonRpcError error;
+        Map<String, InputRequest> inputRequests;
+        Map<String, Object> inputResponses;
 
         Entry(String taskId, String status, String statusMessage,
               String createdAt, String lastUpdatedAt,
-              Long ttl, Long pollInterval, Object result) {
+              Long ttlMs, Long pollIntervalMs) {
             this.taskId = taskId;
             this.status = status;
             this.statusMessage = statusMessage;
             this.createdAt = createdAt;
             this.lastUpdatedAt = lastUpdatedAt;
-            this.ttl = ttl;
-            this.pollInterval = pollInterval;
-            this.result = result;
+            this.ttlMs = ttlMs;
+            this.pollIntervalMs = pollIntervalMs;
+        }
+
+        boolean isTerminal() {
+            TaskStatus current = TaskStatus.fromValue(status);
+            return current != null && current.isTerminal();
         }
 
         Task snapshot() {
-            return new Task(taskId, status, statusMessage, createdAt, lastUpdatedAt, ttl, pollInterval);
+            return new Task(taskId, status, statusMessage, createdAt, lastUpdatedAt, ttlMs, pollIntervalMs);
         }
     }
-
-    private record PendingResult(String taskId, Consumer<Task> callback) {}
 }

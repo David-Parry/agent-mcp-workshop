@@ -1,6 +1,7 @@
 package com.workshop.mcp.io;
 
 import com.google.gson.Gson;
+import com.workshop.mcp.spec.McpGson;
 
 import java.io.PrintWriter;
 import java.util.List;
@@ -37,7 +38,7 @@ public class IOHandlerImpl implements IOHandler {
     private final AtomicBoolean running;
     
     /** Gson instance for JSON serialization of output messages */
-    private final Gson gson = new Gson();
+    private final Gson gson = McpGson.create();
 
     /**
      * Constructs an IOHandlerImpl that uses System.in for input and System.out for output.

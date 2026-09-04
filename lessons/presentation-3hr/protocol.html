@@ -160,10 +160,14 @@
   "id": 6,
   "method": "tools/list",
   "params": {
-    "_meta": { "progressToken": 6 }
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion":
+        "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
   }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">Has an <code>id</code> — expects a Response back with the same id.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Has an <code>id</code> — expects a Response back with the same id, in the same <em>type</em>. Ids may be strings or numbers.</p>
             </div>
             <div class="msg-card">
                 <span class="label label-response">Response</span>
@@ -172,22 +176,29 @@
   "jsonrpc": "2.0",
   "id": 6,
   "result": {
+    "resultType": "complete",
     "tools": [{
       "name": "key_word_search",
       "description": "..."
-    }]
+    }],
+    "ttlMs": 60000,
+    "cacheScope": "public"
   }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">Returns <code>result</code> with the same <code>id</code> as the Request.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Returns <code>result</code> with the same <code>id</code>. Every result carries <code>resultType</code>; cacheable ones also carry <code>ttlMs</code> and <code>cacheScope</code>.</p>
             </div>
             <div class="msg-card">
                 <span class="label label-notification">Notification</span>
                 <h4>Either Side → Other Side</h4>
                 <pre>{
   "jsonrpc": "2.0",
-  "method": "notifications/initialized"
+  "method": "notifications/cancelled",
+  "params": {
+    "requestId": "listen:0",
+    "reason": "user navigated away"
+  }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected. This is the only message shape a server may send unprompted.</p>
             </div>
             <div class="msg-card">
                 <span class="label label-error">Error Response</span>
@@ -197,11 +208,16 @@
   "id": 7,
   "error": {
     "code": -32601,
-    "message": "Method not found"
+    "message": "Method not found: initialize"
   }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">Standard error codes: -32700 Parse Error, -32600 Invalid Request, -32601 Method Not Found.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Standard codes: -32700 Parse Error, -32600 Invalid Request, -32601 Method Not Found, -32602 Invalid Params. MCP adds -32021 and -32022 in the reserved -32020..-32099 band.</p>
             </div>
+        </div>
+
+        <div class="msg-card" style="margin-top:16px;border-color:rgba(122,162,247,0.4)">
+            <h4>The Fourth Shape That No Longer Exists</h4>
+            <p style="font-size:13px;margin:0">JSON-RPC is symmetric: either party may send a Request. MCP used that symmetry until revision <code>2026-07-28</code> — the server would send <code>roots/list</code> or <code>elicitation/create</code> <em>to</em> the client. <strong>Modern clients silently discard inbound requests.</strong> A server now has exactly two things it may put on the wire: a response to something it was asked, and a notification. Everything else — including questions — has to fit inside a response. That constraint is what the <a href="extensions.html" style="color:var(--accent)">Extensions</a> chapter is about.</p>
         </div>
 
         <h3>MCP Method Namespace</h3>
@@ -209,8 +225,8 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
             <div class="msg-card" style="padding:10px">
-                <span class="label label-request" style="margin-bottom:6px;display:inline-block">initialize</span>
-                <p style="font-size:12px;color:var(--muted);margin:0">Protocol handshake — first message, always</p>
+                <span class="label label-request" style="margin-bottom:6px;display:inline-block">server/discover</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">Versions, capabilities, identity — creates no session</p>
             </div>
             <div class="msg-card" style="padding:10px">
                 <span class="label" style="background:rgba(122,162,247,0.2);color:var(--accent);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">resources/*</span>
@@ -225,25 +241,30 @@
                 <p style="font-size:12px;color:var(--muted);margin:0">list, get — discover and fetch templates</p>
             </div>
             <div class="msg-card" style="padding:10px">
-                <span class="label" style="background:rgba(187,154,247,0.2);color:var(--purple);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">sampling/*</span>
-                <p style="font-size:12px;color:var(--muted);margin:0">createMessage — server asks client to run LLM</p>
+                <span class="label" style="background:rgba(187,154,247,0.2);color:var(--purple);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">tasks/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">get, update, cancel — long-running work</p>
             </div>
             <div class="msg-card" style="padding:10px">
-                <span class="label" style="background:rgba(247,118,142,0.2);color:var(--red);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">elicitation/*</span>
-                <p style="font-size:12px;color:var(--muted);margin:0">create — server requests structured user input</p>
+                <span class="label" style="background:rgba(247,118,142,0.2);color:var(--red);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">subscriptions/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">listen — one request carrying every server push</p>
             </div>
         </div>
 
-        <h3>Stateless by Design</h3>
-        <p>Each request-response pair is independent. The server holds no session state between calls. This means:</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px">Three namespaces are conspicuously absent from that grid, and their absence is the shape of the revision. <code>roots/*</code>, <code>sampling/*</code>, and <code>elicitation/*</code> are no longer methods you can send anywhere: they exist only <em>embedded inside a result</em>. Send one to this server and you get <code>-32601</code>, the same as any deleted method.</p>
+
+        <h3>Stateless by Design — Now Literally</h3>
+        <p>This slide used to carry an asterisk. The server held no application state between calls, but it did hold a session: a negotiated protocol version, a capability set, a roots list, sometimes a half-finished tool call. Revision <code>2026-07-28</code> removed the asterisk by removing the session.</p>
         <ul>
-            <li>Any request can arrive in any order (after initialization)</li>
-            <li>Servers can be scaled horizontally</li>
-            <li>Debugging is simpler — each message is self-contained</li>
+            <li><strong>Any request can arrive in any order</strong> — there is no "after initialization" any more, because there is no initialization</li>
+            <li><strong>Servers scale horizontally</strong> — every request is self-describing, so any instance behind a load balancer can serve any request; no sticky routing, no shared session store</li>
+            <li><strong>Results become cacheable</strong> — a self-describing request has a stable identity, which is why <code>ttlMs</code> and <code>cacheScope</code> could be added at all</li>
+            <li><strong>Debugging is simpler</strong> — one captured line is a complete, replayable request</li>
         </ul>
+        <p style="color:var(--muted);font-size:13px">Nothing is free. The cost is paid twice over: the server cannot send a request, and it cannot remember a half-finished one. Chapters 5 and 7 are, between them, the bill.</p>
 
         <h3>Capability-Based Feature Detection</h3>
-        <p>During <code>initialize</code>, both sides declare what they support. The server only sends elicitation requests if the client advertised <code>elicitation: {}</code>. The client only uses sampling if the server didn't advertise it. No guessing — explicit opt-in at every level.</p>
+        <p>Both sides still declare what they support; what changed is <em>when</em>. The server declares once, in the <code>server/discover</code> result, and the client may cache it. The client declares <strong>on every single request</strong>, in the <code>_meta</code> envelope — because the server has nowhere to write it down.</p>
+        <p>The effect is the same: a server may only embed an <code>elicitation/create</code> if <em>this</em> request's envelope declared <code>elicitation</code>, and may only hand back a task if <em>this</em> request's envelope declared the tasks extension. No guessing — explicit opt-in, restated every time.</p>
     </section>
 
     <!-- IDE Demo: Chapter 1 Transport Layer -->
@@ -295,7 +316,7 @@
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>

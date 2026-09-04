@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -95,17 +95,31 @@ loadScripts(document, 'script');</script>
 <dd><code><span id="param-progressToken">progressToken</span></code> - a unique token used to track the progress of an operation</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">MetaInfo</span>(int&nbsp;progressToken)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">MetaInfo</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;progressToken)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">Represents metadata information for tracking progress in the MCP (Model Context Protocol) system.
  <p>
  MetaInfo provides additional context for operations, particularly for tracking
  the progress of long-running operations through progress tokens. This allows
  clients to monitor and report on the status of ongoing tasks.
+ </p>
+ <p>
+ On revision <code>2026-07-28</code> the same <code>_meta</code> object also carries the
+ stateless lifecycle envelope. Those keys are namespaced identifiers that
+ cannot be record component names, so they are read separately by
+ <a href="JsonRpcMessageDeserializer.html#deserializeEnvelope(com.workshop.mcp.spec.JsonRpcRequest)"><code>JsonRpcMessageDeserializer.deserializeEnvelope(JsonRpcRequest)</code></a>.
+ <code>progressToken</code> is boxed so its absence reads as null rather than
+ zero, which is a real token value.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
 <dd>1.0</dd>
+<dt>See Also:</dt>
+<dd>
+<ul class="tag-list">
+<li><a href="RequestEnvelope.html" title="class in com.workshop.mcp.spec"><code>RequestEnvelope</code></a></li>
+</ul>
+</dd>
 </dl>
 </section>
 <section class="summary">
@@ -118,7 +132,7 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(int)" class="member-name-link">MetaInfo</a><wbr>(int&nbsp;progressToken)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.lang.Integer)" class="member-name-link">MetaInfo</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;progressToken)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates an instance of a <code>MetaInfo</code> record class.</div>
 </div>
@@ -146,7 +160,7 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#progressToken()" class="member-name-link">progressToken</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-progressToken"><code>progressToken</code></a> record component.</div>
@@ -174,9 +188,9 @@ loadScripts(document, 'script');</script>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(int)">
+<section class="detail" id="&lt;init&gt;(java.lang.Integer)">
 <h3>MetaInfo</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">MetaInfo</span><wbr><span class="parameters">(int&nbsp;progressToken)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">MetaInfo</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;progressToken)</span></div>
 <div class="block">Creates an instance of a <code>MetaInfo</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -222,7 +236,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="equals(java.lang.Object)">
 <h3>equals</h3>
 <div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">equals</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</span></div>
-<div class="block">Indicates whether some other object is "equal to" this one. The objects are equal if the other object is of the same class and if all the record components are equal. All components in this record class are compared with '=='.</div>
+<div class="block">Indicates whether some other object is "equal to" this one. The objects are equal if the other object is of the same class and if all the record components are equal. All components in this record class are compared with <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Objects.html#equals(java.lang.Object,java.lang.Object)" title="class or interface in java.util" class="external-link"><code>Objects::equals(Object,Object)</code></a>.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
 <dd><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html#equals(java.lang.Object)" title="class or interface in java.lang" class="external-link">equals</a></code>&nbsp;in class&nbsp;<code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></code></dd>
@@ -236,7 +250,7 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="progressToken()">
 <h3>progressToken</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">progressToken</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></span>&nbsp;<span class="element-name">progressToken</span>()</div>
 <div class="block">Returns the value of the <a href="#param-progressToken"><code>progressToken</code></a> record component.</div>
 <dl class="notes">
 <dt>Returns:</dt>

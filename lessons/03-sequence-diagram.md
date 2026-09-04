@@ -1,52 +1,65 @@
-# Server Sequence Diagram 
+# Server Sequence Diagram
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Server
-    
-    Note over Client,Server: Initialization Phase (Required)
-    
-    Client->>Server: initialize (request)
-    Note right of Server: Checks client capabilities:<br/>- hasRoots = (roots != null)<br/>- hasSampling = (sampling != null)
-    Server-->>Client: initialize (response)
-    Note right of Server: Returns:<br/>- protocolVersion<br/>- serverCapabilities<br/>- serverInfo
-    
-    Client->>Server: notifications/initialized
-    Note right of Server: Logs: "Initializing notifications<br/>must wait for this before<br/>calling the client."
-    
-    Note over Client,Server: Currently Implemented Operations
-    
-    rect rgb(150, 100, 255)
-        Note over Client,Server: Ping Operation
-        Client->>Server: ping (request)
-        Server-->>Client: ping (response)
-        Note right of Server: Returns empty object {}
+
+    Note over Client,Server: Discovery — no handshake, no session
+
+    rect rgb(100, 150, 255)
+        Client->>Server: server/discover (id: "server-discover-probe-1")
+        Note right of Server: Answered before any version check:<br/>the client is asking what we speak
+        Server-->>Client: result
+        Note right of Server: Returns:<br/>- supportedVersions<br/>- capabilities<br/>- instructions, ttlMs, cacheScope<br/>- _meta["io.modelcontextprotocol/serverInfo"]
     end
-    
+
+    Note over Client,Server: Every subsequent request carries its own envelope
+
+    rect rgb(120, 200, 150)
+        Client->>Server: any method + params._meta
+        Note right of Server: RequestEnvelope holds:<br/>- protocolVersion (required)<br/>- clientCapabilities (required)<br/>- clientInfo (optional)<br/>- logLevel (optional)
+    end
+
+    Note over Client,Server: Three distinct rejections
+
     rect rgb(255, 150, 100)
-        Note over Client,Server: Cancellation Notification
-        Client->>Server: notifications/cancelled
-        Note right of Server: Logs cancellation reason<br/>from NotificationCancelledParams:<br/>- requestId<br/>- reason
+        Client->>Server: initialize
+        Server-->>Client: -32601 Method not found
+        Note right of Server: Removal is physical — absence<br/>from the method registry.<br/>Checked before the envelope.
     end
-    
-    Note over Client,Server: Error Handling
-    
+
+    rect rgb(255, 150, 100)
+        Client->>Server: tools/list (no _meta)
+        Server-->>Client: -32602 Invalid params
+        Note right of Server: protocolVersion and<br/>clientCapabilities are required
+    end
+
+    rect rgb(255, 150, 100)
+        Client->>Server: tools/list (_meta says 2025-11-25)
+        Server-->>Client: -32022 Unsupported protocol version
+        Note right of Server: data carries requested + supported<br/>so the client knows what to renegotiate to
+    end
+
+    Note over Client,Server: Notifications
+
+    rect rgb(200, 150, 255)
+        Client->>Server: notifications/cancelled
+        Note right of Server: Logs the reason from<br/>NotificationCancelledParams:<br/>- requestId (string or number)<br/>- reason
+    end
+
+    Note over Client,Server: Fallthrough logging
+
     alt Client sends error response
         Client->>Server: JsonRpcErrorResponse
         Note right of Server: Logs: "Error from Client"
     end
-    
+
     alt Unknown message type
         Client->>Server: Unknown message
-        Note right of Server: Logs: "Unknown message type"
+        Note right of Server: Logs: "unknown message type"
     end
-    
-    alt Unhandled request method
-        Client->>Server: Unhandled request
-        Note right of Server: Logs: "Unhandled RpcRequest method"
-    end
-    
+
     alt Unhandled notification
         Client->>Server: Unhandled notification
         Note right of Server: Logs: "Unhandled notification method"

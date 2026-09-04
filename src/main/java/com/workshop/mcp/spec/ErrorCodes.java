@@ -73,4 +73,35 @@ public final class ErrorCodes {
      */
     public static final int INTERNAL_ERROR = -32603;
 
+    /**
+     * An MCP HTTP header does not match the JSON-RPC body.
+     * <p>
+     * Introduced in revision {@code 2026-07-28}, which partitioned the
+     * JSON-RPC server-error range: {@code -32000} to {@code -32019} stays
+     * implementation-defined, while {@code -32020} to {@code -32099} is
+     * reserved for the specification. This code applies only to the Streamable
+     * HTTP transport, so a stdio server never emits it.
+     * </p>
+     */
+    public static final int HEADER_MISMATCH = -32020;
+
+    /**
+     * The server requires a client capability that the request did not declare.
+     * <p>
+     * The error data carries a {@code requiredCapabilities} object shaped like
+     * {@link ClientCapabilities} — an object, never an array.
+     * </p>
+     */
+    public static final int MISSING_REQUIRED_CLIENT_CAPABILITY = -32021;
+
+    /**
+     * The protocol revision the client asked for is not supported.
+     * <p>
+     * The error data is required and carries both {@code supported} (this
+     * server's full list of revisions) and {@code requested} (what the client
+     * asked for), so the peer can renegotiate from the error alone.
+     * </p>
+     */
+    public static final int UNSUPPORTED_PROTOCOL_VERSION = -32022;
+
 }

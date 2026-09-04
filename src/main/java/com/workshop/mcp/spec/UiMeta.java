@@ -1,32 +1,23 @@
 package com.workshop.mcp.spec;
 
+import java.util.List;
+
 /**
- * Represents the UI metadata embedded in a tool's {@code _meta} field.
+ * The nested UI metadata of an MCP App tool.
  * <p>
- * When a tool declares a {@code resourceUri}, MCP hosts that support MCP Apps
- * will preload the referenced {@code ui://} resource before the tool is called,
- * then render the HTML it returns in a sandboxed iframe inside the conversation.
+ * {@code visibility} controls who may invoke the tool: {@code "model"} lets
+ * the language model call it, {@code "app"} lets the rendered UI call it. When
+ * omitted, hosts assume both.
+ * </p>
+ * <p>
+ * The {@code csp} and {@code permissions} settings belong on the UI resource
+ * rather than the tool; hosts ignore them here.
  * </p>
  *
- * <p>Example JSON representation in a tool listing:</p>
- * <pre>{@code
- * {
- *   "name": "key_word_search",
- *   "description": "...",
- *   "inputSchema": { ... },
- *   "_meta": {
- *     "ui": {
- *       "resourceUri": "ui://keyword-search/mcp-app.html"
- *     }
- *   }
- * }
- * }</pre>
- *
- * @param resourceUri the {@code ui://} URI that points to the HTML resource
- *                    the host should fetch and render when the tool is called
+ * @param resourceUri the {@code ui://} URI of the app's HTML resource
+ * @param visibility  who may invoke the tool, or null for the host default
  *
  * @see AppMeta
- * @see AppTool
  * @since 1.0
  */
-public record UiMeta(String resourceUri) {}
+public record UiMeta(String resourceUri, List<String> visibility) {}

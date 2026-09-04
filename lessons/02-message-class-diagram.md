@@ -12,22 +12,22 @@ classDiagram
     class JsonRpcErrorResponse
     
     %% Core Protocol Classes - Second Row
-    class InitializeResult
+    class DiscoverResult
     class CreateSamplingMessage
     class CompletionCompleteResponse
     class RootsResponse
-    class RootsListResult
+    class RootsResponse
     class Root
     
     %% Parameter Classes
-    class InitializeParams
+    class RequestEnvelope
     class PromptsGetParams
     class ToolCallParams
     class ReadResourceParams
     class CompletionCompleteParams
     class ToolsListParams
     class PromptsListParams
-    class PingParams
+    class TasksGetParams
     
     %% Schema Classes - Left Side
     class InputSchema
@@ -71,38 +71,38 @@ classDiagram
     
     %% JsonRpcRequest can contain these in params field
     JsonRpcRequest ..> CreateSamplingMessage : params
-    JsonRpcRequest ..> InitializeParams : params
+    JsonRpcRequest ..> RequestEnvelope : params._meta
     JsonRpcRequest ..> PromptsGetParams : params
     JsonRpcRequest ..> ToolCallParams : params
     JsonRpcRequest ..> ReadResourceParams : params
     JsonRpcRequest ..> CompletionCompleteParams : params
     JsonRpcRequest ..> ToolsListParams : params
     JsonRpcRequest ..> PromptsListParams : params
-    JsonRpcRequest ..> PingParams : params
+    JsonRpcRequest ..> TasksGetParams : params
     
     %% JsonRpcResponse can contain these in result field
     JsonRpcResponse ..> CompletionCompleteResponse : result
     JsonRpcResponse ..> RootsResponse : result
-    JsonRpcResponse ..> InitializeResult : result
+    JsonRpcResponse ..> DiscoverResult : result
     JsonRpcResponse ..> ToolsListResult : result
     JsonRpcResponse ..> ToolCallResult : result
     JsonRpcResponse ..> PromptsListResult : result
     JsonRpcResponse ..> PromptsGetResult : result
     JsonRpcResponse ..> ResourcesListResult : result
     JsonRpcResponse ..> ReadResourceResult : result
-    JsonRpcResponse ..> RootsListResult : result
+    ToolCallResult ..> RootsResponse : inputResponses
     
     %% Additional relationships discovered
     ToolsListResult ..> Tool : contains
-    RootsListResult ..> Root : contains
+    RootsResponse ..> Root : contains
     ReadResourceResult ..> TextReadResource : contains
     ToolCallResult ..> ContentItem : contains
     PromptsGetResult ..> Message : contains
     CreateSamplingMessage ..> Message : contains
-    InitializeResult ..> ServerCapabilities : contains
-    InitializeResult ..> ServerInfo : contains
-    InitializeParams ..> ClientCapabilities : contains
-    InitializeParams ..> ClientInfo : contains
+    DiscoverResult ..> ServerCapabilities : contains
+    DiscoverResult ..> ServerInfo : in _meta
+    RequestEnvelope ..> ClientCapabilities : contains
+    RequestEnvelope ..> ClientInfo : contains
     ServerCapabilities ..> Capability : contains
     ClientCapabilities ..> SamplingCapability : contains
     ClientCapabilities ..> RootsCapability : contains
@@ -115,5 +115,5 @@ classDiagram
     ReadResourceParams ..> MetaInfo : contains
     ToolsListParams ..> MetaInfo : contains
     PromptsListParams ..> MetaInfo : contains
-    PingParams ..> MetaInfo : contains
+    TasksGetParams ..> MetaInfo : contains
 ```

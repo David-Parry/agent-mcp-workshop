@@ -1,21 +1,38 @@
 package com.workshop.mcp.spec;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
- * Represents the {@code _meta} field on a tool that declares MCP App UI capability.
+ * The {@code _meta} block that links a tool to its MCP App UI.
  * <p>
- * When the host receives a tool listing that includes {@code _meta.ui.resourceUri},
- * it knows this tool has an interactive UI. The host fetches the referenced
- * {@code ui://} resource and renders the HTML inside a sandboxed iframe, directly
- * inside the conversation — no tab switching, no separate web app needed.
+ * The reference MCP Apps extension writes the resource URI under two keys and
+ * mirrors whichever one the author omitted: the nested {@code ui.resourceUri}
+ * and the flat {@code ui/resourceUri}. Hosts read one or the other depending
+ * on their vintage, so this record carries both.
+ * </p>
+ * <p>
+ * The flat key contains a slash and so cannot be a Java identifier; it is
+ * mapped with {@link SerializedName}.
  * </p>
  *
- * <p>This object maps directly to the {@code _meta} key in the MCP protocol's tool
- * definition. The leading underscore is intentional and matches the protocol spec.</p>
- *
- * @param ui the UI metadata containing the resource URI to render
+ * @param ui          the nested UI metadata
+ * @param resourceUri the same URI under the flat {@code ui/resourceUri} key
  *
  * @see UiMeta
- * @see AppTool
+ * @see MetaKeys#UI_EXTENSION
  * @since 1.0
  */
-public record AppMeta(UiMeta ui) {}
+public record AppMeta(
+        UiMeta ui,
+        @SerializedName("ui/resourceUri") String resourceUri
+) {
+    /**
+     * Creates the metadata block for an app resource, filling both keys.
+     *
+     * @param resourceUri the {@code ui://} URI of the app's HTML resource
+     * @return the metadata block
+     */
+    public static AppMeta of(String resourceUri) {
+        return new AppMeta(new UiMeta(resourceUri, null), resourceUri);
+    }
+}

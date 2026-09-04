@@ -77,61 +77,112 @@
     <section class="card">
         <div class="timing-badge">23 – 25 min</div>
         <span class="chapter-badge">Chapter 3</span>
-        <h2>Protocol Handshake &amp; Routing</h2>
-        <p>Before any capability is usable, the client and server must complete the <strong>initialize handshake</strong>. This negotiates protocol version and declares what each side supports.</p>
+        <h2>Discovery &amp; Routing</h2>
+        <p>There is no handshake. Revision <code>2026-07-28</code> deleted <code>initialize</code>, and with it the whole idea of a session. A client learns what a server can do by asking <strong><code>server/discover</code></strong>, and then re-states the terms of the conversation on <em>every single request</em>.</p>
 
         <div class="two-col" style="margin-top:16px">
             <div class="cap-card">
-                <h4>Initialize Request (Client → Server)</h4>
+                <h4>server/discover (Client → Server)</h4>
                 <pre>{
-  "method": "initialize",
-  "params": {
-    "protocolVersion": "2025-11-25",
-    "capabilities": {
-      "sampling": {},
-      "elicitation": {},
-      "roots": { "listChanged": true }
+  "jsonrpc": "2.0",
+  "id": "server-discover-probe-1",
+  "method": "server/discover",
+  "params": { "_meta": {
+    "io.modelcontextprotocol/protocolVersion":
+      "2026-07-28",
+    "io.modelcontextprotocol/clientInfo": {
+      "name": "inspector-cli",
+      "version": "2.5.0"
     },
-    "clientInfo": {
-      "name": "mcp-inspector",
-      "version": "0.16.5"
+    "io.modelcontextprotocol/clientCapabilities": {
+      "roots": { "listChanged": true },
+      "extensions": {
+        "io.modelcontextprotocol/tasks": {}
+      }
     }
-  }
+  }}
 }</pre>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Note the <strong>string</strong> id. Ids may be strings or numbers now, and a server must echo one back in exactly the form it arrived.</p>
             </div>
             <div class="cap-card">
-                <h4>Initialize Response (Server → Client)</h4>
+                <h4>server/discover result (Server → Client)</h4>
                 <pre>{
   "result": {
-    "protocolVersion": "2025-11-25",
+    "resultType": "complete",
+    "supportedVersions": ["2026-07-28"],
     "capabilities": {
-      "tools": { "listChanged": true },
-      "prompts": { "listChanged": true },
+      "completions": {},
+      "prompts": { "listChanged": false },
       "resources": {
         "listChanged": false,
         "subscribe": false
-      }
+      },
+      "tools": { "listChanged": false },
+      "extensions": { "...": "..." }
     },
-    "serverInfo": {
-      "name": "agent-mcp-workshop",
-      "version": "0.0.1"
+    "instructions": "Searches a project…",
+    "ttlMs": 60000,
+    "cacheScope": "public",
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "agent-mcp-workshop",
+        "version": "0.0.1"
+      }
     }
   }
 }</pre>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">No single <code>protocolVersion</code>: the server <em>lists</em> what it speaks and the client picks. And <code>serverInfo</code> moved out of the body into <code>_meta</code>.</p>
             </div>
         </div>
 
+        <h3>The Request Envelope — What Replaced the Handshake</h3>
+        <p>Every request carries these keys in <code>params._meta</code>. Get them wrong and the request is refused before any handler sees it:</p>
+        <table>
+            <thead><tr><th>Key</th><th>Required?</th><th>If missing or wrong</th></tr></thead>
+            <tbody>
+                <tr><td><code>io.modelcontextprotocol/protocolVersion</code></td><td>Required</td><td><code>-32602</code>, or <code>-32022</code> with <code>data.supported</code> if the revision is unknown</td></tr>
+                <tr><td><code>io.modelcontextprotocol/clientCapabilities</code></td><td>Required</td><td><code>-32602</code>; <code>-32021</code> when a needed capability is absent</td></tr>
+                <tr><td><code>io.modelcontextprotocol/clientInfo</code></td><td>Recommended</td><td>Nothing — the server just does not know who is calling</td></tr>
+                <tr><td><code>io.modelcontextprotocol/logLevel</code></td><td>Optional</td><td>Absent means the server MUST NOT emit <code>notifications/message</code></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Server Capabilities — Exactly Seven Slots</h3>
+        <p>The capability object is now fixed at seven optional members. Everything beyond the core protocol — tasks included — is declared under <code>extensions</code>, keyed by identifier:</p>
+        <pre>"capabilities": {
+  "experimental": { … },   // non-standard, ad hoc
+  "logging":      { … },   // can emit notifications/message
+  "completions":  { … },   // answers completion/complete
+  "prompts":      { "listChanged": false },
+  "resources":    { "listChanged": false, "subscribe": false },
+  "tools":        { "listChanged": false },
+  "extensions": {          // ← the old top-level "tasks" slot is gone
+    "io.modelcontextprotocol/tasks": {},
+    "io.modelcontextprotocol/ui": {
+      "mimeTypes": ["text/html;profile=mcp-app"]
+    }
+  }
+}</pre>
+        <p style="color:var(--muted);font-size:13px"><code>resources.subscribe</code> survives even though <code>resources/subscribe</code> was removed — it now gates the <code>resourceSubscriptions</code> field of <code>subscriptions/listen</code>.</p>
+
         <h3>Message Routing — The IORouter Switch</h3>
-        <p>After deserialization, every message is routed through a <code>switch</code> expression based on its method name:</p>
-        <pre>case INITIALIZE         → handleInitialize(request)
-case PING               → emit(new JsonRpcResponse(id, new Object()))
+        <p>After deserialization, every message is routed through a <code>switch</code> expression based on its method name. Note what the registry no longer contains:</p>
+        <pre>case SERVER_DISCOVER    → discoverResult()          // answered before any version check
+// ── everything below first passes envelopeFor(request) ──
 case RESOURCES_LIST     → handleResourcesList(request)
+case RESOURCES_TEMPLATES_LIST → empty list, but it must be answered
 case RESOURCES_READ     → handleResourcesRead(request)
 case TOOLS_LIST         → handleToolsList(request)
-case TOOLS_CALL         → handleToolsCall(request)
+case TOOLS_CALL         → handleKeywordSearch(request)  // may return input_required
 case PROMPTS_LIST       → handlePromptsList(request)
 case PROMPTS_GET        → handlePromptsGet(request)
-case NOTIFICATIONS_*    → handleNotification(notification)</pre>
+case COMPLETION_COMPLETE→ handleCompletion(request)
+case SUBSCRIPTIONS_LISTEN → acknowledgeSubscription(request)
+case TASKS_GET | TASKS_UPDATE | TASKS_CANCEL → tasks extension
+default                 → error(id, METHOD_NOT_FOUND)</pre>
+        <div class="highlight-box" style="background:rgba(122,162,247,0.08);border:1px solid rgba(122,162,247,0.3);border-radius:10px;padding:16px;margin:16px 0">
+            <strong>Deletion is physical.</strong> <code>initialize</code>, <code>notifications/initialized</code>, <code>ping</code>, <code>logging/setLevel</code>, <code>notifications/roots/list_changed</code>, <code>resources/subscribe</code>, <code>resources/unsubscribe</code>, <code>tasks/result</code>, and <code>tasks/list</code> are simply absent from the registry — so they answer <code>-32601 Method not found</code>. Not deprecated. Gone.
+        </div>
 
         <h3>STDIO Discipline</h3>
         <ul>
@@ -156,28 +207,48 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
                 <h3>resources/list — Discovery</h3>
                 <p>Returns a paginated list of all available resources with URI, name, description, and MIME type:</p>
                 <pre>{
+  "resultType": "complete",
   "resources": [{
     "uri": "javadoc/com/workshop/mcp/spec/Capability.html",
     "name": "Capability",
     "description": "Represents the capability...",
     "mimeType": "text/html"
   }],
-  "nextCursor": "pageNext"
+  "nextCursor": "pageNext",
+  "ttlMs": 60000,
+  "cacheScope": "public"
 }</pre>
             </div>
             <div>
                 <h3>resources/read — Retrieval</h3>
                 <p>Returns the actual content of a specific resource by URI:</p>
                 <pre>{
+  "resultType": "complete",
   "contents": [{
     "uri": "javadoc/...",
     "mimeType": "text/html",
     "text": "<!DOCTYPE HTML>..."
   }],
-  "isError": false
+  "isError": false,
+  "ttlMs": 60000,
+  "cacheScope": "public"
 }</pre>
             </div>
         </div>
+
+        <h3>Two Fields on Every Result — and Two More on Five of Them</h3>
+        <p><code>resultType</code> is required on <strong>every</strong> result in this revision. It is one of <code>"complete"</code>, <code>"input_required"</code>, or <code>"task"</code> — the client reads it first to know whether it is holding an answer, a question, or a receipt.</p>
+        <p>Cacheable results must <em>also</em> carry <code>ttlMs</code> (non-negative) and <code>cacheScope</code> (<code>"public"</code> or <code>"private"</code>). There are exactly five:</p>
+        <table>
+            <thead><tr><th>Carries ttlMs + cacheScope</th><th>Must NOT carry them</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><code>tools/list</code><br/><code>prompts/list</code><br/><code>resources/list</code><br/><code>resources/templates/list</code><br/><code>resources/read</code></td>
+                    <td><code>prompts/get</code><br/><code>tools/call</code><br/><code>completion/complete</code><br/><span style="color:var(--muted)">…and every other result</span></td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="color:var(--muted);font-size:13px">The split is easy to remember: <em>lists and reads are cacheable, invocations are not</em>. Caching is how a sessionless protocol claws back the round trips the handshake used to save.</p>
 
         <h3>JavadocResources — Classpath Loading</h3>
         <ul>
@@ -185,6 +256,7 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
             <li><strong>JSoup</strong> parses the HTML to extract documentation summaries for descriptions</li>
             <li>File paths become resource URIs: <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
             <li>Making the server self-contained — no external files required</li>
+            <li><code>resources/templates/list</code> must be answered whenever any resource capability is advertised — even with an empty list, as this server does</li>
         </ul>
     </section>
 
@@ -200,6 +272,7 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
             <div>
                 <h3>tools/list — Discovery</h3>
                 <pre>{
+  "resultType": "complete",
   "tools": [{
     "name": "key_word_search",
     "description": "Searches for a keyword across all files in a project.",
@@ -213,40 +286,48 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
       },
       "required": ["keyword"]
     },
-    "execution": { "taskSupport": "optional" }
-  }]
+    "_meta": {
+      "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" },
+      "ui/resourceUri": "ui://keyword-search/mcp-app.html"
+    }
+  }],
+  "ttlMs": 60000,
+  "cacheScope": "public"
 }</pre>
-                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">The directory is <strong>not</strong> a tool param &mdash; the server gets it from <code>roots/list</code> or the elicitation form.</p>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">No <code>execution</code> / <code>taskSupport</code> &mdash; this revision removed it, and clients strip it silently. The directory is <strong>not</strong> a tool param either: the server asks for it over MRTR (Ch&nbsp;5).</p>
             </div>
             <div>
                 <h3>tools/call — Execution</h3>
                 <pre>{
   "method": "tools/call",
   "params": {
+    "_meta": { "…the envelope…" },
     "name": "key_word_search",
     "arguments": {
-      "keyword": "mcp"
+      "keyword": "record"
     }
   }
 }
 
-// Response
+// Response — no ttlMs, no cacheScope
 {
+  "resultType": "complete",
   "content": [{
     "type": "text",
     "text": "/path/api.http, keyword_count=1"
   },
-  // ... 57 more files
+  // ... more files
   ],
   "isError": false
 }</pre>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Two other shapes can come back from this same call: <code>"input_required"</code> when the server still needs something, and <code>"task"</code> when it hands back a receipt to poll.</p>
             </div>
         </div>
 
         <h3>KeyWordSearch Implementation</h3>
         <ul>
             <li>Walks the directory tree recursively from each configured root</li>
-            <li>Roots are populated via <code>roots/list</code> or, if absent, via the lazy elicitation in Ch&nbsp;5 &mdash; never as a tool parameter</li>
+            <li>Roots arrive as an <strong>embedded <code>roots/list</code></strong> answer in a follow-up <code>tools/call</code> (Ch&nbsp;5) &mdash; never as a tool parameter, and never by the server calling the client</li>
             <li>Counts occurrences of <code>keyword</code> per file (case-insensitive)</li>
             <li>Returns one text content item per matching file with its count</li>
             <li>The JSON Schema <code>required</code> array enables client-side validation before the request is even sent</li>
@@ -265,6 +346,7 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
             <div>
                 <h3>prompts/list — Discovery</h3>
                 <pre>{
+  "resultType": "complete",
   "prompts": [{
     "name": "search_keyword",
     "description": "Creates a prompt to search for a word using the key_word_search tool.",
@@ -273,7 +355,10 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
       "description": "The word to search for",
       "required": true
     }]
-  }]
+  }],
+  "nextCursor": "nextPage",
+  "ttlMs": 60000,
+  "cacheScope": "public"
 }</pre>
             </div>
             <div>
@@ -281,18 +366,20 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
                 <pre>{
   "method": "prompts/get",
   "params": {
+    "_meta": { "…the envelope…" },
     "name": "search_keyword",
-    "arguments": { "keyword": "mcp" }
+    "arguments": { "keyword": "record" }
   }
 }
 
-// Response
+// Response — cacheable neighbour, but NOT cacheable itself
 {
+  "resultType": "complete",
   "messages": [{
     "role": "user",
     "content": {
       "type": "text",
-      "text": "Start from the root of the project and use the key_word_search tool to search for this specific keyword: 'mcp'"
+      "text": "Start from the root of the project and use the key_word_search tool to search for this specific keyword: 'record'"
     }
   }]
 }</pre>
@@ -316,13 +403,13 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
         <h3>MCP Inspector: Explore All Three Capabilities</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE. The server should already be running from the previous demo.</p>
         <ul>
-            <li>Click <strong>"List Resources"</strong> → see 70+ Javadoc files listed</li>
+            <li>Click <strong>"List Resources"</strong> → see 70+ Javadoc files listed, plus <code>ttlMs</code> and <code>cacheScope</code> on the result</li>
             <li>Click a resource → read its HTML content via <code>resources/read</code></li>
-            <li>Click <strong>"List Tools"</strong> → see <code>key_word_search</code> with its JSON Schema</li>
-            <li>Call <code>key_word_search</code> with keyword=<code>"mcp"</code> and a root directory → see 58 matching files</li>
+            <li>Click <strong>"List Tools"</strong> → see <code>key_word_search</code> with its JSON Schema, and <em>no</em> <code>execution</code> block</li>
+            <li>Call <code>key_word_search</code> with keyword=<code>"record"</code> → the first answer is <code>resultType: "input_required"</code>, not results. That is the MRTR loop starting</li>
             <li>Click <strong>"List Prompts"</strong> → see <code>search_keyword</code> prompt</li>
-            <li>Execute the prompt with a keyword to see the generated message</li>
-            <li>Switch to <a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a> to see the full session summary</li>
+            <li>Execute the prompt with a keyword — note the result carries <code>resultType</code> but <strong>no</strong> cache fields</li>
+            <li>Switch to <a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a> to see what discovery reported</li>
         </ul>
     </div>
 
@@ -357,13 +444,13 @@ case NOTIFICATIONS_*    → handleNotification(notification)</pre>
 <tr><td><span class="bt">3&ndash;10 min</span></td><td>What is MCP? Architecture, actors, protocol features</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
 <tr><td><span class="bt">10&ndash;16 min</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">16&ndash;20 min</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">20&ndash;23 min</span></td><td><span class="bd">IDE Demo</span> Launch MCP Inspector &rarr; show initialization handshake + ping live</td><td><span class="bc">Ch 3</span></td><td>&mdash;</td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">20&ndash;23 min</span></td><td><span class="bd">IDE Demo</span> Launch MCP Inspector &rarr; show <code>server/discover</code> + the stateless <code>_meta</code> envelope live</td><td><span class="bc">Ch 3</span></td><td>&mdash;</td></tr>
 <tr><td><span class="bt">23&ndash;30 min</span></td><td>Implementing Resources, Tools &amp; Prompts &mdash; the three core capabilities</td><td><span class="bc">Ch 3&ndash;4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">30&ndash;33 min</span></td><td><span class="bd">IDE Demo</span> Inspector: List Resources, Tools, Prompts &rarr; call <code>key_word_search</code></td><td><span class="bc">Ch 4</span></td><td><a href="runtime-facts.html" style="color:#7aa2f7">Runtime Facts</a></td></tr>
-<tr><td><span class="bt">33&ndash;36 min</span></td><td>MCP Extensions (experimental map) + Elicitation capability</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr><td><span class="bt">33&ndash;36 min</span></td><td>MCP Extensions (extensions map) + Multi Round-Trip Requests</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
 <tr><td><span class="bt">36&ndash;38 min</span></td><td>MCP Apps &mdash; interactive UI rendered inside the conversation</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
 <tr><td><span class="bt">38&ndash;41 min</span></td><td>Tasks &mdash; call-now / fetch-later, lifecycle, polling</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">41&ndash;43 min</span></td><td><span class="bd">IDE Demo</span> Show elicitation, MCP App, and a task-augmented tool call in Inspector</td><td><span class="bc">Ch 5&ndash;7</span></td><td>&mdash;</td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">41&ndash;43 min</span></td><td><span class="bd">IDE Demo</span> Show the MRTR loop, an MCP App, and a task handle in Inspector</td><td><span class="bc">Ch 5&ndash;7</span></td><td>&mdash;</td></tr>
 <tr><td><span class="bt">43&ndash;45 min</span></td><td>Claude Code Plugin &mdash; supervised agent with checkpoint</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
 </tbody>
 </table>

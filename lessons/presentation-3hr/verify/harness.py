@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""stdio JSON-RPC verification harness for the 3-hour workshop walkthrough.
+"""stdio JSON-RPC verification harness for the 3-hour workshop deck.
 
 Spawns the built server JAR, drives it with line-delimited JSON-RPC over
-stdin/stdout, and asserts on the responses. Each scenario maps to one or more
-walkthrough steps (see lessons/presentation-3hr/walkthrough.md).
+stdin/stdout, and asserts on the responses. Each scenario checks a claim the
+deck makes about protocol revision 2026-07-28 — the stateless revision that
+removed the initialize handshake.
 
 Usage:
     python3 lessons/presentation-3hr/verify/harness.py <scenario> [<scenario> ...]
@@ -12,6 +13,7 @@ Usage:
 Exit code is the number of failed scenarios.
 """
 
+import base64
 import glob
 import json
 import os
@@ -22,7 +24,48 @@ import threading
 import time
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-PROTOCOL_VERSION = "2025-11-25"
+
+PROTOCOL_VERSION = "2026-07-28"
+LEGACY_VERSION = "2025-11-25"
+
+# The _meta slots that carry the lifecycle now that the handshake is gone.
+META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion"
+META_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
+META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo"
+META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
+META_SUBSCRIPTION_ID = "io.modelcontextprotocol/subscriptionId"
+TASKS_EXTENSION = "io.modelcontextprotocol/tasks"
+UI_EXTENSION = "io.modelcontextprotocol/ui"
+
+APP_URI = "ui://keyword-search/mcp-app.html"
+APP_MIME_TYPE = "text/html;profile=mcp-app"
+
+# Error codes. -32020..-32099 is reserved for the specification on this
+# revision; -32000..-32019 stays implementation-defined.
+METHOD_NOT_FOUND = -32601
+INVALID_PARAMS = -32602
+UNSUPPORTED_PROTOCOL_VERSION = -32022
+
+# The seven optional slots a 2026-07-28 server may declare. Anything else,
+# tasks included, belongs under extensions.
+CAPABILITY_SLOTS = {
+    "experimental", "logging", "completions", "prompts", "resources", "tools", "extensions",
+}
+
+# Exactly these five methods may carry freshness hints.
+CACHEABLE_METHODS = [
+    "tools/list", "prompts/list", "resources/list", "resources/templates/list", "resources/read",
+]
+
+# Client capability presets. These arrive per request now, not once.
+ROOTS_AND_FORMS = {"roots": {"listChanged": True}, "elicitation": {"form": {}, "url": {}}}
+FORMS_ONLY = {"elicitation": {"form": {}, "url": {}}}
+TASK_CLIENT = {"roots": {"listChanged": True}, "extensions": {TASKS_EXTENSION: {}}}
+NO_CAPABILITIES = {}
+
+# Keys the keyword-search tool answers its embedded requests under.
+KEY_ROOTS = "search_roots"
+KEY_DIRECTORY = "search_directory"
 
 
 def find_jar():
@@ -30,6 +73,35 @@ def find_jar():
     if not jars:
         raise RuntimeError("No JAR found under build/libs — run ./gradlew build first")
     return max(jars, key=os.path.getmtime)
+
+
+def envelope(capabilities):
+    """The _meta block every 2026-07-28 request has to carry.
+
+    logLevel is deliberately omitted: while it is absent the server must not
+    emit notifications/message, which the discover scenario asserts.
+    """
+    return {
+        META_PROTOCOL_VERSION: PROTOCOL_VERSION,
+        META_CLIENT_INFO: {"name": "walkthrough-harness", "version": "2.0"},
+        META_CLIENT_CAPABILITIES: capabilities,
+    }
+
+
+def encode_state(keyword, stage):
+    """Mint a requestState the way SearchContinuation does.
+
+    Url-safe base64 of the continuation JSON, padding stripped. Real clients
+    treat the value as opaque and echo back whatever the server sent; this is
+    only for entering the exchange partway through.
+    """
+    raw = json.dumps({"keyword": keyword, "stage": stage}, separators=(",", ":"))
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
+def decode_state(request_state):
+    padded = request_state + "=" * (-len(request_state) % 4)
+    return json.loads(base64.urlsafe_b64decode(padded).decode())
 
 
 class Failure(Exception):
@@ -75,20 +147,24 @@ class Client:
         self.proc.stdin.write(json.dumps(obj) + "\n")
         self.proc.stdin.flush()
 
-    def request(self, id_, method, params=None):
+    def raw_request(self, id_, method, params=None):
+        """Send a request exactly as given — for the envelope-validation scenarios."""
         msg = {"jsonrpc": "2.0", "id": id_, "method": method}
         if params is not None:
             msg["params"] = params
         self.send(msg)
+
+    def request(self, id_, method, params=None, capabilities=ROOTS_AND_FORMS):
+        """Send a request carrying the stateless _meta envelope."""
+        body = dict(params or {})
+        body["_meta"] = envelope(capabilities)
+        self.raw_request(id_, method, body)
 
     def notify(self, method, params=None):
         msg = {"jsonrpc": "2.0", "method": method}
         if params is not None:
             msg["params"] = params
         self.send(msg)
-
-    def respond(self, id_, result):
-        self.send({"jsonrpc": "2.0", "id": id_, "result": result})
 
     def take(self, pred, timeout=8.0, desc="message"):
         """Wait for the first unconsumed message matching pred and consume it."""
@@ -127,13 +203,6 @@ class Client:
             raise Failure(f"expected error code {code} for id={id_}, got {msg['error']}")
         return msg["error"]
 
-    def expect_request(self, method, id_=None, timeout=8.0):
-        def pred(m):
-            if m.get("method") != method:
-                return False
-            return id_ is None or m.get("id") == id_
-        return self.take(pred, timeout, f"server request method={method} id={id_}")
-
     def expect_notification(self, method, pred=None, timeout=8.0):
         def match(m):
             if m.get("method") != method or "id" in m:
@@ -141,15 +210,10 @@ class Client:
             return pred is None or pred(m)
         return self.take(match, timeout, f"notification method={method}")
 
-    def expect_silence(self, id_, within=2.0):
-        """Assert that no response to id_ arrives within the window."""
-        deadline = time.time() + within
+    def saw_notification(self, method):
+        """Whether a notification with this method has ever arrived."""
         with self.cond:
-            while time.time() < deadline:
-                for m in self.inbox:
-                    if m.get("id") == id_ and ("result" in m or "error" in m):
-                        raise Failure(f"expected NO response to id={id_} yet, but got: {m}")
-                self.cond.wait(0.2)
+            return any(f'"method":"{method}"' in line for line in self.raw_lines)
 
     def log_file(self):
         pattern = os.path.join(REPO_ROOT, "logs", f"agent-mcp-workshop-{self.proc.pid}-*.log")
@@ -183,396 +247,515 @@ def make_keyword_dir(keyword="needleword", occurrences=3):
     return d
 
 
-def initialize(client, caps=None, id_=1):
-    params = {
-        "protocolVersion": PROTOCOL_VERSION,
-        "capabilities": caps if caps is not None else {},
-        "clientInfo": {"name": "walkthrough-harness", "version": "1.0"},
-    }
-    client.request(id_, "initialize", params)
-    return client.expect_result(id_)
+def roots_answer(directory, name="harness-root"):
+    """The bare result an embedded roots/list would have returned."""
+    return {"roots": [{"uri": "file://" + directory, "name": name}]}
 
 
-def set_roots(client, directory, name="harness-root"):
-    """Run the roots flow: notifications/initialized -> answer roots/list."""
-    client.notify("notifications/initialized")
-    req = client.expect_request("roots/list", id_=-1000)
-    client.respond(req["id"], {"roots": [{"uri": "file://" + directory, "name": name}]})
+def search_call(keyword="needleword", request_state=None, input_responses=None):
+    params = {"name": "key_word_search", "arguments": {"keyword": keyword}}
+    if request_state is not None:
+        params["requestState"] = request_state
+    if input_responses is not None:
+        params["inputResponses"] = input_responses
+    return params
+
+
+def require_result_type(result, expected, label):
+    actual = result.get("resultType")
+    if actual != expected:
+        raise Failure(f"{label} should carry resultType={expected!r}, got {actual!r}: {result}")
 
 
 SCENARIOS = []
 
 
-def scenario(name, steps):
+def scenario(name, topic):
     def wrap(fn):
-        SCENARIOS.append((name, steps, fn))
+        SCENARIOS.append((name, topic, fn))
         return fn
     return wrap
 
 
-# ---------------------------------------------------------------- Section 2
+# ------------------------------------------------- Discovery replaces the handshake
 
-@scenario("handshake", "step 6")
-def s_handshake(c):
-    result = initialize(c, {"roots": {"listChanged": True}, "sampling": {}})
-    if result.get("protocolVersion") != PROTOCOL_VERSION:
-        raise Failure(f"protocolVersion mismatch: {result}")
-    if "capabilities" not in result or "serverInfo" not in result:
-        raise Failure(f"initialize result missing capabilities/serverInfo: {result}")
+@scenario("discover", "flow-diagram, capabilities")
+def s_discover(c):
+    # The Inspector probes with a string id, which is why RequestId exists.
+    probe_id = "server-discover-probe-1"
+    c.request(probe_id, "server/discover")
+    response = c.expect_response(probe_id)
+
+    if not isinstance(response.get("id"), str):
+        raise Failure(
+            f"a string id must echo back as a JSON string, not a number: {response.get('id')!r}"
+        )
+
+    result = response["result"]
+    require_result_type(result, "complete", "server/discover")
+
+    if result.get("supportedVersions") != [PROTOCOL_VERSION]:
+        raise Failure(f"server/discover should advertise [{PROTOCOL_VERSION!r}]: {result}")
+    if "protocolVersion" in result:
+        raise Failure(f"the client picks from supportedVersions; there is no single protocolVersion: {result}")
+
+    # serverInfo moved out of the body and into _meta.
+    if "serverInfo" in result:
+        raise Failure(f"serverInfo must not be a body field on this revision: {result}")
+    server_info = (result.get("_meta") or {}).get(META_SERVER_INFO) or {}
+    if server_info.get("name") != "agent-mcp-workshop":
+        raise Failure(f"_meta.{META_SERVER_INFO} missing or wrong: {result.get('_meta')}")
+
+    # No session was created, so nothing is remembered — but the answer must
+    # still be self-describing enough for the client to cache it.
+    if not isinstance(result.get("ttlMs"), int) or result["ttlMs"] < 0:
+        raise Failure(f"server/discover needs a non-negative ttlMs: {result}")
+    if result.get("cacheScope") not in ("public", "private"):
+        raise Failure(f"server/discover cacheScope must be public or private: {result}")
+
+    # No logLevel was declared, so the server must stay quiet.
+    if c.saw_notification("notifications/message"):
+        raise Failure("server emitted notifications/message without a logLevel in the envelope")
 
 
-@scenario("ping_sampling", "step 7")
-def s_ping_sampling(c):
-    initialize(c, {"sampling": {}})
-    c.request(2, "ping")
-    result = c.expect_result(2)
-    if result != {}:
-        raise Failure(f"ping should return an empty object, got: {result}")
-    req = c.expect_request("sampling/createMessage", id_=-2000)
-    if not req.get("params", {}).get("messages"):
-        raise Failure(f"sampling/createMessage missing messages: {req}")
+@scenario("capability_shape", "capabilities")
+def s_capability_shape(c):
+    c.request("probe", "server/discover")
+    capabilities = c.expect_result("probe")["capabilities"]
+
+    unknown = set(capabilities) - CAPABILITY_SLOTS
+    if unknown:
+        raise Failure(f"capabilities has slots outside the seven allowed: {sorted(unknown)}")
+    if "tasks" in capabilities:
+        raise Failure(f"the top-level tasks slot was removed; it lives under extensions: {capabilities}")
+
+    extensions = capabilities.get("extensions") or {}
+    for identifier in (TASKS_EXTENSION, UI_EXTENSION):
+        if identifier not in extensions:
+            raise Failure(f"{identifier} should be declared under capabilities.extensions: {extensions}")
+
+    # subscribe survives even though resources/subscribe does not — it now
+    # gates the resourceSubscriptions field of subscriptions/listen.
+    if "subscribe" not in (capabilities.get("resources") or {}):
+        raise Failure(f"resources.subscribe should still be declared: {capabilities}")
+
+    # This server's lists are fixed, so it must not invite a listen stream.
+    if (capabilities.get("tools") or {}).get("listChanged") is not False:
+        raise Failure(f"tools.listChanged should be false on this server: {capabilities}")
 
 
-@scenario("roots", "step 8")
-def s_roots(c):
-    initialize(c, {"roots": {"listChanged": True}})
-    c.notify("notifications/initialized")
-    req = c.expect_request("roots/list", id_=-1000)
-    c.respond(req["id"], {"roots": [{"uri": "file:///tmp", "name": "tmp"}]})
-    if not c.log_contains("roots/list response — populated 1 root(s)"):
-        raise Failure("log never showed roots being populated")
-    c.notify("notifications/roots/list_changed")
-    c.expect_request("roots/list", id_=-1000)
+# ------------------------------------------------- The per-request envelope
 
+@scenario("envelope_required", "protocol, capabilities")
+def s_envelope_required(c):
+    # No _meta at all: the two required members are missing.
+    c.raw_request(1, "tools/list", {})
+    c.expect_error(1, code=INVALID_PARAMS)
 
-@scenario("cancelled", "step 9")
-def s_cancelled(c):
-    initialize(c)
-    c.notify("notifications/cancelled", {"requestId": 99, "reason": "user changed mind"})
-    if not c.log_contains("notifications/cancelled reason=user changed mind"):
-        raise Failure("log never showed the cancellation reason being deserialized")
-    c.request(3, "ping")
+    # A revision this server does not speak. The error data is the only way a
+    # client learns what to renegotiate to, so it is required.
+    c.raw_request(2, "tools/list", {"_meta": {
+        META_PROTOCOL_VERSION: LEGACY_VERSION,
+        META_CLIENT_CAPABILITIES: {},
+    }})
+    error = c.expect_error(2, code=UNSUPPORTED_PROTOCOL_VERSION)
+    data = error.get("data") or {}
+    if data.get("requested") != LEGACY_VERSION:
+        raise Failure(f"-32022 data.requested should echo the rejected revision: {error}")
+    if data.get("supported") != [PROTOCOL_VERSION]:
+        raise Failure(f"-32022 data.supported should list this server's revisions: {error}")
+
+    # Discovery is exempt: a client calls it precisely to find out which
+    # revisions the server speaks, so rejecting the guess would be circular.
+    c.raw_request(3, "server/discover", {"_meta": {META_PROTOCOL_VERSION: LEGACY_VERSION}})
     c.expect_result(3)
 
 
-# ---------------------------------------------------------------- Section 3
-
-@scenario("resources_list", "step 11")
-def s_resources_list(c):
-    initialize(c)
-    c.request(4, "resources/list")
-    result = c.expect_result(4)
-    resources = result.get("resources") or []
-    if not resources:
-        raise Failure(f"resources/list returned no resources: {result}")
-    if result.get("nextCursor") != "pageNext":
-        raise Failure(f"nextCursor should be 'pageNext': {result}")
-    for r in resources:
-        if not r.get("uri") or not r.get("name"):
-            raise Failure(f"resource missing uri/name: {r}")
-
-
-@scenario("resources_read", "step 12")
-def s_resources_read(c):
-    initialize(c)
-    c.request(4, "resources/list")
-    resources = c.expect_result(4)["resources"]
-    uri = resources[0]["uri"]
-    c.request(5, "resources/read", {"uri": uri})
-    result = c.expect_result(5)
-    contents = result.get("contents") or []
-    if not contents or not contents[0].get("text"):
-        raise Failure(f"resources/read returned no text for {uri}: {result}")
-    if contents[0].get("uri") != uri:
-        raise Failure(f"resources/read echoed wrong uri: {contents[0]}")
-    c.request(6, "resources/read", {"uri": "javadoc/does-not-exist.html"})
-    err_result = c.expect_result(6)
-    if not err_result.get("isError"):
-        raise Failure(f"bogus uri should produce isError=true result: {err_result}")
+@scenario("removed_methods", "protocol, trace-log")
+def s_removed_methods(c):
+    # Deletion in this revision is physical: absence from the method registry.
+    # Method existence is settled before the envelope is looked at, so a legacy
+    # client is told the method is gone, not that its _meta is malformed.
+    removed = [
+        "initialize",
+        "ping",
+        "notifications/initialized",
+        "logging/setLevel",
+        "notifications/roots/list_changed",
+        "resources/subscribe",
+        "resources/unsubscribe",
+        "tasks/result",
+        "tasks/list",
+    ]
+    for i, method in enumerate(removed):
+        c.raw_request(100 + i, method, {})
+        error = c.expect_error(100 + i)
+        if error.get("code") != METHOD_NOT_FOUND:
+            raise Failure(
+                f"{method} was removed in {PROTOCOL_VERSION} and must be {METHOD_NOT_FOUND}, got {error}"
+            )
 
 
-@scenario("tools_list", "step 14")
-def s_tools_list(c):
-    initialize(c)
-    c.request(7, "tools/list")
-    result = c.expect_result(7)
-    tools = result.get("tools") or []
-    match = [t for t in tools if t.get("name") == "key_word_search"]
-    if not match:
-        raise Failure(f"tools/list missing key_word_search: {result}")
-    tool = match[0]
-    if not tool.get("description") or not tool.get("inputSchema"):
-        raise Failure(f"key_word_search missing description/inputSchema: {tool}")
+@scenario("embedded_only_methods", "extensions")
+def s_embedded_only_methods(c):
+    # These three are things the server asks for inside a result, never things
+    # it answers, because a modern client discards inbound requests.
+    for i, method in enumerate(["roots/list", "sampling/createMessage", "elicitation/create"]):
+        c.request(200 + i, method)
+        c.expect_error(200 + i, code=METHOD_NOT_FOUND)
 
 
-@scenario("tools_call", "step 15")
-def s_tools_call(c):
-    d = make_keyword_dir()
-    initialize(c, {"roots": {"listChanged": True}})
-    set_roots(c, d)
-    time.sleep(0.3)  # let the roots response land before calling the tool
-    c.request(8, "tools/call", {"name": "key_word_search", "arguments": {"keyword": "needleword"}})
-    result = c.expect_result(8)
-    if result.get("isError"):
-        raise Failure(f"tools/call returned error result: {result}")
-    text = json.dumps(result.get("content") or [])
-    if "keyword_count=3" not in text:
-        raise Failure(f"expected keyword_count=3 in content: {result}")
-    c.request(9, "tools/call", {"name": "no_such_tool", "arguments": {}})
-    bad = c.expect_result(9)
-    if not bad.get("isError"):
-        raise Failure(f"unknown tool should be an error-shaped result: {bad}")
+# ------------------------------------------------- Cacheable vs. uncacheable results
+
+@scenario("cacheable_results", "capabilities, protocol")
+def s_cacheable_results(c):
+    # resources/read needs a real uri, so list first and reuse one.
+    c.request(1, "resources/list")
+    resources = c.expect_result(1).get("resources") or []
+    javadoc_uri = next(r["uri"] for r in resources if r["uri"].startswith("javadoc/"))
+
+    params_for = {
+        "resources/read": {"uri": javadoc_uri},
+    }
+    for i, method in enumerate(CACHEABLE_METHODS):
+        id_ = 10 + i
+        c.request(id_, method, params_for.get(method))
+        result = c.expect_result(id_)
+        require_result_type(result, "complete", method)
+        ttl = result.get("ttlMs")
+        if not isinstance(ttl, int) or isinstance(ttl, bool) or ttl < 0:
+            raise Failure(f"{method} must carry a non-negative ttlMs, got {ttl!r}: {result}")
+        if result.get("cacheScope") not in ("public", "private"):
+            raise Failure(f"{method} must carry cacheScope public or private: {result}")
+
+    # Newly load-bearing: clients fetch it whenever a server declares any
+    # resource capability, so it has to be answered even when empty.
+    c.request(30, "resources/templates/list")
+    templates = c.expect_result(30)
+    if templates.get("resourceTemplates") != []:
+        raise Failure(f"resources/templates/list should answer with an empty list: {templates}")
 
 
-# ---------------------------------------------------------------- Section 4
+@scenario("uncacheable_results", "capabilities")
+def s_uncacheable_results(c):
+    c.request(1, "prompts/get", {"name": "search_keyword", "arguments": {"keyword": "needle"}})
+    prompts_get = c.expect_result(1)
 
-@scenario("prompts_list", "step 16")
-def s_prompts_list(c):
-    initialize(c)
-    c.request(9, "prompts/list")
-    result = c.expect_result(9)
-    prompts = result.get("prompts") or []
-    match = [p for p in prompts if p.get("name") == "search_keyword"]
-    if not match:
-        raise Failure(f"prompts/list missing search_keyword: {result}")
-    args = match[0].get("arguments") or []
-    if not any(a.get("name") == "keyword" and a.get("required") for a in args):
-        raise Failure(f"search_keyword missing required keyword argument: {match[0]}")
-
-
-@scenario("prompts_get", "step 17")
-def s_prompts_get(c):
-    initialize(c)
-    c.request(10, "prompts/get", {"name": "search_keyword", "arguments": {"keyword": "needle"}})
-    result = c.expect_result(10)
-    messages = result.get("messages") or []
-    if result.get("description") != "keyword" or not messages:
-        raise Failure(f"prompts/get unexpected shape: {result}")
-    text = messages[0].get("content", {}).get("text", "")
-    if "key_word_search" not in text:
-        raise Failure(f"prompt message does not reference the tool: {messages[0]}")
-
-
-@scenario("completion", "step 18")
-def s_completion(c):
-    initialize(c)
-    c.request(11, "completion/complete", {
+    c.request(2, "completion/complete", {
         "ref": {"type": "ref/prompt", "name": "search_keyword"},
         "argument": {"name": "keyword", "value": "ja"},
     })
-    result = c.expect_result(11)
-    values = (result.get("completion") or {}).get("values") or []
-    if "java" not in values:
-        raise Failure(f"completion should offer 'java': {result}")
-    if result.get("total") != 3 or result.get("hasMore") is not True:
-        raise Failure(f"completion total/hasMore unexpected: {result}")
+    completion = c.expect_result(2)
+
+    for label, result in (("prompts/get", prompts_get), ("completion/complete", completion)):
+        require_result_type(result, "complete", label)
+        for hint in ("ttlMs", "cacheScope"):
+            if hint in result:
+                raise Failure(f"{label} is not cacheable and must not carry {hint}: {result}")
+
+    if "java" not in ((completion.get("completion") or {}).get("values") or []):
+        raise Failure(f"completion/complete should still offer 'java': {completion}")
 
 
-# ---------------------------------------------------------------- Section 5
+# ------------------------------------------------- Multi Round-Trip Requests
 
-@scenario("elicit_capability", "step 19")
-def s_elicit_capability(c):
-    result = initialize(c, {"elicitation": {}})
-    experimental = (result.get("capabilities") or {}).get("experimental") or {}
-    if "io.modelcontextprotocol/elicitation" not in experimental:
-        raise Failure(f"experimental elicitation capability not declared: {result}")
+@scenario("mrtr_roots", "extensions, flow-diagram")
+def s_mrtr_roots(c):
+    directory = make_keyword_dir()
 
+    # First attempt: nothing to search yet, so the server embeds a roots/list.
+    c.request(1, "tools/call", search_call())
+    asked = c.expect_result(1)
+    require_result_type(asked, "input_required", "an unanswerable tools/call")
 
-@scenario("elicit_defer", "step 21")
-def s_elicit_defer(c):
-    initialize(c, {"elicitation": {}})
-    c.request(12, "tools/call", {"name": "key_word_search", "arguments": {"keyword": "needleword"}})
-    req = c.expect_request("elicitation/create", id_=-4000)
-    schema = (req.get("params") or {}).get("requestedSchema") or {}
-    if "directory" not in (schema.get("required") or []):
-        raise Failure(f"elicitation form should require 'directory': {req}")
-    c.expect_silence(12, within=2.0)
+    requests = asked.get("inputRequests")
+    if not isinstance(requests, dict):
+        raise Failure(f"inputRequests is a keyed map, not an array: {asked}")
+    embedded = requests.get(KEY_ROOTS)
+    if not embedded or embedded.get("method") != "roots/list":
+        raise Failure(f"expected an embedded roots/list under {KEY_ROOTS!r}: {asked}")
+    for absent in ("jsonrpc", "id"):
+        if absent in embedded:
+            raise Failure(f"an embedded request carries no {absent}: {embedded}")
 
+    # There is no session, so the continuation travels to the client and back.
+    request_state = asked.get("requestState")
+    if not isinstance(request_state, str) or not request_state:
+        raise Failure(f"input_required must carry an opaque requestState: {asked}")
+    if decode_state(request_state) != {"keyword": "needleword", "stage": "roots"}:
+        raise Failure(f"requestState did not preserve the keyword and stage: {request_state}")
 
-@scenario("elicit_resume", "step 22")
-def s_elicit_resume(c):
-    d = make_keyword_dir()
-    initialize(c, {"elicitation": {}})
-    c.request(12, "tools/call", {"name": "key_word_search", "arguments": {"keyword": "needleword"}})
-    req = c.expect_request("elicitation/create", id_=-4000)
-    c.respond(req["id"], {"action": "accept", "content": {"directory": d}})
-    result = c.expect_result(12)
-    if result.get("isError"):
-        raise Failure(f"resumed tools/call returned error: {result}")
-    if "keyword_count=3" not in json.dumps(result.get("content") or []):
-        raise Failure(f"resumed tools/call missing search results: {result}")
-    # client-initiated elicitation/create must be acknowledged
-    c.request(13, "elicitation/create", {"message": "hello"})
-    ack = c.expect_result(13)
-    if ack != {}:
-        raise Failure(f"client-initiated elicitation/create should get empty ack: {ack}")
-
-
-# ---------------------------------------------------------------- Section 6
-
-@scenario("apps_capability", "step 23")
-def s_apps_capability(c):
-    result = initialize(c, {"elicitation": {}})
-    experimental = (result.get("capabilities") or {}).get("experimental") or {}
-    if "io.modelcontextprotocol/apps" not in experimental:
-        raise Failure(f"experimental apps capability not declared: {result}")
+    # The retry is a brand new request with a brand new id, carrying the
+    # answers plus the state echoed back byte-exact.
+    c.request(2, "tools/call", search_call(
+        request_state=request_state,
+        input_responses={KEY_ROOTS: roots_answer(directory)},
+    ))
+    done = c.expect_result(2)
+    require_result_type(done, "complete", "the answered retry")
+    if done.get("isError"):
+        raise Failure(f"the answered retry should have run the search: {done}")
+    if "keyword_count=3" not in json.dumps(done.get("content") or []):
+        raise Failure(f"expected keyword_count=3 from the supplied root: {done}")
 
 
-@scenario("apps_tools_list", "step 24")
-def s_apps_tools_list(c):
-    initialize(c)
-    c.request(14, "tools/list")
-    result = c.expect_result(14)
-    tools = result.get("tools") or []
-    if not tools:
-        raise Failure(f"tools/list returned no tools: {result}")
-    meta = tools[0].get("_meta") or {}
-    uri = (meta.get("ui") or {}).get("resourceUri")
-    if uri != "ui://keyword-search/mcp-app.html":
-        raise Failure(f"tool _meta.ui.resourceUri wrong: {tools[0]}")
+@scenario("mrtr_elicitation", "extensions")
+def s_mrtr_elicitation(c):
+    directory = make_keyword_dir()
+    roots_state = encode_state("needleword", "roots")
+
+    # Empty roots escalate to asking the user directly.
+    c.request(1, "tools/call", search_call(
+        request_state=roots_state,
+        input_responses={KEY_ROOTS: {"roots": []}},
+    ))
+    asked = c.expect_result(1)
+    require_result_type(asked, "input_required", "a tools/call whose roots came back empty")
+
+    embedded = (asked.get("inputRequests") or {}).get(KEY_DIRECTORY)
+    if not embedded or embedded.get("method") != "elicitation/create":
+        raise Failure(f"empty roots should escalate to an embedded elicitation/create: {asked}")
+    params = embedded.get("params") or {}
+    if params.get("mode") != "form":
+        raise Failure(f"elicitation params carry mode form|url on this revision: {embedded}")
+    if "elicitationId" in params:
+        raise Failure(f"elicitationId was removed — the retry is the completion signal: {embedded}")
+    if "directory" not in ((params.get("requestedSchema") or {}).get("required") or []):
+        raise Failure(f"the form should require 'directory': {embedded}")
+
+    directory_state = asked["requestState"]
+    if decode_state(directory_state)["stage"] != "directory":
+        raise Failure(f"the continuation should have advanced to the directory stage: {directory_state}")
+
+    # Accepting the form completes the exchange.
+    c.request(2, "tools/call", search_call(
+        request_state=directory_state,
+        input_responses={KEY_DIRECTORY: {"action": "accept", "content": {"directory": directory}}},
+    ))
+    done = c.expect_result(2)
+    require_result_type(done, "complete", "the elicited retry")
+    if "keyword_count=3" not in json.dumps(done.get("content") or []):
+        raise Failure(f"the elicited directory should have been searched: {done}")
+
+    # Declining exhausts the asking, so the server searches its own working
+    # directory rather than failing.
+    c.request(3, "tools/call", search_call(
+        request_state=directory_state,
+        input_responses={KEY_DIRECTORY: {"action": "decline"}},
+    ))
+    declined = c.expect_result(3)
+    require_result_type(declined, "complete", "a declined form")
+    if declined.get("isError"):
+        raise Failure(f"a declined form falls back to the working directory, it does not fail: {declined}")
+
+    # A client that can neither answer roots nor render a form is not asked at
+    # all, and lands on the same fallback.
+    c.request(4, "tools/call", search_call(), capabilities=NO_CAPABILITIES)
+    unasked = c.expect_result(4)
+    require_result_type(unasked, "complete", "a call to a client with no answerable capability")
+    if unasked.get("isError"):
+        raise Failure(f"a client that cannot be asked still gets a search: {unasked}")
 
 
-@scenario("apps_resources_list", "step 25")
-def s_apps_resources_list(c):
-    initialize(c)
-    c.request(15, "resources/list")
-    result = c.expect_result(15)
-    resources = result.get("resources") or []
-    match = [r for r in resources if r.get("uri") == "ui://keyword-search/mcp-app.html"]
-    if not match:
-        raise Failure(f"resources/list missing ui:// app resource: {result}")
-    if match[0].get("mimeType") != "text/html;profile=mcp-app":
-        raise Failure(f"app resource mimeType wrong: {match[0]}")
+@scenario("task_client_is_not_asked", "extensions, tasks")
+def s_task_client_is_not_asked(c):
+    """A request committed to a task handle must not answer input_required.
+
+    The two are alternative result types for the same response, so the server
+    has to decide the shape before the tool considers asking for anything.
+    Getting this wrong is what produces the Inspector's "Unsupported result
+    type 'input_required' for tools/call" — its task path never enables
+    multi-round-trip auto-fulfilment.
+    """
+    # Declares roots AND elicitation AND tasks: the tool would like to ask,
+    # and must not.
+    capabilities = dict(ROOTS_AND_FORMS)
+    capabilities["extensions"] = {TASKS_EXTENSION: {}}
+
+    c.request(1, "tools/call", search_call(), capabilities=capabilities)
+    handle = c.expect_result(1)
+    require_result_type(handle, "task", "a tools/call from a task-declaring client")
+    if not handle.get("taskId"):
+        raise Failure(f"a task result must carry a taskId: {handle}")
 
 
-@scenario("apps_resources_read", "step 26")
-def s_apps_resources_read(c):
-    initialize(c)
-    c.request(16, "resources/read", {"uri": "ui://keyword-search/mcp-app.html"})
-    result = c.expect_result(16)
-    contents = result.get("contents") or []
-    if not contents:
-        raise Failure(f"ui:// read returned no contents: {result}")
-    item = contents[0]
-    if item.get("mimeType") != "text/html;profile=mcp-app":
-        raise Failure(f"ui:// read mimeType wrong: {item}")
-    if "<html" not in (item.get("text") or "").lower():
-        raise Failure("ui:// read did not return HTML")
-    # javadoc reads must still work after the upgrade
-    c.request(17, "resources/list")
-    resources = c.expect_result(17)["resources"]
-    javadoc_uri = [r["uri"] for r in resources if r["uri"].startswith("javadoc/")][0]
-    c.request(18, "resources/read", {"uri": javadoc_uri})
-    jd = c.expect_result(18)
-    if not (jd.get("contents") or [{}])[0].get("text"):
-        raise Failure(f"javadoc read broke after ui:// upgrade: {jd}")
+@scenario("directory_argument", "extensions")
+def s_directory_argument(c):
+    """An explicit directory argument must complete without any round trip.
+
+    MRTR is optional for clients, so a tool that can only be reached through
+    an input_required is unusable by the ones that do not implement it.
+    """
+    directory = make_keyword_dir()
+
+    call = search_call()
+    call["arguments"]["directory"] = directory
+    c.request(1, "tools/call", call)
+
+    done = c.expect_result(1)
+    require_result_type(done, "complete", "a tools/call carrying a directory argument")
+    if done.get("isError"):
+        raise Failure(f"a supplied directory should just be searched: {done}")
+    if "keyword_count=3" not in json.dumps(done.get("content") or []):
+        raise Failure(f"the supplied directory should have been searched: {done}")
+
+    c.request(2, "tools/list")
+    schema = ((c.expect_result(2).get("tools") or [{}])[0]).get("inputSchema") or {}
+    if "directory" not in (schema.get("properties") or {}):
+        raise Failure(f"the directory argument should be discoverable in the schema: {schema}")
+    if "directory" in (schema.get("required") or []):
+        raise Failure(f"the directory argument is optional, not required: {schema}")
 
 
-# ---------------------------------------------------------------- Section 7
+# ------------------------------------------------- Subscriptions
 
-@scenario("tasks_capability", "step 29")
-def s_tasks_capability(c):
-    result = initialize(c, {"tasks": {}})
-    caps = result.get("capabilities") or {}
-    if not caps.get("tasks"):
-        raise Failure(f"initialize result missing tasks capability: {result}")
+@scenario("subscriptions", "capabilities, flow-diagram")
+def s_subscriptions(c):
+    listen_id = "listen:0"
+    c.request(listen_id, "subscriptions/listen", {"notifications": {
+        "toolsListChanged": True,
+        "resourcesListChanged": True,
+    }})
+
+    # Without the subscriptionId on the acknowledgment the client waits
+    # forever, with no error and no timeout.
+    ack = c.expect_notification("notifications/subscriptions/acknowledged")
+    ack_params = ack.get("params") or {}
+    if (ack_params.get("_meta") or {}).get(META_SUBSCRIPTION_ID) != listen_id:
+        raise Failure(f"the acknowledgment must carry _meta.{META_SUBSCRIPTION_ID}: {ack}")
+
+    # This server advertises no listChanged support, so nothing is honored and
+    # the stream closes rather than dangling.
+    if ack_params.get("notifications") != {}:
+        raise Failure(f"nothing should be honored on this server: {ack}")
+
+    close = c.expect_response(listen_id)
+    if "result" not in close:
+        raise Failure(f"a graceful close is a result, not an error: {close}")
+    require_result_type(close["result"], "complete", "the subscription close")
+    if (close["result"].get("_meta") or {}).get(META_SUBSCRIPTION_ID) != listen_id:
+        raise Failure(f"the close result must carry the same subscriptionId: {close}")
+
+    # A client tears a stream down by naming the listen id; requestId is
+    # required on notifications/cancelled now.
+    c.notify("notifications/cancelled", {"requestId": listen_id, "reason": "user navigated away"})
+    if not c.log_contains(f"notifications/cancelled requestId={listen_id} reason=user navigated away"):
+        raise Failure("the cancellation naming the listen request was never deserialized")
 
 
-@scenario("tasks_tools_list", "step 30")
-def s_tasks_tools_list(c):
-    initialize(c, {"tasks": {}})
-    c.request(19, "tools/list")
-    result = c.expect_result(19)
-    tool = (result.get("tools") or [{}])[0]
-    execution = tool.get("execution") or {}
-    if execution.get("taskSupport") != "optional":
-        raise Failure(f"tool execution.taskSupport should be 'optional': {tool}")
+# ------------------------------------------------- Tasks extension
 
+@scenario("tasks", "tasks, flow-diagram")
+def s_tasks(c):
+    directory = make_keyword_dir()
 
-def start_task(c, id_, keyword_dir, ttl=60000):
-    c.request(id_, "tools/call", {
-        "name": "key_word_search",
-        "arguments": {"keyword": "needleword"},
-        "task": {"ttl": ttl},
-    })
-    result = c.expect_result(id_)
-    task = result.get("task") or {}
-    task_id = task.get("taskId")
+    # Task creation is the server's decision now; params.task was removed and
+    # a handle only ever goes to a client that declared the extension.
+    c.request(1, "tools/call", search_call(
+        request_state=encode_state("needleword", "roots"),
+        input_responses={KEY_ROOTS: roots_answer(directory)},
+    ), capabilities=TASK_CLIENT)
+    handle = c.expect_result(1)
+    require_result_type(handle, "task", "a tools/call from a task-capable client")
+
+    task_id = handle.get("taskId")
     if not task_id:
-        raise Failure(f"task-augmented call did not return a task: {result}")
-    meta = result.get("_meta") or {}
-    related = meta.get("io.modelcontextprotocol/related-task") or {}
-    if related.get("taskId") != task_id:
-        raise Failure(f"CreateTaskResult missing related-task meta: {result}")
-    return task_id, task
+        raise Failure(f"a task handle needs a taskId: {handle}")
+    for renamed in ("ttlMs", "pollIntervalMs"):
+        if renamed not in handle:
+            raise Failure(f"the tasks extension renamed the poll hints; {renamed} missing: {handle}")
+    if handle.get("status") != "working":
+        raise Failure(f"a fresh task should be working: {handle}")
 
-
-@scenario("task_call", "steps 28+31")
-def s_task_call(c):
-    d = make_keyword_dir()
-    initialize(c, {"tasks": {}, "roots": {"listChanged": True}})
-    set_roots(c, d)
-    time.sleep(0.3)
-    task_id, task = start_task(c, 20, d)
-    if task.get("status") not in ("working", "submitted", "input_required"):
-        raise Failure(f"fresh task has unexpected status: {task}")
-    c.expect_notification(
-        "notifications/tasks/status",
-        pred=lambda m: (m.get("params") or {}).get("taskId") == task_id
-        and (m.get("params") or {}).get("status") == "completed",
-        timeout=12.0,
+    # The bare method name; the notifications/tasks/ prefix is reserved.
+    working = c.expect_notification(
+        "notifications/tasks",
+        pred=lambda m: (m.get("params") or {}).get("status") == "working",
     )
+    if (working.get("params") or {}).get("taskId") != task_id:
+        raise Failure(f"the status notification should carry the task snapshot: {working}")
+
+    # Clients poll tasks/get, and the Inspector polls it with string ids.
+    c.request("inspector-ext-1", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+    polled = c.expect_result("inspector-ext-1")
+    require_result_type(polled, "complete", "tasks/get")
+    if polled.get("taskId") != task_id or polled.get("status") not in ("working", "completed"):
+        raise Failure(f"tasks/get should report this task's status: {polled}")
+
+    # Poll until terminal, the way a client would.
+    deadline = time.time() + 15.0
+    poll = 2
+    while time.time() < deadline:
+        poll_id = f"inspector-ext-{poll}"
+        c.request(poll_id, "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+        snapshot = c.expect_result(poll_id)
+        if snapshot.get("status") == "completed":
+            underlying = snapshot.get("result") or {}
+            if "keyword_count=3" not in json.dumps(underlying.get("content") or []):
+                raise Failure(f"a completed tasks/get should carry the underlying result: {snapshot}")
+            break
+        poll += 1
+        time.sleep(1.0)
+    else:
+        raise Failure(f"task {task_id} never reached completed")
+
+    # A task id that was never issued must not be guessable or resolvable.
+    c.request("inspector-ext-99", "tasks/get", {"taskId": "no-such-task"}, capabilities=TASK_CLIENT)
+    c.expect_error("inspector-ext-99", code=INVALID_PARAMS)
 
 
-@scenario("tasks_get_result", "step 32")
-def s_tasks_get_result(c):
-    d = make_keyword_dir()
-    initialize(c, {"tasks": {}, "roots": {"listChanged": True}})
-    set_roots(c, d)
-    time.sleep(0.3)
-    task_id, _ = start_task(c, 21, d)
-    c.request(22, "tasks/get", {"taskId": task_id})
-    snapshot = c.expect_result(22)
-    if snapshot.get("taskId") != task_id:
-        raise Failure(f"tasks/get returned wrong task: {snapshot}")
-    c.request(23, "tasks/result", {"taskId": task_id})
-    result = c.expect_result(23, timeout=15.0)
+@scenario("tasks_gated", "tasks")
+def s_tasks_gated(c):
+    directory = make_keyword_dir()
+
+    # The same call from a client that did not declare the extension runs
+    # inline: handing a task to a client that cannot poll would strand it.
+    c.request(1, "tools/call", search_call(
+        request_state=encode_state("needleword", "roots"),
+        input_responses={KEY_ROOTS: roots_answer(directory)},
+    ), capabilities=ROOTS_AND_FORMS)
+    result = c.expect_result(1)
+    require_result_type(result, "complete", "a tools/call from a client without the tasks extension")
     if "keyword_count=3" not in json.dumps(result.get("content") or []):
-        raise Failure(f"tasks/result payload missing search results: {result}")
-    related = (result.get("_meta") or {}).get("io.modelcontextprotocol/related-task") or {}
-    if related.get("taskId") != task_id:
-        raise Failure(f"tasks/result missing related-task meta: {result}")
-    c.request(24, "tasks/get", {"taskId": "no-such-task"})
-    c.expect_error(24, code=-32602)
+        raise Failure(f"the inline path should return the search hits: {result}")
 
 
-@scenario("tasks_list_cancel", "step 33")
-def s_tasks_list_cancel(c):
-    d = make_keyword_dir()
-    initialize(c, {"tasks": {}, "roots": {"listChanged": True}})
-    set_roots(c, d)
-    time.sleep(0.3)
-    task_id, _ = start_task(c, 25, d)
-    c.request(26, "tasks/list")
-    listed = c.expect_result(26)
-    ids = [t.get("taskId") for t in (listed.get("tasks") or [])]
-    if task_id not in ids:
-        raise Failure(f"tasks/list missing {task_id}: {listed}")
-    # cancel while still inside the 4s work window
-    c.request(27, "tasks/cancel", {"taskId": task_id})
-    cancelled = c.expect_result(27)
-    if cancelled.get("status") != "cancelled":
-        raise Failure(f"tasks/cancel should return cancelled snapshot: {cancelled}")
-    c.request(28, "tasks/cancel", {"taskId": task_id})
-    c.expect_error(28, code=-32602)
-    c.request(29, "tasks/cancel", {"taskId": "no-such-task"})
-    c.expect_error(29, code=-32602)
+# ------------------------------------------------- MCP Apps
+
+@scenario("mcp_apps", "mcp-apps")
+def s_mcp_apps(c):
+    c.request(1, "tools/list")
+    tool = (c.expect_result(1).get("tools") or [{}])[0]
+
+    meta = tool.get("_meta") or {}
+    if (meta.get("ui") or {}).get("resourceUri") != APP_URI:
+        raise Failure(f"tool _meta.ui.resourceUri wrong: {tool}")
+    if meta.get("ui/resourceUri") != APP_URI:
+        raise Failure(f"the flat _meta['ui/resourceUri'] key is required too: {tool}")
+
+    # Removed from tools/list: its taskSupport hint forced a warmup call.
+    for gone in ("execution", "taskSupport"):
+        if gone in tool:
+            raise Failure(f"Tool.{gone} was removed from tools/list on this revision: {tool}")
+
+    c.request(2, "resources/list")
+    resources = c.expect_result(2).get("resources") or []
+    app = next((r for r in resources if r.get("uri") == APP_URI), None)
+    if not app or app.get("mimeType") != APP_MIME_TYPE:
+        raise Failure(f"the app resource should be advertised as {APP_MIME_TYPE}: {app}")
+
+    c.request(3, "resources/read", {"uri": APP_URI})
+    contents = (c.expect_result(3).get("contents") or [{}])[0]
+    if contents.get("mimeType") != APP_MIME_TYPE:
+        raise Failure(f"reading the app resource should keep the mime type: {contents}")
+    if "<html" not in (contents.get("text") or "").lower():
+        raise Failure("the app resource did not return HTML")
 
 
 # ---------------------------------------------------------------- runner
 
 def run(names):
-    order = {name: (steps, fn) for name, steps, fn in SCENARIOS}
+    order = {name: (topic, fn) for name, topic, fn in SCENARIOS}
     if names == ["all"]:
         names = [name for name, _, _ in SCENARIOS]
     unknown = [n for n in names if n not in order]
@@ -581,18 +764,18 @@ def run(names):
         return 2
     failures = 0
     for name in names:
-        steps, fn = order[name]
+        topic, fn = order[name]
         client = None
         try:
             client = Client()
             fn(client)
-            print(f"[PASS] {name} ({steps})")
+            print(f"[PASS] {name} ({topic})")
         except Failure as e:
             failures += 1
-            print(f"[FAIL] {name} ({steps}): {e}")
+            print(f"[FAIL] {name} ({topic}): {e}")
         except Exception as e:
             failures += 1
-            print(f"[FAIL] {name} ({steps}): unexpected {type(e).__name__}: {e}")
+            print(f"[FAIL] {name} ({topic}): unexpected {type(e).__name__}: {e}")
         finally:
             if client is not None:
                 client.close()

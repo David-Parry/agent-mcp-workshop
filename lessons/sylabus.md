@@ -2,7 +2,7 @@
 
 ## Workshop Overview
 
-This instructor-led workshop teaches you to build a Java-based Model Context Protocol (MCP) server from scratch. By the end, you'll have a fully functional MCP server that integrates with AI coding assistants like Claude Code, Cursor, and Windsurf — and you'll understand the protocol's full surface, including the experimental Tasks utility from the 2025-11-25 specification.
+This instructor-led workshop teaches you to build a Java-based Model Context Protocol (MCP) server from scratch. By the end, you'll have a fully functional MCP server that integrates with AI coding assistants like Claude Code, Cursor, and Windsurf — and you'll understand the protocol's full surface on revision 2026-07-28, the stateless revision that deleted the handshake, including the tasks and MCP Apps extensions.
 
 **Duration**: 7 chapters + optional agent bonus (instructor-paced)
 **Prerequisites**: Java fundamentals, familiarity with JSON
@@ -67,41 +67,44 @@ Understanding of how MCP messages are structured and exchanged.
 
 ---
 
-## Chapter 3: Protocol Handshake & Core Message Routing
+## Chapter 3: Discovery & Core Message Routing
 
 **Branch**: `03-chapter`
 
 ### Objective
-Implement the MCP protocol handshake and basic request handling.
+Implement `server/discover` and the per-request envelope that replaced the handshake.
 
 ### What You'll Build
-- Initialize handler (client-server handshake)
-- Ping handler (heartbeat mechanism)
+- `RequestId` plus a Gson `TypeAdapter` — a JSON-RPC id is a string *or* a number
+- `server/discover` handler (versions, capabilities, identity, cache hints)
+- `RequestEnvelope` validation — the three distinct rejections
 - Notification deserialization infrastructure
 - `NotificationCancelledParams` record
 
 ### Key Concepts
-- Protocol version negotiation
-- Capability advertisement
+- Statelessness: revision `2026-07-28` deleted `initialize`, `notifications/initialized`, and `ping`
+- Per-request capability declaration in `params._meta`
+- Protocol version negotiation *through errors*, since there is no handshake to negotiate in
 - Type-safe parameter deserialization
 - STDIO discipline (never write debug output to stdout)
 
 ### Tasks
-1. Implement INITIALIZE case in `IORouter`
-2. Implement PING case in `IORouter`
-3. Build and test with MCP Inspector
-4. Add `deserializeParams()` to `JsonRpcMessageDeserializer`
-5. Create `NotificationCancelledParams` record
-6. Update notification handler for type-safe handling
+1. Add `RequestId` + `RequestIdTypeAdapter`, registered via the shared `McpGson` factory
+2. Implement the `SERVER_DISCOVER` case in `IORouter`, answered before any version check
+3. Implement `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported`) for an unsupported revision
+4. Build and test with MCP Inspector in modern mode
+5. Add `deserializeParams()` to `JsonRpcMessageDeserializer`
+6. Create `NotificationCancelledParams` record and update the notification handler
 
 ### Verification
-- MCP Inspector connects successfully
-- Initialization completes (green status)
-- Ping returns a response
+- MCP Inspector connects successfully with `"protocolEra": "modern"`
+- Discovery completes (green status) — note the **string** id on that first message
+- `initialize` returns `-32601`, checked before the envelope so a legacy client is told the truth
+- A request with no `_meta` returns `-32602`; one declaring `2025-11-25` returns `-32022`
 - Cancellation notifications show reason text in logs
 
 ### Outcome
-A server that completes the MCP handshake and handles basic requests.
+A server that answers discovery, validates every request's envelope, and rejects what it cannot honour in three diagnosable ways.
 
 ---
 
@@ -145,35 +148,37 @@ A working MCP server with all three core capabilities — ready to be extended w
 
 ---
 
-## Chapter 5: Extensions & Lazy Elicitation
+## Chapter 5: Extensions & Multi Round-Trip Requests
 
 **Branch**: `05-chapter`
 
 ### Objective
-Wire up the MCP extension mechanism and use it to ask the user for the missing search directory only when needed.
+Wire up the MCP extension mechanism, then ask the user for a missing search directory in the only way a server still can — by answering the call with a question.
 
 ### What You'll Build
-- `experimental` capability map in `ServerCapabilities`
-- `withExperimentalCapability()` builder method
-- `sendElicitationMessage()` using `ElicitationBuilder.buildSearchDirectoryElicitation()`
-- **Lazy elicitation**: `TOOLS_CALL` defers its response, sends `elicitation/create`, and resumes the original call once the user submits a directory
-- `process(JsonRpcResponse)` branch that consumes the elicitation result and populates `roots`
+- `extensions` capability map in `ServerCapabilities`, alongside the surviving `experimental`
+- `withExtension()` builder method
+- `InputRequiredResult` and `InputRequest` — an embedded method call with no `jsonrpc` and no `id`
+- **The MRTR loop**: `TOOLS_CALL` answers `resultType: "input_required"`, embedding `roots/list` and then escalating to `elicitation/create`
+- `SearchContinuation` — the keyword and stage, base64-encoded into the opaque `requestState`
 
 ### Key Concepts
 - Extension identifier format (`{vendor-prefix}/{extension-name}`)
-- Both sides must declare support before extension messages flow
-- The `experimental` map keeps extensions out of the core capability shape
-- Request-response correlation by id — used here to hold a `tools/call` open while a server-initiated `elicitation/create` runs
-- Why lazy beats eager: elicit only when the missing data is actually about to be used
+- A server MUST NOT send a request; modern clients silently discard inbound ones
+- The retry is a **brand new request with a brand new id**, not a response — correlated only by the echoed `requestState`
+- Statelessness forces the continuation onto the wire: the server has nowhere to keep it
+- Always leave a one-hop path — MRTR is optional for clients, so the directory is also an optional tool argument
 
 ### Verification
-- Initialize response carries `experimental: { "io.modelcontextprotocol/elicitation": {} }`
-- Nothing is asked at startup
-- The first `tools/call key_word_search` with empty roots fires `elicitation/create` and the `tools/call` response is held until the form is submitted
-- Accepting the form adds the directory to roots and the held response arrives with real search hits
+- The `server/discover` result carries `extensions: { "io.modelcontextprotocol/ui": {...}, "io.modelcontextprotocol/tasks": {} }`
+- Nothing is asked at startup — a server has no way to ask
+- `tools/call key_word_search` **with** a `directory` argument completes in one hop
+- **Without** it, the first answer is `input_required` embedding `roots/list`, and the client re-sends under a new id
+- Empty roots escalate to an embedded `elicitation/create` with `mode: "form"`
+- Declining the form falls back to the server's working directory rather than failing
 
 ### Outcome
-A server that uses the protocol's extensibility surface and asks for what it needs, exactly when it needs it.
+A server that uses the protocol's extensibility surface and asks for what it needs, exactly when it needs it, without ever sending a request.
 
 ---
 
@@ -212,32 +217,31 @@ A tool that returns plain text **and** a rendered interactive dashboard, dependi
 **Branch**: `07-chapter`
 
 ### Objective
-Implement the **experimental tasks utility** from the MCP 2025-11-25 specification (SEP-1686) — turn any expensive `tools/call` into a deferred, pollable, cancellable operation.
+Implement the **`io.modelcontextprotocol/tasks` extension** — turn any expensive `tools/call` into a deferred, pollable, cancellable operation.
 
 ### What You'll Build
-- 16 new spec records (`Task`, `TaskStatus`, `TaskParams`, `CreateTaskResult`, per-method params/results, server- and client-side `TasksCapability` shapes, `ToolExecution`)
-- `TaskStore` — framework-free in-memory state machine with status listeners and pending-result delivery callbacks
-- `TasksCapability` declaration in the `initialize` response (`{ list:{}, cancel:{}, requests:{ tools:{ call:{} } } }`)
-- Per-tool `execution.taskSupport: "optional"` on the keyword search tool
-- `TOOLS_CALL` augmentation branch — when `params.task` is present, return `CreateTaskResult` and run the work on a background thread
-- Four new request handlers: `tasks/get`, `tasks/result`, `tasks/list`, `tasks/cancel`
-- One new outbound notification: `notifications/tasks/status`
+- Spec records: `Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams`
+- `TaskStore` — framework-free in-memory state machine with status listeners
+- The extension declared under `capabilities.extensions` in the `server/discover` result
+- A `TOOLS_CALL` branch that returns an **unsolicited** `resultType: "task"` handle when the client declared the extension
+- Three request handlers: `tasks/get`, `tasks/update`, `tasks/cancel`
+- One new outbound notification: `notifications/tasks`
 
 ### Key Concepts
-- **Request augmentation** — opt into deferred execution by adding `task: { ttl }` to existing request params, without inventing a new method
+- **The server decides, not the client.** There is no `task: { ttl }` opt-in any more — a server may answer any call with a handle, provided the client declared the extension *on that request*
 - The lifecycle state machine: `working → input_required ⇄ working → completed | failed | cancelled`
-- `tasks/result` MUST block until terminal — the router holds the response until the `TaskStore` signals
-- Related-task metadata: every task-correlated message carries `_meta["io.modelcontextprotocol/related-task"]`
-- Tool-level `execution.taskSupport` (`required` / `optional` / `forbidden`) sits on top of the server-level capability declaration
+- Polling replaced blocking: `tasks/result` and `tasks/list` are gone, and the client polls `tasks/get` at `pollIntervalMs`
+- `tasks/update` is the only reason `input_required` exists at the task level — it delivers `inputResponses` to a task that is waiting
+- `ttlMs` / `pollIntervalMs` naming, and the terminal-state rule: a receiver MUST NOT move a terminal task back to `working`
 
 ### Verification
-- Initialize response carries the `tasks` capability shape
-- `tools/list` shows `execution.taskSupport: "optional"`
-- A `tools/call` with `params.task = { ttl: 60000 }` returns a `CreateTaskResult` in ms
-- `tasks/get` reports `working` then `completed`
-- `tasks/result` returns the actual `ToolCallResult` with `_meta.io.modelcontextprotocol/related-task.taskId` matching
+- The `server/discover` result carries `extensions["io.modelcontextprotocol/tasks"]`
+- `tools/list` shows no `execution` field — `Tool.execution` / `taskSupport` was removed
+- A `tools/call` from a task-declaring client returns `resultType: "task"` in ms
+- The same call from a client that did *not* declare the extension runs inline and returns `complete`
+- `tasks/get` reports `working` then `completed`, carrying the result
 - `tasks/cancel` of a terminal task returns JSON-RPC error `-32602`
-- `notifications/tasks/status` arrives on every status transition
+- `notifications/tasks` arrives on every status transition
 
 ### Outcome
 A server that implements the call-now / fetch-later pattern at the protocol level — the same pattern used by production batch APIs and long-running ML jobs.
@@ -279,11 +283,11 @@ Your MCP server running with a live LLM, and a supervised plugin demonstrating s
 
 | Chapter | Topic | Key Deliverable |
 |---------|-------|-----------------|
-| 1 | Transport Layer | Bidirectional I/O with event publishing |
+| 1 | Transport Layer | Line-oriented I/O with event publishing |
 | 2 | Protocol Review | Understanding of JSON-RPC and MCP |
-| 3 | Handshake & Routing | Working protocol handshake and ping |
+| 3 | Discovery & Routing | Working `server/discover` and envelope validation |
 | 4 | Resources, Tools, Prompts | Three core capabilities wired up |
-| 5 | Extensions & Lazy Elicitation | Experimental map + on-demand directory elicitation |
+| 5 | Extensions & Round Trips | Namespaced extensions + Multi Round-Trip Requests |
 | 6 | MCP Apps | Interactive HTML UI inside the conversation |
 | 7 | Tasks | Deferred-execution lifecycle (call-now / fetch-later) |
 | Bonus | Agent / Live LLM | Server connected to a real assistant + supervised plugin |
@@ -293,9 +297,9 @@ Your MCP server running with a live LLM, and a supervised plugin demonstrating s
 By completing this workshop, you'll have:
 
 - A production-ready MCP server in Java
-- Understanding of the Model Context Protocol specification through 2025-11-25
-- Experience with MCP Inspector for testing every flow — sync calls, elicitation, MCP Apps, and task-augmented calls
-- A custom `key_word_search` tool that handles its own runtime configuration via roots **or** lazy elicitation
+- Understanding of the Model Context Protocol specification through 2026-07-28
+- Experience with MCP Inspector for testing every flow — one-hop calls, round trips, MCP Apps, tasks, and subscriptions
+- A custom `key_word_search` tool that takes a directory argument, **or** asks for one over a round trip, **or** falls back to its working directory
 - Integration with your preferred AI coding assistant
 
 ## Next Steps After Workshop

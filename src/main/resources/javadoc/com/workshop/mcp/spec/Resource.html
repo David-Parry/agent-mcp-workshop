@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -139,6 +139,11 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color">
 <div class="block">MIME type constant for JSON content.</div>
 </div>
+<div class="col-first even-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color"><code><a href="#MIME_TYPE_UI_APP" class="member-name-link">MIME_TYPE_UI_APP</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">MIME type for MCP App HTML resources.</div>
+</div>
 </div>
 </section>
 </li>
@@ -260,6 +265,26 @@ loadScripts(document, 'script');</script>
 <dd>
 <ul class="tag-list">
 <li><a href="../../../../constant-values.html#com.workshop.mcp.spec.Resource.MIME_TYPE_JSON">Constant Field Values</a></li>
+</ul>
+</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="MIME_TYPE_UI_APP">
+<h3>MIME_TYPE_UI_APP</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">MIME_TYPE_UI_APP</span></div>
+<div class="block">MIME type for MCP App HTML resources.
+ <p>
+ Resources served at <code>ui://</code> URIs must use this MIME type so that
+ the host knows to render them as interactive app iframes rather than
+ displaying the raw HTML as text content.
+ </p></div>
+<dl class="notes">
+<dt>See Also:</dt>
+<dd>
+<ul class="tag-list">
+<li><a href="../../../../constant-values.html#com.workshop.mcp.spec.Resource.MIME_TYPE_UI_APP">Constant Field Values</a></li>
 </ul>
 </dd>
 </dl>

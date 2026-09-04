@@ -116,7 +116,7 @@ public class Server {
         } catch (Exception e) {
             logger.log("Error in main method", e);
             stop();
-            System.exit(0);
+            exit();
         }
     }
 
@@ -193,14 +193,27 @@ public class Server {
             Thread.sleep(1);
 
             // Force exit with success code
-            System.exit(0);
+            exit();
         } catch (InterruptedException e) {
             // Thread was interrupted, exit gracefully
             Thread.currentThread().interrupt();
             logger.log("Application interrupted during shutdown", e);
             // Force exit with error code
-            System.exit(0);
+            exit();
         }
+    }
+
+    /**
+     * Terminates the JVM with a success status code.
+     * <p>
+     * Extracted into a package-private method so unit tests can override it
+     * with a no-op: calling {@link System#exit(int)} from a test kills the
+     * test runner JVM mid-suite, silently skipping every remaining test.
+     * Production behavior is unchanged.
+     * </p>
+     */
+    void exit() {
+        System.exit(0);
     }
 
 

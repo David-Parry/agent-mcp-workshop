@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -101,9 +101,13 @@ loadScripts(document, 'script');</script>
 <div class="block">Represents information about an MCP (Model Context Protocol) server.
  <p>
  ServerInfo provides identification details about the server, including its
- name and version. This information is returned during the initialization
- process and helps clients understand the server's capabilities and ensure
- compatibility.
+ name and version.
+ </p>
+ <p>
+ On revision <code>2026-07-28</code> this is no longer a body field of a
+ handshake result. It travels in <code>_meta</code> under
+ <a href="MetaKeys.html#SERVER_INFO"><code>MetaKeys.SERVER_INFO</code></a>, which lets a client identify the server from
+ any result rather than only from the one that opened the connection.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -111,7 +115,8 @@ loadScripts(document, 'script');</script>
 <dt>See Also:</dt>
 <dd>
 <ul class="tag-list">
-<li><a href="InitializeResult.html" title="class in com.workshop.mcp.spec"><code>InitializeResult</code></a></li>
+<li><a href="DiscoverResult.html" title="class in com.workshop.mcp.spec"><code>DiscoverResult</code></a></li>
+<li><a href="MetaKeys.html#SERVER_INFO"><code>MetaKeys.SERVER_INFO</code></a></li>
 </ul>
 </dd>
 </dl>

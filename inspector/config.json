@@ -7,7 +7,15 @@
         "../build/libs/agent-mcp-workshop-0.0.1.jar"
       ],
       "env": {
-      }
+      },
+      "protocolEra": "modern",
+      "modernLogLevel": "off",
+      "roots": [
+        {
+          "uri": "file:///Users/davidparry/code/github/mcp-servers/agent-mcp-workshop",
+          "name": "workshop-tools"
+        }
+      ]
     }
   }
 }

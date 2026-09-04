@@ -12,7 +12,7 @@ import java.util.List;
  * 
  * <p>The elicitation result supports different types of information gathering:</p>
  * <ul>
- *   <li><strong>questions</strong> - Interactive Q&A sessions with users</li>
+ *   <li><strong>questions</strong> - Interactive Q&amp;A sessions with users</li>
  *   <li><strong>preferences</strong> - Collecting user preferences and settings</li>
  *   <li><strong>context</strong> - Gathering contextual information for better responses</li>
  *   <li><strong>validation</strong> - Confirming user intent or validating assumptions</li>

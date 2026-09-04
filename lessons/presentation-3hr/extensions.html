@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MCP Extensions &amp; Elicitation – MCP Presentation</title>
+    <title>MCP Extensions &amp; Multi Round-Trip Requests – MCP Presentation</title>
     <style>
         :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
         html,body{height:100%}
@@ -56,8 +56,8 @@
 </head>
 <body>
 <header>
-    <h1>MCP Extensions &amp; Elicitation</h1>
-    <p class="subtitle">The experimental capability map — how MCP evolves without breaking existing implementations</p>
+    <h1>MCP Extensions &amp; Multi Round-Trip Requests</h1>
+    <p class="subtitle">How MCP evolves without breaking implementations — and how a server asks a question when it is no longer allowed to send one</p>
 </header>
 <main>
     <div class="nav">
@@ -84,21 +84,31 @@
         <p>MCP Extensions are <strong>optional additions</strong> to the core specification. They allow the protocol to evolve without breaking backwards compatibility. An extension is only active when <em>both sides</em> explicitly declare support for it.</p>
 
         <div class="key-concept">
-            <strong>The Experimental Map:</strong> Extensions live in the <code>experimental</code> field of <code>ServerCapabilities</code>. It's a <code>Map&lt;String, Object&gt;</code> where each key is an extension identifier and each value is extension-specific configuration.
+            <strong>Extensions got their own slot.</strong> On revision <code>2026-07-28</code> the seven-slot capability object has a dedicated <code>extensions</code> map — a <code>Map&lt;String, Object&gt;</code> keyed by extension identifier. <code>experimental</code> still exists beside it, but it now means what its name says: genuinely non-standard, pre-specification work. Anything with a published shape belongs in <code>extensions</code>.
         </div>
 
-        <pre style="margin-top:16px">{
-  "protocolVersion": "2025-11-25",
+        <p style="margin-top:14px">This is not cosmetic. Tasks used to be a top-level capability slot of its own; on this revision that slot is <strong>gone</strong> and tasks are declared as <code>io.modelcontextprotocol/tasks</code> under <code>extensions</code>. The rule the spec settled on is that the core capability object is closed at seven members, and everything else — however official — earns its place by identifier.</p>
+
+        <pre style="margin-top:16px">// from the server/discover result — no protocolVersion here,
+// the server lists what it speaks and the client picks
+{
+  "resultType": "complete",
+  "supportedVersions": ["2026-07-28"],
   "capabilities": {
-    "tools": { "listChanged": true },
-    "prompts": { "listChanged": true },
-    "resources": { "listChanged": false },
-    "experimental": {
-      "io.modelcontextprotocol/elicitation": {},
-      "io.modelcontextprotocol/apps": {}
+    "completions": {},
+    "prompts":   { "listChanged": false },
+    "resources": { "listChanged": false, "subscribe": false },
+    "tools":     { "listChanged": false },
+    "extensions": {
+      "io.modelcontextprotocol/ui": {
+        "mimeTypes": ["text/html;profile=mcp-app"]
+      },
+      "io.modelcontextprotocol/tasks": {}
     }
   }
 }</pre>
+
+        <p style="color:var(--muted);font-size:13px;margin-top:12px">The client side is symmetric but arrives differently: a client declares its extensions inside <code>_meta["io.modelcontextprotocol/clientCapabilities"].extensions</code> on <em>every request</em>, because there is no handshake in which to say it once.</p>
     </section>
 
     <section class="card">
@@ -111,11 +121,12 @@
                 <h4>Official MCP Extensions</h4>
                 <p>Maintained by the MCP organization under the <code>io.modelcontextprotocol</code> namespace:</p>
                 <ul style="margin:0;padding-left:20px;font-size:13px">
-                    <li><code>io.modelcontextprotocol/elicitation</code></li>
+                    <li><code>io.modelcontextprotocol/tasks</code> — long-running work</li>
+                    <li><code>io.modelcontextprotocol/ui</code> — MCP Apps</li>
                     <li><code>io.modelcontextprotocol/oauth-client-credentials</code></li>
                     <li><code>io.modelcontextprotocol/enterprise-managed-authorization</code></li>
-                    <li><code>io.modelcontextprotocol/apps</code></li>
                 </ul>
+                <p style="margin-top:8px;font-size:13px">Note that <code>elicitation</code> is <em>not</em> on this list any more. It is a core client capability now, declared in the envelope — see the MRTR section below.</p>
             </div>
             <div class="ext-card">
                 <h4>Your Own Extensions</h4>
@@ -155,93 +166,158 @@
         </div>
     </section>
 
-    <!-- Elicitation -->
+    <!-- MRTR -->
     <section class="card">
-        <h2>Elicitation — Server-Initiated User Input</h2>
-        <p>Elicitation lets the <strong>server</strong> ask the <strong>user</strong> for structured input mid-session. Instead of the tool requiring all parameters upfront, the server can pause execution, present a form, collect responses, and continue.</p>
+        <h2>The Problem: A Server Can No Longer Ask</h2>
+        <p>For three revisions, <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code> worked the obvious way: the server sent a JSON-RPC <em>request</em> to the client, with an id, and waited for a response. That is how the previous version of this very workshop taught them.</p>
 
-        <h3>The Elicitation Flow</h3>
+        <div class="key-concept" style="border-color:rgba(247,118,142,0.5)">
+            <strong>On <code>2026-07-28</code> that no longer works.</strong> A modern client <em>silently discards</em> any inbound request. Not an error, not a rejection — silence. A server that tries it waits forever, and so does the user.
+        </div>
+
+        <p style="margin-top:14px">This is a direct consequence of statelessness, and it is worth spelling out because it is the single most disorienting change in the revision. A server→client request only makes sense if there is a durable, addressable connection to send it <em>on</em>. Once you can be load-balanced across instances, "the client" is not a thing the server holds a handle to; it is whoever happens to be on the other end of the request currently being processed. The only channel that reliably exists is <strong>the reply to the request you are already answering</strong>.</p>
+
+        <p>So the question moves into the answer.</p>
+
+        <h2 style="margin-top:26px">Multi Round-Trip Requests (MRTR)</h2>
+        <p>Instead of sending a request, the server returns <code>resultType: "input_required"</code>, listing what it needs. The client gathers the answers and <strong>re-sends the original request from the top</strong> — brand new id — carrying an <code>inputResponses</code> map and the <code>requestState</code> it was handed.</p>
+
         <div class="flow-steps">
             <div class="flow-step">
                 <span class="step-num">1</span>
                 <div class="step-content">
-                    <h4>Client declares support</h4>
-                    <p>During <code>initialize</code>, the client includes <code>"elicitation": {}</code> in its capabilities.</p>
+                    <h4>Client declares what it can answer</h4>
+                    <p>In <code>_meta["io.modelcontextprotocol/clientCapabilities"]</code> — on this request, not once at startup. <code>roots</code>, <code>sampling</code>, and <code>elicitation</code> (with <code>form</code> and/or <code>url</code>) are the three that matter here. A server must not embed a request the caller did not say it could handle.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">2</span>
                 <div class="step-content">
-                    <h4>Server checks and declares</h4>
-                    <p>Server reads <code>clientCapabilities.elicitation()</code>. If present, sets <code>hasElicitation = true</code> and adds <code>io.modelcontextprotocol/elicitation</code> to the experimental map in its response.</p>
+                    <h4>Server answers with a question</h4>
+                    <p><code>resultType: "input_required"</code>, an <code>inputRequests</code> map, and an opaque <code>requestState</code>. This is a perfectly ordinary JSON-RPC <em>result</em> to the id the client sent. The server has now finished with this request entirely and remembers nothing.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">3</span>
                 <div class="step-content">
-                    <h4>Server sends elicitation/create — <em>lazily</em></h4>
-                    <p>The server does <strong>not</strong> elicit at startup. It defers the elicitation until it actually needs the missing piece — here, the first <code>tools/call key_word_search</code> arriving with an empty roots set. The original <code>tools/call</code> response is paused (the requestor's request id is remembered) while the form goes out.</p>
+                    <h4>Client resolves each embedded request</h4>
+                    <p>By whatever means suits it. <code>roots/list</code> it answers from configuration without troubling anyone. <code>elicitation/create</code> it renders as a form and waits for the human. Both end up as entries in a map keyed by the same keys the server used.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">4</span>
                 <div class="step-content">
-                    <h4>Client presents form to user</h4>
-                    <p>The host renders a UI form based on the schema. The user fills it in and submits.</p>
+                    <h4>Client re-sends the original request — with a new id</h4>
+                    <p>Same method, same arguments, plus <code>inputResponses</code> and the <code>requestState</code> echoed back <strong>byte-exact</strong>. The new id matters: this is a new request, not a continuation of the old one. Any instance can serve it.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">5</span>
                 <div class="step-content">
-                    <h4>Client returns result, server resumes the deferred call</h4>
-                    <p>The form result arrives as a <code>JsonRpcResponse</code> with <code>id == ELICITATION_REQUEST_ID</code>. The server adds <code>content.directory</code> to its roots set, then sends the <strong>delayed</strong> response to the original <code>tools/call</code> using the request id it remembered in step&nbsp;3.</p>
+                    <h4>Server resumes from the state and answers</h4>
+                    <p><code>resultType: "complete"</code> — or another <code>input_required</code>, if it needs a second thing. The loop can run as many times as the exchange requires.</p>
                 </div>
             </div>
         </div>
 
-        <h3>Elicitation Request (Server → Client)</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">The workshop's <code>key_word_search</code> tool needs a directory to search in. If the client did not supply one via <code>roots/list</code>, the server asks the user directly:</p>
-        <pre>{
-  "jsonrpc": "2.0",
-  "id": -4000,
-  "method": "elicitation/create",
-  "params": {
-    "message": "Pick a directory for the keyword-search tool to search in:",
-    "requestedSchema": {
-      "type": "object",
-      "required": ["directory"],
-      "properties": {
-        "directory": {
-          "title": "Search Directory",
-          "type": "string",
-          "description": "Absolute path to the directory the keyword search should look in"
-        }
-      }
-    }
-  }
-}</pre>
+        <h3><code>requestState</code> — Continuation That Travels</h3>
+        <p>A server pausing mid-operation used to keep its half-finished work in memory. With sessions gone there is no memory to keep it in, so <strong>the continuation is handed to the client and comes back with the retry</strong>. It is declared as an <em>opaque string</em>: clients must never parse it, and servers may put whatever they like in it.</p>
+        <p>This workshop base64-encodes a tiny JSON object, which makes it readable in a demo:</p>
+        <pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"
 
-        <h3>User Response (Client → Server)</h3>
-        <pre>{
-  "jsonrpc": "2.0",
-  "id": -4000,
-  "result": {
-    "action": "accept",
-    "content": {
-      "directory": "/Users/davidparry/code/github/agent-command"
-    }
-  }
-}</pre>
-        <p style="color:var(--muted);font-size:13px;margin-top:8px">The server's response handler adds <code>content.directory</code> to its <code>roots</code> set so subsequent <code>tools/call</code> invocations have a search target — without ever exposing the directory as a tool parameter.</p>
+// url-safe base64, no padding — decode it and you get:
+{"keyword":"record","stage":"roots"}</pre>
+        <p style="color:var(--muted);font-size:13px">Two things follow that are easy to miss. Because the state leaves your process, anything sensitive in it is now on the client's disk — sign or encrypt it if it matters. And because the client can hand it back at any time, from anywhere, a server should treat it as untrusted input rather than as its own memory.</p>
 
-        <h3>Backwards Compatibility — The Core Principle</h3>
+        <h3>The Real Exchange — Four Messages</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Captured against this server. Watch the ids.</p>
+        <pre>--&gt; {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+      "name":"key_word_search","arguments":{"keyword":"record"},
+      "_meta":{ … envelope … }}}
+
+&lt;-- {"jsonrpc":"2.0","id":1,"result":{
+      "resultType":"input_required",
+      "inputRequests":{"search_roots":{"method":"roots/list"}},
+      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}
+
+--&gt; {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{
+      "name":"key_word_search","arguments":{"keyword":"record"},
+      "inputResponses":{"search_roots":{"roots":[
+        {"uri":"file:///…/mcp/tools","name":"workshop-tools"}]}},
+      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9",
+      "_meta":{ … envelope … }}}
+
+&lt;-- {"jsonrpc":"2.0","id":2,"result":{
+      "resultType":"complete",
+      "content":[{"text":"/…/SearchContinuation.java, keyword_count=1",
+                  "type":"text"}],
+      "isError":false}}</pre>
+
+        <div class="two-col" style="margin-top:18px">
+            <div class="ext-card">
+                <h4><code>inputRequests</code> is a keyed map, not an array</h4>
+                <p>The keys (<code>"search_roots"</code> here) are the server's own choice, and the client must return its answers under exactly those keys. A map rather than a list because several questions can be asked at once and the answers have to be matched up unambiguously — position would be a fragile way to do that.</p>
+            </div>
+            <div class="ext-card">
+                <h4>An embedded request is not a request</h4>
+                <p><code>{"method": "roots/list"}</code>, plus optional <code>params</code>. <strong>No <code>jsonrpc</code>, no <code>id</code>.</strong> It is a description of a question, not a message. Nothing on the wire is addressed to the client, which is exactly the point.</p>
+            </div>
+        </div>
+
+        <div class="key-concept" style="margin-top:16px">
+            <strong>Only three methods may be embedded:</strong> <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code>. All three are also removed from the inbound registry — sending one <em>to</em> the server is <code>-32601</code>. They exist in exactly one place now: inside an <code>input_required</code> result.
+        </div>
+
+        <h3>Two Escalating Stages in <code>key_word_search</code></h3>
+        <p>The workshop tool needs a directory. The caller can simply pass one as the optional <code>directory</code> argument, in which case none of what follows happens and the call completes in a single hop. When it is omitted, the server asks — in the cheapest way that might work, escalating only when that fails:</p>
+        <ol style="line-height:1.9">
+            <li><strong>Embed <code>roots/list</code>.</strong> Most clients answer this from configuration — the <code>"roots"</code> array in <code>inspector/config.json</code>, for instance — so nobody is interrupted. Cost to the user: nothing.</li>
+            <li><strong>If the roots come back empty, embed <code>elicitation/create</code>.</strong> Now a human is asked. This is the fallback, not the opening move.</li>
+            <li><strong>If that is declined too, search the working directory.</strong> The asking has run out, and a result the caller can reject beats an error it cannot act on.</li>
+        </ol>
+        <div class="key-concept">
+            <strong>Why keep the one-hop path at all?</strong> MRTR is optional for clients, and not every one implements it — the Inspector's own task-augmented <code>tools/call</code> path rejects <code>input_required</code> outright with <em>"multi-round-trip auto-fulfilment is not enabled on this instance"</em>. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all. Take the input as an optional argument; treat asking as the fallback.
+        </div>
+        <p style="color:var(--muted);font-size:13px">The stage the exchange has reached is precisely what <code>requestState</code> is carrying: <code>{"keyword":"record","stage":"roots"}</code> becomes <code>{"keyword":"record","stage":"directory"}</code> after the roots answer comes back empty.</p>
+
+        <h3>The Elicitation Escalation</h3>
+        <pre>&lt;-- {"jsonrpc":"2.0","id":3,"result":{
+      "resultType":"input_required",
+      "inputRequests":{"search_directory":{
+        "method":"elicitation/create",
+        "params":{
+          "mode":"form",
+          "message":"Pick a directory for the keyword-search tool to search in:",
+          "requestedSchema":{
+            "type":"object",
+            "required":["directory"],
+            "properties":{"directory":{
+              "title":"Search Directory","type":"string",
+              "description":"Absolute path to the directory the keyword search should look in"}}}}}},
+      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}</pre>
+        <p><code>elicitation/create</code> picked up a <code>mode</code> field on this revision — <code>"form"</code> to render a schema, <code>"url"</code> to hand off to a browser — and lost <code>elicitationId</code>. It lost it because it no longer needs one: the retry <em>is</em> the completion signal, so there is nothing to correlate. For the same reason <code>notifications/elicitation/complete</code> is gone.</p>
+
+        <h3>When the User Says No</h3>
+        <p>A declined form comes back as <code>{"action":"decline"}</code> in the <code>inputResponses</code> entry. At that point the server has asked everything it can ask, so rather than fail it searches its own working directory — the same place a shell command with no path argument would look:</p>
+        <pre>{"resultType":"complete",
+ "content":[{"type":"text","text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1"}],
+ "isError":false}</pre>
+        <p>That fallback is this server's choice, not a protocol rule. A server that has no sensible default should end the exchange with a <strong>tool-level</strong> error instead:</p>
+        <pre>{"resultType":"complete",
+ "content":[{"type":"text","text":"No search directory was provided."}],
+ "isError":true}</pre>
+        <p style="color:var(--muted);font-size:13px">Note <code>isError: true</code> inside a <em>successful</em> result, not a JSON-RPC error object. The protocol worked perfectly; the tool could not do its job. Keeping those two distinct is what lets a model read the failure and try something else, rather than the transport treating it as a fault.</p>
+
+        <h3>What Changed, Side by Side</h3>
         <table class="handshake-table">
-            <thead><tr><th>Direction</th><th>Mechanism</th><th>Where Implemented</th></tr></thead>
+            <thead><tr><th>&nbsp;</th><th>2025-11-25</th><th>2026-07-28</th></tr></thead>
             <tbody>
-                <tr><td>Client → Server</td><td><code>capabilities.elicitation: {}</code> in initialize request</td><td>Client (Inspector, Claude)</td></tr>
-                <tr><td>Server → Client</td><td><code>capabilities.experimental["io.modelcontextprotocol/elicitation"]</code></td><td>IORouter INITIALIZE handler</td></tr>
-                <tr><td>Server sends form</td><td><code>elicitation/create</code> deferred until <code>tools/call</code> needs a directory</td><td>IORouter TOOLS_CALL branch</td></tr>
-                <tr><td>Client responds</td><td><code>JsonRpcResponse</code> with id <code>-4000</code> &mdash; server adds directory to roots and resumes the held <code>tools/call</code></td><td>IORouter process(JsonRpcResponse)</td></tr>
+                <tr><td>Server asks the client</td><td>Sends a JSON-RPC request with an id</td><td>Returns <code>resultType: "input_required"</code></td></tr>
+                <tr><td>Client answers</td><td>Sends a response with the matching id</td><td>Re-sends the original request with a <strong>new</strong> id</td></tr>
+                <tr><td>Where the half-done work lives</td><td>Server memory (<code>pendingToolsCallRequestId</code>)</td><td><code>requestState</code>, on the client</td></tr>
+                <tr><td>Correlation</td><td>Request id</td><td>The keys of <code>inputRequests</code>/<code>inputResponses</code></td></tr>
+                <tr><td>Elicitation identity</td><td><code>elicitationId</code> + <code>notifications/elicitation/complete</code></td><td>Neither — the retry is the completion</td></tr>
+                <tr><td>Declared by the client</td><td>Once, in <code>initialize</code></td><td>Every request, in <code>_meta</code></td></tr>
             </tbody>
         </table>
     </section>
@@ -249,21 +325,22 @@
     <!-- IDE Demo: Chapter 5 -->
     <div class="ide-demo">
         <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 5</span>
-        <h3>Chapter 5 Live: The Lazy Elicitation Flow</h3>
+        <h3>Chapter 5 Live: The MRTR Loop</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/05-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Open <code>ServerCapabilities.java</code></strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — show the <code>experimental</code> map field, and <code>withExperimentalCapability()</code> in <code>InitializeResultBuilder</code>. Note the ordering rule: it must be chained <em>before</em> <code>withDefaultCapabilities()</code>.</li>
-            <li><strong>In <code>IORouter.java</code></strong>, show the <code>hasElicitation</code> flag set from <code>clientCapabilities.elicitation()</code> during INITIALIZE, and the <code>io.modelcontextprotocol/elicitation</code> declaration in the builder chain.</li>
-            <li><strong>Walk the lazy trigger</strong> — the <code>TOOLS_CALL</code> branch: when <code>roots</code> is empty and the client supports elicitation, the router remembers <code>pendingToolsCallRequestId</code> and sends <code>elicitation/create</code> via <code>sendElicitationMessage()</code> instead of answering.</li>
-            <li><strong>Walk the resume path</strong> in <code>process(JsonRpcResponse)</code> — id <code>-4000</code> matches, the accepted <code>directory</code> is added to roots, and the held <code>tools/call</code> is executed with its original id.</li>
-            <li><strong>In Inspector:</strong> disconnect/reconnect for a clean session. Connect — nothing is asked at startup; only <code>roots/list</code> goes out. You don't need to clear roots by hand: on the <code>complete</code> branch, <code>TOOLS_LIST</code> clears the roots set every time it runs, so clicking <strong>List Tools</strong> guarantees the elicitation path.</li>
-            <li><strong>Call <code>key_word_search</code></strong> with a keyword — the single-field <strong>Search Directory</strong> form appears, and point out the tool call response has <em>not</em> arrived yet.</li>
-            <li><strong>Submit an absolute path</strong> — the deferred <code>tools/call</code> response arrives carrying the search hits. Show the initialize response's <code>experimental</code> map and the server log entries for the whole exchange.</li>
+            <li><strong>Open <code>ServerCapabilities.java</code></strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — count the slots out loud: seven, and <code>extensions</code> is one of them. Then <code>DiscoverResultBuilder.withExtension(...)</code>, and note there is no <code>tasks</code> slot to put tasks in any more.</li>
+            <li><strong>In <code>IORouter.java</code></strong>, show <code>RequestEnvelope.supportsRoots()</code> and <code>supportsElicitationForm()</code> being consulted <em>per request</em> off the envelope. There is no <code>hasElicitation</code> field on the router — there is nowhere for one to live.</li>
+            <li><strong>Walk <code>handleKeywordSearch()</code></strong> — the whole MRTR loop in one method. First call: no <code>inputResponses</code>, so return <code>inputRequired(...)</code> embedding <code>roots/list</code> under the key <code>search_roots</code>, carrying a fresh <code>SearchContinuation</code>. Retry: decode the state, read the answer out of the map, search. Empty roots: re-embed, this time <code>elicitation/create</code> with <code>mode: "form"</code>.</li>
+            <li><strong>Open <code>tools/SearchContinuation.java</code></strong> — a two-field record, <code>encode()</code>, <code>decode()</code>. Base64 it in the terminal live (<code>echo … | base64 -d</code>) so the class sees there is no magic in it, then make the point that a client is not allowed to do what you just did.</li>
+            <li><strong>Run <code>inspector/modern-mrtr.sh</code></strong> before touching the GUI — four messages, printed plainly, easy to read together. Have the class find the two different ids and the identical <code>requestState</code>.</li>
+            <li><strong>In Inspector:</strong> call <code>key_word_search</code> with keyword <code>record</code>. If <code>inspector/config.json</code> has a <code>"roots"</code> array, the round trip completes so fast it looks like one call — expand the raw messages and show that it was two.</li>
+            <li><strong>Now empty the <code>"roots"</code> array in <code>inspector/config.json</code></strong>, restart, and call it again. This time the <strong>Search Directory</strong> form appears. Submit an absolute path, and show the third request going out with <code>inputResponses</code> and the <code>stage: "directory"</code> state.</li>
+            <li><strong>Decline the form once</strong> — the search still returns, now rooted at the server's working directory. Then point at the <code>isError: true</code> shape above and draw the distinction between a tool that failed and a protocol that failed.</li>
         </ol>
-        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> lazy beats eager — the form only appears when the tool actually needs the directory. The same four-step declare/detect/send/handle pattern applies to every MCP extension, including the Apps extension up next.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the server never sent a single message that was not a reply. Every question it asked, it asked inside an answer — and that constraint, not a style preference, is what MRTR exists to work around. The same pattern reappears in the Tasks chapter, where <code>tasks/update</code> delivers <code>inputResponses</code> to a task that is waiting.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Elicitation — Chapter 5.</div>
+    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Multi Round-Trip Requests — Chapter 5.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>
@@ -295,7 +372,7 @@
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>

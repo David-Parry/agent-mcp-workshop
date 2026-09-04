@@ -148,17 +148,19 @@
 
     <section class="card">
         <h2>What You Add to the Protocol</h2>
-        <h3>1. Declare the extension in initialize</h3>
+        <h3>1. Declare the extension in <code>server/discover</code></h3>
         <pre>{
   "capabilities": {
-    "experimental": {
-      "io.modelcontextprotocol/apps": {}
+    "extensions": {
+      "io.modelcontextprotocol/ui": {
+        "mimeTypes": ["text/html;profile=mcp-app"]
+      }
     }
   }
 }</pre>
-        <p>The host checks this field during the handshake. If absent, the app never appears — the tool still works normally.</p>
+        <p>On revision <code>2026-07-28</code> this moved out of the <code>experimental</code> map into the dedicated <code>extensions</code> slot, and the identifier is <code>io.modelcontextprotocol/ui</code>. The declaration also names the mime types the server can serve, so a host knows before fetching anything whether it can render what is on offer. Clients read this from the <code>server/discover</code> result and cache it; if the extension is absent, the app never appears and the tool still works normally.</p>
 
-        <h3>2. Add _meta to your tool definition</h3>
+        <h3>2. Add _meta to your tool definition — under both keys</h3>
         <pre>{
   "name": "key_word_search",
   "description": "Searches for a keyword across all project files.",
@@ -166,19 +168,25 @@
   "_meta": {
     "ui": {
       "resourceUri": "ui://keyword-search/mcp-app.html"
-    }
+    },
+    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
   }
 }</pre>
+        <div class="key-concept" style="margin-top:14px">
+            <strong>Yes, the same URI twice.</strong> The nested <code>_meta.ui.resourceUri</code> is the original shape; the flat <code>_meta["ui/resourceUri"]</code> is the one the revision standardised on, matching how every other <code>_meta</code> member is a slash-namespaced flat key. Hosts in the wild currently read one or the other, so a server that wants to be rendered by both emits both. They must always agree.
+        </div>
+        <p style="color:var(--muted);font-size:13px">This is transitional, and worth telling the class as much: the flat key is where the spec is going and the nested one is politeness toward hosts that have not caught up. Emitting both costs a few bytes on a cacheable result. Emitting only the nested one costs you the newer hosts.</p>
 
         <h3>3. Serve the HTML when the host requests it</h3>
         <pre>// In your resources/read handler:
 if (uri.startsWith("ui://")) {
     // Return the bundled HTML
     return new ResourceContent(uri,
-        "application/vnd.mcp-ui.app+html",
+        "text/html;profile=mcp-app",
         readHtmlFromClasspath("mcp-app.html"));
 }</pre>
-        <p>The MIME type <code>application/vnd.mcp-ui.app+html</code> tells the host this is an MCP App, not a regular HTML resource.</p>
+        <p>The MIME type <code>text/html;profile=mcp-app</code> tells the host this is an MCP App, not a regular HTML resource — the same string the extension declared in <code>mimeTypes</code>, which is what lets the host decide up front whether it can render this at all.</p>
+        <p style="color:var(--muted);font-size:13px">One detail from the wider revision applies here: <code>resources/read</code> is one of the five cacheable methods, so the result also carries <code>resultType</code>, <code>ttlMs</code>, and <code>cacheScope</code>. An app's HTML is exactly the kind of thing you want a host to fetch once and keep.</p>
     </section>
 
     <section class="card">
@@ -195,7 +203,7 @@ if (uri.startsWith("ui://")) {
                 <span class="step-num">2</span>
                 <div class="step-content">
                     <h4>Host calls tools/list</h4>
-                    <p>Sees <code>key_word_search</code> has <code>_meta.ui.resourceUri</code> set. Preloads the UI resource.</p>
+                    <p>Sees <code>key_word_search</code> carries a UI resource uri in <code>_meta</code> — under whichever of the two keys it happens to read. Preloads the UI resource. Note the result is cacheable, so on a warm host this step may not hit the wire at all.</p>
                 </div>
             </div>
             <div class="flow-step">
@@ -234,17 +242,22 @@ if (uri.startsWith("ui://")) {
         <div class="three-col">
             <div class="feature-card">
                 <h4>UiMeta</h4>
-                <p>Holds the <code>resourceUri</code> pointing to the HTML resource at the <code>ui://</code> URI.</p>
+                <p>Holds the <code>resourceUri</code> pointing to the HTML resource at the <code>ui://</code> URI. This is the nested half of the pair.</p>
             </div>
             <div class="feature-card">
                 <h4>AppMeta</h4>
-                <p>Wraps <code>UiMeta</code> as the <code>_meta</code> field on a tool definition.</p>
+                <p>The <code>_meta</code> object on a tool definition. Carries <code>UiMeta</code> as <code>ui</code> <em>and</em> the flat <code>ui/resourceUri</code> string, kept in sync by construction so the two can never disagree.</p>
             </div>
             <div class="feature-card">
                 <h4>AppTool + AppToolBuilder</h4>
-                <p>A tool record that includes <code>_meta</code> alongside name, description, and inputSchema. Fluent builder for construction.</p>
+                <p>A tool record with name, description, inputSchema, and <code>_meta</code> — and, as of this revision, no <code>execution</code> field. Fluent builder for construction.</p>
             </div>
         </div>
+
+        <div class="key-concept" style="margin-top:16px">
+            <strong><code>Tool.execution</code> is gone.</strong> Tools used to advertise <code>execution: { "taskSupport": "optional" }</code> so a client could tell whether it was allowed to task-augment the call. That hint was removed on <code>2026-07-28</code>, and clients strip it silently if they see it.
+        </div>
+        <p style="font-size:13px;color:var(--muted)">The reason is a round trip. Because the hint lived in <code>tools/list</code>, a client had to fetch the tool list before it could safely make <em>any</em> call — a mandatory warm-up in service of a decision the client no longer gets to make, now that the server decides when to return a task. Removing it lets a client that already knows a tool's name call it cold. It also means an <code>AppTool</code> is now purely name, schema, and presentation.</p>
     </section>
 
     <section class="card">
@@ -311,14 +324,15 @@ if (uri.startsWith("ui://")) {
         <h3>Chapter 6 Live: The Keyword Search Dashboard</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/06-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (wraps it as <code>ui</code>), and <code>AppTool</code> (a Tool plus <code>_meta</code>). Three tiny records produce the entire <code>_meta.ui.resourceUri</code> structure the spec requires.</li>
-            <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>.</li>
+            <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (which emits it <em>twice</em>, nested as <code>ui</code> and flat as <code>ui/resourceUri</code>), and <code>AppTool</code>. Ask the class to spot the duplication before you explain it; someone always assumes it is a bug.</li>
+            <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>. One call, both keys: the duplication is impossible to get wrong from the outside.</li>
+            <li><strong>Point at what is missing from <code>AppTool</code></strong> — there is no <code>execution</code> field any more. Tie it back to Ch 7: the client no longer decides about tasks, so the hint that fed that decision went with it.</li>
             <li><strong>Open <code>lessons/mcp-app.html</code> directly in the browser</strong> — the standalone dashboard with mock data. Point at the comments explaining where <code>app.ontoolresult</code> and <code>app.callServerTool</code> take over in a real host.</li>
-            <li><strong>Walk the four <code>IORouter</code> changes:</strong> the <code>io.modelcontextprotocol/apps</code> declaration in INITIALIZE, <code>AppToolsListResult</code> from TOOLS_LIST, the <code>ui://</code> resource added in RESOURCES_LIST, and the <code>ui://</code> branch in RESOURCES_READ serving the HTML with MIME type <code>text/html;profile=mcp-app</code>.</li>
-            <li><strong>In Inspector — Tools tab:</strong> <code>key_word_search</code> now carries <code>_meta.ui.resourceUri</code>. <strong>Resources tab:</strong> <code>ui://keyword-search/mcp-app.html</code> appears; read it and show the MIME type.</li>
+            <li><strong>Walk the four <code>IORouter</code> changes:</strong> the <code>io.modelcontextprotocol/ui</code> extension declared with its <code>mimeTypes</code> in <code>server/discover</code>, <code>AppToolsListResult</code> from TOOLS_LIST, the <code>ui://</code> resource added in RESOURCES_LIST, and the <code>ui://</code> branch in RESOURCES_READ serving the HTML with MIME type <code>text/html;profile=mcp-app</code>.</li>
+            <li><strong>In Inspector — Tools tab:</strong> open the raw JSON for <code>key_word_search</code> and show both <code>_meta</code> keys side by side. <strong>Resources tab:</strong> <code>ui://keyword-search/mcp-app.html</code> appears; read it and show the MIME type matching the declared one exactly.</li>
             <li><strong>Apps tab:</strong> click <strong>Refresh Apps</strong> — <em>Keyword Search App</em> appears. Run a search from inside the rendered dashboard and watch the tool round-trip happen from the iframe.</li>
         </ol>
-        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> MCP Apps are just a tool plus a resource plus <code>_meta</code> — no new protocol machinery. Hosts that don't support Apps ignore <code>_meta</code> and the tool keeps working as text.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> MCP Apps are still just a tool plus a resource plus <code>_meta</code> — no new protocol machinery, and the statelessness migration barely touched them. What did change is bookkeeping: a different extension slot, a second copy of the uri, and one field fewer on the tool. Hosts that don't support Apps ignore <code>_meta</code> and the tool keeps working as text.</p>
     </div>
 
     <div class="footer">© 2025 MCP Presentation. MCP Apps — Interactive UI in the Conversation — Chapter 6.</div>
@@ -353,7 +367,7 @@ if (uri.startsWith("ui://")) {
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>

@@ -61,7 +61,7 @@
 <body>
 <header>
     <h1>MCP Tasks &mdash; Call Now, Fetch Later</h1>
-    <p class="subtitle">The 2025-11-25 utility for deferred execution, polling, and durable results</p>
+    <p class="subtitle">The <code>io.modelcontextprotocol/tasks</code> extension — deferred execution, polling, and durable results</p>
 </header>
 <main>
     <div class="nav">
@@ -84,12 +84,12 @@
     <!-- Why Tasks -->
     <section class="card">
         <span class="chapter-badge">Chapter 7</span>
-        <span class="experimental-badge">Experimental — 2025-11-25</span>
+        <span class="experimental-badge">Extension — io.modelcontextprotocol/tasks</span>
         <h2>The Problem Tasks Solve</h2>
         <p>The synchronous <code>tools/call</code> shape works fine for fast operations &mdash; sub-second searches, lookups, small computations. It falls apart for anything that takes longer than a polite roundtrip: large-scale processing, batch jobs, ML inference, external API calls with retries.</p>
 
         <div class="key-concept">
-            <strong>Tasks split a request into two trips:</strong> the receiver immediately acknowledges with a <code>taskId</code> and a status of <code>working</code>, runs the work in the background, and lets the requestor poll, retrieve, or cancel on its own schedule.
+            <strong>Tasks split a request into two trips:</strong> the receiver immediately acknowledges with a <code>taskId</code> and a status of <code>working</code>, runs the work in the background, and lets the requestor poll or cancel on its own schedule.
         </div>
 
         <h3>What Changes vs. Plain <code>tools/call</code></h3>
@@ -102,56 +102,52 @@
                 <tr><td>Stateless HTTP</td><td>Needs SSE or webhooks</td><td>Just request/response polling</td></tr>
             </tbody>
         </table>
+
+        <div class="key-concept" style="margin-top:18px;border-color:rgba(122,162,247,0.5)">
+            <strong>What changed on 2026-07-28.</strong> Tasks were reshaped more than any other part of the protocol. In one list: the top-level <code>tasks</code> capability slot became the <code>io.modelcontextprotocol/tasks</code> extension; <code>tasks/result</code> and <code>tasks/list</code> were <em>removed</em>; <code>tasks/update</code> was added; <code>ttl</code>/<code>pollInterval</code> became <code>ttlMs</code>/<code>pollIntervalMs</code>; <code>notifications/tasks/status</code> became the bare <code>notifications/tasks</code>; and the client no longer decides when a task is created. Each of those has a reason, and the rest of this page is those reasons.
+        </div>
     </section>
 
     <!-- Capability negotiation -->
     <section class="card">
-        <h2>Capability Negotiation</h2>
-        <p>Both sides advertise <strong>which categories of request</strong> may be task-augmented. Empty <code>{}</code> markers are intentional &mdash; presence is the signal.</p>
+        <h2>Declaring the Extension</h2>
+        <p>The nested <code>tasks</code> capability &mdash; with its <code>list</code>, <code>cancel</code>, and <code>requests</code> sub-maps naming which request categories could be augmented &mdash; is gone. Both sides now simply declare the extension by identifier. Empty <code>{}</code> markers are intentional: presence is the signal.</p>
 
         <div class="two-col">
             <div class="ext-card">
-                <h4>Server declares (in <code>initialize</code> response)</h4>
+                <h4>Server declares (in the <code>server/discover</code> result)</h4>
                 <pre style="margin:6px 0">{
   "capabilities": {
-    "tasks": {
-      "list": {},
-      "cancel": {},
-      "requests": {
-        "tools": { "call": {} }
-      }
+    "tools": { "listChanged": false },
+    "extensions": {
+      "io.modelcontextprotocol/tasks": {}
     }
   }
 }</pre>
+                <p style="font-size:12px;color:var(--muted);margin:6px 0 0">Note there is no <code>tasks</code> slot beside <code>tools</code>. The capability object is closed at seven members and tasks is not one of them.</p>
             </div>
             <div class="ext-card">
-                <h4>Client declares (in <code>initialize</code> request)</h4>
-                <pre style="margin:6px 0">{
-  "capabilities": {
-    "tasks": {
-      "list": {},
-      "cancel": {},
-      "requests": {
-        "sampling":    { "createMessage": {} },
-        "elicitation": { "create": {} }
-      }
+                <h4>Client declares (in <code>_meta</code>, on every request)</h4>
+                <pre style="margin:6px 0">"_meta": {
+  "io.modelcontextprotocol/clientCapabilities": {
+    "extensions": {
+      "io.modelcontextprotocol/tasks": {}
     }
   }
 }</pre>
+                <p style="font-size:12px;color:var(--muted);margin:6px 0 0">Restated per request. A client that omits it on <em>this</em> call must not be handed a task on <em>this</em> call, whatever it said a moment ago.</p>
             </div>
         </div>
 
-        <h3>Tool-Level Override</h3>
-        <p>Each tool declares its own appetite via <code>execution.taskSupport</code> in the <code>tools/list</code> response:</p>
-        <pre>{
-  "name": "key_word_search",
-  "execution": { "taskSupport": "optional" }
-}</pre>
-        <ul style="font-size:13px;padding-left:22px">
-            <li><code>"required"</code> &mdash; client MUST task-augment</li>
-            <li><code>"optional"</code> &mdash; client MAY task-augment</li>
-            <li><code>"forbidden"</code> or absent &mdash; client MUST NOT</li>
-        </ul>
+        <h3>Who Decides? The Server Now.</h3>
+        <p>The old design let the requestor opt in per call, by attaching <code>params.task = { ttl: 60000 }</code>. That field is <strong>removed</strong>, and servers must ignore it if a legacy client sends one.</p>
+        <p>The reasoning is that the requestor is the party least able to judge. Whether a keyword search across a monorepo takes eight milliseconds or eight minutes is knowable only on the server side &mdash; and the client has to commit before it could possibly find out. So the decision moved to where the information is: the server returns <code>resultType: "task"</code> when it judges the work long enough to warrant one, and <code>resultType: "complete"</code> when it does not.</p>
+        <div class="key-concept">
+            The client's only lever is its capability declaration. Declare the extension and you may receive a task; omit it and you may not, so the server must either run the work synchronously or fail. It is a yes/no, not a per-call instruction.
+        </div>
+
+        <h3>And <code>Tool.execution</code> Went With It</h3>
+        <p>The per-tool <code>execution.taskSupport</code> hint (<code>"required"</code> / <code>"optional"</code> / <code>"forbidden"</code>) was removed from <code>tools/list</code> at the same time, for a related but distinct reason: it forced clients to fetch <code>tools/list</code> before they could safely make <em>any</em> call, purely to learn whether augmenting it was permitted. That is a mandatory warm-up round trip in service of a decision the client no longer makes. Modern clients strip the field silently if a server still sends it.</p>
     </section>
 
     <!-- Lifecycle -->
@@ -200,20 +196,20 @@
 
     <!-- Message Flow -->
     <section class="card">
-        <h2>Message Flow &mdash; Augmented <code>tools/call</code></h2>
+        <h2>Message Flow &mdash; <code>tools/call</code> That Returns a Task</h2>
         <div class="flow-steps">
             <div class="flow-step">
                 <span class="step-num">1</span>
                 <div class="step-content">
-                    <h4>Request augmentation</h4>
-                    <p>Client sends a regular <code>tools/call</code> with one extra field: <code>params.task = { ttl: 60000 }</code>.</p>
+                    <h4>An ordinary <code>tools/call</code></h4>
+                    <p>Nothing special in the request. The only thing that makes a task possible is <code>io.modelcontextprotocol/tasks</code> in the envelope's client capabilities.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">2</span>
                 <div class="step-content">
-                    <h4>Immediate <code>CreateTaskResult</code></h4>
-                    <p>Server replies in milliseconds: <code>{ task: { taskId, status: "working", ttl, pollInterval } }</code>. The underlying tool has not run yet.</p>
+                    <h4>Immediate <code>resultType: "task"</code></h4>
+                    <p>The task handle <em>is</em> the result — not a <code>task</code> object nested inside one. Flat fields: <code>taskId</code>, <code>status</code>, <code>statusMessage</code>, <code>createdAt</code>, <code>lastUpdatedAt</code>, <code>ttlMs</code>, <code>pollIntervalMs</code>. The tool has not run yet.</p>
                 </div>
             </div>
             <div class="flow-step">
@@ -227,76 +223,125 @@
                 <span class="step-num">4</span>
                 <div class="step-content">
                     <h4>Polling &mdash; <code>tasks/get</code></h4>
-                    <p>Client polls at the server's suggested <code>pollInterval</code>. Each call returns the current <code>Task</code> snapshot without blocking.</p>
+                    <p>Client polls at the server's suggested <code>pollIntervalMs</code>. Each call returns the current snapshot without blocking. This is now the <em>only</em> way to retrieve a task.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">5</span>
                 <div class="step-content">
-                    <h4>Retrieval &mdash; <code>tasks/result</code></h4>
-                    <p>Once terminal (or if the client is willing to block), <code>tasks/result</code> returns exactly what the original <code>tools/call</code> would have returned, with <code>_meta.io.modelcontextprotocol/related-task</code> attached.</p>
+                    <h4>The terminal poll carries the result</h4>
+                    <p>Once <code>status</code> is <code>completed</code>, the same <code>tasks/get</code> snapshot also carries a nested <code>result</code> — exactly what the original <code>tools/call</code> would have returned. There is no second fetch.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">6</span>
                 <div class="step-content">
                     <h4>Optional notification</h4>
-                    <p>Receivers MAY push <code>notifications/tasks/status</code> on transition. Requestors MUST NOT depend on it &mdash; polling stays the contract.</p>
+                    <p>Receivers MAY push <code>notifications/tasks</code> on transition, with the full snapshot as params. Requestors MUST NOT depend on it &mdash; polling stays the contract.</p>
                 </div>
             </div>
         </div>
 
-        <h3>The Five New Methods</h3>
+        <h3>The Real Exchange</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Captured against this server. Note the string poll ids.</p>
+        <pre>&lt;-- {"resultType":"task",
+     "taskId":"3dab39bc-0c95-42e8-91bd-b7e59c7343ef",
+     "status":"working",
+     "statusMessage":"The operation is now in progress.",
+     "createdAt":"2026-09-04T17:42:31.707471Z",
+     "lastUpdatedAt":"2026-09-04T17:42:31.707471Z",
+     "ttlMs":300000,"pollIntervalMs":1000}
+
+--&gt; {"id":"inspector-ext-1","method":"tasks/get",
+     "params":{"taskId":"3dab39bc-…","_meta":{ … envelope … }}}
+&lt;-- {"resultType":"complete","taskId":"3dab39bc-…","status":"working", … }
+
+     … inspector-ext-2, inspector-ext-3, once per second …
+
+&lt;-- {"jsonrpc":"2.0","method":"notifications/tasks","params":{
+     "taskId":"3dab39bc-…","status":"completed", … ,"result":{ … }}}
+
+--&gt; {"id":"inspector-ext-4","method":"tasks/get", … }
+&lt;-- {"resultType":"complete","taskId":"3dab39bc-…","status":"completed",
+     "result":{"resultType":"complete",
+               "content":[{"text":"/…/SearchContinuation.java, keyword_count=1",
+                           "type":"text"}],
+               "isError":false}}</pre>
+        <p style="color:var(--muted);font-size:13px">Two <code>resultType</code>s in one message at the end, and they mean different things: the outer one describes the <em>poll</em> (which completed fine), the inner one describes the <em>work</em>. A failed task still has a successful poll.</p>
+
+        <h3>The Methods</h3>
         <table>
-            <thead><tr><th>Method</th><th>Direction</th><th>Purpose</th></tr></thead>
+            <thead><tr><th>Method</th><th>Status</th><th>Purpose</th></tr></thead>
             <tbody>
-                <tr><td><code>tools/call</code> + <code>task</code></td><td>req &rarr; rec</td><td>Implicit task creation via augmentation</td></tr>
-                <tr><td><code>tasks/get</code></td><td>req &rarr; rec</td><td>Non-blocking status poll</td></tr>
-                <tr><td><code>tasks/result</code></td><td>req &rarr; rec</td><td>Blocks until terminal, returns underlying result</td></tr>
-                <tr><td><code>tasks/list</code></td><td>req &rarr; rec</td><td>Cursor-paginated enumeration</td></tr>
-                <tr><td><code>tasks/cancel</code></td><td>req &rarr; rec</td><td>Best-effort cancel; <code>-32602</code> if terminal</td></tr>
-                <tr><td><code>notifications/tasks/status</code></td><td>rec &rarr; req</td><td>Optional status push</td></tr>
+                <tr><td><code>tasks/get</code></td><td>&mdash;</td><td>Non-blocking status poll; carries <code>result</code> once terminal</td></tr>
+                <tr><td><code>tasks/update</code></td><td><strong>new</strong></td><td>Deliver <code>inputResponses</code> to a task sitting in <code>input_required</code></td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>&mdash;</td><td>Best-effort cancel; <code>-32602</code> if already terminal</td></tr>
+                <tr><td><code>notifications/tasks</code></td><td>renamed</td><td>Optional status push; params are the full snapshot</td></tr>
+                <tr><td><code>tasks/result</code></td><td><strong>removed</strong></td><td>Folded into <code>tasks/get</code> &mdash; <code>-32601</code></td></tr>
+                <tr><td><code>tasks/list</code></td><td><strong>removed</strong></td><td>Nothing left to scope a listing to &mdash; <code>-32601</code></td></tr>
+                <tr><td><code>tools/call</code> + <code>params.task</code></td><td><strong>removed</strong></td><td>Servers ignore the field</td></tr>
             </tbody>
         </table>
+
+        <div class="two-col" style="margin-top:18px">
+            <div class="ext-card">
+                <h4>Why <code>tasks/list</code> had to go</h4>
+                <p>It enumerated "your" tasks — and with sessions gone, there is no <em>your</em>. A listing would have to be scoped to the connection, and connections no longer mean anything, so the only honest implementation would return <strong>every caller's task ids</strong>.</p>
+                <p style="margin-top:8px">Which leads directly to the security note: task ids must be <strong>unguessable</strong>. A UUID, not a counter. With no session to authenticate against, possession of the id is effectively the authorization to read the result.</p>
+            </div>
+            <div class="ext-card">
+                <h4>Why <code>notifications/tasks/status</code> was renamed</h4>
+                <p>The <code>notifications/tasks/</code> prefix is <strong>reserved</strong> for future per-task notification channels. Squatting on it with a status message would have blocked that space, so the status push moved up to the bare <code>notifications/tasks</code>.</p>
+                <p style="margin-top:8px">Small change, easy to miss, and it fails silently: a client listening for the old name simply never hears anything and falls back to polling.</p>
+            </div>
+        </div>
     </section>
 
-    <!-- Related-task meta -->
+    <!-- input_required inside a task -->
     <section class="card">
-        <h2>Related-Task Metadata</h2>
-        <p>Every response or notification belonging to a task carries this key in its <code>_meta</code>:</p>
-        <pre>"_meta": {
-  "io.modelcontextprotocol/related-task": { "taskId": "786512e2-..." }
-}</pre>
-        <p>This is how a server-initiated <code>elicitation/create</code> (triggered <em>inside</em> a task) gets correlated back to its parent task &mdash; required for the <code>input_required</code> flow.</p>
+        <h2>When a Task Needs Input</h2>
+        <p>A task can hit the same wall a synchronous call does: it needs roots, or a form filled in, and it cannot send a request to ask. The resolution is the same MRTR idea, spread over the polling loop.</p>
+        <ol style="line-height:1.9">
+            <li>The task transitions to <span class="status-pill s-input">input_required</span>, and the next <code>tasks/get</code> snapshot carries the <code>inputRequests</code> map.</li>
+            <li>The client resolves them exactly as it would inline, then calls <strong><code>tasks/update</code></strong> with the <code>taskId</code> and an <code>inputResponses</code> map.</li>
+            <li>The task returns to <span class="status-pill s-working">working</span> and the poll loop resumes.</li>
+        </ol>
+        <p style="color:var(--muted);font-size:13px">This is the whole reason <code>tasks/update</code> exists. Note what it does <em>not</em> need: no <code>requestState</code>, because a task <em>is</em> durable server-side state — the <code>taskId</code> is the continuation. The old <code>_meta["io.modelcontextprotocol/related-task"]</code> correlation key is gone with the server-initiated requests that needed it.</p>
+
+        <div class="key-concept">
+            <strong>A handle and a question are alternatives, not a sequence.</strong> <code>resultType</code> holds one value, so the response to a <code>tools/call</code> is <em>either</em> a task handle <em>or</em> an <code>input_required</code> — never one and then the other. That forces an ordering on your handler: commit to the answer shape <em>before</em> the tool starts working out what it is missing. Answer <code>input_required</code> to a client that declared the tasks extension and the Inspector rejects it outright with <em>"Unsupported result type <code>input_required</code> for <code>tools/call</code>: multi-round-trip auto-fulfilment is not enabled on this instance"</em> — its task path never turns that on. Which is why the question moves to where a task <em>can</em> ask it: <code>input_required</code> as a status, resolved through <code>tasks/update</code>, as above.
+        </div>
     </section>
 
     <!-- When not to use -->
     <section class="card">
-        <h2>When <em>Not</em> to Use Tasks</h2>
-        <p>Tasks add round trips. For short operations they cost more than they save. Skip task augmentation when:</p>
+        <h2>When <em>Not</em> to Return a Task</h2>
+        <p>Tasks add round trips. For short operations they cost more than they save &mdash; and since the decision is now yours as the server author, so is the judgement call. Answer synchronously when:</p>
         <ul>
             <li>The call returns in under a second &mdash; the polling overhead dwarfs the work</li>
-            <li>You're inside a tight loop &mdash; batch the calls instead</li>
-            <li>You need ordered streaming output &mdash; tasks are point-in-time, not a stream</li>
-            <li>Your transport already supports server-push (WebSockets, SSE) and you don't need durability</li>
+            <li>The caller is plainly inside a tight loop &mdash; you are multiplying its round trips by three</li>
+            <li>The output is ordered and streaming &mdash; tasks are point-in-time snapshots, not a stream</li>
+            <li>The client did not declare the extension &mdash; not a judgement call, a rule. Run it synchronously or fail; do not hand out a handle nobody can redeem.</li>
         </ul>
+        <p style="color:var(--muted);font-size:13px">You might reasonably want to decide <em>after</em> you know the shape of the work rather than from the method name — a search over one small package hardly warrants a handle. The catch is the ordering above: by the time this server knows how big the search is, it has already had to commit to a result type. Deciding late means resolving the directory some other way first, which is exactly the trade this workshop's tool makes.</p>
     </section>
 
     <!-- IDE Demo: Chapter 7 -->
     <div class="ide-demo">
         <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 7</span>
-        <h3>Chapter 7 Live: Call Now, Fetch Later</h3>
+        <h3>Chapter 7 Live: Call Now, Poll Later</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/07-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskParams</code>, <code>CreateTaskResult</code>, and the per-method params/results. One <code>Task</code> shape is reused across get, cancel, list, and status notifications.</li>
-            <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL.</li>
-            <li><strong>In <code>IORouter.java</code></strong>, show the capability negotiation — <code>tasks</code> in <code>ServerCapabilities</code> with <code>requests.tools.call</code>, and the tool advertising <code>execution.taskSupport = "optional"</code> in <code>tools/list</code>.</li>
-            <li><strong>Walk the augmented <code>TOOLS_CALL</code> branch</strong> — when <code>params.task</code> is present: create the task, reply immediately with <code>CreateTaskResult</code>, and run <code>key_word_search</code> on a background thread (<code>runToolAsTask</code> sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable in Inspector). The synchronous path is untouched.</li>
-            <li><strong>In Inspector:</strong> first make a plain <code>tools/call</code> — results return synchronously, proving nothing broke. Then send a task-augmented call with <code>task: { "ttl": 60000 }</code> — a <code>CreateTaskResult</code> with <code>status: "working"</code> comes back in milliseconds.</li>
-            <li><strong>Poll the lifecycle:</strong> <code>tasks/get</code> until <code>completed</code> (or catch the <code>notifications/tasks/status</code> push), then <code>tasks/result</code> to retrieve the search hits — note the <code>related-task</code> key in <code>_meta</code>.</li>
-            <li><strong>Finish with management:</strong> <code>tasks/list</code> to enumerate, then start another augmented call and <code>tasks/cancel</code> it — show the terminal <code>cancelled</code> state and that a second cancel is rejected.</li>
+            <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskResult</code>, <code>TasksGetParams</code>, <code>TasksUpdateParams</code>. Point out <code>TaskResult</code>'s three shapes — handle, poll snapshot, notification payload — all one record, differing only in which <code>resultType</code> it wears.</li>
+            <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL. Note the ids are UUIDs, and say why: with <code>tasks/list</code> gone, holding the id is the whole access control story.</li>
+            <li><strong>In <code>IORouter.java</code></strong>, show <code>envelope.supportsTasks()</code> gating task creation, and the <code>TASK_HANDLES_ENABLED</code> flag. Then search the file for <code>params.task</code> and find nothing — the client's opt-in no longer exists.</li>
+            <li><strong>Walk the task branch of <code>TOOLS_CALL</code></strong> — the server decides, creates the task, returns the handle, and runs <code>key_word_search</code> on a background thread (it sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable).</li>
+            <li><strong>In Inspector:</strong> call <code>key_word_search</code> and get back <code>resultType: "task"</code> in milliseconds. Read the flat fields off the result — no nested <code>task</code> object to open.</li>
+            <li><strong>Poll it:</strong> <code>tasks/get</code> with the <code>taskId</code>, three or four times, until <code>completed</code>. Show that the terminal snapshot carries the search hits under <code>result</code> — and then try <code>tasks/result</code> and get <code>-32601</code>, which is the fastest way to make the removal memorable.</li>
+            <li><strong>Watch the ordering trap:</strong> in the log, the <code>notifications/tasks</code> for <code>working</code> is emitted <em>before</em> the <code>tools/call</code> reply that hands out the <code>taskId</code>. A client that assumed notifications only arrive after the handle would drop it. Correlation is by id, never by arrival order.</li>
+            <li><strong>Finish with cancel:</strong> start another call and <code>tasks/cancel</code> it mid-flight — terminal <code>cancelled</code>, and a second cancel is rejected with <code>-32602</code>.</li>
         </ol>
-        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> task augmentation is additive — the same tool, the same handler, one extra branch. The requestor decides per-call whether it wants sync or async semantics.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the client asked for a keyword search and got back a receipt, without having requested one. Async is no longer something the caller opts into — it is something the server may decide, and the caller's only say is whether it can cope.</p>
     </div>
 
     <div class="footer">© 2025 MCP Presentation. Tasks &mdash; Chapter 7.</div>
@@ -331,7 +376,7 @@
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>

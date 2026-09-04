@@ -3,19 +3,43 @@ package com.workshop.mcp.spec;
 import java.util.List;
 
 /**
- * Represents the result of a tools list request in the MCP (Model Context Protocol) system.
+ * The result of {@code tools/list} for plain tools that declare no UI.
  * <p>
- * ToolsListResult contains the complete list of tools that the server exposes
- * to clients. Each tool represents a callable function or operation that clients
- * can invoke to perform specific actions or retrieve information.
+ * Like {@link AppToolsListResult}, this is a cacheable result and must carry
+ * {@code resultType}, {@code ttlMs}, and {@code cacheScope}.
  * </p>
- * 
- * @param tools the list of available tools provided by the server
- * 
+ *
+ * @param resultType always {@link ResultType#COMPLETE}
+ * @param tools      the advertised tools
+ * @param ttlMs      how long the client may cache this list, non-negative
+ * @param cacheScope one of {@link CacheScope#PUBLIC} or {@link CacheScope#PRIVATE}
+ *
  * @see Tool
- * @see ToolsListParams
  * @since 1.0
  */
 public record ToolsListResult(
-    List<Tool> tools
-) {}
+    String resultType,
+    List<Tool> tools,
+    Long ttlMs,
+    String cacheScope
+) {
+    /**
+     * Creates a complete tools list with explicit caching hints.
+     *
+     * @param tools      the advertised tools
+     * @param ttlMs      how long the client may cache this list
+     * @param cacheScope whether shared intermediaries may cache it
+     */
+    public ToolsListResult(List<Tool> tools, Long ttlMs, String cacheScope) {
+        this(ResultType.COMPLETE, tools, ttlMs, cacheScope);
+    }
+
+    /**
+     * Creates a complete tools list that clients should not cache or share.
+     *
+     * @param tools the advertised tools
+     */
+    public ToolsListResult(List<Tool> tools) {
+        this(tools, CacheScope.DEFAULT_TTL_MS, CacheScope.PRIVATE);
+    }
+}

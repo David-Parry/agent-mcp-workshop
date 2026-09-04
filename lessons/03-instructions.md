@@ -1,105 +1,189 @@
-# Chapter 03: Implementing MCP Protocol Handshake and Core Message Routing
+# Chapter 03: Implementing Discovery and Core Message Routing
 
 ## Lesson Objective
 
-**What you will build:** A working MCP server that completes the protocol handshake and handles basic requests.
+**What you will build:** A working MCP server that answers discovery, validates the per-request envelope, and handles basic notifications.
 
 **Tasks to complete:**
-1. Implement the Initialize handler (establishes client-server connection)
-2. Implement the Ping handler (heartbeat mechanism)
-3. Build and test with MCP Inspector
-4. Add notification deserialization infrastructure
-5. Create the `NotificationCancelledParams` record
-6. Wire up type-safe notification handling
+1. Make request ids polymorphic (a JSON-RPC id is a string *or* a number)
+2. Implement the `server/discover` handler
+3. Implement envelope validation — the check that replaced the handshake
+4. Build and test with MCP Inspector in modern mode
+5. Add notification deserialization infrastructure
+6. Create the `NotificationCancelledParams` record and wire up type-safe handling
 
 **How to verify you're done:**
 - Run `./gradlew clean build` successfully
 - Launch MCP Inspector and connect to your server
-- Initialization completes (green status)
-- Ping returns a response
-- Click "List Resources" and check `inspector/logs/` - you should see "Notification cancelled reason" with the actual reason text (not raw JSON)
+- Discovery completes (green status)
+- Sending `initialize` returns `-32601`, not a crash
+- Click "List Resources" and check `inspector/logs/` — you should see "Notification cancelled reason" with the actual reason text (not raw JSON)
 
 ---
 
 ## Starting Message Routing to Meet the Protocol Specification
 
-In this lesson, we'll implement the foundational message routing system for the MCP (Model Context Protocol) server. This includes handling the critical initial handshake, ping requests, and basic notifications - the core building blocks that establish communication between MCP clients and servers.
+In this lesson we implement the foundational message routing for an MCP server on revision `2026-07-28`. That revision deleted the `initialize` handshake, and with it the session. What replaces it is discovery plus a per-request envelope — and everything below follows from that single change.
 
-### First Implementation Task: The Initialize Handler
+### First Implementation Task: Make Ids Polymorphic
 
-**Action Required**: Copy the code below and paste it into `IORouter.java` starting at line 43. This code implements the INITIALIZE case in the switch statement:
+Before any handler, one piece of plumbing. The first message a modern client sends looks like this:
+
+```json
+{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover", ...}
+```
+
+That id is a **string**. Older revisions of this workshop typed `id` as a `Long`, and that one assumption crashes the server on the very first message:
+
+```
+com.google.gson.JsonSyntaxException: java.lang.NumberFormatException:
+    For input string: "server-discover-probe-1"
+```
+
+JSON-RPC has always allowed either form; what changed is that clients started using strings for out-of-band traffic — discovery probes, subscription streams, extension polling. A server MUST echo an id back in exactly the form it arrived, so coercing one to the other is not an option either.
+
+**Action Required**: Create `RequestId.java` in the `com.workshop.mcp.spec` package:
 
 ```java
-//line 43
-case INITIALIZE -> {
-InitializeParams initializeParams = deserializer.deserializeParams(message, InitializeParams.class);
-ClientCapabilities clientCapabilities = initializeParams.capabilities();
-                if (clientCapabilities.roots() != null) {
-hasRoots = true;
+package com.workshop.mcp.spec;
+
+public record RequestId(String stringValue, Long numberValue) {
+
+    public RequestId {
+        if ((stringValue == null) == (numberValue == null)) {
+            throw new IllegalArgumentException(
+                    "A RequestId is either a string or a number, never both and never neither");
         }
-        if (clientCapabilities.sampling() != null) {
-hasSampling = true;
-        }
-InitializeResultBuilder builder = InitializeResultBuilder
-        .builder()
-        .withProtocolVersion(initializeParams.protocolVersion())
-        .withDefaultCapabilities()
-        .withDefaultServerInfo();
-success(message.id(), builder.build());
-        }
+    }
+
+    public static RequestId of(String value) {
+        return new RequestId(value, null);
+    }
+
+    public static RequestId of(long value) {
+        return new RequestId(null, value);
+    }
+
+    public boolean isString() {
+        return stringValue != null;
+    }
+
+    @Override
+    public String toString() {
+        return isString() ? stringValue : String.valueOf(numberValue);
+    }
+}
+```
+
+Gson cannot serialize that record usefully on its own — it would emit `{"stringValue":...,"numberValue":null}` rather than a bare scalar. It needs a `TypeAdapter`, registered on **every** Gson instance in the process. That is what `RequestIdTypeAdapter` and the shared `McpGson.create()` factory are for: `JsonRpcMessageDeserializer` reads ids and `IOHandlerImpl` writes them, and if only one of them knows about the adapter you get a server that can parse a string id but cannot answer it.
+
+Then retype `id` from `Long` to `RequestId` on `JsonRpcRequest`, `JsonRpcResponse`, and `JsonRpcErrorResponse`.
+
+### Second Implementation Task: The `server/discover` Handler
+
+**Action Required**: Add this case to the request switch in `IORouter.java`. Note where it goes — **before** anything else:
+
+```java
+// server/discover is answered before any version check: a client uses
+// it precisely to find out which versions this server speaks, so
+// rejecting it for asking with the wrong one would be circular.
+if (uniqueKey == UniqueKeys.SERVER_DISCOVER) {
+    success(message.id(), discoverResult());
+    logger.log("[API][SENT] server/discover — advertised " + RequestEnvelope.SUPPORTED_VERSIONS);
+    return;
+}
+```
+
+with the result itself built from static configuration:
+
+```java
+private DiscoverResult discoverResult() {
+    return DiscoverResultBuilder
+            .builder()
+            .withDefaultCapabilities()
+            .withInstructions("Searches a project for a keyword.")
+            .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
+            .withDefaultServerInfo()
+            .build();
+}
 ```
 
 ## What this case is doing:
 
-This INITIALIZE case handles the initialization request from the MCP client. Here's what happens step by step:
+1. **Answers without a session**: there is nothing to open and nothing to remember. Discovery is a plain request with a plain result.
 
-1. **Deserializes the parameters**: It extracts the `InitializeParams` from the incoming message using the deserializer.
+2. **Advertises versions**: `supportedVersions` is how a client learns what to put in its envelope on every later request.
 
-2. **Checks client capabilities**: It examines the client's capabilities to determine what features the client supports:
-   - If the client supports "roots", it sets `hasRoots = true`
-   - If the client supports "sampling", it sets `hasSampling = true`
+3. **Advertises capabilities**: Resources, Prompts, Tools, and Completions — **note that we are advertising these but haven't implemented them yet.**
 
-3. **Builds the initialization response**: Using the `InitializeResultBuilder`, it creates a response that includes:
-   - The protocol version from the client's request
-   - Default server capabilities (which includes Resources, Prompts, and Tools - **Note: We're advertising these capabilities but haven't implemented them yet!**)
-   - Default server information
+4. **Carries cache hints**: `ttlMs` and `cacheScope` let the client cache the result instead of re-probing. On stdio it matters more than it looks: the Inspector answers discovery with a *throwaway probe process*, which is exactly why the result must be derivable from static configuration and must not depend on anything a long-lived server would have accumulated.
 
-4. **Sends success response**: Finally, it sends the built initialization result back to the client using the `success()` method with the original message ID.
+5. **Identifies the server**: `serverInfo` moved into `_meta` under `io.modelcontextprotocol/serverInfo`, alongside every other piece of lifecycle metadata.
 
-This initialization handshake is crucial as it establishes the protocol version and capabilities that both the client and server will use for their subsequent communication.
+### Third Implementation Task: Envelope Validation
 
-### Second Implementation Task: The Ping Handler
+This is what replaced the handshake. Instead of agreeing on a version once, the server re-reads it from `params._meta` on every request.
 
-**Action Required**: Copy the code below and paste it into `IORouter.java` after the INITIALIZE case in the switch statement:
+**Action Required**: Add these two checks to `process(JsonRpcRequest)`, in this order:
 
 ```java
-case PING -> {
-    success(message.id(), new Object());
+// Method existence is settled before the envelope is looked at.
+// Deletions in this revision are physical: a method absent from the
+// registry is -32601 by absence, and answering a removed method like
+// initialize with a complaint about its _meta would tell a legacy
+// client the wrong thing about why it failed.
+if (uniqueKey == UniqueKeys.NOT_FOUND || !INBOUND_METHODS.contains(uniqueKey)) {
+    logger.log("[API][SENT] unsupported method '" + message.method() + "' (returning -32601)");
+    error(message.id(), ErrorCodes.METHOD_NOT_FOUND, "Method not found: " + message.method());
+    return;
+}
+
+RequestEnvelope envelope = envelopeFor(message);
+if (envelope == null) {
+    return;
 }
 ```
 
-## What the PING case is doing:
+and the validator itself:
 
-The PING case is a simple but essential handler that implements a heartbeat mechanism in the MCP protocol:
+```java
+private RequestEnvelope envelopeFor(JsonRpcRequest message) {
+    RequestEnvelope envelope = deserializer.deserializeEnvelope(message);
+    if (!envelope.isComplete()) {
+        error(message.id(), ErrorCodes.INVALID_PARAMS,
+              "Requests must carry " + MetaKeys.PROTOCOL_VERSION + " and "
+              + MetaKeys.CLIENT_CAPABILITIES + " in params._meta");
+        return null;
+    }
+    if (!envelope.isSupportedVersion()) {
+        error(message.id(), ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version",
+              Map.of("supported", RequestEnvelope.SUPPORTED_VERSIONS,
+                     "requested", envelope.protocolVersion()));
+        return null;
+    }
+    return envelope;
+}
+```
 
-1. **Receives ping request**: When the client sends a ping request, this case is triggered.
+## What these checks are doing:
 
-2. **Sends empty response**: It immediately responds by calling `success(message.id(), new Object())`, which:
-   - Uses the same message ID from the request to maintain request-response correlation
-   - Sends an empty object (`new Object()`) as the response payload
+They produce **three distinct rejections**, and the ordering between them is the interesting part.
 
-3. **Purpose**: The ping mechanism serves several important functions:
-   - **Connection verification**: Allows the client to check if the server is still alive and responsive
-   - **Keep-alive**: Prevents connection timeouts in long-running sessions
-   - **Latency measurement**: Clients can measure round-trip time by timing ping responses
+| Situation | Code | Why |
+|---|---|---|
+| `initialize`, `ping`, `tasks/result`, … | `-32601` | The method is gone. Removal in this revision is physical — absence from the registry. |
+| No `_meta`, or missing a required key | `-32602` | `protocolVersion` and `clientCapabilities` are both required. |
+| `_meta` names `2025-11-25` | `-32022` | The client is speaking a revision this server does not implement. |
 
-The simplicity of this implementation (just echoing back an empty success response) is intentional - ping requests should be lightweight and fast to ensure accurate health checks and minimal overhead on the server.
+Order matters. A legacy client sending `initialize` has *also* omitted the envelope, so both checks would fire — but only `-32601` tells it the truth about why it failed. Validating the envelope first would send it off to fix the wrong thing.
 
-### Third Implementation Task: Building and Testing with MCP Inspector
+The `-32022` case is the one people get wrong: its `data` **must** carry `requested` and `supported`. Without them the client knows it failed but not what to renegotiate to, and there is no handshake left in which to find out.
 
-Now that we've implemented the basic message routing, let's build the application and test it using the MCP Inspector tool.
+Note also what the envelope means for the rest of your server. Capability flags like "can this client show a form" are no longer fields on the router set once at startup — they are per-request facts, read fresh from `envelope.supportsElicitationForm()` on each call. A server that caches them is reintroducing the session the revision just deleted.
 
-#### Step 3.1: Build the Application
+### Fourth Implementation Task: Building and Testing with MCP Inspector
+
+#### Step 4.1: Build the Application
 
 **Action Required**: Open a terminal in the project root directory and run:
 
@@ -110,14 +194,14 @@ Now that we've implemented the basic message routing, let's build the applicatio
 This command will:
 - Clean any previous build artifacts
 - Compile the Java source code
-- Run tests (if any)
-- Package the application into a JAR file located at `build/libs/agent-mcp-workshop-0.0.1.jar`
+- Run tests
+- Package the application into a JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`
 
-#### Step 3.2: Understanding the Inspector Configuration
+#### Step 4.2: Understanding the Inspector Configuration
 
 Navigate to the `inspector` folder where you'll find two important files:
 
-1. **`config.json`** - MCP Server Configuration copy and paste the following code into `config.json`:
+1. **`config.json`** — MCP Server Configuration. Copy and paste the following into `config.json`:
    ```json
    {
      "mcpServers": {
@@ -128,19 +212,23 @@ Navigate to the `inspector` folder where you'll find two important files:
            "../build/libs/agent-mcp-workshop-0.0.1.jar"
          ],
          "env": {
-         }
+         },
+         "protocolEra": "modern",
+         "modernLogLevel": "off"
        }
      }
    }
    ```
-   **Purpose**: This file tells the MCP Inspector how to launch your server. It defines:
+   **Purpose**: This tells the MCP Inspector how to launch your server. It defines:
    - A server named "workshop"
    - The command to run (`java`)
-   - Arguments to pass (each one its own array element — `-jar` and the JAR path are
-     two separate arguments, not one string)
+   - Arguments to pass (each one its own array element — `-jar` and the JAR path are two separate arguments, not one string)
    - Any environment variables (currently empty)
+   - `"protocolEra": "modern"`, which is what makes the Inspector send `server/discover` instead of `initialize`
 
-2. **`run.sh`** - Inspector Launch Script
+   > **Watch the nesting.** `protocolEra` must be a direct sibling of `command` and `args`, inside the server's own entry. Put it anywhere else and the Inspector silently falls back to the legacy era, sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for.
+
+2. **`run.sh`** — Inspector Launch Script
    ```bash
    #!/usr/bin/env bash
    set -euo pipefail
@@ -150,19 +238,15 @@ Navigate to the `inspector` folder where you'll find two important files:
    ```
    **Purpose**: This shell script launches the MCP Inspector tool. It:
    - Uses `npx` to run the MCP Inspector, pinned to version 2.5.0
-   - `cd`s into the `inspector` folder first, so the server's working directory is always
-     `inspector/` and its logs land in `inspector/logs/`
-   - Points to `config.json` for server configuration via `--catalog`, which opens a
-     *writable* session — you can add or edit servers from the UI. (`--config` also works
-     but opens a read-only session, and the UI will say so.)
+   - `cd`s into the `inspector` folder first, so the server's working directory is always `inspector/` and its logs land in `inspector/logs/`
+   - Points to `config.json` for server configuration via `--catalog`, which opens a *writable* session — you can add or edit servers from the UI. (`--config` also works but opens a read-only session, and the UI will say so.)
    - `--web` selects the web UI; the Inspector also has `--cli` and `--tui` modes
 
-   > **Note**: the web UI lists every server in the catalog, so there is no `--server`
-   > flag here. `--server workshop` only applies to `--cli` mode.
+   > **Note**: the web UI lists every server in the catalog, so there is no `--server` flag here. `--server workshop` only applies to `--cli` mode.
 
-#### Step 3.3: Launch the MCP Inspector
+#### Step 4.3: Launch the MCP Inspector
 
-**Action Required**: 
+**Action Required**:
 1. In your terminal, navigate to the inspector folder:
    ```bash
    cd inspector
@@ -177,35 +261,34 @@ Navigate to the `inspector` folder where you'll find two important files:
 
 4. Copy the URL from the console output and paste it into your web browser
 
-5. You should see the **MCP Inspector v2.5.0** application interface, with `workshop`
-   listed as a server you can connect to
+5. You should see the **MCP Inspector v2.5.0** application interface, with `workshop` listed as a server you can connect to
 
 The MCP Inspector is a powerful debugging and testing tool that allows you to:
 - Send requests to your MCP server
 - View server responses in real-time
-- Test the initialize handshake and ping functionality you just implemented
+- Test the discovery and envelope handling you just implemented
 - Monitor the communication between client and server
 
-Once the Inspector is running, you can test your implementation by:
-1. Checking that the initialization handshake completes successfully (notice that the server advertises Resources, Prompts, and Tools capabilities)
-2. Sending ping requests and verifying you receive responses
-3. **Intentionally triggering an error**: Click on "List Resources" in the Inspector. This will fail because we advertised resource capabilities during initialization but haven't implemented the resources handler yet. This demonstrates how the client sends requests based on advertised capabilities and how our server handles (or fails to handle) unimplemented features.
+Once the Inspector is running, test your implementation by:
+1. Checking that discovery completes successfully (notice that the server advertises Resources, Prompts, and Tools capabilities)
+2. Reading the trace: the id on that first message is the string `"server-discover-probe-1"`. If you skipped the `RequestId` work, this is where it crashes.
+3. **Intentionally triggering an error**: Click "List Resources" in the Inspector. This will fail because we advertised resource capabilities during discovery but haven't implemented the resources handler yet. This demonstrates how the client sends requests based on advertised capabilities and how our server handles (or fails to handle) unimplemented features.
 
 **Important Learning Point**: This error is expected! It demonstrates two things:
-- You'll see a cancellation error from the client when it doesn't receive a response to its "List Resources" request
-- Our server logs will show that we've missed handling this object type in our notification switch, lets move on and implement that Object to see how the mapping works.
+- You'll see a cancellation notification from the client when it doesn't receive a response to its "List Resources" request
+- Our server logs will show that we've missed handling this object type in our notification switch — let's implement that object to see how the mapping works
 
-This shows the importance of implementing all advertised capabilities. In the initialization response, we told the client we support Resources, Prompts, and Tools, but we've only implemented Initialize and Ping so far.
+This shows the importance of implementing everything you advertise. In the discovery response we told the client we support Resources, Prompts, and Tools, but so far we have only implemented discovery and envelope validation.
 
-### Fourth Implementation Task: Handling Notification Deserialization
+### Fifth Implementation Task: Handling Notification Deserialization
 
-#### Step 4.1: Examine the Logs
+#### Step 5.1: Examine the Logs
 
 **Action Required**: Look at the [server logs](inspector/logs) when errors occur. You'll notice that we're printing out the raw JSON but haven't properly deserialized the notification parameters. This makes it difficult to work with the notification data in a type-safe manner.
 
-#### Step 4.2: Add Notification Deserialization Support
+#### Step 5.2: Add Notification Deserialization Support
 
-**Action Required**: Copy the code below and paste it into `JsonRpcMessageDeserializer.java` starting at line 118:
+**Action Required**: Copy the code below into `JsonRpcMessageDeserializer.java`:
 
 ```java
 /**
@@ -229,27 +312,27 @@ public <T> T deserializeParams(JsonRpcNotification request, Class<T> paramsClass
 
 ## What this method does:
 
-This method provides a way to convert the generic `params` field from a JsonRpcNotification into a strongly-typed Java object:
+This method converts the generic `params` field from a `JsonRpcNotification` into a strongly-typed Java object:
 
 1. **Takes a JsonRpcNotification**: Contains the raw params as a generic Map
 2. **Converts to JSON**: Uses Gson to serialize the params Map back to JSON
 3. **Deserializes to target type**: Uses Gson again to deserialize that JSON into the specified class type
 4. **Returns typed object**: Provides a type-safe object that can be used in your notification handlers
 
-This two-step serialization/deserialization process ensures that the params are properly converted from the generic Map structure to your specific parameter classes, enabling type-safe handling of notification data.
+Note that `gson` here is the shared instance from `McpGson.create()`. That is not incidental — a cancellation notification carries a `requestId`, and without the registered `RequestIdTypeAdapter` this round trip cannot read a string one.
 
-### Fifth Implementation Task: Create Notification Parameter Types
+### Sixth Implementation Task: Create Notification Parameter Types
 
-Now that we can deserialize notification parameters, we need to create the Java record types that represent these parameters.
+Now that we can deserialize notification parameters, we need the Java record types that represent them.
 
-#### Step 5: Create NotificationCancelledParams Record
+#### Step 6: Create NotificationCancelledParams Record
 
-**Action Required**: Create a new file `NotificationCancelledParams.java` in the `com.workshop.mcp.spec` package and copy the following code into it:
+**Action Required**: Create a new file `NotificationCancelledParams.java` in the `com.workshop.mcp.spec` package:
 
 ```java
 package com.workshop.mcp.spec;
 
-public record NotificationCancelledParams(Long requestId, String reason) {
+public record NotificationCancelledParams(RequestId requestId, String reason) {
 }
 ```
 
@@ -257,35 +340,24 @@ public record NotificationCancelledParams(Long requestId, String reason) {
 
 This record defines the structure of parameters sent with a "cancelled" notification:
 
-- **`requestId`**: The ID of the request that was cancelled (Long type to match JSON-RPC message IDs)
-- **`reason`**: A string explaining why the request was cancelled
+- **`requestId`**: the id of the request that was cancelled — a `RequestId`, not a `Long`, for exactly the reason covered in the first task
+- **`reason`**: a string explaining why the request was cancelled
 
 When a client cancels a pending request (like when we clicked "List Resources" and it timed out), it sends a notification with these parameters. Having this strongly-typed record allows us to:
 1. Deserialize the notification parameters using the method we just added
 2. Access the cancellation details in a type-safe manner
 3. Handle cancellations appropriately in our server logic
 
-### Sixth Implementation Task: Use the Deserializer for Notifications
+### Seventh Implementation Task: Use the Deserializer for Notifications
 
-Now let's use the deserializer method and the NotificationCancelledParams record to properly handle cancellation notifications.
+#### Step 7: Update the Notification Handler
 
-#### Step 6: Update the Notification Handler
-
-**Action Required**: In `IORouter.java`, locate the `private void process(JsonRpcNotification message)` method and update the `NOTIFICATION_CANCELLED` case by adding the following line:
-
-```java
-NotificationCancelledParams params = deserializer.deserializeParams(message, NotificationCancelledParams.class);
-```
-
-After making this change, your `process(JsonRpcNotification message)` method should look like this:
+**Action Required**: In `IORouter.java`, locate `private void process(JsonRpcNotification message)` and update the `NOTIFICATION_CANCELLED` case:
 
 ```java
 private void process(JsonRpcNotification message) {
     UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
     switch (uniqueKey) {
-        case NOTIFICATIONS_INITIALIZED -> {
-            logger.log("Initializing notifications must wait for this before calling the client." + message);
-        }
         case NOTIFICATION_CANCELLED -> {
            NotificationCancelledParams params = deserializer.deserializeParams(message, NotificationCancelledParams.class);
            logger.log("Notification cancelled reason " + params.reason());
@@ -297,12 +369,11 @@ private void process(JsonRpcNotification message) {
 
 ## What this change accomplishes:
 
-By adding the deserializer call in the `NOTIFICATION_CANCELLED` case:
 1. We're now properly deserializing the cancellation parameters into our strongly-typed `NotificationCancelledParams` record
 2. This demonstrates how to use the deserializer infrastructure we set up in previous steps
 3. Although we're not storing or using the result yet (we'll do that in future lessons), this proves our deserialization is working correctly
 
-This is an important step in building robust MCP servers - converting raw JSON data into type-safe Java objects that can be processed reliably.
+Notice what is **not** in that switch any more: `notifications/initialized`. It went the same way as `initialize`, for the same reason — there is no initialization to be notified about.
 
 ### Important Note: Error Handling and STDIO in MCP Servers
 
@@ -319,31 +390,19 @@ Any non-protocol data written to STDIO will corrupt the communication channel an
 
 #### Error Handling in MCP
 
-The MCP specification does include provisions for sending errors back to clients (see [JSON-RPC 2.0 Error Object specification](https://www.jsonrpc.org/specification#error_object)). However, there are important considerations:
+The MCP specification does include provisions for sending errors back to clients (see [JSON-RPC 2.0 Error Object specification](https://www.jsonrpc.org/specification#error_object)). Our approach in this workshop:
 
-1. **Implementation Choice**: In this workshop, we've intentionally omitted implementing error responses to clients. Experience shows that:
-   - Error handling behavior varies significantly between different MCP clients
-   - Sending detailed errors can lead to excessive token usage when troubleshooting protocol issues
-   - It's often better to use proper logging (to files, not STDIO) for debugging
+1. **Protocol errors are narrow and deliberate.** `-32601`, `-32602`, and `-32022` each mean one specific thing, and a client can diagnose all three from the error alone. Without a handshake to renegotiate in, these errors *are* the negotiation — so they carry real information rather than prose.
 
-2. **Better Alternatives**:
-   - Use the `isError` flag and other status mechanisms for reporting operational issues
-   - Implement file-based logging (like we do with `LogFileWriter`) that writes to a separate log file
-   - Return empty or minimal success responses for unimplemented features rather than errors
+2. **Everything else is a tool-level result.** Use the `isError` flag inside a successful result for operational failures. A search that found nothing is not a protocol fault, and dressing it as one makes it harder for a model to recover.
 
-3. **Why This Matters**: When building MCP servers, you want to:
-   - Focus on implementing working functionality rather than debugging protocol issues
-   - Avoid confusing protocol-level errors with application-level errors
-   - Maintain clean separation between debugging/logging and protocol communication
+3. **Debugging goes to files.** Implement file-based logging (like `LogFileWriter`) that writes to a separate log file, never STDIO.
 
-Remember: The `LogFileWriter` we're using writes to `inspector/logs/` specifically to avoid STDIO contamination. This is a best practice for all MCP server implementations.
-
+Remember: the `LogFileWriter` we're using writes to `inspector/logs/` specifically to avoid STDIO contamination. This is a best practice for all MCP server implementations.
 
 ### Final Step: Build and Test Your Updated Implementation
 
-Now that we've implemented all the changes, let's rebuild the project and test our improvements.
-
-#### Step 7: Rebuild and Test
+#### Step 8: Rebuild and Test
 
 **Action Required**:
 
@@ -364,9 +423,7 @@ Now that we've implemented all the changes, let's rebuild the project and test o
    - **Refresh your webpage** to clear any cached state
 
 4. **Test your implementation**:
-   - Click **Connect** to establish a new connection
-   - Verify the initialization handshake completes successfully
-   - Click **Ping** to test that ping responses are working
+   - Click **Connect** and verify discovery completes successfully
    - Click **List Resources** to intentionally trigger an error
 
 5. **Check the improved logging**:
@@ -374,21 +431,26 @@ Now that we've implemented all the changes, let's rebuild the project and test o
    - Look for the cancellation notification
    - You should now see the properly deserialized cancellation reason being logged
 
+6. **Try the three rejections** with `inspector/modern-probe.sh`, which sends them back to back:
+   - `initialize` → `-32601`
+   - a request with no `_meta` → `-32602`
+   - a request declaring `2025-11-25` → `-32022` with `data.supported`
+
 ## What you should observe:
 
-- The initialization and ping functionality continue to work as before
+- Discovery continues to work as before
 - When clicking "List Resources", the client still times out (expected)
-- **NEW**: The server logs now show the actual cancellation reason from the client, not just raw JSON
-- This demonstrates that our notification deserialization is working correctly
+- **NEW**: the server logs now show the actual cancellation reason from the client, not just raw JSON
+- Three different failures produce three different diagnoses, all readable from the error alone
 
 ## Congratulations!
 
 You've successfully implemented:
-- ✅ The MCP protocol handshake (Initialize)
-- ✅ Basic request handling (Ping)
+- ✅ Polymorphic request ids, string or number
+- ✅ The `server/discover` response
+- ✅ Envelope validation with three distinct, correctly ordered rejections
 - ✅ Notification deserialization infrastructure
 - ✅ Type-safe handling of cancellation notifications
 - ✅ Proper logging without STDIO contamination
 
 In the next lesson, we'll build on this foundation to implement the actual Resources, Prompts, and Tools capabilities that we're advertising.
-

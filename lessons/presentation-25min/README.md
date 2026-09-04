@@ -4,8 +4,10 @@ An interactive HTML deck for a **25-minute, demo-heavy** talk on the Model Conte
 Roughly half the time is live in the MCP Inspector and the IDE, so these pages stay
 deliberately thin — they are the map, not the talk.
 
-Everything shown comes from one real captured session against the workshop server:
-**MCP 2025-11-25**, `inspector-client` v0.22.0 against `agent-mcp-workshop` v0.0.1 over stdio.
+Everything shown comes from real captured traffic against the workshop server:
+**MCP 2026-07-28**, `inspector-cli` v2.5.0 against `agent-mcp-workshop` v0.0.1 over stdio.
+That revision is **stateless** — there is no `initialize` handshake and no session, so every
+request carries the protocol version and the client's capabilities in its own `_meta`.
 
 ## Usage
 
@@ -21,10 +23,10 @@ bright-room conditions (the choice persists in `localStorage`).
 | Time | Segment | Point to land |
 |---|---|---|
 | 0 – 2 | Why MCP (`index.html`) | One protocol instead of N bespoke integrations |
-| 2 – 5 | Overview | Four actors, one round trip |
+| 2 – 5 | Overview | Four actors, one round trip — and no session |
 | 5 – 8 | Flow Diagram | It is just JSON-RPC over stdio |
-| 8 – 13 | **DEMO** — Inspector | Connect, then resources / tools / prompts live |
-| 13 – 15 | Extensions | Server can ask the user a question mid-call |
+| 8 – 13 | **DEMO** — Inspector | Discover, then resources / tools / prompts live |
+| 13 – 15 | Extensions | The server asks a question by answering the call |
 | 15 – 18 | MCP Apps | A tool can return a UI, not just text |
 | 18 – 21 | Tasks | Call now, fetch later |
 | 21 – 24 | **DEMO** — Agent | Same tool, now inside a supervised audit |
@@ -34,14 +36,14 @@ bright-room conditions (the choice persists in `localStorage`).
 
 | File | Role |
 |---|---|
-| `index.html` | Home — card grid, run sheet, and session facts |
-| `overview.html` | Protocol architecture with a Mermaid sequence diagram |
-| `flow-diagram.html` | Full session sequence diagram, hover a message for its JSON |
-| `extensions.html` | `experimental` capabilities and lazy elicitation |
-| `mcp-apps.html` | `ui://` resources and `_meta.ui.resourceUri` |
-| `tasks.html` | The tasks utility — lifecycle and the five new methods |
+| `index.html` | Home — card grid, run sheet, and the facts about the captured traffic |
+| `overview.html` | Protocol architecture, plus why "stateless" drives everything else |
+| `flow-diagram.html` | Full sequence diagram, hover a message for its JSON |
+| `extensions.html` | `extensions` capabilities and Multi Round-Trip Requests |
+| `mcp-apps.html` | `ui://` resources and the two `_meta` resource-uri keys |
+| `tasks.html` | The tasks extension — lifecycle and what survived the move |
 | `agent.html` | The plugin skills and the supervised audit workflow |
-| `runtime-facts.html` | Reference card: versions, capabilities, tool and resource inventory |
+| `runtime-facts.html` | Reference card: revision, envelope, capabilities, error codes, inventory |
 | `trace-log.html` | Raw timestamped JSON-RPC trace with filters |
 | `contact.html` | Links and where to find the code |
 | `theme.css` / `theme.js` | Shared light-theme overrides and the toggle |

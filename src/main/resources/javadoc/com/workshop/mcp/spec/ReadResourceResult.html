@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -92,17 +92,20 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-contents">contents</span></code> - a list of text resources that were successfully read</dd>
-<dd><code><span id="param-isError">isError</span></code> - indicates whether an error occurred during the read operation</dd>
+<dd><code><span id="param-resultType">resultType</span></code> - always <a href="ResultType.html#COMPLETE"><code>ResultType.COMPLETE</code></a></dd>
+<dd><code><span id="param-contents">contents</span></code> - the resource contents that were read</dd>
+<dd><code><span id="param-isError">isError</span></code> - true when the read failed</dd>
+<dd><code><span id="param-ttlMs">ttlMs</span></code> - how long the client may cache this content, non-negative</dd>
+<dd><code><span id="param-cacheScope">cacheScope</span></code> - one of <a href="CacheScope.html#PUBLIC"><code>CacheScope.PUBLIC</code></a> or <a href="CacheScope.html#PRIVATE"><code>CacheScope.PRIVATE</code></a></dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">ReadResourceResult</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents, boolean&nbsp;isError)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">ReadResourceResult</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents, boolean&nbsp;isError, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;ttlMs, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;cacheScope)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
-<div class="block">Represents the result of reading resources in the MCP (Model Context Protocol) system.
+<div class="block">The result of <code>resources/read</code>.
  <p>
- ReadResourceResult contains the contents of one or more resources that have been
- read from the server. It includes an error flag to indicate whether the read
- operation encountered any errors.
+ A cacheable result: <code>resultType</code>, <code>ttlMs</code>, and
+ <code>cacheScope</code> are all required. It is the only cacheable method that is
+ not a list.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -125,14 +128,29 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.util.List)" class="member-name-link">ReadResourceResult</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.lang.String,java.util.List,boolean,java.lang.Long,java.lang.String)" class="member-name-link">ReadResourceResult</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
+ boolean&nbsp;isError,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;ttlMs,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;cacheScope)</code></div>
 <div class="col-last even-row-color">
+<div class="block">Creates an instance of a <code>ReadResourceResult</code> record class.</div>
+</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.util.List)" class="member-name-link">ReadResourceResult</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents)</code></div>
+<div class="col-last odd-row-color">
 <div class="block">Creates a successful read result with no errors.</div>
 </div>
-<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.util.List,boolean)" class="member-name-link">ReadResourceResult</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.util.List,boolean)" class="member-name-link">ReadResourceResult</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
  boolean&nbsp;isError)</code></div>
+<div class="col-last even-row-color">
+<div class="block">Creates a complete read result that clients should not cache or share.</div>
+</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.util.List,boolean,java.lang.Long,java.lang.String)" class="member-name-link">ReadResourceResult</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
+ boolean&nbsp;isError,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;ttlMs,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;cacheScope)</code></div>
 <div class="col-last odd-row-color">
-<div class="block">Creates an instance of a <code>ReadResourceResult</code> record class.</div>
+<div class="block">Creates a complete read result with explicit caching hints.</div>
 </div>
 </div>
 </section>
@@ -148,30 +166,45 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#contents()" class="member-name-link">contents</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#cacheScope()" class="member-name-link">cacheScope</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-cacheScope"><code>cacheScope</code></a> record component.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#contents()" class="member-name-link">contents</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-contents"><code>contents</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Indicates whether some other object is "equal to" this one.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isError()" class="member-name-link">isError</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isError()" class="member-name-link">isError</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-isError"><code>isError</code></a> record component.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resultType()" class="member-name-link">resultType</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-resultType"><code>resultType</code></a> record component.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#ttlMs()" class="member-name-link">ttlMs</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-ttlMs"><code>ttlMs</code></a> record component.</div>
 </div>
 </div>
 </div>
@@ -191,6 +224,36 @@ loadScripts(document, 'script');</script>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
+<section class="detail" id="&lt;init&gt;(java.util.List,boolean,java.lang.Long,java.lang.String)">
+<h3>ReadResourceResult</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ReadResourceResult</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
+ boolean&nbsp;isError,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;ttlMs,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;cacheScope)</span></div>
+<div class="block">Creates a complete read result with explicit caching hints.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>contents</code> - the resource contents that were read</dd>
+<dd><code>isError</code> - true when the read failed</dd>
+<dd><code>ttlMs</code> - how long the client may cache this content</dd>
+<dd><code>cacheScope</code> - whether shared intermediaries may cache it</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="&lt;init&gt;(java.util.List,boolean)">
+<h3>ReadResourceResult</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ReadResourceResult</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
+ boolean&nbsp;isError)</span></div>
+<div class="block">Creates a complete read result that clients should not cache or share.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>contents</code> - the resource contents that were read</dd>
+<dd><code>isError</code> - true when the read failed</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="&lt;init&gt;(java.util.List)">
 <h3>ReadResourceResult</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ReadResourceResult</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents)</span></div>
@@ -202,15 +265,21 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="&lt;init&gt;(java.util.List,boolean)">
+<section class="detail" id="&lt;init&gt;(java.lang.String,java.util.List,boolean,java.lang.Long,java.lang.String)">
 <h3>ReadResourceResult</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ReadResourceResult</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
- boolean&nbsp;isError)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ReadResourceResult</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents,
+ boolean&nbsp;isError,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;ttlMs,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;cacheScope)</span></div>
 <div class="block">Creates an instance of a <code>ReadResourceResult</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
+<dd><code>resultType</code> - the value for the <a href="#param-resultType"><code>resultType</code></a> record component</dd>
 <dd><code>contents</code> - the value for the <a href="#param-contents"><code>contents</code></a> record component</dd>
 <dd><code>isError</code> - the value for the <a href="#param-isError"><code>isError</code></a> record component</dd>
+<dd><code>ttlMs</code> - the value for the <a href="#param-ttlMs"><code>ttlMs</code></a> record component</dd>
+<dd><code>cacheScope</code> - the value for the <a href="#param-cacheScope"><code>cacheScope</code></a> record component</dd>
 </dl>
 </section>
 </li>
@@ -264,6 +333,17 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
+<section class="detail" id="resultType()">
+<h3>resultType</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">resultType</span>()</div>
+<div class="block">Returns the value of the <a href="#param-resultType"><code>resultType</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-resultType"><code>resultType</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="contents()">
 <h3>contents</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;</span>&nbsp;<span class="element-name">contents</span>()</div>
@@ -282,6 +362,28 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <a href="#param-isError"><code>isError</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="ttlMs()">
+<h3>ttlMs</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a></span>&nbsp;<span class="element-name">ttlMs</span>()</div>
+<div class="block">Returns the value of the <a href="#param-ttlMs"><code>ttlMs</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-ttlMs"><code>ttlMs</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="cacheScope()">
+<h3>cacheScope</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">cacheScope</span>()</div>
+<div class="block">Returns the value of the <a href="#param-cacheScope"><code>cacheScope</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-cacheScope"><code>cacheScope</code></a> record component</dd>
 </dl>
 </section>
 </li>

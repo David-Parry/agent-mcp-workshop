@@ -68,32 +68,34 @@
             `;
             document.body.appendChild(tooltip);
 
+            // Every request below carries the same envelope in params._meta.
+            // It is spelled out on server/discover and abbreviated as ENVELOPE
+            // afterwards so the interesting fields stay readable.
+            const ENVELOPE = '"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{ ... }}';
+
             const tooltips = {
-                'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"sampling":{},"elicitation":{"form":{},"url":{}},"roots":{"listChanged":true},"tasks":{"list":{},"cancel":{},"requests":{"sampling":{"createMessage":{}},"elicitation":{"create":{}}}}},"clientInfo":{"name":"inspector-client","version":"0.22.0"}},"jsonrpc":"2.0","id":0}',
-                'initialize result': '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"completions":{},"tasks":{"list":{},"cancel":{},"requests":{"tools":{"call":{}}}},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}',
-                'notifications/initialized': '{"jsonrpc":"2.0","method":"notifications/initialized"}',
-                'elicitation/create': '{"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"required":["directory"],"type":"object","properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","title":"Search Directory","type":"string"}}}}}',
-                'elicitation/create result': '{"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/agent-command"}}}',
-                'roots/list': '{"jsonrpc":"2.0","id":-1000,"method":"roots/list"}',
-                'roots/list result': '{"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}',
-                'ping': '{"method":"ping","params":{"_meta":{"progressToken":1}},"jsonrpc":"2.0","id":1}',
-                'ping result': '{"jsonrpc":"2.0","id":1,"result":{}}',
-                'resources/list': '{"method":"resources/list","params":{"_meta":{"progressToken":2}},"jsonrpc":"2.0","id":2}',
-                'resources/list result': '{"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"ui://keyword-search/mcp-app.html","name":"Keyword Search App","mimeType":"text/html;profile=mcp-app"},{"uri":"javadoc/.../Capability.html","name":"Capability","mimeType":"text/html"}],"nextCursor":"pageNext"}}',
-                'tools/list': '{"method":"tools/list","params":{"_meta":{"progressToken":3}},"jsonrpc":"2.0","id":3}',
-                'tools/list result': '{"jsonrpc":"2.0","id":3,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}},"execution":{"taskSupport":"optional"}}]}}',
-                'tools/call (sync)': '{"method":"tools/call","params":{"_meta":{"progressToken":4},"name":"key_word_search","arguments":{"keyword":"mcp"}},"jsonrpc":"2.0","id":4}',
-                'tools/call (sync) result': '{"jsonrpc":"2.0","id":4,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false}}',
-                'tools/call (task)': '{"method":"tools/call","params":{"_meta":{"progressToken":5},"name":"key_word_search","arguments":{"keyword":"mcp"},"task":{"ttl":60000}},"jsonrpc":"2.0","id":5}',
-                'CreateTaskResult': '{"jsonrpc":"2.0","id":5,"result":{"task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"working","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:02Z","ttl":60000,"pollInterval":1000},"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
-                'tasks/get': '{"method":"tasks/get","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":6}',
-                'tasks/get result': '{"jsonrpc":"2.0","id":6,"result":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
-                'notifications/tasks/status': '{"jsonrpc":"2.0","method":"notifications/tasks/status","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
-                'tasks/result': '{"method":"tasks/result","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":7}',
-                'tasks/result result': '{"jsonrpc":"2.0","id":7,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false,"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
-                'tasks/list': '{"method":"tasks/list","params":{},"jsonrpc":"2.0","id":8}',
-                'tasks/list result': '{"jsonrpc":"2.0","id":8,"result":{"tasks":[{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}],"nextCursor":null}}',
-                'notifications/roots/list_changed': '{"jsonrpc":"2.0","method":"notifications/roots/list_changed"}'
+                'server/discover': '{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}',
+                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword. If no directory is supplied, the tool asks for one over a Multi Round-Trip Request before searching.","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
+                'tools/list': '{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{' + ENVELOPE + '}}',
+                'tools/list result': '{"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project... Pass a directory to search it directly; omit it and the server asks, falling back to its working directory.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}',
+                'resources/templates/list': '{"jsonrpc":"2.0","id":1,"method":"resources/templates/list","params":{' + ENVELOPE + '}}',
+                'resources/templates/list result': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","resourceTemplates":[],"ttlMs":60000,"cacheScope":"public"}}',
+                'tools/call (first attempt)': '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{' + ENVELOPE + ',"name":"key_word_search","arguments":{"keyword":"record"}}}',
+                'input_required (roots/list)': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"input_required","inputRequests":{"search_roots":{"method":"roots/list"}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}',
+                'tools/call (retry with roots)': '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{' + ENVELOPE + ',"name":"key_word_search","arguments":{"keyword":"record"},"inputResponses":{"search_roots":{"roots":[{"uri":"file:///Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/src/main/java/com/workshop/mcp/tools","name":"workshop-tools"}]}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}',
+                'tools/call result (complete)': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","content":[{"text":"/Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/src/main/java/com/workshop/mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'tools/call (retry, empty roots)': '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{' + ENVELOPE + ',"name":"key_word_search","arguments":{"keyword":"record"},"inputResponses":{"search_roots":{"roots":[]}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}',
+                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":11,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","type":"string","title":"Search Directory"}},"type":"object","required":["directory"]}}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
+                'tools/call (retry with directory)': '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{' + ENVELOPE + ',"name":"key_word_search","arguments":{"keyword":"record"},"inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/src/main/java/com/workshop/mcp/tools"}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
+                'tools/call (task-capable client)': '{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"extensions":{"io.modelcontextprotocol/tasks":{}}}},"name":"key_word_search","arguments":{"keyword":"record"},"inputResponses":{"search_roots":{"roots":[{"uri":"file:///Users/.../workshop/mcp/tools","name":"workshop-tools"}]}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}',
+                'task handle': '{"jsonrpc":"2.0","id":23,"result":{"resultType":"task","taskId":"3dab39bc-0c95-42e8-91bd-b7e59c7343ef","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:42:31.707471Z","lastUpdatedAt":"2026-09-04T17:42:31.707471Z","ttlMs":300000,"pollIntervalMs":1000}}',
+                'notifications/tasks': '{"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"3dab39bc-0c95-42e8-91bd-b7e59c7343ef","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:42:31.707471Z","lastUpdatedAt":"2026-09-04T17:42:31.707471Z","ttlMs":300000,"pollIntervalMs":1000}}',
+                'tasks/get': '{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{' + ENVELOPE + ',"taskId":"3dab39bc-0c95-42e8-91bd-b7e59c7343ef"}}',
+                'tasks/get result': '{"jsonrpc":"2.0","id":"inspector-ext-4","result":{"resultType":"complete","taskId":"3dab39bc-0c95-42e8-91bd-b7e59c7343ef","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:42:31.707471Z","lastUpdatedAt":"2026-09-04T17:42:35.729Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
+                'subscriptions/listen': '{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{' + ENVELOPE + ',"notifications":{"toolsListChanged":true,"resourcesListChanged":true}}}',
+                'notifications/subscriptions/acknowledged': '{"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}',
+                'subscriptions/listen result': '{"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"}}}',
+                'initialize (refused)': '{"jsonrpc":"2.0","id":4,"method":"initialize","params":{ ... }}  -->  {"jsonrpc":"2.0","id":4,"error":{"code":-32601,"message":"Method not found: initialize"}}'
             };
 
             setTimeout(() => {
@@ -153,7 +155,7 @@
 <body>
 <header>
     <h1>MCP Presentation – JSON‑RPC Communication Flow</h1>
-    <p class="subtitle">Sequence diagram showing the complete MCP communication flow including all phases. Hover message labels to see full JSON payloads.</p>
+    <p class="subtitle">The complete lifecycle of protocol revision <strong>2026-07-28</strong> — discovery instead of a handshake, an envelope on every request, and questions embedded in results. Hover message labels to see full JSON payloads.</p>
 </header>
 <main>
     <div class="nav">
@@ -181,70 +183,82 @@
             participant Client as mcp-inspector (Client)
             participant Server as agent-mcp-workshop (Server)
 
-            Note over Client,Server: Initialization Phase (2025-11-25)
+            Note over Client,Server: Discovery — no handshake, no session (2026-07-28)
 
-            Client->>Server: initialize
-            Note over Client,Server: Client declares: sampling, elicitation, roots, tasks
-            Server-->>Client: initialize result
-            Note over Client,Server: Server declares: tools, prompts, resources, completions,<br/>tasks (list/cancel + tools.call), experimental (elicitation, apps)
+            Client->>Server: server/discover
+            Note over Client: id is the STRING "server-discover-probe-1"<br/>params._meta already carries version + client capabilities
+            Server-->>Client: server/discover result
+            Note over Server: supportedVersions: ["2026-07-28"] — the client picks<br/>serverInfo moved into _meta. No session was created.
 
-            Client->>Server: notifications/initialized
+            Note over Client,Server: Stateless requests — every one re-states the envelope
 
-            Note over Client,Server: Roots Discovery (no elicitation at startup)
-            Server->>Client: roots/list
-            Client-->>Server: roots/list result
-
-            Note over Client,Server: Ping
-            Client->>Server: ping
-            Server-->>Client: ping result
-
-            Note over Client,Server: Resources & Tools Discovery
-            Client->>Server: resources/list
-            Server-->>Client: resources/list result
             Client->>Server: tools/list
             Server-->>Client: tools/list result
-            Note over Server: tool advertises execution.taskSupport="optional"
+            Note over Server: resultType + ttlMs + cacheScope — this one is cacheable
+            Client->>Server: resources/templates/list
+            Server-->>Client: resources/templates/list result
+            Note over Client,Server: fetched whenever a server declares any resource<br/>capability, so it must be answered even when empty
 
-            Note over Client,Server: Synchronous tools/call — lazy elicitation
-            Client->>Server: tools/call (sync)
-            Note over Server: roots empty + hasElicitation → defer response
-            Server->>Client: elicitation/create
-            Note over Client: Inspector renders single-field form:<br/>directory = (absolute path)
-            Client-->>Server: elicitation/create result
-            Note over Server: action=accept → add directory to roots,<br/>resume the held tools/call (id reused)
-            Server-->>Client: tools/call (sync) result
+            Note over Client,Server: Multi Round-Trip Request — the server asks inside a result
 
-            Note over Client,Server: Task-augmented tools/call — call now, fetch later
-            Client->>Server: tools/call (task)
-            Note over Client,Server: params.task = { ttl: 60000 }
-            Server-->>Client: CreateTaskResult
-            Note over Server: status=working, taskId returned in ms<br/>tool runs on background thread
+            Client->>Server: tools/call (first attempt)
+            Note over Server: no directory yet, and a server cannot send a request
+            Server-->>Client: input_required (roots/list)
+            Note over Server: inputRequests is a KEYED MAP, not an array<br/>requestState carries the continuation — nowhere else to put it
+            Note over Client: answers roots/list from configuration,<br/>without troubling the user
+            Client->>Server: tools/call (retry with roots)
+            Note over Client,Server: brand new id, plus inputResponses and the<br/>requestState echoed back byte-exact
+            Server-->>Client: tools/call result (complete)
 
-            Client->>Server: tasks/get
-            Server-->>Client: tasks/get result
-            Note over Server: tool completes
-            Server->>Client: notifications/tasks/status
-            Note over Client,Server: status: working → completed (optional push)
+            Note over Client,Server: Escalation — the roots came back empty
 
-            Client->>Server: tasks/result
-            Server-->>Client: tasks/result result
-            Note over Client,Server: _meta.io.modelcontextprotocol/related-task = { taskId }
+            Client->>Server: tools/call (retry, empty roots)
+            Server-->>Client: input_required (elicitation/create)
+            Note over Server: embedded request, params.mode = "form"<br/>no jsonrpc, no id — it is not a request on the wire
+            Client->>Server: tools/call (retry with directory)
+            Note over Client,Server: a declined form does not end it — the server<br/>falls back to searching its own working directory
 
-            Note over Client,Server: Task Management
-            Client->>Server: tasks/list
-            Server-->>Client: tasks/list result
+            Note over Client,Server: Tasks extension — the server's decision, not the client's
 
-            Note over Client,Server: Session End
-            Note over Client,Server: Stopping and closing resources
+            Client->>Server: tools/call (task-capable client)
+            Server-->>Client: task handle
+            Note over Server: resultType=task, taskId, ttlMs, pollIntervalMs<br/>only ever to a client that declared the tasks extension
+            Server->>Client: notifications/tasks
+            Note over Client,Server: bare method name — the notifications/tasks/ prefix is reserved
+
+            loop every pollIntervalMs until terminal
+                Client->>Server: tasks/get
+                Server-->>Client: tasks/get result
+            end
+            Note over Server: ids inspector-ext-1..4 — string ids again<br/>on completed the snapshot also carries the underlying result
+
+            Note over Client,Server: Subscriptions — one long-lived request for every push
+
+            Client->>Server: subscriptions/listen
+            Server->>Client: notifications/subscriptions/acknowledged
+            Note over Server: _meta.subscriptionId is REQUIRED here —<br/>omit it and the client hangs forever, no error, no timeout
+            Server-->>Client: subscriptions/listen result
+            Note over Client,Server: this server advertises listChanged: false, so nothing<br/>is honored and the stream closes instead of dangling
         </div>
-        <div class="hint">💡 Hover or tap message labels to see full JSON payloads. This diagram shows the complete MCP communication lifecycle from initialization to shutdown.</div>
+        <div class="hint">💡 Hover or tap message labels to see full JSON payloads. This is the complete <strong>2026-07-28</strong> lifecycle: discovery, stateless requests, the Multi Round-Trip Requests loop, the task poll loop, and a subscription. There is no <code>initialize</code>, no <code>notifications/initialized</code>, and no <code>ping</code> — all three were removed, and a client that sends one gets <code>-32601</code>.</div>
+    </section>
+
+    <section class="card" style="margin-top:18px">
+        <h2 style="color:var(--accent);margin:0 0 10px;font-size:20px">Why the shape changed</h2>
+        <p style="color:var(--muted);font-size:14px;margin:0 0 12px">Read top to bottom, the diagram is really one idea applied three times: <strong>the session is gone, so every fact has to travel on the wire.</strong></p>
+        <ul style="color:var(--muted);font-size:14px;margin:0;padding-left:22px;line-height:1.7">
+            <li><strong>The handshake became an envelope.</strong> A session is a piece of memory pinned to one process. Pin nothing, and any instance behind a load balancer can answer any request — that is the horizontal-scaling argument. It also means a result can be cached and replayed, which is why <code>ttlMs</code> and <code>cacheScope</code> appear at all.</li>
+            <li><strong>Server-initiated requests became embedded requests.</strong> Without a session there is no correlated channel to send a request back down, and modern clients simply discard inbound requests. So the three things this server used to ask for — <code>roots/list</code>, <code>sampling/createMessage</code>, <code>elicitation/create</code> — now ride inside an <code>input_required</code> result, and the answer arrives on a fresh <code>tools/call</code>.</li>
+            <li><strong>The parked request became <code>requestState</code>.</strong> The old server remembered "I am halfway through call id 4". The new one cannot, so it hands that memory to the client as an opaque string and reads it back off the retry. Continuation state moved from the server's heap onto the wire.</li>
+        </ul>
     </section>
 
     <!-- IDE Demo lead-in -->
     <div class="ide-demo">
         <span class="ide-demo-badge">⌨️ Up Next: IDE Demo — Chapter 3</span>
-        <h3>Chapter 3: Bring the Handshake to Life</h3>
-        <p style="color:var(--muted);font-size:14px">The first three arrows of this diagram — <strong>initialize → initialize result → notifications/initialized</strong> — are exactly what the Chapter 3 demo makes real. Switch to the IDE and follow the full script on the <a href="capabilities.html" style="color:var(--accent)">Capabilities</a> page: walk the INITIALIZE and PING handlers in <code>IORouter</code>, launch MCP Inspector, and watch these messages appear live. Keep the <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> open to compare against Inspector's message pane.</p>
+        <h3>Chapter 3: Bring Discovery and the Envelope to Life</h3>
+        <p style="color:var(--muted);font-size:14px">The first two arrows of this diagram — <strong>server/discover → server/discover result</strong> — are exactly what the Chapter 3 demo makes real. Switch to the IDE and follow the full script on the <a href="capabilities.html" style="color:var(--accent)">Capabilities</a> page: walk <code>SERVER_DISCOVER</code> and <code>envelopeFor()</code> in <code>IORouter</code>, launch MCP Inspector, and watch these messages appear live. Keep the <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> open to compare against Inspector's message pane.</p>
+        <p style="color:var(--muted);font-size:13px;margin:10px 0 0"><strong>Before you connect:</strong> the Inspector still defaults to the legacy handshake. Add <code>"protocolEra": "modern"</code> beside <code>command</code>/<code>args</code>/<code>env</code> in the server's entry in <code>inspector/config.json</code>, or the very first message on the wire will be an <code>initialize</code> that this server answers with <code>-32601</code>.</p>
     </div>
 
     <div class="footer">© 2025 MCP Presentation. Diagram rendered with Mermaid — hover labels for JSON payloads.</div>
@@ -279,7 +293,7 @@
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>

@@ -18,6 +18,6 @@ package com.workshop.mcp.spec;
  */
 public record JsonRpcResponse(
     String jsonrpc,
-    Long id,
+    RequestId id,
     Object result
 ) {}

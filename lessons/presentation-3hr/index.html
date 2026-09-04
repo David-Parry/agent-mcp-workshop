@@ -98,13 +98,13 @@
             <span class="icon">📊</span>
             <div class="timing">Stop 3 · Ch 2</div>
             <h3>Flow Diagram</h3>
-            <p>Interactive sequence diagram — every JSON-RPC message from initialize through tools/call. Hover messages to see full JSON payloads.</p>
+            <p>Interactive sequence diagram — every JSON-RPC message from <code>server/discover</code> through a round-trip <code>tools/call</code>. Hover messages to see full JSON payloads.</p>
         </a>
         <a href="capabilities.html" class="page-card">
             <span class="icon">🔧</span>
             <div class="timing">Stop 4 · Ch 3–4</div>
             <h3>Handshake &amp; Capabilities + Ch 3–4 Demos</h3>
-            <p>Chapter 3 handshake and routing with the first Inspector connect, then Resources, Tools, and Prompts — a two-part demo.</p>
+            <p>Chapter 3 discovery and routing with the first Inspector connect, then Resources, Tools, and Prompts — a two-part demo.</p>
         </a>
         <a href="extensions.html" class="page-card">
             <span class="icon">🧩</span>
@@ -121,8 +121,8 @@
         <a href="tasks.html" class="page-card">
             <span class="icon">🧵</span>
             <div class="timing">Stop 7 · Ch 7</div>
-            <h3>Tasks + Ch 7 Demo <span style="font-size:10px;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle">2025-11-25</span></h3>
-            <p>Call-now / fetch-later via task augmentation. CreateTaskResult, tasks/get, tasks/result, tasks/list, tasks/cancel — demonstrated end to end.</p>
+            <h3>Tasks + Ch 7 Demo <span style="font-size:10px;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle">extension</span></h3>
+            <p>Call now, fetch later — now the <code>io.modelcontextprotocol/tasks</code> extension. An unsolicited <code>resultType: "task"</code> handle, <code>tasks/get</code> polling, <code>tasks/update</code>, and <code>tasks/cancel</code> — demonstrated end to end.</p>
         </a>
         <a href="agent.html" class="page-card">
             <span class="icon">🤖</span>
@@ -223,7 +223,7 @@
         </tr>
         <tr style="background:rgba(122,162,247,0.06)">
             <td><span class="badge-time">6</span></td>
-            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Ch 3 handshake &amp; routing — first MCP Inspector connect</td>
+            <td><span class="badge-demo">⌨️ IDE Demo</span> &nbsp;Ch 3 discovery &amp; routing — first MCP Inspector connect</td>
             <td><span class="badge-chapter">Ch 3</span></td>
             <td><a href="capabilities.html" style="color:var(--accent)">Capabilities</a></td>
         </tr>

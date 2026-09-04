@@ -19,6 +19,6 @@ package com.workshop.mcp.spec;
  */
 public record JsonRpcErrorResponse(
     String jsonrpc,
-    Long id,
+    RequestId id,
     JsonRpcError error
 ) {}

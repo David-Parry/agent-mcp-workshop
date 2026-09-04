@@ -392,4 +392,4 @@ These features work together to create a powerful MCP server:
 - **Tools** provide dynamic functionality and operations
 - **Prompts** make tools accessible through guided templates
 
-In the next lesson you will extend this server with MCP Extensions — adding the `experimental` capability map and implementing the elicitation flow.
+In the next lesson you will extend this server with MCP Extensions — adding the `extensions` capability map and implementing the elicitation flow as a Multi Round-Trip Request.

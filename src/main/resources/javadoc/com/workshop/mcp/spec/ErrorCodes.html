@@ -10,7 +10,7 @@
 <link rel="stylesheet" type="text/css" href="../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../script-dir/jquery-ui.min.css" title="Style">
 <script type="text/javascript" src="../../../../script.js"></script>
-<script type="text/javascript" src="../../../../script-dir/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="../../../../script-dir/jquery-3.6.1.min.js"></script>
 <script type="text/javascript" src="../../../../script-dir/jquery-ui.min.js"></script>
 </head>
 <body class="class-declaration-page">
@@ -126,29 +126,44 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Field</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color"><code>static final int</code></div>
-<div class="col-second even-row-color"><code><a href="#INTERNAL_ERROR" class="member-name-link">INTERNAL_ERROR</a></code></div>
+<div class="col-second even-row-color"><code><a href="#HEADER_MISMATCH" class="member-name-link">HEADER_MISMATCH</a></code></div>
 <div class="col-last even-row-color">
+<div class="block">An MCP HTTP header does not match the JSON-RPC body.</div>
+</div>
+<div class="col-first odd-row-color"><code>static final int</code></div>
+<div class="col-second odd-row-color"><code><a href="#INTERNAL_ERROR" class="member-name-link">INTERNAL_ERROR</a></code></div>
+<div class="col-last odd-row-color">
 <div class="block">Internal JSON-RPC error.</div>
 </div>
-<div class="col-first odd-row-color"><code>static final int</code></div>
-<div class="col-second odd-row-color"><code><a href="#INVALID_PARAMS" class="member-name-link">INVALID_PARAMS</a></code></div>
-<div class="col-last odd-row-color">
+<div class="col-first even-row-color"><code>static final int</code></div>
+<div class="col-second even-row-color"><code><a href="#INVALID_PARAMS" class="member-name-link">INVALID_PARAMS</a></code></div>
+<div class="col-last even-row-color">
 <div class="block">Invalid method parameter(s).</div>
 </div>
-<div class="col-first even-row-color"><code>static final int</code></div>
-<div class="col-second even-row-color"><code><a href="#INVALID_REQUEST" class="member-name-link">INVALID_REQUEST</a></code></div>
-<div class="col-last even-row-color">
+<div class="col-first odd-row-color"><code>static final int</code></div>
+<div class="col-second odd-row-color"><code><a href="#INVALID_REQUEST" class="member-name-link">INVALID_REQUEST</a></code></div>
+<div class="col-last odd-row-color">
 <div class="block">The JSON sent is not a valid Request object.</div>
 </div>
-<div class="col-first odd-row-color"><code>static final int</code></div>
-<div class="col-second odd-row-color"><code><a href="#METHOD_NOT_FOUND" class="member-name-link">METHOD_NOT_FOUND</a></code></div>
-<div class="col-last odd-row-color">
+<div class="col-first even-row-color"><code>static final int</code></div>
+<div class="col-second even-row-color"><code><a href="#METHOD_NOT_FOUND" class="member-name-link">METHOD_NOT_FOUND</a></code></div>
+<div class="col-last even-row-color">
 <div class="block">The method does not exist / is not available.</div>
+</div>
+<div class="col-first odd-row-color"><code>static final int</code></div>
+<div class="col-second odd-row-color"><code><a href="#MISSING_REQUIRED_CLIENT_CAPABILITY" class="member-name-link">MISSING_REQUIRED_CLIENT_CAPABILITY</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">The server requires a client capability that the request did not declare.</div>
 </div>
 <div class="col-first even-row-color"><code>static final int</code></div>
 <div class="col-second even-row-color"><code><a href="#PARSE_ERROR" class="member-name-link">PARSE_ERROR</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">Invalid JSON was received by the server.</div>
+</div>
+<div class="col-first odd-row-color"><code>static final int</code></div>
+<div class="col-second odd-row-color"><code><a href="#UNSUPPORTED_PROTOCOL_VERSION" class="member-name-link">UNSUPPORTED_PROTOCOL_VERSION</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">The protocol revision the client asked for is not supported.</div>
 </div>
 </div>
 </section>
@@ -263,6 +278,67 @@ loadScripts(document, 'script');</script>
 <dd>
 <ul class="tag-list">
 <li><a href="../../../../constant-values.html#com.workshop.mcp.spec.ErrorCodes.INTERNAL_ERROR">Constant Field Values</a></li>
+</ul>
+</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="HEADER_MISMATCH">
+<h3>HEADER_MISMATCH</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">HEADER_MISMATCH</span></div>
+<div class="block">An MCP HTTP header does not match the JSON-RPC body.
+ <p>
+ Introduced in revision <code>2026-07-28</code>, which partitioned the
+ JSON-RPC server-error range: <code>-32000</code> to <code>-32019</code> stays
+ implementation-defined, while <code>-32020</code> to <code>-32099</code> is
+ reserved for the specification. This code applies only to the Streamable
+ HTTP transport, so a stdio server never emits it.
+ </p></div>
+<dl class="notes">
+<dt>See Also:</dt>
+<dd>
+<ul class="tag-list">
+<li><a href="../../../../constant-values.html#com.workshop.mcp.spec.ErrorCodes.HEADER_MISMATCH">Constant Field Values</a></li>
+</ul>
+</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="MISSING_REQUIRED_CLIENT_CAPABILITY">
+<h3>MISSING_REQUIRED_CLIENT_CAPABILITY</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">MISSING_REQUIRED_CLIENT_CAPABILITY</span></div>
+<div class="block">The server requires a client capability that the request did not declare.
+ <p>
+ The error data carries a <code>requiredCapabilities</code> object shaped like
+ <a href="ClientCapabilities.html" title="class in com.workshop.mcp.spec"><code>ClientCapabilities</code></a> — an object, never an array.
+ </p></div>
+<dl class="notes">
+<dt>See Also:</dt>
+<dd>
+<ul class="tag-list">
+<li><a href="../../../../constant-values.html#com.workshop.mcp.spec.ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY">Constant Field Values</a></li>
+</ul>
+</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="UNSUPPORTED_PROTOCOL_VERSION">
+<h3>UNSUPPORTED_PROTOCOL_VERSION</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">UNSUPPORTED_PROTOCOL_VERSION</span></div>
+<div class="block">The protocol revision the client asked for is not supported.
+ <p>
+ The error data is required and carries both <code>supported</code> (this
+ server's full list of revisions) and <code>requested</code> (what the client
+ asked for), so the peer can renegotiate from the error alone.
+ </p></div>
+<dl class="notes">
+<dt>See Also:</dt>
+<dd>
+<ul class="tag-list">
+<li><a href="../../../../constant-values.html#com.workshop.mcp.spec.ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION">Constant Field Values</a></li>
 </ul>
 </dd>
 </dl>

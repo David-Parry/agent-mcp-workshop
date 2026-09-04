@@ -33,7 +33,7 @@
 <body>
 <header>
     <h1>MCP Presentation – Runtime Facts</h1>
-    <p class="subtitle">Key information about the MCP communication session and server capabilities — reference during IDE demos.</p>
+    <p class="subtitle">Key information about the MCP message exchange and server capabilities — reference during IDE demos.</p>
 </header>
 <main>
     <div class="nav">
@@ -60,20 +60,20 @@
             <div class="fact-card">
                 <h3>Protocol Information</h3>
                 <ul>
-                    <li><strong>Protocol Version:</strong> 2025‑06‑18</li>
+                    <li><strong>Protocol Version:</strong> 2026‑07‑28 (stateless — no <code>initialize</code>, no session)</li>
                     <li><strong>JSON-RPC Version:</strong> 2.0</li>
                     <li><strong>Transport:</strong> STDIO</li>
-                    <li><strong>Communication:</strong> Bidirectional</li>
+                    <li><strong>Communication:</strong> Client&rarr;server requests only — a server MUST NOT send one</li>
                 </ul>
             </div>
 
             <div class="fact-card">
                 <h3>Client Details</h3>
                 <ul>
-                    <li><strong>Name:</strong> mcp‑inspector</li>
-                    <li><strong>Version:</strong> 0.16.5</li>
+                    <li><strong>Name:</strong> inspector‑cli</li>
+                    <li><strong>Version:</strong> 2.5.0</li>
                     <li><strong>Role:</strong> MCP Client</li>
-                    <li><strong>Session Duration:</strong> ~2 min (17:37–17:39)</li>
+                    <li><strong>Identity:</strong> re-declared in <code>_meta</code> per request — nothing persists between them</li>
                 </ul>
             </div>
 
@@ -89,30 +89,33 @@
 
             <div class="fact-card">
                 <h3>Client Capabilities</h3>
+                <p style="color:var(--muted);font-size:12px;margin:0 0 6px">Sent in <code>_meta</code> on <em>every</em> request — there is no handshake to remember them</p>
                 <ul>
-                    <li><strong>Sampling:</strong> ✓</li>
-                    <li><strong>Elicitation:</strong> ✓</li>
                     <li><strong>Roots:</strong> ✓ (listChanged: true)</li>
+                    <li><strong>Elicitation:</strong> ✓ (form and url)</li>
+                    <li><strong>Extensions:</strong> tasks, ui</li>
                 </ul>
             </div>
 
             <div class="fact-card">
                 <h3>Server Capabilities</h3>
+                <p style="color:var(--muted);font-size:12px;margin:0 0 6px">From the <code>server/discover</code> result</p>
                 <ul>
-                    <li><strong>Tools:</strong> ✓ (listChanged: true)</li>
-                    <li><strong>Prompts:</strong> ✓ (listChanged: true)</li>
-                    <li><strong>Resources:</strong> ✓ (listChanged: false)</li>
+                    <li><strong>Tools:</strong> ✓ (listChanged: false)</li>
+                    <li><strong>Prompts:</strong> ✓ (listChanged: false)</li>
+                    <li><strong>Resources:</strong> ✓ (listChanged: false, subscribe: false)</li>
                     <li><strong>Completions:</strong> ✓</li>
-                    <li><strong>Experimental:</strong> elicitation + apps</li>
+                    <li><strong>Extensions:</strong> ui + tasks</li>
                 </ul>
             </div>
 
             <div class="fact-card">
-                <h3>Experimental Extensions</h3>
+                <h3>Declared Extensions</h3>
                 <ul>
-                    <li><code>io.modelcontextprotocol/elicitation</code></li>
-                    <li><code>io.modelcontextprotocol/apps</code></li>
+                    <li><code>io.modelcontextprotocol/ui</code> — <code>mimeTypes: ["text/html;profile=mcp-app"]</code></li>
+                    <li><code>io.modelcontextprotocol/tasks</code> — <code>{}</code></li>
                 </ul>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Under <code>capabilities.extensions</code>, not <code>experimental</code>.</p>
             </div>
 
             <div class="fact-card">
@@ -120,9 +123,9 @@
                 <ul>
                     <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
                     <li><strong>Description:</strong> Searches for keywords across project files</li>
-                    <li><strong>Parameters:</strong> keyword <em>(the directory comes from <code>roots/list</code> or the elicitation form, not a tool arg)</em></li>
-                    <li><strong>Task Support:</strong> <code>execution.taskSupport: "optional"</code></li>
-                    <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code></li>
+                    <li><strong>Parameters:</strong> keyword (required), directory (optional) <em>&mdash; omit the directory and it comes from <code>roots/list</code> or the elicitation form, falling back to the server's working directory</em></li>
+                    <li><strong>Task Support:</strong> the server's call, per request — <code>execution.taskSupport</code> no longer exists</li>
+                    <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code> (under both <code>_meta.ui.resourceUri</code> and <code>_meta["ui/resourceUri"]</code>)</li>
                 </ul>
             </div>
 
@@ -149,30 +152,32 @@
             <div class="fact-card">
                 <h3>Elicitation Details</h3>
                 <ul>
-                    <li><strong>Method:</strong> <code>elicitation/create</code></li>
-                    <li><strong>Request ID:</strong> -4000</li>
+                    <li><strong>Method:</strong> <code>elicitation/create</code> — <em>embedded in a result</em>, never sent as a request</li>
+                    <li><strong>Carrier:</strong> <code>inputRequests.search_directory</code> of an <code>input_required</code> result</li>
+                    <li><strong>Mode:</strong> <code>"form"</code> (the alternative is <code>"url"</code>)</li>
                     <li><strong>Message:</strong> "Pick a directory for the keyword-search tool to search in"</li>
                     <li><strong>Schema Fields:</strong> directory (absolute path)</li>
-                    <li><strong>User Response:</strong> directory = <code>/Users/.../some-repo</code></li>
-                    <li><strong>Action:</strong> accept &rarr; directory added to server's roots set</li>
+                    <li><strong>User Response:</strong> comes back as <code>inputResponses.search_directory</code> on the <em>next</em> <code>tools/call</code></li>
+                    <li><strong>Correlation:</strong> the echoed <code>requestState</code> — no <code>elicitationId</code>, no request id</li>
+                    <li><strong>Declined:</strong> the server stops asking and searches its own working directory</li>
                 </ul>
             </div>
 
             <div class="fact-card">
-                <h3>Session Flow</h3>
+                <h3>Message Flow</h3>
+                <p style="color:var(--muted);font-size:12px;margin:0 0 6px">No handshake, no session — just requests</p>
                 <ul>
-                    <li><strong>1.</strong> Initialization handshake</li>
-                    <li><strong>2.</strong> Elicitation — user input collection</li>
-                    <li><strong>3.</strong> Roots discovery</li>
-                    <li><strong>4.</strong> Ping &amp; sampling</li>
-                    <li><strong>5.</strong> Resources discovery</li>
-                    <li><strong>6.</strong> Resource reading</li>
-                    <li><strong>7.</strong> Prompts discovery</li>
-                    <li><strong>8.</strong> Prompt execution</li>
-                    <li><strong>9.</strong> Tools discovery</li>
-                    <li><strong>10.</strong> Tool execution</li>
-                    <li><strong>11.</strong> Sampling response</li>
-                    <li><strong>12.</strong> Roots changes</li>
+                    <li><strong>1.</strong> <code>server/discover</code> — versions, capabilities, identity</li>
+                    <li><strong>2.</strong> Tools discovery</li>
+                    <li><strong>3.</strong> Resources discovery (+ templates)</li>
+                    <li><strong>4.</strong> Resource reading</li>
+                    <li><strong>5.</strong> Prompts discovery</li>
+                    <li><strong>6.</strong> Prompt execution</li>
+                    <li><strong>7.</strong> Tool call &rarr; <code>input_required</code> (embedded <code>roots/list</code>)</li>
+                    <li><strong>8.</strong> Retry under a new id, carrying <code>inputResponses</code></li>
+                    <li><strong>9.</strong> Escalation to elicitation, if roots came back empty</li>
+                    <li><strong>10.</strong> Task handle &rarr; <code>tasks/get</code> polling</li>
+                    <li><strong>11.</strong> <code>subscriptions/listen</code> &rarr; acknowledgment</li>
                 </ul>
             </div>
 
@@ -222,7 +227,7 @@
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>

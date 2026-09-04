@@ -176,8 +176,9 @@ class LogFileWriterTest {
         assertEquals(1, logFiles.size(), "Should create exactly one log file");
         
         String fileName = logFiles.get(0).getFileName().toString();
-        assertTrue(fileName.matches("agent-mcp-workshop-\\d+\\.log"), 
-                "Log file name should match expected pattern");
+        // Pattern: agent-mcp-workshop-<PID>-<yyyyMMdd-HHmmss>.log
+        assertTrue(fileName.matches("agent-mcp-workshop-\\d+-\\d{8}-\\d{6}\\.log"),
+                "Log file name should match expected pattern, was: " + fileName);
     }
 
     @Test
@@ -349,38 +350,36 @@ class LogFileWriterTest {
     @Test
     @DisplayName("Should fallback to temp directory when logs directory is not writable")
     void testFallbackToTempDirectory() throws Exception {
-        // Given - create logs directory
+        // Given - make the logs directory itself unwritable so the primary
+        // log file (agent-mcp-workshop-<PID>-<timestamp>.log) cannot be created
         Path logsDir = Paths.get("logs");
         Files.createDirectories(logsDir);
-        
-        // Get the expected log file name
-        String expectedFileName = "agent-mcp-workshop-" + ProcessHandle.current().pid() + ".log";
-        Path dummyLogFile = logsDir.resolve(expectedFileName);
-        
-        // Create a dummy file to prevent writing
-        if (!Files.exists(dummyLogFile)) {
-            Files.createFile(dummyLogFile);
-        }
-        
-        File dummyFile = dummyLogFile.toFile();
-        boolean madeReadOnly = dummyFile.setWritable(false);
-        
+        File logsDirFile = logsDir.toFile();
+        boolean madeReadOnly = logsDirFile.setWritable(false);
+        Assumptions.assumeTrue(madeReadOnly,
+                "Filesystem does not support revoking directory write permission");
+
+        // The fallback file carries the same PID + startup-timestamp name,
+        // so match on the stable PID prefix
+        String fileNamePrefix = "agent-mcp-workshop-" + ProcessHandle.current().pid() + "-";
+        String tempDirPath = System.getProperty("java.io.tmpdir");
+        Path tempLogDir = Paths.get(tempDirPath);
+
         try {
             // When
             logFile = LogFileWriter.getInstance();
             logFile.log("Test message");
 
             // Then - should create log in temp directory
-            String tempDirPath = System.getProperty("java.io.tmpdir");
-            Path tempLogDir = Paths.get(tempDirPath);
-            
             List<Path> tempLogFiles = Files.list(tempLogDir)
-                    .filter(path -> path.getFileName().toString().equals(expectedFileName))
+                    .filter(path -> path.getFileName().toString().startsWith(fileNamePrefix))
+                    .filter(path -> path.getFileName().toString().endsWith(".log"))
                     .collect(Collectors.toList());
 
             assertTrue(tempLogFiles.size() > 0, "Should create log file in temp directory");
-            
-            // Clean up temp log file
+
+            // Clean up temp log files (close first so the writer releases them)
+            logFile.close();
             for (Path tempLogFile : tempLogFiles) {
                 try {
                     Files.deleteIfExists(tempLogFile);
@@ -389,18 +388,8 @@ class LogFileWriterTest {
                 }
             }
         } finally {
-            // Restore write permissions and clean up
-            if (madeReadOnly) {
-                dummyFile.setWritable(true);
-            }
-            
-            // Try multiple approaches to delete the file
-            try {
-                Files.deleteIfExists(dummyLogFile);
-            } catch (IOException e) {
-                // If normal delete fails, try with File API
-                dummyFile.delete();
-            }
+            // Restore write permissions on the logs directory
+            logsDirFile.setWritable(true);
         }
     }
 

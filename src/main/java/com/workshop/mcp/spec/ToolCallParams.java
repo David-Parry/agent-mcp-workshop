@@ -10,28 +10,44 @@ import java.util.Map;
  * pairs that should match the tool's input schema.
  * </p>
  * <p>
- * The optional {@code task} field carries task-augmentation metadata introduced
- * in MCP 2025-11-25. When present (and the server has declared
- * {@code tasks.requests.tools.call}), the receiver responds with a
- * {@link CreateTaskResult} instead of a synchronous {@link ToolCallResult}.
+ * The last two fields carry a Multi Round-Trip Requests retry. When the server
+ * previously answered with an {@link InputRequiredResult}, the client re-sends
+ * the same call with {@code inputResponses} holding the answers — keyed by the
+ * identifiers the server chose — and {@code requestState} echoed back
+ * verbatim. Both are absent on a first attempt.
+ * </p>
+ * <p>
+ * There is no {@code task} field. Revision {@code 2026-07-28} removed
+ * per-request task opt-in, and servers MUST ignore it if a client sends one;
+ * whether a call becomes a task is now the server's decision.
  * </p>
  *
- * @param _meta optional metadata information for the tool call, including progress tracking
+ * @param _meta optional metadata, which on this revision also carries the stateless lifecycle envelope
  * @param name the name of the tool to invoke
  * @param arguments a map of argument names to their values, matching the tool's input schema
- * @param task optional task-augmentation payload — when non-null the call is
- *             deferred and a {@link CreateTaskResult} is returned
+ * @param inputResponses answers to a previous {@link InputRequiredResult}, keyed by request identifier
+ * @param requestState the opaque continuation state from that result, echoed back byte-exact
  *
  * @see Tool
  * @see ToolCallResult
- * @see MetaInfo
- * @see TaskParams
- * @see CreateTaskResult
+ * @see InputRequiredResult
  * @since 1.0
  */
 public record ToolCallParams(
     MetaInfo _meta,
     String name,
     Map<String, String> arguments,
-    TaskParams task
-) {}
+    Map<String, Object> inputResponses,
+    String requestState
+) {
+
+    /**
+     * Looks up one answer from a Multi Round-Trip Requests retry.
+     *
+     * @param key the identifier the server used in {@link InputRequiredResult#inputRequests()}
+     * @return the raw answer, or null when the client did not provide one
+     */
+    public Object inputResponse(String key) {
+        return inputResponses == null ? null : inputResponses.get(key);
+    }
+}

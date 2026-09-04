@@ -1,21 +1,25 @@
-# Server Class Diagram 
+# Server Class Diagram
 
 ```mermaid
 classDiagram
     direction LR
-    
+
     %% JsonRpc Classes
     class JsonRpcRequest
     class JsonRpcResponse
     class JsonRpcNotification
     class JsonRpcErrorResponse
-    
+
+    %% Identity — an id is a string or a number
+    class RequestId
+    class RequestIdTypeAdapter
+    class McpGson
+
     %% Core Protocol Classes
-    class InitializeResult
-    class InitializeParams
+    class DiscoverResult
+    class RequestEnvelope
     class NotificationCancelledParams
-    class PingParams
-    
+
     %% Supporting Classes
     class ServerCapabilities
     class ClientCapabilities
@@ -24,34 +28,44 @@ classDiagram
     class Capability
     class RootsCapability
     class SamplingCapability
-    
+    class Elicitation
+    class MetaKeys
+
     %% Server and related
     class Server
     class JsonRpcMessageDeserializer
-    class InitializeResultBuilder
-    
+    class DiscoverResultBuilder
+
     %% Relationships
-    JsonRpcRequest ..> InitializeParams : params
-    JsonRpcRequest ..> PingParams : params
-    
-    JsonRpcResponse ..> InitializeResult : result
-    
+    JsonRpcRequest ..> RequestId : id
+    JsonRpcResponse ..> RequestId : id
+    JsonRpcErrorResponse ..> RequestId : id
+    RequestIdTypeAdapter ..> RequestId : reads and writes
+    McpGson ..> RequestIdTypeAdapter : registers
+
+    JsonRpcRequest ..> RequestEnvelope : params._meta
+    JsonRpcResponse ..> DiscoverResult : result
+
     JsonRpcNotification ..> NotificationCancelledParams : params
-    
-    InitializeResult ..> ServerCapabilities : contains
-    InitializeResult ..> ServerInfo : contains
-    
-    InitializeParams ..> ClientCapabilities : contains
-    InitializeParams ..> ClientInfo : contains
-    
+    NotificationCancelledParams ..> RequestId : requestId
+
+    DiscoverResult ..> ServerCapabilities : contains
+    DiscoverResult ..> ServerInfo : in _meta
+
+    RequestEnvelope ..> ClientCapabilities : contains
+    RequestEnvelope ..> ClientInfo : contains
+    RequestEnvelope ..> MetaKeys : keyed by
+
     ServerCapabilities ..> Capability : contains
     ClientCapabilities ..> RootsCapability : contains
     ClientCapabilities ..> SamplingCapability : contains
-    
+    ClientCapabilities ..> Elicitation : contains
+
     Server ..> JsonRpcMessageDeserializer : uses
-    Server ..> InitializeResultBuilder : uses
-    
-    InitializeResultBuilder ..> InitializeResult : builds
-    InitializeResultBuilder ..> ServerCapabilities : creates
-    InitializeResultBuilder ..> ServerInfo : creates
+    Server ..> DiscoverResultBuilder : uses
+    JsonRpcMessageDeserializer ..> McpGson : uses
+
+    DiscoverResultBuilder ..> DiscoverResult : builds
+    DiscoverResultBuilder ..> ServerCapabilities : creates
+    DiscoverResultBuilder ..> ServerInfo : creates
 ```

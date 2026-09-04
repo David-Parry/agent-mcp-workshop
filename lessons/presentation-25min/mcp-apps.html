@@ -89,23 +89,29 @@
             <div class="concept-block" style="border-color:var(--accent)"><h3 style="color:var(--green)">Interactive App</h3><p>rendered in the conversation</p></div>
         </div>
         <div class="highlight-box">
-            No new methods. MCP Apps is <code>tools/list</code> and <code>resources/read</code> doing exactly what they already did &mdash; plus one metadata field.
+            No new methods. MCP Apps is <code>tools/list</code> and <code>resources/read</code> doing exactly what they already did &mdash; plus one metadata field. Both of those are cacheable methods now, so their results also carry <code>ttlMs</code> and <code>cacheScope</code>: the host can preload the HTML once and reuse it.
         </div>
     </section>
 
     <section class="card">
         <h2>Three Changes to the Server</h2>
-        <h3>1. Declare the extension in <code>initialize</code></h3>
-<pre>"experimental": { "io.modelcontextprotocol/apps": {} }</pre>
+        <h3>1. Declare the extension in <code>server/discover</code></h3>
+<pre>"extensions": {
+  "io.modelcontextprotocol/ui": {
+    "mimeTypes": ["text/html;profile=mcp-app"]
+  }
+}</pre>
 
-        <h3>2. Point the tool at its UI via <code>_meta</code></h3>
+        <h3>2. Point the tool at its UI via <code>_meta</code> &mdash; under <em>both</em> keys</h3>
 <pre>{
   "name": "key_word_search",
   "inputSchema": { ... },
   "_meta": {
-    "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" }
+    "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" },
+    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
   }
 }</pre>
+        <p style="color:var(--muted);font-size:13px">The nested <code>ui.resourceUri</code> and the flat <code>ui/resourceUri</code> hold the same value. Hosts read one or the other depending on their vintage, so the reference extension mirrors whichever the author omitted &mdash; and so does <code>AppMeta.of(...)</code>.</p>
 
         <h3>3. Serve that URI as HTML with the app MIME type</h3>
 <pre>ui://keyword-search/mcp-app.html
@@ -114,9 +120,26 @@
     </section>
 
     <section class="card">
+        <h2>One Field That Went Away</h2>
+        <p><code>Tool.execution</code> &mdash; and with it the <code>taskSupport</code> hint &mdash; was removed from <code>tools/list</code> on <code>2026-07-28</code>. Clients strip it silently, so a server still emitting it just wastes bytes.</p>
+        <div class="two-col">
+            <div style="background:rgba(247,118,142,.06);border:1px solid rgba(247,118,142,.4);border-radius:12px;padding:16px">
+                <h3 style="margin-top:0;color:var(--red)">Gone</h3>
+<pre style="margin-bottom:0">"execution": {
+  "taskSupport": "optional"
+}</pre>
+            </div>
+            <div style="background:rgba(158,206,106,.06);border:1px solid rgba(158,206,106,.4);border-radius:12px;padding:16px">
+                <h3 style="margin-top:0;color:var(--green)">Why</h3>
+                <p style="margin:0;font-size:13px;color:var(--muted)">The hint forced a <code>tools/list</code> warmup before any call could be made as a task. Whether a call becomes a task is now decided by the server, per request &mdash; see <a href="tasks.html" style="color:var(--accent)">Tasks</a>.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
         <h2>What Happens at Runtime</h2>
         <div class="flow-steps">
-            <div class="flow-step"><span class="step-num">1</span><div>Host calls <code>tools/list</code> and sees <code>_meta.ui.resourceUri</code>.</div></div>
+            <div class="flow-step"><span class="step-num">1</span><div>Host calls <code>tools/list</code> and sees <code>_meta.ui.resourceUri</code> (or the flat <code>_meta["ui/resourceUri"]</code>).</div></div>
             <div class="flow-step"><span class="step-num">2</span><div>Host preloads the HTML with <code>resources/read</code> &mdash; before the tool is ever called.</div></div>
             <div class="flow-step"><span class="step-num">3</span><div>User asks a question; host calls <code>tools/call</code> as normal.</div></div>
             <div class="flow-step"><span class="step-num">4</span><div>Host renders the preloaded HTML in a sandboxed iframe and hands it the tool result over <code>postMessage</code>.</div></div>
@@ -144,7 +167,7 @@
         </ul>
     </div>
 
-    <div class="footer">&copy; 2025 MCP Workshop. MCP Apps (io.modelcontextprotocol/apps) &mdash; quick overview.</div>
+    <div class="footer">&copy; 2025 MCP Workshop. MCP Apps (io.modelcontextprotocol/ui) &mdash; quick overview.</div>
 </main>
 <script src="theme.js"></script>
 </body>

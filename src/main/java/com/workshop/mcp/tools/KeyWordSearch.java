@@ -20,12 +20,29 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/**
+ * Searches a set of directories for a keyword.
+ * <p>
+ * The directories are supplied per call rather than held by the server.
+ * Revision {@code 2026-07-28} removed protocol sessions, so there is no
+ * long-lived set of roots to consult: the router resolves the directories for
+ * each {@code tools/call} — from the client's roots or from an elicited
+ * directory — and constructs this tool with them.
+ * </p>
+ *
+ * @see SearchContinuation
+ * @since 1.0
+ */
 public class KeyWordSearch implements Tool {
     private static final LogFile logger = LogFileWriter.getInstance();
     private static final String FILE_PREFIX = "file://";
     private final Set<String> roots;
 
-
+    /**
+     * Creates the tool for one call.
+     *
+     * @param roots the directories to search, resolved for this request
+     */
     public KeyWordSearch(Set<String> roots) {
         this.roots = roots;
     }
@@ -38,7 +55,9 @@ public class KeyWordSearch implements Tool {
     @Override
     public String description() {
         return "Searches for a specified keyword across all files in a project. Returns the total count of matches " +
-                "and the absolute file paths of the files containing the keyword.";
+                "and the absolute file paths of the files containing the keyword. Pass a directory to search it " +
+                "directly; omit it and the server asks for one over a Multi Round-Trip Request, falling back to " +
+                "its own working directory if nothing is offered.";
     }
 
     @Override
@@ -51,15 +70,31 @@ public class KeyWordSearch implements Tool {
                                      .withKey("keyword")
                                      .withType("string")
                                      .withDescription("the keyword to search for in a file").required())
+                .addProperty(PropertySchemaBuilder
+                                     .builder()
+                                     .withKey("directory")
+                                     .withType("string")
+                                     .withDescription("the absolute directory to search; omit it to have the "
+                                                      + "server ask for one over a Multi Round-Trip Request and "
+                                                      + "fall back to its working directory"))
                 .build();
     }
 
+    /**
+     * Runs the search.
+     * <p>
+     * The router only calls this once it has at least one directory, so an
+     * empty set means the resolution logic upstream let something through.
+     * </p>
+     *
+     * @param toolCallParams the call parameters, whose {@code keyword} argument drives the search
+     * @return the matching files and their match counts
+     */
     public ToolCallResult call(ToolCallParams toolCallParams) {
         String keyword = toolCallParams.arguments().get("keyword");
         ToolCallResultBuilder builder = ToolCallResultBuilder.builder();
         if (roots.isEmpty()) {
-            builder.addTextContent("No search directory available. Provide one via the MCP roots/list mechanism " +
-                                   "or by accepting the directory elicitation form.");
+            builder.addTextContent("No search directory was resolved for this call.");
             builder.asError();
         } else {
             List<ContentItem> contentItems = searchKeywordInDirectories(roots, keyword);

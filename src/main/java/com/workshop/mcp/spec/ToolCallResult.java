@@ -3,22 +3,35 @@ package com.workshop.mcp.spec;
 import java.util.List;
 
 /**
- * Represents the result of a tool invocation in the MCP (Model Context Protocol) system.
+ * The result of a completed {@code tools/call}.
  * <p>
- * ToolCallResult encapsulates the output from a tool execution, including any
- * content produced and whether an error occurred. The content is provided as a
- * list of ContentItem objects, allowing tools to return multiple types of content
- * or structured results.
+ * {@code tools/call} is not a cacheable method, so this result carries
+ * {@code resultType} but must not carry {@code ttlMs} or {@code cacheScope}.
  * </p>
- * 
- * @param content a list of content items produced by the tool execution
- * @param isError indicates whether the tool execution resulted in an error
- * 
- * @see ToolCallParams
- * @see ContentItem
+ * <p>
+ * A tool that cannot finish without more information returns an
+ * {@link InputRequiredResult} instead of this record.
+ * </p>
+ *
+ * @param resultType always {@link ResultType#COMPLETE}
+ * @param content    the content items the tool produced
+ * @param isError    true when the tool itself failed, as opposed to a protocol error
+ *
+ * @see InputRequiredResult
  * @since 1.0
  */
 public record ToolCallResult(
+    String resultType,
     List<ContentItem> content,
     boolean isError
-) {}
+) {
+    /**
+     * Creates a complete tool call result.
+     *
+     * @param content the content items the tool produced
+     * @param isError true when the tool itself failed
+     */
+    public ToolCallResult(List<ContentItem> content, boolean isError) {
+        this(ResultType.COMPLETE, content, isError);
+    }
+}

@@ -60,29 +60,29 @@
             `;
             document.body.appendChild(tooltip);
             
-            // Define tooltips for different message types
+            // Define tooltips for different message types.
+            // "...envelope..." stands for the same params._meta block shown in
+            // full on server/discover — every request repeats it.
             const tooltips = {
-                'initialize': '{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"sampling":{},"elicitation":{"form":{},"url":{}},"roots":{"listChanged":true},"tasks":{"list":{},"cancel":{},"requests":{"sampling":{"createMessage":{}},"elicitation":{"create":{}}}}},"clientInfo":{"name":"inspector-client","version":"0.22.0"}},"jsonrpc":"2.0","id":0}',
-                'initialize result': '{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{"listChanged":true},"prompts":{"listChanged":true},"resources":{"listChanged":false,"subscribe":false},"completions":{},"tasks":{"list":{},"cancel":{},"requests":{"tools":{"call":{}}}},"experimental":{"io.modelcontextprotocol/elicitation":{},"io.modelcontextprotocol/apps":{}}},"serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}',
-                'notifications/initialized': '{"jsonrpc":"2.0","method":"notifications/initialized"}',
-                'elicitation/create': '{"jsonrpc":"2.0","id":-4000,"method":"elicitation/create","params":{"message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"required":["directory"],"type":"object","properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","title":"Search Directory","type":"string"}}}}}',
-                'elicitation/create result': '{"jsonrpc":"2.0","id":-4000,"result":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/agent-command"}}}',
-                'roots/list': '{"jsonrpc":"2.0","id":-1000,"method":"roots/list"}',
-                'roots/list result': '{"jsonrpc":"2.0","id":-1000,"result":{"roots":[]}}',
-                'tools/list': '{"method":"tools/list","params":{"_meta":{"progressToken":1}},"jsonrpc":"2.0","id":1}',
-                'tools/list result': '{"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}},"execution":{"taskSupport":"optional"}}]}}',
-                'tools/call (sync)': '{"method":"tools/call","params":{"_meta":{"progressToken":2},"name":"key_word_search","arguments":{"keyword":"mcp"}},"jsonrpc":"2.0","id":2}',
-                'tools/call (sync) result': '{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false}}',
-                'tools/call (task)': '{"method":"tools/call","params":{"_meta":{"progressToken":3},"name":"key_word_search","arguments":{"keyword":"mcp"},"task":{"ttl":60000}},"jsonrpc":"2.0","id":3}',
-                'CreateTaskResult': '{"jsonrpc":"2.0","id":3,"result":{"task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"working","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:02Z","ttl":60000,"pollInterval":1000},"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
-                'tasks/get': '{"method":"tasks/get","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":4}',
-                'tasks/get result': '{"jsonrpc":"2.0","id":4,"result":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
-                'notifications/tasks/status': '{"jsonrpc":"2.0","method":"notifications/tasks/status","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}}',
-                'tasks/result': '{"method":"tasks/result","params":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"},"jsonrpc":"2.0","id":5}',
-                'tasks/result result': '{"jsonrpc":"2.0","id":5,"result":{"content":[{"text":"/path/README.md, keyword_count=3","type":"text"},{"text":"...truncated for clarity","type":"text"}],"isError":false,"_meta":{"io.modelcontextprotocol/related-task":{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840"}}}}',
-                'tasks/list': '{"method":"tasks/list","params":{},"jsonrpc":"2.0","id":6}',
-                'tasks/list result': '{"jsonrpc":"2.0","id":6,"result":{"tasks":[{"taskId":"786512e2-9e0d-44bd-8f29-789f320fe840","status":"completed","createdAt":"2026-06-09T09:50:02Z","lastUpdatedAt":"2026-06-09T09:50:04Z","ttl":60000,"pollInterval":1000}],"nextCursor":null}}',
-                'notifications/roots/list_changed': '{"jsonrpc":"2.0","method":"notifications/roots/list_changed"}'
+                'server/discover': '{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}',
+                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
+                'tools/list': '{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{"_meta":{...envelope...}}}',
+                'tools/list result': '{"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project... Pass a directory to search it directly; omit it and the server asks, falling back to its working directory.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"directory":{"type":"string","description":"the absolute directory to search; omit it to have the server ask for one over a Multi Round-Trip Request and fall back to its working directory"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}',
+                'tools/call': '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"}}}',
+                'input_required (roots/list)': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"input_required","inputRequests":{"search_roots":{"method":"roots/list"}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}',
+                'tools/call (retry)': '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9","inputResponses":{"search_roots":{"roots":[{"uri":"file:///Users/.../com/workshop/mcp/tools","name":"workshop-tools"}]}}}}',
+                'tools/call (retry) result': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":11,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","required":["directory"],"properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}}}}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
+                'tools/call (retry 2)': '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../com/workshop/mcp/tools"}}}}}',
+                'tools/call (retry 2) result': '{"jsonrpc":"2.0","id":12,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'tools/call (tasks ext)': 'Same request as the retry above — there is no task opt-in any more. The client merely declared io.modelcontextprotocol/tasks in its clientCapabilities.extensions, which permits the server to answer with a handle: {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope with tasks extension...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"...","inputResponses":{...}}}',
+                'task handle': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"task","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:06.276669Z","ttlMs":300000,"pollIntervalMs":1000}}',
+                'tasks/get': '{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{"_meta":{...envelope...},"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f"}}',
+                'tasks/get result': '{"jsonrpc":"2.0","id":"inspector-ext-4","result":{"resultType":"complete","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
+                'notifications/tasks': '{"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
+                'subscriptions/listen': '{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{"_meta":{...envelope...},"notifications":{"toolsListChanged":true,"promptsListChanged":true,"resourcesListChanged":true,"resourceSubscriptions":["ui://keyword-search/mcp-app.html"]}}}',
+                'notifications/subscriptions/acknowledged': '{"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}',
+                'subscriptions/listen result': '{"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"}}}'
             };
             
             // Wait a bit more for Mermaid to fully render
@@ -230,7 +230,7 @@
 <body>
 <header>
     <h1>MCP Workshop – JSON‑RPC Communication Flow <span class="badge-time">5 &ndash; 8 min</span></h1>
-    <p class="subtitle">The whole session as one sequence diagram &mdash; handshake, discovery, a deferred tool call, and a task-augmented call. Hover any message for the real JSON.</p>
+    <p class="subtitle">The whole exchange as one sequence diagram &mdash; discovery, cacheable reads, a round-trip tool call, a task handle, and a notification stream. Hover any message for the real JSON.</p>
 </header>
 <main>
     <div class="nav">
@@ -254,52 +254,54 @@
             participant Client as mcp-inspector (Client)
             participant Server as agent-mcp-workshop (Server)
 
-            Note over Client,Server: Initialization Phase (2025-11-25)
+            Note over Client,Server: Discovery — no handshake, no session (2026-07-28)
 
-            Client->>Server: initialize
-            Note over Client,Server: Client declares: sampling, elicitation, roots, tasks
-            Server-->>Client: initialize result
-            Note over Client,Server: Server advertises: tools, prompts, resources,<br/>tasks (list/cancel + tools.call), experimental (elicitation, apps)
+            Client->>Server: server/discover
+            Note over Client: id is the string "server-discover-probe-1"
+            Server-->>Client: server/discover result
+            Note over Client,Server: supportedVersions + capabilities + _meta.serverInfo<br/>Nothing is remembered — no session is created
 
-            Client->>Server: notifications/initialized
-
-            Note over Client,Server: Roots Discovery (no elicitation at startup)
-            Server->>Client: roots/list
-            Client-->>Server: roots/list result
-
-            Note over Client,Server: Tools Discovery
+            Note over Client,Server: Stateless requests — every one repeats params._meta
             Client->>Server: tools/list
             Server-->>Client: tools/list result
-            Note over Server: tool advertises execution.taskSupport = "optional"
+            Note over Server: cacheable, so resultType + ttlMs + cacheScope
 
-            Note over Client,Server: Synchronous tools/call — lazy elicitation
-            Client->>Server: tools/call (sync)
-            Note over Server: roots empty + elicitation supported → defer
-            Server->>Client: elicitation/create
-            Note over Client: User picks a directory in the form
-            Client-->>Server: elicitation/create result
-            Note over Server: add directory to roots, resume held tools/call
-            Server-->>Client: tools/call (sync) result
+            Note over Client,Server: tools/call — Multi Round-Trip Requests (MRTR)
+            Client->>Server: tools/call
+            Note over Server: no directory yet → embed roots/list in the result
+            Server-->>Client: input_required (roots/list)
+            Note over Client: answered from client configuration<br/>the user is never troubled
+            Client->>Server: tools/call (retry)
+            Note over Client,Server: brand new id + inputResponses<br/>+ requestState echoed back byte-exact
 
-            Note over Client,Server: Task-augmented tools/call — call now, fetch later
-            Client->>Server: tools/call (task)
-            Server-->>Client: CreateTaskResult
-            Note over Server: tool runs on background thread
+            alt roots resolved a directory
+                Server-->>Client: tools/call (retry) result
+            else roots came back empty
+                Server-->>Client: input_required (elicitation/create)
+                Note over Client: mode "form" — the user types a directory
+                Client->>Server: tools/call (retry 2)
+                Server-->>Client: tools/call (retry 2) result
+            end
+
+            Note over Client,Server: Task handle — the server's decision, not a client opt-in
+            Client->>Server: tools/call (tasks ext)
+            Server-->>Client: task handle
+            Note over Server: tool runs on a background thread
 
             Client->>Server: tasks/get
+            Note over Client: polled once a second with the string ids<br/>inspector-ext-1, -2, -3 … while the status is working
+            Server->>Client: notifications/tasks
             Server-->>Client: tasks/get result
-            Server->>Client: notifications/tasks/status
-            Client->>Server: tasks/result
-            Server-->>Client: tasks/result result
-            Note over Client,Server: result carries _meta.io.modelcontextprotocol/related-task
+            Note over Client,Server: the completed tasks/get carries the underlying result
 
-            Client->>Server: tasks/list
-            Server-->>Client: tasks/list result
-
-            Note over Client,Server: Session End
-            Note over Client,Server: Stopping and closing resources
+            Note over Client,Server: subscriptions/listen — one request, many notifications
+            Client->>Server: subscriptions/listen
+            Server->>Client: notifications/subscriptions/acknowledged
+            Note over Client,Server: _meta.subscriptionId is REQUIRED here —<br/>omit it and the client waits forever
+            Server-->>Client: subscriptions/listen result
+            Note over Server: this server advertises listChanged: false,<br/>so nothing is honored and the stream closes at once
         </div>
-        <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the complete MCP communication lifecycle from initialization to shutdown.</div>
+        <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the full stateless lifecycle: discovery, cacheable reads, an MRTR round trip, a task handle, and a notification stream.</div>
     </section>
 
     <div class="footer">© 2025 MCP Workshop. Diagram rendered with Mermaid.</div>

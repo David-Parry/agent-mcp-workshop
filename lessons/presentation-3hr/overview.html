@@ -77,7 +77,7 @@
     <section class="card">
         <h2>What is the Model Context Protocol?</h2>
         <p>MCP is an <strong>open standard</strong> that defines how AI applications, language models, and external services communicate. Think of it as the USB-C of AI integrations — a universal connector that lets any LLM-based application speak to any data source or tool without custom glue code.</p>
-        <p style="margin-top:12px">MCP uses <strong>JSON-RPC 2.0</strong> as its message format, runs over STDIO (and HTTP/SSE), and enables bidirectional communication where both the client and server can initiate requests.</p>
+        <p style="margin-top:12px">MCP uses <strong>JSON-RPC 2.0</strong> as its message format and runs over STDIO (and HTTP/SSE). As of revision <code>2026-07-28</code> the traffic is <strong>one-directional</strong>: only the client initiates requests. A server that needs something asks for it inside a result, which is what makes the protocol stateless.</p>
     </section>
 
     <section class="card">
@@ -172,11 +172,11 @@ sequenceDiagram
             </div>
             <div class="feature-card">
                 <h4>🧩 Extensible</h4>
-                <p>New capabilities can be added via the <code>experimental</code> map without breaking existing implementations.</p>
+                <p>New capabilities arrive as namespaced keys under <code>capabilities.extensions</code>. A peer that does not recognise a key ignores it, so features ship without breaking anyone. (<code>experimental</code> survives for in-house capabilities.)</p>
             </div>
             <div class="feature-card">
                 <h4>📋 Capability Negotiation</h4>
-                <p>Both sides declare what they support during <code>initialize</code>. No guessing — opt-in features only.</p>
+                <p>The server publishes its capabilities through <code>server/discover</code>; the client repeats its own in the <code>_meta</code> of every request. No handshake, no guessing — opt-in features only.</p>
             </div>
             <div class="feature-card">
                 <h4>🔧 Tools</h4>
@@ -239,7 +239,7 @@ sequenceDiagram
 <tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
 <tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
-<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 handshake &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
 <tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
