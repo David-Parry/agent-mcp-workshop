@@ -28,6 +28,11 @@ Chapter order is in [lessons/sylabus.md](lessons/sylabus.md):
 6. MCP Apps — shipping a UI with your tool
 7. Tasks — long-running work, polling, and task-level questions
 
+Two optional appendices sit outside the timed chapters:
+
+- [Running against a live LLM](lessons/bonus-live-llm-overview.md) — point a real assistant at your finished server
+- [Building an agent plugin](lessons/agent-overview.md) — wrap the tool in skills an agent can drive
+
 ### Knowing when you are done
 
 Each chapter has tests that fail until your code is right:
