@@ -9,6 +9,15 @@ group = 'com.workshop.mcp'
 version = '0.0.1'
 jar.enabled = false
 
+// Pin the language level rather than the JDK. Students arrive with anything from
+// 21 to 25, and setup asks only for "21 or later", so a toolchain block would
+// hard-fail everyone who does not happen to have that exact JDK installed —
+// there is no auto-provisioner configured to go and fetch it. Setting release
+// instead compiles against the Java 21 API on whichever JDK is present.
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
 repositories {
     mavenCentral()
     
@@ -43,14 +52,14 @@ test {
 }
 
 application {
-    mainClass = 'com.workshop.mcp.Server'  // New way to specify main class
+    mainClass = 'com.workshop.mcp.Runner'  // New way to specify main class
 }
 
 // Configure the JAR task
 jar {
     manifest {
         attributes(
-            'Main-Class': 'com.workshop.mcp.Server',
+            'Main-Class': 'com.workshop.mcp.Runner',
             'Implementation-Title': project.name,
             'Implementation-Version': project.version
         )
