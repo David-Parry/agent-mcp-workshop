@@ -3,11 +3,22 @@ plugins {
     id 'java'
     id 'application'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'jacoco'
 }
 
 group = 'com.workshop.mcp'
 version = '0.0.1'
 jar.enabled = false
+
+// Pin the language level rather than the JDK. Students arrive with anything from
+// 21 to 25, and setup asks only for "21 or later", so a toolchain block would
+// hard-fail everyone who does not happen to have that exact JDK installed —
+// there is no auto-provisioner configured to go and fetch it. Setting release
+// instead compiles against the Java 21 API on whichever JDK is present, so the
+// class files a student produces match the ones the lessons describe.
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
 
 repositories {
     mavenCentral()
@@ -32,10 +43,13 @@ dependencies {
     implementation 'org.slf4j:slf4j-nop:1.7.36'
     implementation 'com.google.code.gson:gson:2.13.1'
     implementation 'org.jsoup:jsoup:1.17.2'
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    // Keep the launcher aligned with the engine instead of Gradle's bundled (older) one
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // 5.20+ ships Byte Buddy 1.17.8+, which can instrument Java 25 bytecode (class file 69)
+    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.20.0'
 }
 
 test {
@@ -43,14 +57,14 @@ test {
 }
 
 application {
-    mainClass = 'com.workshop.mcp.Server'  // New way to specify main class
+    mainClass = 'com.workshop.mcp.Runner'  // New way to specify main class
 }
 
 // Configure the JAR task
 jar {
     manifest {
         attributes(
-            'Main-Class': 'com.workshop.mcp.Server',
+            'Main-Class': 'com.workshop.mcp.Runner',
             'Implementation-Title': project.name,
             'Implementation-Version': project.version
         )
@@ -77,4 +91,105 @@ tasks.named('startScripts') {
 
 tasks.named('javadoc') {
     include '**/com/workshop/mcp/spec/**'
+}
+
+// Configure JaCoCo test report
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+
+        // Set custom output directory for HTML report (optional)
+        html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+    }
+}
+
+// The one class coverage cannot reach. Runner.main installs the real stdio
+// handler and blocks until the JVM exits, so exercising it in-process calls
+// System.exit and takes the test runner down with it. It holds no logic of its
+// own — three constructor calls and a start() — and everything it wires up is
+// covered directly by ServerTest and IOHandlerImplTest.
+def coverageExclusions = ['com/workshop/mcp/Runner.class']
+
+jacocoTestCoverageVerification {
+    dependsOn test
+    violationRules {
+        // Every class but IORouter is fully covered and must stay that way.
+        rule {
+            element = 'CLASS'
+            excludes = ['com.workshop.mcp.Runner', 'com.workshop.mcp.IORouter']
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 1.0
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 1.0
+            }
+        }
+
+        // IORouter is fully covered on instructions, and on 118 of its 119
+        // branches. The odd one out is not code anyone wrote: javac emits a
+        // default target for a switch over an enum even when every value that
+        // can reach it is handled, and JaCoCo counts that synthetic target as
+        // a branch. INBOUND_METHODS gates the switch, so nothing else can
+        // arrive at it.
+        //
+        // Keep the floor loose enough for that one branch but tight enough to
+        // catch a second: 0.99 of 119 admits exactly one miss, and the branch
+        // count shrinks whenever code leaves this class, so a stale floor
+        // silently buys slack. It was 135 branches before the roots removal.
+        rule {
+            element = 'CLASS'
+            includes = ['com.workshop.mcp.IORouter']
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 1.0
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.99
+            }
+        }
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: coverageExclusions)
+        }))
+    }
+}
+
+// Coverage is verified as part of `check`, so a regression fails the build
+// rather than quietly showing up in a report nobody opened. The report is
+// built alongside it so there is something to read when it does fail.
+check {
+    dependsOn jacocoTestReport, jacocoTestCoverageVerification
+}
+
+test {
+    useJUnitPlatform()
+
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+        showStandardStreams = true
+        exceptionFormat = 'full'
+
+        // Show reasons for skipped tests
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "\nTest result: ${result.resultType}"
+                println "Test summary: ${result.testCount} tests, " +
+                        "${result.successfulTestCount} succeeded, " +
+                        "${result.failedTestCount} failed, " +
+                        "${result.skippedTestCount} skipped "
+            }
+        }
+    }
 }

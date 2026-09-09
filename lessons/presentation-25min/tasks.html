@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Tasks &mdash; Call-Now Fetch-Later</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--orange:#ff9e64;--red:#f7768e;--purple:#bb9af7;--green:#9ece6a}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:18px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px 5px;padding:7px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:14px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:18px;margin-bottom:10px}
+        ul{margin:12px 0;padding-left:22px}
+        li{margin:6px 0}
+        .badge{display:inline-block;background:rgba(247,118,142,.15);border:1px solid var(--red);color:var(--red);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
+        .badge-time{display:inline-block;background:#0c1328;border:1px solid #1f2740;color:var(--orange);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,.12),rgba(122,162,247,.03));border:1px solid var(--accent);border-radius:12px;padding:16px 18px;margin-top:18px}
+        .ide-demo h3{margin-top:0;color:var(--accent)}
+        .ide-demo code{color:var(--green)}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:14px;overflow-x:auto;font-size:13px;line-height:1.55;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+        .mermaid{background:white;border-radius:12px;padding:24px;margin:8px auto}
+        table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:8px 10px;border-bottom:2px solid #1f2740}
+        td{padding:8px 10px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+        .highlight-box{background:rgba(122,162,247,.08);border:1px solid rgba(122,162,247,.35);border-radius:10px;padding:14px 16px;margin:14px 0}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#7aa2f7',
+                primaryTextColor: '#0b1020',
+                primaryBorderColor: '#1f2740',
+                lineColor: '#7aa2f7'
+            }
+        });
+    </script>
+    <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+<header>
+    <h1>MCP Tasks &mdash; Call Now, Fetch Later <span class="badge">2026-07-28 extension</span> <span class="badge-time">18 &ndash; 21 min</span></h1>
+    <p class="subtitle">A quick tour of the tasks extension &mdash; long work stops blocking, and the server decides when</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="overview.html">Overview</a>
+        <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="extensions.html">Extensions</a>
+        <a href="mcp-apps.html">MCP Apps</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="agent.html">Agent</a>
+        <a href="runtime-facts.html">Runtime Facts</a>
+        <a href="trace-log.html">Trace Log</a>
+        <a href="contact.html">Contact</a>
+        <a href="#" id="theme-toggle">Light</a>
+    </div>
+
+    <section class="card">
+        <h2>The Idea in One Sentence</h2>
+        <p>Instead of holding a JSON-RPC request open until the work completes, the server immediately replies with a <strong>task handle</strong> (<code>resultType: "task"</code>) and runs the work in the background. The client polls <code>tasks/get</code> on its own schedule; once the status is terminal, that same poll carries the underlying result.</p>
+        <div class="highlight-box">
+            <strong>Now the server's decision.</strong> The old per-request <code>params.task</code> opt-in is gone, and servers MUST ignore it if one arrives. A handle may only be handed to a client that declared the tasks extension <em>on the very request being answered</em> &mdash; there is no session in which to remember it.
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Lifecycle</h2>
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> working
+    working --> input_required
+    input_required --> working
+    working --> completed
+    working --> failed
+    working --> cancelled
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin:0">Three terminal states. Receivers MUST NOT move a terminal task back to <code>working</code>. The <code>input_required</code> hop is the only reason <code>tasks/update</code> exists &mdash; it delivers <code>inputResponses</code> to a task that is waiting.</p>
+    </section>
+
+    <section class="card">
+        <h2>An Extension Now, Not Core</h2>
+        <p>The top-level <code>tasks</code> capability slot is gone. Both sides declare the extension by identifier instead &mdash; and the client re-declares it on every request, because there is no handshake to declare it once.</p>
+        <div class="two-col">
+            <div>
+                <h3 style="margin-top:0">Server, in <code>server/discover</code></h3>
+                <pre>"capabilities": {
+  "tools": { "listChanged": false },
+  "extensions": {
+    "io.modelcontextprotocol/tasks": {}
+  }
+}</pre>
+            </div>
+            <div>
+                <h3 style="margin-top:0">Client, in every <code>params._meta</code></h3>
+                <pre>"io.modelcontextprotocol/clientCapabilities": {
+  "extensions": {
+    "io.modelcontextprotocol/tasks": {}
+  }
+}</pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Wire Flow</h2>
+        <div class="mermaid">
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: tools/call (client declared the tasks extension)
+    S-->>C: resultType: task { taskId, status: working, pollIntervalMs: 1000 }
+    Note over S: Tool runs in background
+    C->>S: tasks/get { taskId }
+    S-->>C: resultType: complete { status: working }
+    Note over S: Task completes
+    S->>C: notifications/tasks (full task snapshot)
+    C->>S: tasks/get { taskId }
+    S-->>C: resultType: complete { status: completed, result }
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 0">The status notification is the bare <code>notifications/tasks</code> &mdash; the <code>notifications/tasks/</code> prefix is reserved, so <code>notifications/tasks/status</code> is not a legal name. Its params are the whole task snapshot.</p>
+    </section>
+
+    <section class="card">
+        <h2>What Is Left, and What Went</h2>
+        <table>
+            <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>tasks/get</code></td><td>Poll status; carries <code>result</code>, <code>error</code>, or <code>inputRequests</code> as the status calls for</td></tr>
+                <tr><td><code>tasks/update</code></td><td>Deliver <code>inputResponses</code> to a task sitting in <code>input_required</code></td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>Best-effort cancel (<code>-32602</code> if already terminal)</td></tr>
+                <tr><td><code>notifications/tasks</code></td><td>Push on every status change</td></tr>
+            </tbody>
+        </table>
+        <p style="color:var(--muted);font-size:13px;margin:14px 0 0"><strong>Removed:</strong> <code>tasks/result</code> (clients poll <code>tasks/get</code> instead) and <code>tasks/list</code> (with no session to scope a listing to, it would leak other callers' task ids). Both now answer <code>-32601</code>. <strong>Renamed:</strong> <code>ttl</code> &rarr; <code>ttlMs</code> and <code>pollInterval</code> &rarr; <code>pollIntervalMs</code>.</p>
+
+        <div class="highlight" style="margin-top:14px">
+            <strong>A handle or a question, never both.</strong> <code>resultType</code> holds one value, so a <code>tools/call</code> answers <em>either</em> <code>task</code> <em>or</em> <code>input_required</code>. Commit to the shape before the tool works out what it is missing &mdash; answer a question to a task-declaring client and the Inspector rejects it with <em>"Unsupported result type <code>input_required</code> for <code>tools/call</code>"</em>. A task asks later, as a <em>status</em>, through <code>tasks/update</code>.
+        </div>
+    </section>
+
+    <div class="ide-demo">
+        <h3>Live Demo</h3>
+        <ul style="margin-bottom:0">
+            <li>Call <code>key_word_search</code> from a client declaring the tasks extension &mdash; the reply is a handle, not the answer. Nothing in the request asked for that.</li>
+            <li>Watch the Inspector poll <code>tasks/get</code> once a second with string ids <code>inspector-ext-1</code>, <code>-2</code>, <code>-3</code>&hellip; until <code>status</code> flips.</li>
+            <li>Then <code>tasks/cancel</code> the finished task for <code>-32602</code> &mdash; terminal is terminal &mdash; and <code>tasks/list</code> for <code>-32601</code>.</li>
+        </ul>
+    </div>
+
+    <div class="footer">© 2025 MCP Workshop. Tasks extension (io.modelcontextprotocol/tasks, MCP 2026-07-28).</div>
+</main>
+<script src="theme.js"></script>
+</body>
+</html>

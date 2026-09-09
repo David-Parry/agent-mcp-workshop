@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Extensions &amp; Multi Round-Trip Requests – MCP Presentation</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+        .ext-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:18px}
+        .ext-card h4{margin:0 0 10px;font-size:15px;color:var(--fg)}
+        .ext-card p{color:var(--muted);margin:0 0 10px;font-size:13px}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:24px 0}
+        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+        .demo-steps{counter-reset:step;list-style:none;padding-left:0}
+        .demo-steps>li{counter-increment:step;position:relative;padding-left:38px;margin:12px 0}
+        .demo-steps>li::before{content:counter(step);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .ide-demo h3{color:var(--fg);margin:0 0 12px;font-size:17px}
+        .ide-demo ul{margin:8px 0 0;padding-left:22px}
+        .ide-demo li{margin:6px 0;font-size:14px}
+        .ide-demo code{color:var(--green)}
+        table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+        .handshake-table td:first-child{color:var(--orange);font-weight:600}
+        .key-concept{background:rgba(187,154,247,0.08);border:1px solid rgba(187,154,247,0.3);border-radius:10px;padding:16px;margin:12px 0}
+        .key-concept strong{color:var(--purple)}
+        .flow-steps{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+        .flow-step{display:flex;gap:14px;align-items:flex-start}
+        .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:13px;font-weight:700;flex-shrink:0}
+        .step-content h4{margin:0 0 4px;font-size:14px;color:var(--fg)}
+        .step-content p{margin:0;font-size:13px;color:var(--muted)}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>MCP Extensions &amp; Multi Round-Trip Requests</h1>
+    <p class="subtitle">How MCP evolves without breaking implementations — and how a server asks a question when it is no longer allowed to send one</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <!-- Extensions Overview -->
+    <section class="card">
+        <span class="chapter-badge">Chapter 5</span>
+        <h2>What Are MCP Extensions?</h2>
+        <p>MCP Extensions are <strong>optional additions</strong> to the core specification. They allow the protocol to evolve without breaking backwards compatibility. An extension is only active when <em>both sides</em> explicitly declare support for it.</p>
+
+        <div class="key-concept">
+            <strong>Extensions got their own slot.</strong> On revision <code>2026-07-28</code> the seven-slot capability object has a dedicated <code>extensions</code> map — a <code>Map&lt;String, Object&gt;</code> keyed by extension identifier. <code>experimental</code> still exists beside it, but it now means what its name says: genuinely non-standard, pre-specification work. Anything with a published shape belongs in <code>extensions</code>.
+        </div>
+
+        <p style="margin-top:14px">This is not cosmetic. Tasks used to be a top-level capability slot of its own; on this revision that slot is <strong>gone</strong> and tasks are declared as <code>io.modelcontextprotocol/tasks</code> under <code>extensions</code>. The rule the spec settled on is that the core capability object is closed at seven members, and everything else — however official — earns its place by identifier.</p>
+
+        <pre style="margin-top:16px">// from the server/discover result — no protocolVersion here,
+// the server lists what it speaks and the client picks
+{
+  "resultType": "complete",
+  "supportedVersions": ["2026-07-28"],
+  "capabilities": {
+    "completions": {},
+    "prompts":   { "listChanged": false },
+    "resources": { "listChanged": false, "subscribe": false },
+    "tools":     { "listChanged": false },
+    "extensions": {
+      "io.modelcontextprotocol/ui": {
+        "mimeTypes": ["text/html;profile=mcp-app"]
+      },
+      "io.modelcontextprotocol/tasks": {}
+    }
+  }
+}</pre>
+
+        <p style="color:var(--muted);font-size:13px;margin-top:12px">The client side is symmetric but arrives differently: a client declares its extensions inside <code>_meta["io.modelcontextprotocol/clientCapabilities"].extensions</code> on <em>every request</em>, because there is no handshake in which to say it once.</p>
+    </section>
+
+    <section class="card">
+        <h2>Extension Identifier Format</h2>
+        <p>Every extension uses a <strong>namespaced identifier</strong> to avoid naming collisions:</p>
+        <pre>{vendor-prefix}/{extension-name}</pre>
+
+        <div class="two-col" style="margin-top:16px">
+            <div class="ext-card">
+                <h4>Official MCP Extensions</h4>
+                <p>Maintained by the MCP organization under the <code>io.modelcontextprotocol</code> namespace:</p>
+                <ul style="margin:0;padding-left:20px;font-size:13px">
+                    <li><code>io.modelcontextprotocol/tasks</code> — long-running work</li>
+                    <li><code>io.modelcontextprotocol/ui</code> — MCP Apps</li>
+                    <li><code>io.modelcontextprotocol/oauth-client-credentials</code></li>
+                    <li><code>io.modelcontextprotocol/enterprise-managed-authorization</code></li>
+                </ul>
+                <p style="margin-top:8px;font-size:13px">Note that <code>elicitation</code> is <em>not</em> on this list any more. It is a core client capability now, declared in the envelope — see the MRTR section below.</p>
+            </div>
+            <div class="ext-card">
+                <h4>Your Own Extensions</h4>
+                <p>Use your organization's reverse-domain prefix:</p>
+                <ul style="margin:0;padding-left:20px;font-size:13px">
+                    <li><code>com.mycompany/analytics-dashboard</code></li>
+                    <li><code>com.mycompany/audit-trail</code></li>
+                    <li><code>io.github.username/custom-ext</code></li>
+                </ul>
+                <p style="margin-top:8px">Any MCP client that doesn't recognize your extension key simply ignores it. Neither side breaks.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Two Official Extension Repositories</h2>
+        <div class="two-col">
+            <div class="ext-card">
+                <h4>🔐 ext-auth — Authorization</h4>
+                <p>Covers authorization scenarios the core protocol doesn't address:</p>
+                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
+                    <li><strong>OAuth 2.0 Client Credentials</strong> — machine-to-machine auth for servers calling protected APIs on their own behalf</li>
+                    <li><strong>Enterprise-Managed Authorization</strong> — centralized access control via corporate identity providers (Okta, Azure AD, etc.)</li>
+                </ul>
+            </div>
+            <div class="ext-card">
+                <h4>🖥️ ext-apps — Interactive UI</h4>
+                <p>Allows MCP servers to render interactive HTML UI elements inside the conversation:</p>
+                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
+                    <li>Charts and data visualizations</li>
+                    <li>Forms for structured input collection</li>
+                    <li>Video and media players</li>
+                    <li>Custom interactive components</li>
+                </ul>
+                <p style="font-size:13px;margin-top:8px">This is what powers <strong>MCP Apps</strong> — covered on the next page.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- MRTR -->
+    <section class="card">
+        <h2>The Problem: A Server Can No Longer Ask</h2>
+        <p>For three revisions, <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code> worked the obvious way: the server sent a JSON-RPC <em>request</em> to the client, with an id, and waited for a response. That is how the previous version of this very workshop taught them.</p>
+
+        <div class="key-concept" style="border-color:rgba(247,118,142,0.5)">
+            <strong>On <code>2026-07-28</code> that no longer works.</strong> A modern client <em>silently discards</em> any inbound request. Not an error, not a rejection — silence. A server that tries it waits forever, and so does the user.
+        </div>
+
+        <p style="margin-top:14px">This is a direct consequence of statelessness, and it is worth spelling out because it is the single most disorienting change in the revision. A server→client request only makes sense if there is a durable, addressable connection to send it <em>on</em>. Once you can be load-balanced across instances, "the client" is not a thing the server holds a handle to; it is whoever happens to be on the other end of the request currently being processed. The only channel that reliably exists is <strong>the reply to the request you are already answering</strong>.</p>
+
+        <p>So the question moves into the answer.</p>
+
+        <h2 style="margin-top:26px">Multi Round-Trip Requests (MRTR)</h2>
+        <p>Instead of sending a request, the server returns <code>resultType: "input_required"</code>, listing what it needs. The client gathers the answers and <strong>re-sends the original request from the top</strong> — brand new id — carrying an <code>inputResponses</code> map and the <code>requestState</code> it was handed.</p>
+
+        <div class="flow-steps">
+            <div class="flow-step">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                    <h4>Client declares what it can answer</h4>
+                    <p>In <code>_meta["io.modelcontextprotocol/clientCapabilities"]</code> — on this request, not once at startup. <code>elicitation</code> (with <code>form</code> and/or <code>url</code>) is the one this server reads and acts on, alongside the <code>extensions</code> map. A server must not embed a request the caller did not say it could handle. Clients also declare <code>roots</code> and <code>sampling</code>, and are right to: both are deprecated rather than removed, and SEP-2577 says clients SHOULD keep declaring them for the whole deprecation period. This server models neither, so both keys arrive and are ignored — which costs nothing, because an unrecognised key always was.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                    <h4>Server answers with a question</h4>
+                    <p><code>resultType: "input_required"</code>, an <code>inputRequests</code> map, and an opaque <code>requestState</code>. This is a perfectly ordinary JSON-RPC <em>result</em> to the id the client sent. The server has now finished with this request entirely and remembers nothing.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                    <h4>Client resolves each embedded request</h4>
+                    <p>By whatever means suits it. <code>elicitation/create</code> — the only one this server builds — it renders as a form and waits for the human. (A <code>roots/list</code> from some other server it would answer from configuration, without troubling anyone.) The answers end up as entries in a map keyed by the same keys the server used.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">4</span>
+                <div class="step-content">
+                    <h4>Client re-sends the original request — with a new id</h4>
+                    <p>Same method, same arguments, plus <code>inputResponses</code> and the <code>requestState</code> echoed back <strong>byte-exact</strong>. The new id matters: this is a new request, not a continuation of the old one. Any instance can serve it.</p>
+                </div>
+            </div>
+            <div class="flow-step">
+                <span class="step-num">5</span>
+                <div class="step-content">
+                    <h4>Server resumes from the state and answers</h4>
+                    <p><code>resultType: "complete"</code> — or another <code>input_required</code>, if it needs a second thing. The loop can run as many times as the exchange requires.</p>
+                </div>
+            </div>
+        </div>
+
+        <h3><code>requestState</code> — Continuation That Travels</h3>
+        <p>A server pausing mid-operation used to keep its half-finished work in memory. With sessions gone there is no memory to keep it in, so <strong>the continuation is handed to the client and comes back with the retry</strong>. It is declared as an <em>opaque string</em>: clients must never parse it, and servers may put whatever they like in it.</p>
+        <p>This workshop base64-encodes a tiny JSON object, which makes it readable in a demo:</p>
+        <pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
+
+// url-safe base64, no padding — decode it and you get:
+{"keyword":"record","stage":"directory"}</pre>
+        <p style="color:var(--muted);font-size:13px">Two things follow that are easy to miss. Because the state leaves your process, anything sensitive in it is now on the client's disk — sign or encrypt it if it matters. And because the client can hand it back at any time, from anywhere, a server should treat it as untrusted input rather than as its own memory.</p>
+
+        <h3>The Real Exchange — Four Messages</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Captured against this server. Watch the ids.</p>
+        <pre>--&gt; {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+      "name":"key_word_search","arguments":{"keyword":"record"},
+      "_meta":{ … envelope … }}}
+
+&lt;-- {"jsonrpc":"2.0","id":1,"result":{
+      "resultType":"input_required",
+      "inputRequests":{"search_directory":{
+        "method":"elicitation/create","params":{ … the form … }}},
+      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}
+
+--&gt; {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{
+      "name":"key_word_search","arguments":{"keyword":"record"},
+      "inputResponses":{"search_directory":{
+        "action":"accept","content":{"directory":"/…/mcp/tools"}}},
+      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ",
+      "_meta":{ … envelope … }}}
+
+&lt;-- {"jsonrpc":"2.0","id":2,"result":{
+      "resultType":"complete",
+      "content":[{"text":"/…/SearchContinuation.java, keyword_count=1",
+                  "type":"text"}],
+      "isError":false}}</pre>
+
+        <div class="two-col" style="margin-top:18px">
+            <div class="ext-card">
+                <h4><code>inputRequests</code> is a keyed map, not an array</h4>
+                <p>The keys (<code>"search_directory"</code> here) are the server's own choice, and the client must return its answers under exactly those keys. A map rather than a list because several questions can be asked at once and the answers have to be matched up unambiguously — position would be a fragile way to do that.</p>
+            </div>
+            <div class="ext-card">
+                <h4>An embedded request is not a request</h4>
+                <p><code>{"method": "elicitation/create", "params": {…}}</code> — the <code>params</code> are optional in general, though this method needs them. <strong>No <code>jsonrpc</code>, no <code>id</code>.</strong> It is a description of a question, not a message. Nothing on the wire is addressed to the client, which is exactly the point.</p>
+            </div>
+        </div>
+
+        <div class="key-concept" style="margin-top:16px">
+            <strong>Only three methods may be embedded:</strong> <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code>. All three are also absent from the inbound registry — sending one <em>to</em> the server is <code>-32601</code>, because they are things a server asks for and never things it answers. They exist in exactly one place now: inside an <code>input_required</code> result. <strong>This server builds exactly one of them</strong>, <code>elicitation/create</code>; the other two are deprecated, so there is no factory for either and nothing in the code that could emit one.
+        </div>
+
+        <div class="key-concept" style="margin-top:16px;border-color:rgba(224,175,104,0.5)">
+            <strong>Removed and deprecated are not the same thing.</strong> This revision does both, and they land differently in the code. <em>Removed</em> is physical absence answering <code>-32601</code> — the handshake, <code>ping</code>, <code>logging/setLevel</code>, <code>resources/subscribe</code>, <code>tasks/list</code>, <code>notifications/roots/list_changed</code> (SEP-2575). <em>Deprecated</em> is an annotation only: Roots, Sampling, and Logging are deprecated under the feature lifecycle policy (SEP-2577), yet they keep working in this revision and every revision published within a year of it, and removing them would take a separate proposal. New servers should not adopt them — pass directories as tool parameters instead of Roots, call a provider API instead of Sampling, write to <code>stderr</code> or OpenTelemetry instead of Logging.
+            <p style="margin:10px 0 0;color:var(--muted);font-size:13px">Which is exactly why <code>key_word_search</code> has a <code>directory</code> argument: it <em>is</em> the recommended replacement for Roots, and this server has taken that migration — the roots stage it used to run is gone from the code. But watch what deprecation does <em>not</em> do. Roots stays in the specification, fully functional, for at least the twelve months after <code>2026-07-28</code>; clients SHOULD keep declaring the capability throughout; and so the Inspector you are about to demo against still sends <code>"roots":{"listChanged":true}</code> in every envelope. That is correct client behaviour, and this server ignores the key. Contrast <code>notifications/roots/list_changed</code>, which is <em>removed</em> under SEP-2575 and answers <code>-32601</code> — same feature, two different lifecycle mechanisms, landing in two completely different places.</p>
+        </div>
+
+        <h3>Three Ways <code>key_word_search</code> Gets a Directory</h3>
+        <p>The workshop tool needs a directory, and it holds none of its own — the router resolves them afresh for every call. There are three places one can come from, tried in this order:</p>
+        <ol style="line-height:1.9">
+            <li><strong>The <code>directory</code> argument on the call.</strong> This settles the question outright: none of what follows happens and the call completes in a single hop. It is also the migration the specification names in place of Roots, which is why it is first.</li>
+            <li><strong>An embedded <code>elicitation/create</code>.</strong> Nothing was passed, so the server asks — and asking a human is now the only question this tool has left. It used to embed a <code>roots/list</code> ahead of this, since a client answers that from configuration without interrupting anyone; that stage went when the code took the migration above.</li>
+            <li><strong>The server's own working directory.</strong> If the form is declined, or the client never declared <code>elicitation</code> to be shown one, the asking has run out — and a result the caller can reject beats an error it cannot act on.</li>
+        </ol>
+        <div class="key-concept">
+            <strong>Why keep the one-hop path at all?</strong> MRTR is optional for clients, and not every one implements it — the Inspector's own task-augmented <code>tools/call</code> path rejects <code>input_required</code> outright with <em>"multi-round-trip auto-fulfilment is not enabled on this instance"</em>. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all. Take the input as an optional argument; treat asking as the fallback.
+        </div>
+        <p style="color:var(--muted);font-size:13px">The stage the exchange has reached is precisely what <code>requestState</code> is carrying: <code>{"keyword":"record","stage":"directory"}</code> says the form has gone out and its answer is what the retry should be read for. With one question left there is only one stage to record, but the field stays — it is what tells a retry apart from a first attempt.</p>
+
+        <h3>The Embedded Elicitation, in Full</h3>
+        <pre>&lt;-- {"jsonrpc":"2.0","id":1,"result":{
+      "resultType":"input_required",
+      "inputRequests":{"search_directory":{
+        "method":"elicitation/create",
+        "params":{
+          "mode":"form",
+          "message":"Pick a directory for the keyword-search tool to search in:",
+          "requestedSchema":{
+            "type":"object",
+            "required":["directory"],
+            "properties":{"directory":{
+              "title":"Search Directory","type":"string",
+              "description":"Absolute path to the directory the keyword search should look in"}}}}}},
+      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}</pre>
+        <p><code>elicitation/create</code> picked up a <code>mode</code> field on this revision — <code>"form"</code> to render a schema, <code>"url"</code> to hand off to a browser — and lost <code>elicitationId</code>. It lost it because it no longer needs one: the retry <em>is</em> the completion signal, so there is nothing to correlate. For the same reason <code>notifications/elicitation/complete</code> is gone.</p>
+
+        <h3>When the User Says No</h3>
+        <p>A declined form comes back as <code>{"action":"decline"}</code> in the <code>inputResponses</code> entry. At that point the server has asked everything it can ask, so rather than fail it searches its own working directory — the same place a shell command with no path argument would look:</p>
+        <pre>{"resultType":"complete",
+ "content":[{"type":"text","text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1"}],
+ "isError":false}</pre>
+        <p>That fallback is this server's choice, not a protocol rule. A server that has no sensible default should end the exchange with a <strong>tool-level</strong> error instead:</p>
+        <pre>{"resultType":"complete",
+ "content":[{"type":"text","text":"No search directory was provided."}],
+ "isError":true}</pre>
+        <p style="color:var(--muted);font-size:13px">Note <code>isError: true</code> inside a <em>successful</em> result, not a JSON-RPC error object. The protocol worked perfectly; the tool could not do its job. Keeping those two distinct is what lets a model read the failure and try something else, rather than the transport treating it as a fault.</p>
+
+        <h3>What Changed, Side by Side</h3>
+        <table class="handshake-table">
+            <thead><tr><th>&nbsp;</th><th>2025-11-25</th><th>2026-07-28</th></tr></thead>
+            <tbody>
+                <tr><td>Server asks the client</td><td>Sends a JSON-RPC request with an id</td><td>Returns <code>resultType: "input_required"</code></td></tr>
+                <tr><td>Client answers</td><td>Sends a response with the matching id</td><td>Re-sends the original request with a <strong>new</strong> id</td></tr>
+                <tr><td>Where the half-done work lives</td><td>Server memory (<code>pendingToolsCallRequestId</code>)</td><td><code>requestState</code>, on the client</td></tr>
+                <tr><td>Correlation</td><td>Request id</td><td>The keys of <code>inputRequests</code>/<code>inputResponses</code></td></tr>
+                <tr><td>Elicitation identity</td><td><code>elicitationId</code> + <code>notifications/elicitation/complete</code></td><td>Neither — the retry is the completion</td></tr>
+                <tr><td>Declared by the client</td><td>Once, in <code>initialize</code></td><td>Every request, in <code>_meta</code></td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- IDE Demo: Chapter 5 -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 5</span>
+        <h3>Chapter 5 Live: The MRTR Loop</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/05-instructions.md</code> open as the script.</p>
+        <ol class="demo-steps">
+            <li><strong>Open <code>ServerCapabilities.java</code></strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — count the slots out loud: seven, and <code>extensions</code> is one of them. Then <code>DiscoverResultBuilder.withExtension(...)</code>, and note there is no <code>tasks</code> slot to put tasks in any more.</li>
+            <li><strong>In <code>IORouter.java</code></strong>, show <code>RequestEnvelope.supportsElicitationForm()</code> being consulted <em>per request</em> off the envelope. There is no <code>hasElicitation</code> field on the router — there is nowhere for one to live. Point out that this is the only top-level client capability the router asks about &mdash; the extensions map aside, which is where <code>supportsTasks()</code> looks &mdash; and then show a captured envelope still carrying <code>roots</code>: the client declares it because roots is deprecated rather than removed, and the server reads straight past it.</li>
+            <li><strong>Walk <code>handleKeywordSearch()</code></strong> — the whole MRTR loop in one method, and read it in resolution order. A <code>directory</code> argument settles it and the tool runs at once. Otherwise, no <code>inputResponses</code> yet, so return <code>InputRequiredResult.of(...)</code> embedding <code>elicitation/create</code> under the key <code>search_directory</code>, carrying a fresh <code>SearchContinuation</code>. On the retry: decode the state, read the answer out of the map, search. Declined, or no <code>elicitation</code> declared: fall through to the working directory.</li>
+            <li><strong>Open <code>tools/SearchContinuation.java</code></strong> — a two-field record, <code>encode()</code>, <code>decode()</code>. Base64 it in the terminal live (<code>echo … | base64 -d</code>) so the class sees there is no magic in it, then make the point that a client is not allowed to do what you just did.</li>
+            <li><strong>Run <code>inspector/modern-mrtr.sh</code></strong> before touching the GUI — four messages, printed plainly, easy to read together. Have the class find the two different ids and the identical <code>requestState</code>.</li>
+            <li><strong>In Inspector:</strong> call <code>key_word_search</code> with keyword <code>record</code> <em>and</em> a <code>directory</code>. One request, one <code>complete</code> result — the baseline, and the shape a caller that cannot do round trips is left with.</li>
+            <li><strong>Now drop the <code>directory</code> argument</strong> and call it again. This time the <strong>Search Directory</strong> form appears. Submit an absolute path, and show the second request going out with <code>inputResponses</code> and the <code>stage: "directory"</code> state — same logical call, two JSON-RPC exchanges.</li>
+            <li><strong>Decline the form once</strong> — the search still returns, now rooted at the server's working directory. Then point at the <code>isError: true</code> shape above and draw the distinction between a tool that failed and a protocol that failed.</li>
+        </ol>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the server never sent a single message that was not a reply. Every question it asked, it asked inside an answer — and that constraint, not a style preference, is what MRTR exists to work around. The same pattern reappears in the Tasks chapter, where <code>tasks/update</code> delivers <code>inputResponses</code> to a task that is waiting.</p>
+    </div>
+
+    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Multi Round-Trip Requests — Chapter 5.</div>
+</main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

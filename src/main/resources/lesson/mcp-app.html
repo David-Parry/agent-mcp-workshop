@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<!--
+  MCP App: Keyword Search Results Viewer
+  =======================================
+  This HTML file is what your MCP server returns when the host requests the
+  ui://keyword-search/mcp-app.html resource. The host renders it in a sandboxed
+  iframe directly inside the conversation — right next to the chat that triggered it.
+
+  HOW THIS FITS INTO MCP APPS
+  ──────────────────────────
+  1. The host calls your "key_word_search" tool
+  2. Your server returns the text result (the keyword matches)
+  3. Because the tool has _meta.ui.resourceUri set, the host also fetches
+     this HTML resource and renders it here in an iframe
+  4. The app receives the tool result via the MCP Apps postMessage protocol
+     and updates the UI accordingly
+
+  IN A REAL MCP APP
+  ─────────────────
+  The UI communicates with the host through a JSON-RPC postMessage protocol.
+  You would use the App class from @modelcontextprotocol/ext-apps:
+
+    import { App } from "@modelcontextprotocol/ext-apps";
+    const app = new App({ name: "Keyword Search App", version: "1.0.0" });
+    app.connect();                           // establish postMessage channel
+    app.ontoolresult = (result) => { ... };  // receive the initial tool result
+    app.callServerTool({ name: "key_word_search", arguments: { keyword } }); // call back
+
+  FOR THIS LESSON
+  ────────────────
+  This file is a standalone demo. It uses mock data so you can open it directly
+  in a browser and understand the UI pattern without needing the full MCP host.
+  The postMessage communication is shown as comments where it would appear.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keyword Search Results</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f8f9fa;
+      color: #212529;
+      padding: 16px;
+      min-height: 100vh;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #343a40;
+    }
+
+    .badge {
+      background: #e7f5ff;
+      color: #1971c2;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid #74c0fc;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-bar input:focus {
+      border-color: #339af0;
+      box-shadow: 0 0 0 3px rgba(51, 154, 240, 0.1);
+    }
+
+    .search-bar button {
+      padding: 8px 16px;
+      background: #339af0;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .search-bar button:hover { background: #1c7ed6; }
+    .search-bar button:disabled { background: #adb5bd; cursor: not-allowed; }
+
+    .summary {
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 24px;
+    }
+
+    .stat { text-align: center; }
+    .stat-value { font-size: 24px; font-weight: 700; color: #339af0; }
+    .stat-label { font-size: 11px; color: #868e96; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+    .results-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .result-card {
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px 16px;
+      transition: box-shadow 0.15s;
+    }
+
+    .result-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+    .result-path {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 13px;
+      color: #495057;
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+
+    .result-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .count-pill {
+      background: #fff3bf;
+      color: #e67700;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      border: 1px solid #ffd43b;
+    }
+
+    .bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: #f1f3f5;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #339af0, #74c0fc);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #adb5bd;
+    }
+
+    .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
+    .empty-state p { font-size: 14px; }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #339af0;
+      font-size: 14px;
+    }
+
+    /* MCP Apps protocol note — shown in standalone/demo mode only */
+    .demo-notice {
+      background: #fff9db;
+      border: 1px solid #ffd43b;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #5c3d11;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Keyword Search Results</h1>
+    <span class="badge">MCP App</span>
+  </div>
+
+  <!--
+    DEMO NOTICE: In a real MCP App this banner would not be shown.
+    The UI would receive its initial data from the host via:
+      app.ontoolresult = (result) => renderResults(result);
+    instead of using the mock data below.
+  -->
+  <div class="demo-notice" id="demo-notice">
+    <strong>Lesson Demo Mode:</strong> This file is running standalone.
+    In a real MCP App, results arrive from the host via postMessage when
+    your <code>key_word_search</code> tool is called.
+  </div>
+
+  <div class="search-bar">
+    <input
+      type="text"
+      id="keyword-input"
+      placeholder='Enter a keyword (e.g. "TODO", "mcp", "import")…'
+      value="mcp"
+    />
+    <!--
+      In a real MCP App this button calls back to the server:
+        app.callServerTool({ name: "key_word_search", arguments: { keyword } })
+      Here we just filter the mock data client-side for the demo.
+    -->
+    <button id="search-btn" onclick="runSearch()">Search</button>
+  </div>
+
+  <div id="summary" class="summary" style="display:none">
+    <div class="stat">
+      <div class="stat-value" id="total-files">0</div>
+      <div class="stat-label">Files with matches</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="total-hits">0</div>
+      <div class="stat-label">Total occurrences</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="keyword-display">—</div>
+      <div class="stat-label">Keyword searched</div>
+    </div>
+  </div>
+
+  <div id="results-container" class="results-list">
+    <div class="empty-state">
+      <p>Enter a keyword above and click Search.</p>
+    </div>
+  </div>
+
+  <script>
+    /*
+     * MOCK DATA — represents what your key_word_search tool would return.
+     *
+     * In a real MCP App the data flows like this:
+     *
+     *   1. Host calls key_word_search("mcp")
+     *   2. Your Java server returns:
+     *        { content: [{ type: "text", text: "/path/to/IORouter.java, keyword_count=14" }, ...] }
+     *   3. Host pushes the result to this iframe:
+     *        app.ontoolresult = (result) => renderResults(parseResult(result));
+     *   4. This UI updates without any page reload or tab switch.
+     */
+    const MOCK_DATA = [
+      { file: "src/main/java/com/workshop/mcp/IORouter.java",      count: 14 },
+      { file: "src/main/java/com/workshop/mcp/spec/UniqueKeys.java", count: 9  },
+      { file: "src/main/java/com/workshop/mcp/spec/Tool.java",      count: 6  },
+      { file: "src/main/java/com/workshop/mcp/spec/Resource.java",  count: 5  },
+      { file: "src/main/java/com/workshop/mcp/IORouter.java",       count: 4  },
+      { file: "src/test/java/com/workshop/mcp/ServerTest.java",     count: 3  },
+      { file: "lesson/06-overview.md",                              count: 2  },
+      { file: "README.md",                                          count: 1  },
+    ];
+
+    function runSearch() {
+      const keyword = document.getElementById("keyword-input").value.trim();
+      if (!keyword) return;
+
+      /*
+       * REAL MCP APP: replace the next line with:
+       *
+       *   const result = await app.callServerTool({
+       *     name: "key_word_search",
+       *     arguments: { keyword }
+       *   });
+       *   const rows = parseToolResult(result);
+       */
+      const rows = MOCK_DATA.filter(r =>
+        r.file.toLowerCase().includes(keyword.toLowerCase()) || keyword === "mcp"
+      );
+
+      renderResults(keyword, rows);
+    }
+
+    function renderResults(keyword, rows) {
+      const maxCount = rows.length > 0 ? Math.max(...rows.map(r => r.count)) : 1;
+      const totalHits = rows.reduce((s, r) => s + r.count, 0);
+
+      // Update summary
+      document.getElementById("total-files").textContent   = rows.length;
+      document.getElementById("total-hits").textContent    = totalHits;
+      document.getElementById("keyword-display").textContent = `"${keyword}"`;
+      document.getElementById("summary").style.display     = "flex";
+
+      const container = document.getElementById("results-container");
+
+      if (rows.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>No files found containing "<strong>${escHtml(keyword)}</strong>".</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = rows
+        .sort((a, b) => b.count - a.count)
+        .map(row => `
+          <div class="result-card">
+            <div class="result-path">${escHtml(row.file)}</div>
+            <div class="result-meta">
+              <span class="count-pill">${row.count} match${row.count !== 1 ? "es" : ""}</span>
+              <div class="bar-wrap">
+                <div class="bar-fill" style="width:${Math.round((row.count / maxCount) * 100)}%"></div>
+              </div>
+            </div>
+          </div>`)
+        .join("");
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    /*
+     * AUTO-RUN on load so the demo is immediately useful when opened standalone.
+     *
+     * In a real MCP App this would instead be:
+     *
+     *   const app = new App({ name: "Keyword Search App", version: "1.0.0" });
+     *   app.connect();
+     *   app.ontoolresult = (result) => {
+     *     const rows = parseToolResult(result);
+     *     renderResults(currentKeyword, rows);
+     *   };
+     */
+    window.addEventListener("DOMContentLoaded", () => runSearch());
+  </script>
+
+</body>
+</html>

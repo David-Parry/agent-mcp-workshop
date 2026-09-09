@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Presentation – Trace Log</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:95%;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px}
+        .log{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:16px;color:#d3d9e8;background:#0f1630;border:1px solid #1f2740;border-radius:12px;padding:12px;overflow:auto;max-height:600px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        .log-controls{margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+        .log-controls button{background:var(--card);border:1px solid #1f2740;color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px}
+        .log-controls button:hover{background:#1f2740}
+        .log-entry{margin-bottom:4px;padding:2px 0}
+        .log-entry.received{color:#7dcfff}
+        .log-entry.sent{color:#9ece6a}
+        .log-entry.system{color:#f7768e}
+        h2{color:var(--accent);margin:0 0 8px}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>MCP Presentation – Trace Log</h1>
+    <p class="subtitle">A real captured <strong>2026-07-28</strong> session — discovery, the MRTR round trip, a task poll loop, and a subscription. Compare against your live Inspector output during demos.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <section class="card">
+        <h2>Communication Trace</h2>
+        <div class="log-controls">
+            <button onclick="toggleFormatting()">Toggle JSON Formatting</button>
+            <button onclick="filterMessages('all')">All</button>
+            <button onclick="filterMessages('received')">Received</button>
+            <button onclick="filterMessages('sent')">Sent</button>
+        </div>
+        <div class="log" id="log">
+<div class="log-entry received">[2026-09-04 13:02:57.730] [API][RECEIVED]{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry sent">[2026-09-04 13:02:57.757] [API][SENT]: {"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword. If no directory is supplied, the tool asks for one over a Multi Round-Trip Request, and searches its own working directory if the client offers nothing.","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}</div>
+<div class="log-entry system">[2026-09-04 13:02:57.757] [API][SENT] server/discover — advertised [2026-07-28]</div>
+<div class="log-entry system">[2026-09-04 13:02:57.757] --- no session was created. Every request below re-states that same _meta envelope, because the server has nowhere to remember it. ---</div>
+<div class="log-entry received">[2026-09-04 13:02:57.981] [API][RECEIVED]{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry sent">[2026-09-04 13:02:57.994] [API][SENT]: {"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project. Returns the total count of matches and the absolute file paths of the files containing the keyword. Pass a directory to search it directly; omit it and the server asks for one over a Multi Round-Trip Request, falling back to its own working directory if nothing is offered.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"directory":{"type":"string","description":"the absolute directory to search; omit it to have the server ask for one over a Multi Round-Trip Request and fall back to its working directory"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}</div>
+<div class="log-entry received">[2026-09-04 13:02:58.236] [API][RECEIVED]{"jsonrpc":"2.0","id":1,"method":"resources/templates/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry sent">[2026-09-04 13:02:58.239] [API][SENT]: {"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","resourceTemplates":[],"ttlMs":60000,"cacheScope":"public"}}</div>
+<div class="log-entry received">[2026-09-04 13:02:58.494] [API][RECEIVED]{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"key_word_search","arguments":{"keyword":"record"},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry system">[2026-09-04 13:02:58.783] [API][SENT] notifications/tasks — taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=working</div>
+<div class="log-entry sent">[2026-09-04 13:02:58.785] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:02:58.781474Z","ttlMs":300000,"pollIntervalMs":1000}}</div>
+<div class="log-entry system">[2026-09-04 13:02:58.785] [API][SENT] tools/call — created taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 with no directory; the task will ask for one</div>
+<div class="log-entry sent">[2026-09-04 13:02:58.785] [API][SENT]: {"jsonrpc":"2.0","id":2,"result":{"resultType":"task","taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:02:58.781474Z","ttlMs":300000,"pollIntervalMs":1000}}</div>
+<div class="log-entry system">[2026-09-04 13:02:58.785] --- the call had no directory to search, and this client declared the tasks extension, so it gets a handle rather than a question. resultType holds one value: a handle and an input_required are alternatives, never a sequence. The question has to arrive as a status on the task instead. ---</div>
+<div class="log-entry system">[2026-09-04 13:02:58.786] [TASK 7afbc064-2454-4cea-b86d-f2edd2c5cd35] background tool execution started for tool=key_word_search</div>
+<div class="log-entry system">[2026-09-04 13:02:58.787] [API][SENT] notifications/tasks — taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=input_required</div>
+<div class="log-entry sent">[2026-09-04 13:02:58.788] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"input_required","statusMessage":"The operation is waiting for input.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:02:58.786912Z","ttlMs":300000,"pollIntervalMs":1000}}</div>
+<div class="log-entry system">[2026-09-04 13:02:58.789] [TASK 7afbc064-2454-4cea-b86d-f2edd2c5cd35] input_required — asking for elicitation/create under key=search_directory</div>
+<div class="log-entry system">[2026-09-04 13:02:58.790] --- the notification announces the transition but carries no inputRequests; the question itself rides on the tasks/get snapshot below. Note also which question it is: there is one embedded method left to ask with, because roots is deprecated under SEP-2577 and this server no longer builds a roots/list. ---</div>
+<div class="log-entry received">[2026-09-04 13:02:59.812] [API][RECEIVED]{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry system">[2026-09-04 13:02:59.814] [API][SENT] tasks/get taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=input_required</div>
+<div class="log-entry sent">[2026-09-04 13:02:59.814] [API][SENT]: {"jsonrpc":"2.0","id":"inspector-ext-1","result":{"resultType":"complete","taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"input_required","statusMessage":"The operation is waiting for input.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:02:58.786912Z","ttlMs":300000,"pollIntervalMs":1000,"inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","required":["directory"],"properties":{"directory":{"title":"Search Directory","type":"string","description":"Absolute path to the directory the keyword search should look in"}}}}}}}}</div>
+<div class="log-entry system">          ↑ the same inputRequests map as the synchronous round trip, and the same embedded-request shape — method plus optional params, no jsonrpc, no id. What differs is the carrier and the correlation: no requestState, because the taskId already identifies the exchange.</div>
+<div class="log-entry system">[2026-09-04 13:03:00.872] [API][SENT] tasks/get taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=input_required &nbsp;&nbsp;(poll 2 of 4, id="inspector-ext-2")</div>
+<div class="log-entry system">[2026-09-04 13:03:01.931] [API][SENT] tasks/get taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=input_required &nbsp;&nbsp;(poll 3 of 4, id="inspector-ext-3")</div>
+<div class="log-entry received">[2026-09-04 13:03:02.740] [API][RECEIVED]{"jsonrpc":"2.0","id":"inspector-ext-4","method":"tasks/update","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/src/main/java/com/workshop/mcp/tools"}}},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry system">[2026-09-04 13:03:02.742] [API][SENT] notifications/tasks — taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=working</div>
+<div class="log-entry sent">[2026-09-04 13:03:02.743] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"working","statusMessage":"The operation resumed with the input provided.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:03:02.741803Z","ttlMs":300000,"pollIntervalMs":1000}}</div>
+<div class="log-entry system">[2026-09-04 13:03:02.744] [TASK 7afbc064-2454-4cea-b86d-f2edd2c5cd35] tasks/update answered search_directory</div>
+<div class="log-entry system">[2026-09-04 13:03:02.745] [API][SENT] tasks/update — taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 resumed</div>
+<div class="log-entry sent">[2026-09-04 13:03:02.746] [API][SENT]: {"jsonrpc":"2.0","id":"inspector-ext-4","result":{"resultType":"complete"}}</div>
+<div class="log-entry system">          ↑ delivering those answers is the whole of what tasks/update exists for. The reply is a bare acknowledgment — the work itself carries on in the background and reports through the next notification. An update aimed at a task that is not waiting is -32602.</div>
+<div class="log-entry system">[2026-09-04 13:03:02.804] [API][SENT] notifications/tasks — taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=completed</div>
+<div class="log-entry sent">[2026-09-04 13:03:02.805] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:03:02.804915Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/src/main/java/com/workshop/mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}</div>
+<div class="log-entry system">[2026-09-04 13:03:02.807] [TASK 7afbc064-2454-4cea-b86d-f2edd2c5cd35] tool completed, transitioning to completed</div>
+<div class="log-entry received">[2026-09-04 13:03:02.983] [API][RECEIVED]{"jsonrpc":"2.0","id":"inspector-ext-5","method":"tasks/get","params":{"taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry system">[2026-09-04 13:03:02.984] [API][SENT] tasks/get taskId=7afbc064-2454-4cea-b86d-f2edd2c5cd35 status=completed</div>
+<div class="log-entry sent">[2026-09-04 13:03:02.984] [API][SENT]: {"jsonrpc":"2.0","id":"inspector-ext-5","result":{"resultType":"complete","taskId":"7afbc064-2454-4cea-b86d-f2edd2c5cd35","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T18:02:58.781474Z","lastUpdatedAt":"2026-09-04T18:03:02.804915Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/davidparry/code/github/mcp-servers/agent-mcp-workshop/src/main/java/com/workshop/mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}</div>
+<div class="log-entry received">[2026-09-04 13:03:03.340] [API][RECEIVED]{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{"notifications":{"toolsListChanged":true,"resourcesListChanged":true},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry system">[2026-09-04 13:03:03.352] [API][SENT] subscriptions/listen — acknowledging id=listen:0 honored=SubscriptionFilter[toolsListChanged=null, promptsListChanged=null, resourcesListChanged=null, resourceSubscriptions=null]</div>
+<div class="log-entry sent">[2026-09-04 13:03:03.355] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}</div>
+<div class="log-entry system">[2026-09-04 13:03:03.355] [API][SENT] subscriptions/listen — nothing honored, closing immediately</div>
+<div class="log-entry system">[2026-09-04 13:03:03.355] [API][SENT] subscriptions/listen — graceful close for id=listen:0</div>
+<div class="log-entry sent">[2026-09-04 13:03:03.356] [API][SENT]: {"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"}}}</div>
+<div class="log-entry received">[2026-09-04 13:03:03.700] [API][RECEIVED]{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"listen:0","reason":"user navigated away"}}</div>
+<div class="log-entry system">[2026-09-04 13:03:03.703] [API][RECEIVED] notifications/cancelled requestId=listen:0 reason=user navigated away</div>
+<div class="log-entry received">[2026-09-04 13:03:04.005] [API][RECEIVED]{"jsonrpc":"2.0","id":4,"method":"initialize","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}</div>
+<div class="log-entry system">[2026-09-04 13:03:04.005] [API][SENT] unsupported method 'initialize' (returning -32601)</div>
+<div class="log-entry sent">[2026-09-04 13:03:04.006] [API][SENT]: {"jsonrpc":"2.0","id":4,"error":{"code":-32601,"message":"Method not found: initialize"}}</div>
+<div class="log-entry system">[2026-09-04 13:03:04.361] Input stream closed.</div>
+<div class="log-entry system">[2026-09-04 13:03:04.361] IO processing has stopped. Initiating shutdown.</div>
+        </div>
+        <div class="hint" style="margin-top:12px;font-size:13px;color:var(--muted)">A real captured session against the <code>2026-07-28</code> server, trimmed only where it repeats: polls 2 and 3 are shown as their one-line log summaries rather than the full request/response pair, and <code>key_word_search</code> is pointed at a single package so the file dump stays short. Nothing else is edited. Note how the session ends: a deliberate <code>initialize</code> probe, answered <code>-32601</code>. That rejection is the <em>only</em> way a removed method can appear in a modern trace — <code>initialize</code>, <code>notifications/initialized</code>, <code>ping</code>, <code>tasks/result</code>, and <code>tasks/list</code> never do any real work here, and no successful call to any of them appears anywhere above.</div>
+
+        <h2 style="margin-top:28px">What a Legacy Client Sees</h2>
+        <p style="color:var(--muted);font-size:14px;margin:0 0 10px">Three rejections worth showing side by side, because each one fails for a different reason and each one is diagnosable from the error alone.</p>
+        <pre style="background:#0f1630;border:1px solid #1f2740;border-radius:12px;padding:14px;overflow-x:auto;font-size:13px;line-height:1.7;color:#d3d9e8">--&gt; {"jsonrpc":"2.0","id":4,"method":"initialize","params":{ …envelope… }}
+&lt;-- {"jsonrpc":"2.0","id":4,"error":{"code":-32601,"message":"Method not found: initialize"}}
+    The method is gone, full stop. Note the server settles method existence BEFORE it
+    validates _meta, so a legacy client is told the truth instead of being sent chasing
+    an envelope problem it does not have.
+
+--&gt; {"jsonrpc":"2.0","id":5,"method":"tools/list","params":{"_meta":{
+      "io.modelcontextprotocol/protocolVersion":"2025-11-25",
+      "io.modelcontextprotocol/clientCapabilities":{}}}}
+&lt;-- {"jsonrpc":"2.0","id":5,"error":{"code":-32022,"message":"Unsupported protocol version",
+      "data":{"requested":"2025-11-25","supported":["2026-07-28"]}}}
+    The method exists; the revision does not. The data block is required — it is the only
+    thing that lets a client renegotiate without a second round trip.
+
+--&gt; {"jsonrpc":"2.0","id":6,"method":"tools/list","params":{}}
+&lt;-- {"jsonrpc":"2.0","id":6,"error":{"code":-32602,"message":"Requests must carry
+      io.modelcontextprotocol/protocolVersion and
+      io.modelcontextprotocol/clientCapabilities in params._meta"}}
+    No envelope at all. On the old revision this request was perfectly legal, because the
+    handshake had already said all of this once.</pre>
+        <div class="hint" style="margin-top:10px;font-size:13px;color:var(--muted)">Captured with <code>inspector/modern-probe.sh</code>. If your Inspector opens with <code>initialize</code> instead of <code>server/discover</code>, it is running in legacy mode — add <code>"protocolEra": "modern"</code> to the server entry in <code>inspector/config.json</code>.</div>
+        <div class="hint">
+            Color coding:
+            <span style="color:#7dcfff">Blue = Received (Client → Server)</span> &nbsp;|&nbsp;
+            <span style="color:#9ece6a">Green = Sent (Server → Client)</span> &nbsp;|&nbsp;
+            <span style="color:#f7768e">Red = System events</span>
+        </div>
+    </section>
+
+    <div class="footer">© 2025 MCP Presentation. Raw trace data from a protocol revision 2026-07-28 session — 3-hour class reference.</div>
+</main>
+
+<script>
+let formatJson = false;
+
+function toggleFormatting() {
+    formatJson = !formatJson;
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        const text = entry.dataset.originalText || entry.textContent;
+        if (!entry.dataset.originalText) entry.dataset.originalText = text;
+        if (formatJson) {
+            try {
+                const jsonMatch = text.match(/(\{.*\})/);
+                if (jsonMatch) {
+                    const prefix = text.substring(0, jsonMatch.index);
+                    const jsonStr = jsonMatch[1];
+                    const parsed = JSON.parse(jsonStr);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    entry.innerHTML = prefix + '<br>' + formatted.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
+                }
+            } catch (e) {}
+        } else {
+            entry.textContent = text;
+        }
+    });
+}
+
+function filterMessages(type) {
+    const entries = document.querySelectorAll('.log-entry');
+    entries.forEach(entry => {
+        if (type === 'all') {
+            entry.style.display = 'block';
+        } else {
+            entry.style.display = entry.classList.contains(type) ? 'block' : 'none';
+        }
+    });
+}
+</script>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

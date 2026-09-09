@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Resources, Tools &amp; Prompts – MCP Presentation</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+        @media(max-width:800px){.two-col,.three-col{grid-template-columns:1fr}}
+        .cap-card{background:#0c1328;border:1px solid #1f2740;border-radius:12px;padding:18px}
+        .cap-card h4{color:var(--accent);margin:0 0 10px;font-size:16px}
+        .cap-card p{color:var(--muted);margin:0 0 12px;font-size:13px}
+        .ide-demo{background:linear-gradient(135deg,rgba(122,162,247,0.12),rgba(122,162,247,0.04));border:2px solid var(--accent);border-radius:12px;padding:20px;margin:24px 0}
+        .ide-demo-badge{display:inline-block;background:var(--accent);color:#0b1020;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+        .demo-steps{counter-reset:step;list-style:none;padding-left:0}
+        .demo-steps>li{counter-increment:step;position:relative;padding-left:38px;margin:12px 0}
+        .demo-steps>li::before{content:counter(step);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+        .ide-demo h3{color:var(--fg);margin:0 0 12px;font-size:17px}
+        .ide-demo ul{margin:8px 0 0;padding-left:22px}
+        .ide-demo li{margin:6px 0;font-size:14px}
+        .ide-demo code{color:var(--green)}
+        .step-list{counter-reset:step}
+        .step-list li{counter-increment:step;list-style:none;padding-left:0;display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+        .step-list li::before{content:counter(step);display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#0b1020;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
+        .capability-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+        .cap-icon{font-size:32px}
+        .capability-header h2{margin:0}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740;font-size:13px}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>Capabilities: Resources, Tools &amp; Prompts</h1>
+    <p class="subtitle">Discovery without a handshake, the per-request <code>_meta</code> envelope, and the three core capabilities that turn a router into a server</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <!-- Chapter 3: Discovery and the envelope -->
+    <section class="card">
+        <span class="chapter-badge">Chapter 3</span>
+        <h2>Discovery, the <code>_meta</code> Envelope &amp; Routing</h2>
+        <p>Revision <strong>2026-07-28</strong> deleted the <code>initialize</code> handshake. There is no longer a moment where the two sides agree once on a version and exchange capabilities. Instead there are two separate mechanisms, and it is worth being precise about which is which:</p>
+        <ul>
+            <li><strong><code>server/discover</code></strong> is where a client learns the <em>server's</em> capabilities. It creates nothing — no session, no state — so the server can answer it from static configuration, and the client can cache the answer.</li>
+            <li><strong>The <code>_meta</code> envelope</strong> is where the server learns the <em>client's</em> capabilities. It rides on <em>every single request</em>, not once at startup, because there is nowhere to remember it between calls.</li>
+        </ul>
+
+        <div class="two-col" style="margin-top:16px">
+            <div class="cap-card">
+                <h4>server/discover (Client → Server)</h4>
+                <pre>{
+  "jsonrpc": "2.0",
+  "id": "server-discover-probe-1",
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion":
+        "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "inspector-cli",
+        "version": "2.5.0"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {
+        "roots": { "listChanged": true },
+        "extensions": {
+          "io.modelcontextprotocol/tasks": {},
+          "io.modelcontextprotocol/ui": {
+            "mimeTypes": ["text/html;profile=mcp-app"]
+          }
+        }
+      }
+    }
+  }
+}</pre>
+                <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Note the <strong>string</strong> id. Ids may be strings or numbers on this revision and the server must echo back the exact form it received — see the <em>String or Number</em> card below. Note the <code>roots</code> declaration too: it is deprecated under SEP&#8209;2577, but deprecated is not removed, and clients SHOULD keep declaring it for the whole deprecation period — so it keeps arriving, correctly. This server does not model the key and ignores it.</p>
+            </div>
+            <div class="cap-card">
+                <h4>server/discover result (Server → Client)</h4>
+                <pre>{
+  "jsonrpc": "2.0",
+  "id": "server-discover-probe-1",
+  "result": {
+    "resultType": "complete",
+    "supportedVersions": ["2026-07-28"],
+    "capabilities": {
+      "completions": {},
+      "prompts": { "listChanged": false },
+      "resources": {
+        "listChanged": false,
+        "subscribe": false
+      },
+      "tools": { "listChanged": false },
+      "extensions": {
+        "io.modelcontextprotocol/ui": {
+          "mimeTypes": ["text/html;profile=mcp-app"]
+        },
+        "io.modelcontextprotocol/tasks": {}
+      }
+    },
+    "instructions": "Searches a project for …",
+    "ttlMs": 60000,
+    "cacheScope": "public",
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "agent-mcp-workshop",
+        "version": "0.0.1"
+      }
+    }
+  }
+}</pre>
+                <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Two things moved. There is no single <code>protocolVersion</code> — the server lists <code>supportedVersions</code> and the <em>client</em> picks. And <code>serverInfo</code> is no longer a body field; it lives in <code>_meta</code>.</p>
+            </div>
+        </div>
+
+        <div class="cap-card" style="margin-top:18px;border-color:rgba(122,162,247,0.4)">
+            <h4>Why delete the handshake at all?</h4>
+            <p style="font-size:13px">A session is memory pinned to one process, and pinned memory is the thing that stops you scaling. With the handshake gone:</p>
+            <ul style="font-size:13px;margin:8px 0 0;padding-left:20px;color:var(--muted)">
+                <li><strong>Horizontal scaling.</strong> Any instance behind a load balancer can answer any request, because every request is self-describing. No sticky sessions, no shared session store, no reconnection dance after a deploy.</li>
+                <li><strong>Caching.</strong> A self-describing request has a stable identity, so its response can be cached and replayed. That is exactly why <code>ttlMs</code> and <code>cacheScope</code> exist on this revision — they are only meaningful once a result no longer depends on hidden session state.</li>
+                <li><strong>Debuggability.</strong> One captured line is a complete, replayable request. You can paste it into a terminal and get the same answer.</li>
+            </ul>
+            <p style="font-size:13px;margin:10px 0 0;color:var(--muted)">The bill for all that comes due in two places, and the rest of this deck is largely about paying it: the server can no longer send a request to the client (see <a href="extensions.html" style="color:var(--accent)">Extensions</a>), and it can no longer remember a half-finished operation (see <code>requestState</code>, same page).</p>
+        </div>
+
+        <h3>The Envelope, Field by Field</h3>
+        <p>Everything below lives under <code>params._meta</code> on <strong>every</strong> request.</p>
+        <table>
+            <thead><tr><th>Key</th><th>Required?</th><th>What it does</th></tr></thead>
+            <tbody>
+                <tr><td><code>io.modelcontextprotocol/protocolVersion</code></td><td><strong>Required</strong></td><td>The revision this request speaks. A value the server does not implement is <code>-32022</code>.</td></tr>
+                <tr><td><code>io.modelcontextprotocol/clientCapabilities</code></td><td><strong>Required</strong></td><td>What the client can be asked to do <em>on this request</em>. This is what gates whether the server may show a form or hand back a task. This server reads exactly one capability it acts on, <code>elicitation</code>, plus the <code>extensions</code> map; <code>roots</code> and <code>sampling</code> still arrive and are ignored.</td></tr>
+                <tr><td><code>io.modelcontextprotocol/clientInfo</code></td><td>Recommended</td><td>Which client software is calling. Useful for logs and workarounds; nothing depends on it.</td></tr>
+                <tr><td><code>io.modelcontextprotocol/logLevel</code></td><td>Optional</td><td>Opt-in to <code>notifications/message</code> for this request. <strong>When it is absent the server MUST NOT emit any</strong> — silence is the default, not a level.</td></tr>
+            </tbody>
+        </table>
+        <p style="color:var(--muted);font-size:13px;margin-top:10px">Missing either required member is <code>-32602</code>. Declaring an unsupported revision is <code>-32022</code>, and its <code>data</code> carries both <code>supported</code> and <code>requested</code> so the client can renegotiate from the error alone. If a server needs a capability the request did not declare, that is <code>-32021</code> with <code>data.requiredCapabilities</code>.</p>
+
+        <h3>The Error Code Table</h3>
+        <p>This revision partitioned the JSON-RPC server-error range. <code>-32000</code>&ndash;<code>-32019</code> stays implementation-defined; <strong><code>-32020</code>&ndash;<code>-32099</code> is now reserved for the specification</strong>, so do not squat on it.</p>
+        <table>
+            <thead><tr><th>Code</th><th>Meaning</th><th>When this server emits it</th></tr></thead>
+            <tbody>
+                <tr><td><code>-32700</code></td><td>Parse error</td><td>Unparseable JSON on stdin.</td></tr>
+                <tr><td><code>-32600</code></td><td>Invalid request</td><td>Valid JSON that is not a JSON-RPC message.</td></tr>
+                <tr><td><code>-32601</code></td><td>Method not found</td><td>Any method this revision removed, and the three embedded-only methods.</td></tr>
+                <tr><td><code>-32602</code></td><td>Invalid params</td><td>Missing envelope members; an unknown <code>taskId</code>.</td></tr>
+                <tr><td><code>-32603</code></td><td>Internal error</td><td>Registered method with no handler — unreachable by construction.</td></tr>
+                <tr><td><code>-32020</code></td><td>Header/body mismatch</td><td><strong>Never.</strong> Streamable HTTP only, so a stdio server cannot emit it.</td></tr>
+                <tr><td><code>-32021</code></td><td>Missing required client capability</td><td><code>data.requiredCapabilities</code> is an object shaped like <code>ClientCapabilities</code> — never an array.</td></tr>
+                <tr><td><code>-32022</code></td><td>Unsupported protocol version</td><td><code>data.supported</code> + <code>data.requested</code>, both required.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>What Was Deleted — and How Deletion Works Now</h3>
+        <p>Deletion in this revision is <strong>physical</strong>: the method is simply absent from the registry, so it answers <code>-32601</code> by absence rather than by a special case. These are gone:</p>
+        <pre>initialize                        notifications/initialized
+ping                              notifications/roots/list_changed
+logging/setLevel                  resources/subscribe
+tasks/result                      resources/unsubscribe
+tasks/list</pre>
+        <p style="color:var(--muted);font-size:13px">One ordering detail matters for diagnosis: <strong>the server settles method existence <em>before</em> it validates <code>_meta</code></strong>. A legacy client sending <code>initialize</code> is told the method is gone, not that its envelope is malformed — which is the difference between a five-second fix and an afternoon.</p>
+
+        <h3>Message Routing — The IORouter Switch</h3>
+        <p>Every request is routed on its method name, but only after two gates: discovery is answered first (asking which versions a server speaks cannot itself require knowing them), then method existence, then the envelope.</p>
+        <pre>SERVER_DISCOVER          → answered first, before any version check
+─── if the method is not in INBOUND_METHODS → -32601 ───
+─── envelopeFor(message): -32602 or -32022, or the validated envelope ───
+case PROMPTS_LIST        → cacheable: + ttlMs, cacheScope
+case PROMPTS_GET         → resultType only
+case TOOLS_LIST          → cacheable
+case TOOLS_CALL          → complete | input_required | task
+case RESOURCES_LIST      → cacheable
+case RESOURCES_TEMPLATES_LIST → cacheable (answered even when empty)
+case RESOURCES_READ      → cacheable
+case COMPLETION_COMPLETE → resultType only
+case SUBSCRIPTIONS_LISTEN→ acknowledge by notification, not by result
+case TASKS_GET / TASKS_UPDATE / TASKS_CANCEL → tasks extension</pre>
+
+        <h3>Two Rules About Results</h3>
+        <div class="two-col" style="margin-top:12px">
+            <div class="cap-card">
+                <h4><code>resultType</code> is required on <em>every</em> result</h4>
+                <p>Three values only: <code>"complete"</code>, <code>"input_required"</code>, <code>"task"</code>. It is how a client knows whether it is holding an answer, a question, or a receipt — without inspecting the shape.</p>
+            </div>
+            <div class="cap-card">
+                <h4><code>ttlMs</code> + <code>cacheScope</code> on exactly five methods</h4>
+                <p><code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code>. <code>ttlMs</code> is non-negative; <code>cacheScope</code> is <code>"public"</code> or <code>"private"</code>. Their neighbours — <code>prompts/get</code>, <code>tools/call</code>, <code>completion/complete</code> — must <strong>not</strong> carry them, because their answers depend on arguments.</p>
+            </div>
+        </div>
+
+        <h3>String or Number — Why <code>RequestId</code> Exists</h3>
+        <p>JSON-RPC has always allowed either, but clients now genuinely mix both on one connection. The Inspector uses the string <code>"server-discover-probe-1"</code> to discover, <code>"listen:0"</code> to subscribe, <code>"inspector-ext-1"</code>&hellip;<code>"inspector-ext-4"</code> to poll a task, and plain integers for everything else. A server must echo the id back <em>in the form it arrived</em>.</p>
+        <p style="color:var(--muted);font-size:13px">Before the migration this server typed <code>id</code> as <code>Long</code> and died on the very first message with <code>NumberFormatException: For input string: "server-discover-probe-1"</code>. That is what <code>spec/RequestId.java</code> and <code>spec/RequestIdTypeAdapter.java</code> are for: one record holding either form, and a Gson adapter that serializes it back as whatever it was.</p>
+
+        <h3>Server Capabilities — Exactly Seven Slots</h3>
+        <p>The capability object is now fixed at seven optional slots. Anything outside them, <em>tasks included</em>, belongs under <code>extensions</code>.</p>
+        <table>
+            <thead><tr><th>Slot</th><th>Meaning</th></tr></thead>
+            <tbody>
+                <tr><td><code>experimental</code></td><td>Non-standard capabilities, keyed by name.</td></tr>
+                <tr><td><code>logging</code></td><td>Present when the server can emit <code>notifications/message</code>.</td></tr>
+                <tr><td><code>completions</code></td><td>Present when the server answers <code>completion/complete</code>.</td></tr>
+                <tr><td><code>prompts</code></td><td>Optionally <code>listChanged</code>.</td></tr>
+                <tr><td><code>resources</code></td><td>Optionally <code>listChanged</code> and <code>subscribe</code>.</td></tr>
+                <tr><td><code>tools</code></td><td>Optionally <code>listChanged</code>.</td></tr>
+                <tr><td><code>extensions</code></td><td>Extension declarations, keyed by identifier — this is where <code>io.modelcontextprotocol/tasks</code> and <code>io.modelcontextprotocol/ui</code> live.</td></tr>
+            </tbody>
+        </table>
+        <p style="color:var(--muted);font-size:13px;margin-top:10px">Two survivals worth explaining, because both look like oversights and neither is. <code>resources.subscribe</code> outlived the <code>resources/subscribe</code> method — it now gates the <code>resourceSubscriptions</code> field of <code>subscriptions/listen</code>. And this server declares <code>listChanged: false</code> everywhere on purpose: its lists are fixed, and advertising <code>true</code> would invite clients to hold a subscription open for notifications that will never come.</p>
+
+        <h3>STDIO Discipline</h3>
+        <ul>
+            <li>All logs go to <code>logs/agent-mcp-workshop-&lt;pid&gt;-&lt;timestamp&gt;.log</code> (relative to the server's working directory — <code>inspector/logs/</code> when launched by the Inspector) — never to System.out</li>
+            <li>Writing non-JSON to stdout breaks the protocol immediately</li>
+            <li>The client reads stdout byte-by-byte looking for newline-delimited JSON</li>
+            <li>With the handshake gone, stdout also carries <em>interleaved</em> traffic that is not a reply to anything: <code>notifications/tasks</code> while a task runs, and any subscription notification. Correlation is by <code>id</code> or by <code>_meta</code>, never by arrival order.</li>
+        </ul>
+    </section>
+
+    <!-- IDE Demo: Chapter 3 -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 3</span>
+        <h3>Chapter 3 Live: Discovery, the Envelope &amp; First Inspector Connect</h3>
+        <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/03-instructions.md</code> open as the script. This is the first time the class sees the server talk to a real client.</p>
+        <ol class="demo-steps">
+            <li><strong>Open <code>src/main/java/com/workshop/mcp/IORouter.java</code></strong> — start with what is <em>missing</em>. There is no <code>INITIALIZE</code> case, no field tracking what the client can do, and no code path that sends a request to the client. Then walk the <code>SERVER_DISCOVER</code> case: it is answered before any version check, from static configuration, via <code>DiscoverResultBuilder</code>.</li>
+            <li><strong>Walk <code>envelopeFor()</code></strong> — the four lines that replaced the handshake. <code>isComplete()</code> → <code>-32602</code>; <code>isSupportedVersion()</code> → <code>-32022</code> carrying <code>supported</code> and <code>requested</code>. Point out the ordering above it: method existence is settled <em>first</em>, so a removed method reports as removed.</li>
+            <li><strong>Open <code>spec/RequestId.java</code> and <code>spec/RequestIdTypeAdapter.java</code></strong> — the record that holds either a string or a number and the adapter that writes it back in the same form. Tell the war story: <code>id</code> used to be a <code>Long</code>, and the migration's very first crash was <code>NumberFormatException: For input string: "server-discover-probe-1"</code>.</li>
+            <li><strong>Build:</strong> <code>./gradlew clean build</code> in the project root terminal.</li>
+            <li><strong>Show <code>inspector/config.json</code> before launching</strong> — the load-bearing line is <code>"protocolEra": "modern"</code>, a sibling of <code>command</code>/<code>args</code>/<code>env</code>, not nested under anything. Without it the Inspector opens with the legacy handshake and the first thing on the wire is an <code>initialize</code> that this server answers <code>-32601</code>. <code>"modernLogLevel": "off"</code> is a valid sibling too, and is what keeps <code>notifications/message</code> out of the message pane. A <code>"roots"</code> array is also still accepted there — this config no longer sets one, because the server no longer asks.</li>
+            <li><strong>Launch MCP Inspector:</strong> <code>cd inspector &amp;&amp; ./run.sh</code>, open the printed URL, connect. In the message pane, show <code>server/discover → server/discover result</code> — two messages, no third. Point at the string id and at <code>serverInfo</code> sitting in <code>_meta</code>.</li>
+            <li><strong>Prove the envelope repeats:</strong> click any capability and show that <em>this</em> request carries the whole <code>_meta</code> block again. Nothing was remembered.</li>
+            <li><strong>Teaching moment — the rejections:</strong> run <code>inspector/modern-probe.sh</code> in a terminal and read the last three lines together — <code>-32601</code> for <code>initialize</code>, <code>-32022</code> for a <code>2025-11-25</code> envelope, <code>-32602</code> for no envelope at all. Three different failures, three different diagnoses, all readable from the error alone.</li>
+            <li><strong>Open the log file</strong> in <code>inspector/logs/</code> — show <code>[API][RECEIVED]</code>/<code>[API][SENT]</code> pairs for the whole session. Reinforce: logs to file, protocol to stdout.</li>
+        </ol>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> capability advertisement is still a contract, but it is now a contract restated on every single message rather than signed once. That one change is what the rest of the revision falls out of.</p>
+    </div>
+
+    <!-- Chapter 4: Resources -->
+    <section class="card">
+        <span class="chapter-badge">Chapter 4</span>
+        <div class="capability-header">
+            <span class="cap-icon">📄</span>
+            <h2>Resources — Serving Content from the Server</h2>
+        </div>
+        <p>Resources allow the server to expose any content the client can discover and read. Our server exposes <strong>70+ Javadoc HTML files</strong> bundled inside the JAR.</p>
+
+        <div class="two-col">
+            <div>
+                <h3>resources/list — Discovery</h3>
+                <p>Returns a paginated list of all available resources with URI, name, description, and MIME type — plus the freshness hints that make it cacheable:</p>
+                <pre>{
+  "resultType": "complete",
+  "resources": [{
+    "uri": "javadoc/com/workshop/mcp/spec/Capability.html",
+    "name": "Capability",
+    "description": "Represents the capability...",
+    "mimeType": "text/html"
+  }],
+  "nextCursor": "pageNext",
+  "ttlMs": 60000,
+  "cacheScope": "public"
+}</pre>
+            </div>
+            <div>
+                <h3>resources/read — Retrieval</h3>
+                <p>Returns the actual content of a specific resource by URI. Also cacheable, so also carries the hints:</p>
+                <pre>{
+  "resultType": "complete",
+  "contents": [{
+    "uri": "javadoc/...",
+    "mimeType": "text/html",
+    "text": "<!DOCTYPE HTML>..."
+  }],
+  "isError": false,
+  "ttlMs": 60000,
+  "cacheScope": "public"
+}</pre>
+            </div>
+        </div>
+
+        <h3>resources/templates/list — Newly Load-Bearing</h3>
+        <p>This method has been in the spec for a while, but on <code>2026-07-28</code> clients fetch it <strong>whenever a server declares any resource capability at all</strong>. It is no longer optional to answer, even if you expose no templates:</p>
+        <pre>{"resultType":"complete","resourceTemplates":[],"ttlMs":60000,"cacheScope":"public"}</pre>
+        <p style="color:var(--muted);font-size:13px">Leaving it unhandled is a popular way to hang a client that is waiting on it before it will render your resource list.</p>
+
+        <h3>JavadocResources — Classpath Loading</h3>
+        <ul>
+            <li>HTML Javadoc files are bundled inside the JAR via Gradle resources</li>
+            <li><strong>JSoup</strong> parses the HTML to extract documentation summaries for descriptions</li>
+            <li>File paths become resource URIs: <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
+            <li>Making the server self-contained — no external files required</li>
+        </ul>
+    </section>
+
+    <!-- Chapter 4: Tools -->
+    <section class="card">
+        <div class="capability-header">
+            <span class="cap-icon">🔧</span>
+            <h2>Tools — Executable Functionality</h2>
+        </div>
+        <p>Tools are functions the LLM can call. Defined with <strong>JSON Schema</strong> for parameter validation, they are the primary integration point between the LLM and your business logic.</p>
+
+        <div class="two-col">
+            <div>
+                <h3>tools/list — Discovery</h3>
+                <pre>{
+  "resultType": "complete",
+  "tools": [{
+    "name": "key_word_search",
+    "description": "Searches for a keyword across all files in a project.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "type": "string",
+          "description": "keyword to search for"
+        }
+      },
+      "required": ["keyword"]
+    }
+  }],
+  "ttlMs": 60000,
+  "cacheScope": "public"
+}</pre>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">The directory is <strong>not</strong> a tool param &mdash; the server asks for it over a Multi Round-Trip Request. Note what is <em>gone</em>: <code>execution.taskSupport</code> was removed from <code>tools/list</code> on this revision, and clients strip it silently. On the <code>complete</code> branch the entry also carries the Ch&nbsp;6 <code>_meta</code> block.</p>
+            </div>
+            <div>
+                <h3>tools/call — Execution</h3>
+                <pre>{
+  "method": "tools/call",
+  "params": {
+    "_meta": { … the envelope … },
+    "name": "key_word_search",
+    "arguments": {
+      "keyword": "record"
+    }
+  }
+}
+
+// Response — one of three resultTypes
+{
+  "resultType": "complete",
+  "content": [{
+    "type": "text",
+    "text": "/path/api.http, keyword_count=1"
+  }],
+  "isError": false
+}</pre>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">No <code>ttlMs</code>/<code>cacheScope</code> here — the answer depends on the arguments, so it is not cacheable. The other two <code>resultType</code>s, <code>input_required</code> and <code>task</code>, are covered on <a href="extensions.html" style="color:var(--accent)">Extensions</a> and <a href="tasks.html" style="color:var(--accent)">Tasks</a>.</p>
+            </div>
+        </div>
+
+        <h3>KeyWordSearch Implementation</h3>
+        <ul>
+            <li>Walks the directory tree recursively from the directory supplied on the call</li>
+            <li>That directory comes from the optional <code>directory</code> argument, or from an <code>inputResponses</code> answer to an embedded <code>elicitation/create</code> (Ch&nbsp;5), or from the working-directory fallback &mdash; never from server memory</li>
+            <li>Counts occurrences of <code>keyword</code> per file (case-insensitive)</li>
+            <li>Returns one text content item per matching file with its count</li>
+            <li>The JSON Schema <code>required</code> array enables client-side validation before the request is even sent</li>
+        </ul>
+    </section>
+
+    <!-- IDE Demo: Chapter 4 Part 1 -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 4 · Part 1 of 2</span>
+        <h3>Chapter 4 Live, Part 1: Resources and the key_word_search Tool</h3>
+        <p style="color:var(--muted);font-size:14px">Continue in the IDE with <code>lessons/04-instructions.md</code> open. Inspector should still be connected from the Chapter 3 demo.</p>
+        <ol class="demo-steps">
+            <li><strong>Open <code>src/main/java/com/workshop/mcp/resources/JavadocResources.java</code></strong> — walk the classpath-loading strategy: <code>loadAllHtmlResourcesFromFolder()</code> reads the build-time <code>html-files.txt</code> listing, <code>readResourceContent()</code> streams files from inside the JAR, and JSoup extracts descriptions from the Javadoc HTML.</li>
+            <li><strong>Back in <code>IORouter.java</code></strong>, walk the <code>RESOURCES_LIST</code> case (builder + <code>withNextCursor("pageNext")</code> — pagination advertised but intentionally not implemented) and the <code>RESOURCES_READ</code> case (URI validation, content read, error path with <code>asError()</code>). Point out that both wrap their builder output one last time to attach <code>ttlMs</code> and <code>CacheScope.PUBLIC</code>. Then show the three-line <code>RESOURCES_TEMPLATES_LIST</code> case and explain why an empty list still has to be answered.</li>
+            <li><strong>In Inspector:</strong> click <strong>List Resources</strong> — 70+ Javadoc files come back. Click one and show the HTML arriving via <code>resources/read</code>. In the raw JSON, point at <code>ttlMs</code>/<code>cacheScope</code> and note that these are what let a stateless server be sat behind a cache at all.</li>
+            <li><strong>Open <code>src/main/java/com/workshop/mcp/tools/KeyWordSearch.java</code></strong> — show <code>name()</code>, <code>description()</code>, and <code>schema()</code>: a single required <code>keyword</code> parameter. Emphasize the design decision: the search directory is <em>not</em> a tool argument — the server asks for it, which on this revision means asking inside a result.</li>
+            <li><strong>Walk the <code>TOOLS_LIST</code> and <code>TOOLS_CALL</code> cases</strong> in <code>IORouter</code> — name matching, deserializing <code>ToolCallParams</code>, and the "Tool not found" error path. Note that <code>TOOLS_LIST</code> returns the Ch 6 <code>AppTool</code> with its <code>_meta</code> block but <em>no</em> <code>execution</code> field, and that <code>TOOLS_CALL</code> no longer needs any trick to force the Ch 5 path: with no session, a first call simply has nowhere to have got a directory from.</li>
+            <li><strong>In Inspector:</strong> click <strong>List Tools</strong>, inspect the JSON Schema, then call <code>key_word_search</code> with keyword <code>"record"</code>. What comes back is not results and not an error — it is <code>resultType: "input_required"</code>. Let that land for a moment, then move on; the whole of Chapter 5 is about what happens next.</li>
+        </ol>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the same list/read (or list/call) shape repeats for every capability — discovery first, execution second. Prompts complete the trio next. This is also a natural pause point if you want to take a break — leave the server and Inspector running.</p>
+    </div>
+
+    <!-- Chapter 4: Prompts -->
+    <section class="card">
+        <span class="chapter-badge">Chapter 4</span>
+        <div class="capability-header">
+            <span class="cap-icon">💬</span>
+            <h2>Prompts — User-Friendly Templates</h2>
+        </div>
+        <p>Prompts are reusable templates that guide users and clients in composing effective tool calls. They appear as autocomplete suggestions in MCP-compatible clients.</p>
+
+        <div class="two-col">
+            <div>
+                <h3>prompts/list — Discovery</h3>
+                <p style="color:var(--muted);font-size:12px;margin:0 0 8px">Cacheable, so it carries the hints:</p>
+                <pre>{
+  "resultType": "complete",
+  "prompts": [{
+    "name": "search_keyword",
+    "description": "Creates a prompt to search for a word using the key_word_search tool.",
+    "arguments": [{
+      "name": "keyword",
+      "description": "The word to search for",
+      "required": true
+    }]
+  }],
+  "nextCursor": "nextPage",
+  "ttlMs": 60000,
+  "cacheScope": "public"
+}</pre>
+            </div>
+            <div>
+                <h3>prompts/get — Execution</h3>
+                <p style="color:var(--muted);font-size:12px;margin:0 0 8px"><strong>Not</strong> cacheable — its answer folds in the arguments — so no hints:</p>
+                <pre>{
+  "method": "prompts/get",
+  "params": {
+    "_meta": { … the envelope … },
+    "name": "search_keyword",
+    "arguments": { "keyword": "mcp" }
+  }
+}
+
+// Response
+{
+  "resultType": "complete",
+  "description": "keyword",
+  "messages": [{
+    "role": "user",
+    "content": {
+      "type": "text",
+      "text": "Start from the root of the project and use the key_word_search tool to search for this specific keyword: 'mcp'"
+    }
+  }]
+}</pre>
+            </div>
+        </div>
+
+        <div class="cap-card" style="margin-top:16px">
+            <h4>The <code>list</code> / <code>get</code> split is now a caching boundary</h4>
+            <p style="font-size:13px;margin:0">It is worth pausing on the pair above, because the rule is easy to state and easy to get wrong. <code>prompts/list</code> is the same for every caller, so it is cacheable. <code>prompts/get</code> depends on the arguments, so it is not — and a server that attaches <code>ttlMs</code> to it is inviting a client to serve one user's answer to another. The same line runs between <code>tools/list</code> and <code>tools/call</code>, and between <code>resources/list</code> and <code>completion/complete</code>.</p>
+        </div>
+
+        <h3>How the Three Capabilities Work Together</h3>
+        <table>
+            <thead><tr><th>Capability</th><th>What It Exposes</th><th>Primary Use</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Resources</strong></td><td>Static content (Javadoc HTML)</td><td>Documentation, reference data, context for the LLM</td></tr>
+                <tr><td><strong>Tools</strong></td><td>Executable functions (keyword search)</td><td>Dynamic operations, data retrieval, system interaction</td></tr>
+                <tr><td><strong>Prompts</strong></td><td>Guided templates</td><td>UX layer — makes tools discoverable and easy to use</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- IDE Demo: Chapter 4 Part 2 -->
+    <div class="ide-demo">
+        <span class="ide-demo-badge">⌨️ IDE Demo — Chapter 4 · Part 2 of 2</span>
+        <h3>Chapter 4 Live, Part 2: Prompts and the Full Capability Tour</h3>
+        <p style="color:var(--muted);font-size:14px">Reconnect Inspector if needed (<code>cd inspector &amp;&amp; ./run.sh</code>), then pick up <code>lessons/04-instructions.md</code> at Part 3.</p>
+        <ol class="demo-steps">
+            <li><strong>Walk the <code>PROMPTS_LIST</code> case</strong> in <code>IORouter.java</code> — the <code>search_keyword</code> prompt declares a required <code>keyword</code> argument and its description names the tool it drives.</li>
+            <li><strong>Walk <code>PROMPTS_GET</code></strong> — how the prompt arguments are folded into the <code>KEY_WORD_MESSAGE</code> template that guides the client toward calling <code>key_word_search</code>.</li>
+            <li><strong>Show <code>COMPLETION_COMPLETE</code></strong> — the autocomplete handler returning suggested values (<code>java</code>, <code>the</code>, <code>and</code>) for the keyword argument. This is what powers argument autocomplete in MCP clients.</li>
+            <li><strong>In Inspector:</strong> click <strong>List Prompts</strong> → select <code>search_keyword</code> → type a keyword and watch autocomplete suggestions arrive → execute the prompt and show the generated user message.</li>
+            <li><strong>Put the cacheable and non-cacheable results side by side</strong> — open the raw JSON for <code>prompts/list</code> and <code>prompts/get</code> in the same view. Same <code>resultType</code>; only one has <code>ttlMs</code>/<code>cacheScope</code>. Ask the class why, and let them arrive at "because the other one has arguments in it."</li>
+            <li><strong>Full tour:</strong> run the trio end to end — list resources, read one; list tools, call <code>key_word_search</code>; list prompts, get one. Narrate the repeating discovery/execution shape.</li>
+            <li><strong>Wrap with references:</strong> put <a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a> on screen for the per-request envelope summary, and <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> to compare the recorded session against what Inspector just showed.</li>
+        </ol>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> Tools define functionality, Prompts make it discoverable and guided. With the core server complete, everything that follows — Extensions, Apps, Tasks — is additive.</p>
+    </div>
+
+    <div class="footer">© 2025 MCP Presentation. Discovery, Resources, Tools, and Prompts — Chapters 3 &amp; 4.</div>
+</main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Class Flow</h2>
+<p class="agenda-sub">The class flow, left to right — pace each segment to the room and its questions.</p>
+<table class="at">
+<thead><tr><th>#</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">1</span></td><td>Welcome, class agenda, and what we'll build together</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">2</span></td><td>What is MCP? Architecture, the four actors, why Java</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">3</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">4</span></td><td><span class="bd">IDE Demo</span> Ch 1 transport layer &mdash; <code>IOHandlerImpl</code>, log writer, build &amp; tests</td><td><span class="bc">Ch 1</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">5</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">6</span></td><td><span class="bd">IDE Demo</span> Ch 3 discovery &amp; routing &mdash; first MCP Inspector connect</td><td><span class="bc">Ch 3</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">7</span></td><td>Ch 4 concepts + <span class="bd">IDE Demo</span> part 1 &mdash; Resources and the <code>key_word_search</code> tool</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">8</span></td><td><span class="bd">IDE Demo</span> Ch 4 part 2 &mdash; Prompts, then all three capabilities in Inspector</td><td><span class="bc">Ch 4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">9</span></td><td>Ch 5 Extensions + <span class="bd">IDE Demo</span> &mdash; lazy elicitation flow</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">10</span></td><td>Ch 6 MCP Apps + <span class="bd">IDE Demo</span> &mdash; interactive dashboard in Inspector</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">11</span></td><td>Ch 7 Tasks + <span class="bd">IDE Demo</span> &mdash; task-augmented <code>tools/call</code>, poll, cancel</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">12</span></td><td>Agent chapter + <span class="bd">IDE Demo</span> &mdash; Claude Code plugin, supervised audit</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+<tr><td><span class="bt">13</span></td><td>Wrap-up, Runtime Facts reference, Q&amp;A</td><td>&mdash;</td><td><a href="contact.html" style="color:#7aa2f7">Contact</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

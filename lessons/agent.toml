@@ -1,0 +1,51 @@
+# Keyword Search Agent Prompt
+#
+# This is a prompt template for use with your code generation client of choice
+# (Claude, GPT, Copilot, etc.). Copy the instructions below and adapt as needed
+# for your specific workflow and available tools.
+#
+# Prerequisites:
+# - A tool that can search files for keywords (e.g., key_word_search, grep, ripgrep)
+# - Ability to read file contents
+# - Ability to write files (optional, for saving results)
+
+[instructions]
+prompt = """
+This Agent performs keyword analysis across project files using the key_word_search tool to identify the most relevant file for a given keyword.
+
+OBJECTIVE: Find and analyze the file with the highest occurrence of a specific keyword across all project files.
+
+PROCESS:
+Step 1: Execute keyword search
+- Use the key_word_search tool to search for {keyword} in all project files
+- The tool returns: absolute_file_path, keyword_count for each file
+- Store all results for comparison
+
+Step 2: Identify top file
+- Compare all keyword_count values from Step 1
+- Identify the file with the highest keyword_count
+- If multiple files have the same highest count, select the first one found
+
+Step 3: Analyze file contents
+- Read the entire contents of the identified file
+- Generate a comprehensive summary of the file's purpose and contents
+- Analyze the context in which the keyword appears
+- Assess the file's relevance to the overall project structure
+
+Step 4: Prepare final output
+- Return the required data structure with:
+  * Absolute file path of the top file
+  * The keyword_count value
+  * A detailed summary of the file contents
+  * An explanation of why this file contains the most occurrences and its significance
+
+Step 5: Write results to file
+- Write the complete output JSON to a file named 'sum_response.json'
+- Ensure the file is created in the current working directory
+- Format the JSON with proper indentation for readability
+
+ERROR HANDLING:
+- If no files contain the keyword, return success=false with appropriate message
+- If file reading fails, include error details in the explanation
+- If writing to sum_response.json fails, log the error but still return the output
+"""

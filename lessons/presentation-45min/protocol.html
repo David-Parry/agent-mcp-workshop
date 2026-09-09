@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transport &amp; Protocol – MCP Presentation</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7;--green:#9ece6a;--orange:#ff9e64;--purple:#bb9af7;--red:#f7768e}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:1100px;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:24px;margin-bottom:24px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center;line-height:2.2}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px;padding:6px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:13px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        h2{color:var(--accent);margin-top:0;margin-bottom:16px}
+        h3{color:var(--accent);margin-top:24px;margin-bottom:12px}
+        ul{margin:16px 0;padding-left:24px}
+        li{margin:8px 0}
+        .timing-badge{display:inline-block;background:rgba(255,158,100,0.15);border:1px solid var(--orange);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;color:var(--orange);margin-bottom:16px}
+        .chapter-badge{display:inline-block;background:rgba(187,154,247,0.15);border:1px solid var(--purple);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--purple);margin-right:8px}
+        code{background:#0c1328;padding:2px 7px;border-radius:4px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:#7dcfff}
+        pre{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;overflow-x:auto;font-size:13px;line-height:1.6;color:#d3d9e8}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+        @media(max-width:700px){.two-col{grid-template-columns:1fr}}
+        .msg-card{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px}
+        .msg-card h4{margin:0 0 10px;font-size:14px}
+        .msg-card .label{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+        .label-request{background:rgba(122,162,247,0.2);color:var(--accent)}
+        .label-response{background:rgba(158,206,106,0.2);color:var(--green)}
+        .label-notification{background:rgba(255,158,100,0.2);color:var(--orange)}
+        .label-error{background:rgba(247,118,142,0.2);color:var(--red)}
+        .flow-diagram{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0}
+        .flow-box{background:#0c1328;border:1px solid #1f2740;border-radius:8px;padding:10px 14px;font-size:13px;text-align:center;min-width:80px}
+        .flow-arrow{color:var(--accent);font-size:20px;font-weight:bold}
+        .highlight-box{background:rgba(122,162,247,0.08);border:1px solid rgba(122,162,247,0.3);border-radius:10px;padding:16px;margin:16px 0}
+        .io-diagram{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin:16px 0}
+        .io-box{background:#0c1328;border:1px solid #1f2740;border-radius:10px;padding:16px;text-align:center}
+        .io-box h4{color:var(--accent);margin:0 0 8px;font-size:14px}
+        .io-box p{color:var(--muted);margin:0;font-size:12px}
+        .io-center{text-align:center}
+        .io-center .label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+        .arrow-up{color:var(--green);font-size:24px}
+        .arrow-down{color:var(--accent);font-size:24px}
+        table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+        th{text-align:left;color:var(--accent);padding:10px 12px;border-bottom:2px solid #1f2740}
+        td{padding:10px 12px;border-bottom:1px solid #1f2740;vertical-align:top}
+        tr:last-child td{border-bottom:none}
+    </style>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header>
+    <h1>Transport Layer &amp; JSON-RPC Protocol</h1>
+    <p class="subtitle">How MCP moves messages: STDIO transport, IOHandler architecture, and JSON-RPC 2.0 message types</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">🏠 Home</a>
+        <a href="overview.html">📐 Overview</a>
+        <a href="protocol.html">⚡ Protocol</a>
+        <a href="flow-diagram.html">📊 Flow Diagram</a>
+        <a href="capabilities.html">🔧 Capabilities</a>
+        <a href="extensions.html">🧩 Extensions</a>
+        <a href="mcp-apps.html">🖥️ MCP Apps</a>
+        <a href="tasks.html">🧵 Tasks</a>
+        <a href="agent.html">🤖 Agent</a>
+        <a href="runtime-facts.html">📋 Runtime Facts</a>
+        <a href="trace-log.html">🔍 Trace Log</a>
+        <a href="contact.html">📬 Contact</a>
+        <a href="#" id="agenda-toggle" onclick="document.getElementById('agenda-overlay').classList.toggle('hidden');return false" style="background:var(--accent);color:var(--bg);font-weight:700">📅 Agenda</a>
+        <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
+    </div>
+
+    <!-- Chapter 1: Transport Layer -->
+    <section class="card">
+        <div class="timing-badge">10 – 13 min</div>
+        <span class="chapter-badge">Chapter 1</span>
+        <h2>Transport Layer — The STDIO Foundation</h2>
+        <p>MCP communicates over <strong>standard I/O streams</strong> by default. The host process starts your server as a subprocess and communicates through stdin/stdout. Every message is a single JSON line.</p>
+
+        <div class="io-diagram">
+            <div class="io-box">
+                <h4>MCP Client (Host)</h4>
+                <p>Claude Code, Inspector, Cursor…</p>
+            </div>
+            <div class="io-center">
+                <span class="label">→ stdin (System.in)</span>
+                <div class="arrow-down">→</div>
+                <div class="arrow-up">←</div>
+                <span class="label">← stdout (System.out)</span>
+            </div>
+            <div class="io-box">
+                <h4>MCP Server</h4>
+                <p>Your Java process — agent-mcp-workshop</p>
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <strong>Critical Rule:</strong> Never write anything to <code>System.out</code> except JSON-RPC messages. All debugging and logging must go to a file. Writing non-JSON to stdout breaks the protocol connection immediately.
+        </div>
+
+        <h3>IOHandler — The Communication Hub</h3>
+        <p>The <code>IOHandlerImpl</code> class manages all I/O with three responsibilities:</p>
+
+        <div class="two-col" style="margin-top:12px">
+            <div class="msg-card">
+                <h4>📥 Input Reading</h4>
+                <pre>public void startInputReader() {
+    Scanner scanner = new Scanner(System.in);
+    running.set(true);
+    while (running.get()) {
+        if (!scanner.hasNextLine()) {
+            running.set(false); break;
+        }
+        String line = scanner.nextLine();
+        logger.log("[API][RECEIVED]" + line);
+        publishLine(line); // → listeners
+    }
+}</pre>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Runs on a dedicated thread. Publishes each JSON line to all registered listeners via the Observer pattern.</p>
+            </div>
+            <div class="msg-card">
+                <h4>📤 Output Emission</h4>
+                <pre>public void emit(Object message) {
+    String text = gson.toJson(message);
+    logger.log("[API][SENT]: " + text);
+    writer.println(text);
+    writer.flush(); // immediate
+}</pre>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Serializes any Java object to JSON via Gson. Immediately flushes — MCP clients expect real-time responses.</p>
+            </div>
+        </div>
+
+        <h3>Key Design Choices</h3>
+        <ul>
+            <li><strong>CopyOnWriteArrayList</strong> for thread-safe listener management</li>
+            <li><strong>AtomicBoolean</strong> for safe running-state across threads</li>
+            <li><strong>Process-specific log files</strong> using PID — no conflicts when multiple servers run</li>
+            <li><strong>Router interface</strong> — the IOHandler doesn't know what messages mean, it just moves them</li>
+        </ul>
+    </section>
+
+    <!-- Chapter 2: JSON-RPC Protocol -->
+    <section class="card">
+        <div class="timing-badge">13 – 16 min</div>
+        <span class="chapter-badge">Chapter 2</span>
+        <h2>JSON-RPC 2.0 — The Message Protocol</h2>
+        <p>MCP uses <strong>JSON-RPC 2.0</strong> as its wire format. Every message is a JSON object with a defined structure. There are four message types:</p>
+
+        <div class="two-col" style="margin-top:16px">
+            <div class="msg-card">
+                <span class="label label-request">Request</span>
+                <h4>Client → Server</h4>
+                <pre>{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "method": "tools/list",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion":
+        "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities":
+        { "roots": { "listChanged": true } }
+    }
+  }
+}</pre>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Has an <code>id</code> — expects a Response back with the same id, <em>in the same JSON type</em>. Carries the <code>_meta</code> envelope, on every single request.</p>
+            </div>
+            <div class="msg-card">
+                <span class="label label-response">Response</span>
+                <h4>Server → Client</h4>
+                <pre>{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "result": {
+    "resultType": "complete",
+    "tools": [{
+      "name": "key_word_search",
+      "description": "..."
+    }],
+    "ttlMs": 60000,
+    "cacheScope": "public"
+  }
+}</pre>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Returns <code>result</code> with the same <code>id</code>. <code>resultType</code> is mandatory on every result; <code>ttlMs</code> and <code>cacheScope</code> only on the five cacheable methods.</p>
+            </div>
+            <div class="msg-card">
+                <span class="label label-notification">Notification</span>
+                <h4>Either Side → Other Side</h4>
+                <pre>{
+  "jsonrpc": "2.0",
+  "method": "notifications/tasks",
+  "params": { "taskId": "3dab39bc-…",
+              "status": "working" }
+}</pre>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected. This is the <em>only</em> direction a server may still speak unprompted.</p>
+            </div>
+            <div class="msg-card">
+                <span class="label label-error">Error Response</span>
+                <h4>Server → Client (on failure)</h4>
+                <pre>{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "error": {
+    "code": -32601,
+    "message": "Method not found"
+  }
+}</pre>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Standard codes: -32700 Parse Error, -32600 Invalid Request, -32601 Method Not Found, -32602 Invalid Params.</p>
+            </div>
+        </div>
+
+        <h3>Request Ids Are Strings <em>or</em> Numbers</h3>
+        <p>JSON-RPC has always allowed both, and <code>2026-07-28</code> clients use both freely: <code>"server-discover-probe-1"</code> for discovery, <code>"listen:0"</code> for a subscription, <code>"inspector-ext-1"</code>… while polling a task, and plain integers for everything else. A server must echo the id back <strong>in exactly the form it arrived</strong> — a string id must not come back as a number.</p>
+        <div class="highlight-box">
+            <strong>What that costs in Java:</strong> this repo's <code>id</code> field used to be a <code>Long</code>. The first modern client to connect sent <code>"server-discover-probe-1"</code> and the server died with <code>NumberFormatException: For input string: "server-discover-probe-1"</code>. The fix is <code>spec/RequestId.java</code> — a small union type — plus <code>RequestIdTypeAdapter</code> to remember which arm arrived.
+        </div>
+
+        <h3>Error Codes — a Reserved Range Appears</h3>
+        <table>
+            <thead><tr><th>Code</th><th>Meaning</th><th>When you'll see it</th></tr></thead>
+            <tbody>
+                <tr><td><code>-32700</code></td><td>Parse error</td><td>Malformed JSON on the line</td></tr>
+                <tr><td><code>-32600</code></td><td>Invalid request</td><td>Not a JSON-RPC message</td></tr>
+                <tr><td><code>-32601</code></td><td>Method not found</td><td>Every removed method — <code>initialize</code>, <code>ping</code>, <code>tasks/list</code>…</td></tr>
+                <tr><td><code>-32602</code></td><td>Invalid params</td><td>Missing required <code>_meta</code> fields</td></tr>
+                <tr><td><code>-32021</code></td><td>Missing required client capability</td><td>Data: <code>{"requiredCapabilities":{…}}</code></td></tr>
+                <tr><td><code>-32022</code></td><td>Unsupported protocol version</td><td>Data: <code>{"supported":[…],"requested":"…"}</code></td></tr>
+                <tr><td><code>-32020</code>&hellip;<code>-32099</code></td><td>Reserved for the spec</td><td>Do not squat here</td></tr>
+                <tr><td><code>-32000</code>&hellip;<code>-32019</code></td><td>Implementation-defined</td><td>Your own server errors go here</td></tr>
+            </tbody>
+        </table>
+
+        <h3>MCP Method Namespace</h3>
+        <p>All MCP methods follow a <code>category/action</code> naming convention:</p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
+            <div class="msg-card" style="padding:10px">
+                <span class="label label-request" style="margin-bottom:6px;display:inline-block">server/discover</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">Versions, capabilities, identity — and no session</p>
+            </div>
+            <div class="msg-card" style="padding:10px">
+                <span class="label" style="background:rgba(122,162,247,0.2);color:var(--accent);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">resources/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">list, read — discover and fetch content</p>
+            </div>
+            <div class="msg-card" style="padding:10px">
+                <span class="label" style="background:rgba(158,206,106,0.2);color:var(--green);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">tools/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">list, call — discover and execute tools</p>
+            </div>
+            <div class="msg-card" style="padding:10px">
+                <span class="label" style="background:rgba(255,158,100,0.2);color:var(--orange);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">prompts/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">list, get — discover and fetch templates</p>
+            </div>
+            <div class="msg-card" style="padding:10px">
+                <span class="label" style="background:rgba(187,154,247,0.2);color:var(--purple);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">tasks/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">get, update, cancel — deferred work, polled</p>
+            </div>
+            <div class="msg-card" style="padding:10px">
+                <span class="label" style="background:rgba(247,118,142,0.2);color:var(--red);margin-bottom:6px;display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">subscriptions/*</span>
+                <p style="font-size:12px;color:var(--muted);margin:0">listen — one long-lived request, many notifications</p>
+            </div>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-top:10px"><code>roots/list</code>, <code>sampling/createMessage</code> and <code>elicitation/create</code> are still method names, but no longer messages a server may send. They now travel <em>inside</em> a result — see Chapter 5. Sending any of them <em>to</em> this server is <code>-32601</code>, and two of the three, roots and sampling, are additionally deprecated under SEP&#8209;2577, so this server embeds only <code>elicitation/create</code>.</p>
+
+        <h3>Stateless by Design — Now Literally</h3>
+        <p>Older revisions were stateless in spirit and stateful in practice: an <code>initialize</code> handshake opened a session, and everything after it assumed that session existed. <code>2026-07-28</code> removed the handshake outright. There is no first message, no session, nothing to resume. This means:</p>
+        <ul>
+            <li>Any request can arrive at any time, in any order, as the very first thing the server ever sees</li>
+            <li>Every request carries its own context — the <code>_meta</code> envelope replaces what the handshake used to establish</li>
+            <li>Servers can be scaled horizontally, or restarted mid-conversation, and no client notices</li>
+            <li>Debugging is simpler — each message really is self-contained now</li>
+        </ul>
+
+        <h3>Capability-Based Feature Detection</h3>
+        <p>The client learns what the server can do from <code>server/discover</code>. The server learns what the <em>client</em> can do from <code>_meta["io.modelcontextprotocol/clientCapabilities"]</code> — on every request, because there is no session to remember it in. A server may only hand back a task to a request that declared the tasks extension; it may only embed <code>elicitation/create</code> in a result if that same request declared <code>elicitation</code>. No guessing — explicit opt-in, re-stated every time.</p>
+    </section>
+
+    <div class="footer">© 2025 MCP Presentation. Transport layer and JSON-RPC protocol — Chapters 1 &amp; 2.</div>
+</main>
+<div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<style>
+#agenda-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#agenda-overlay.hidden{display:none}
+#agenda-overlay .agenda-popup{background:#141a2e;border:1px solid #1f2740;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:28px 32px;max-width:780px;width:92vw;max-height:85vh;overflow-y:auto;position:relative}
+#agenda-overlay .agenda-popup h2{margin:0 0 6px;color:#7aa2f7;font-size:22px}
+#agenda-overlay .agenda-popup .agenda-sub{margin:0 0 16px;color:#9aa4b2;font-size:14px}
+#agenda-overlay .agenda-popup .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa4b2;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px}
+#agenda-overlay .agenda-popup .close-btn:hover{color:#e6e9ef;background:rgba(255,255,255,.08)}
+#agenda-overlay .at{width:100%;border-collapse:collapse}
+#agenda-overlay .at th{text-align:left;color:#7aa2f7;padding:8px 10px;border-bottom:2px solid #1f2740;font-size:12px}
+#agenda-overlay .at td{padding:8px 10px;border-bottom:1px solid #1f2740;font-size:13px;vertical-align:top}
+#agenda-overlay .at tr:last-child td{border-bottom:none}
+#agenda-overlay .at tr:hover td{background:rgba(122,162,247,.04)}
+#agenda-overlay .bt{display:inline-block;background:#0c1328;border:1px solid #1f2740;border-radius:6px;padding:2px 8px;font-size:12px;font-family:monospace;color:#ff9e64;min-width:60px;text-align:center}
+#agenda-overlay .bd{display:inline-block;background:rgba(122,162,247,.15);border:1px solid #7aa2f7;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;color:#7aa2f7;text-transform:uppercase;letter-spacing:.5px}
+#agenda-overlay .bc{display:inline-block;background:rgba(187,154,247,.15);border:1px solid #bb9af7;border-radius:6px;padding:2px 8px;font-size:12px;color:#bb9af7}
+</style>
+<div class="agenda-popup">
+<button class="close-btn" onclick="document.getElementById('agenda-overlay').classList.add('hidden')">&times;</button>
+<h2>Presentation Agenda</h2>
+<p class="agenda-sub">A hands-on journey through every layer of the Model Context Protocol &mdash; with live IDE demos at each milestone.</p>
+<table class="at">
+<thead><tr><th>Time</th><th>Topic</th><th>Chapter</th><th>Page</th></tr></thead>
+<tbody>
+<tr><td><span class="bt">0&ndash;3 min</span></td><td>Introduction &amp; Presentation Goals</td><td>&mdash;</td><td><a href="index.html" style="color:#7aa2f7">Home</a></td></tr>
+<tr><td><span class="bt">3&ndash;10 min</span></td><td>What is MCP? Architecture, actors, protocol features</td><td><span class="bc">Overview</span></td><td><a href="overview.html" style="color:#7aa2f7">Overview</a></td></tr>
+<tr><td><span class="bt">10&ndash;16 min</span></td><td>Transport Layer (STDIO, IOHandler) + JSON-RPC 2.0 Protocol</td><td><span class="bc">Ch 1&ndash;2</span></td><td><a href="protocol.html" style="color:#7aa2f7">Protocol</a></td></tr>
+<tr><td><span class="bt">16&ndash;20 min</span></td><td>Full JSON-RPC sequence diagram &mdash; every message annotated</td><td><span class="bc">Ch 2</span></td><td><a href="flow-diagram.html" style="color:#7aa2f7">Flow Diagram</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">20&ndash;23 min</span></td><td><span class="bd">IDE Demo</span> Launch MCP Inspector &rarr; show <code>server/discover</code> + the stateless <code>_meta</code> envelope live</td><td><span class="bc">Ch 3</span></td><td>&mdash;</td></tr>
+<tr><td><span class="bt">23&ndash;30 min</span></td><td>Implementing Resources, Tools &amp; Prompts &mdash; the three core capabilities</td><td><span class="bc">Ch 3&ndash;4</span></td><td><a href="capabilities.html" style="color:#7aa2f7">Capabilities</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">30&ndash;33 min</span></td><td><span class="bd">IDE Demo</span> Inspector: List Resources, Tools, Prompts &rarr; call <code>key_word_search</code></td><td><span class="bc">Ch 4</span></td><td><a href="runtime-facts.html" style="color:#7aa2f7">Runtime Facts</a></td></tr>
+<tr><td><span class="bt">33&ndash;36 min</span></td><td>MCP Extensions (extensions map) + Multi Round-Trip Requests</td><td><span class="bc">Ch 5</span></td><td><a href="extensions.html" style="color:#7aa2f7">Extensions</a></td></tr>
+<tr><td><span class="bt">36&ndash;38 min</span></td><td>MCP Apps &mdash; interactive UI rendered inside the conversation</td><td><span class="bc">Ch 6</span></td><td><a href="mcp-apps.html" style="color:#7aa2f7">MCP Apps</a></td></tr>
+<tr><td><span class="bt">38&ndash;41 min</span></td><td>Tasks &mdash; call-now / fetch-later, lifecycle, polling</td><td><span class="bc">Ch 7</span></td><td><a href="tasks.html" style="color:#7aa2f7">Tasks</a></td></tr>
+<tr style="background:rgba(122,162,247,.06)"><td><span class="bt">41&ndash;43 min</span></td><td><span class="bd">IDE Demo</span> Show the MRTR loop, an MCP App, and a task handle in Inspector</td><td><span class="bc">Ch 5&ndash;7</span></td><td>&mdash;</td></tr>
+<tr><td><span class="bt">43&ndash;45 min</span></td><td>Claude Code Plugin &mdash; supervised agent with checkpoint</td><td><span class="bc">Agent</span></td><td><a href="agent.html" style="color:#7aa2f7">Agent</a></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<script src="theme.js"></script>
+</body>
+</html>

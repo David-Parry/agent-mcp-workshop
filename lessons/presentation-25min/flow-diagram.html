@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Workshop – JSON-RPC Flow Diagram</title>
+    <style>
+        :root{--bg:#0b1020;--fg:#e6e9ef;--muted:#9aa4b2;--card:#141a2e;--accent:#7aa2f7}
+        html,body{height:100%}
+        body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+        header{padding:28px 24px;border-bottom:1px solid #1f2740;background:linear-gradient(180deg,#0d1530,transparent)}
+        h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 6px}
+        p.subtitle{margin:0;color:var(--muted)}
+        main{max-width:95%;margin:0 auto;padding:24px}
+        .card{background:var(--card);border:1px solid #1f2740;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px 18px}
+        .hint{margin-top:10px;color:#b2b8c6;font-size:13px}
+        .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
+        .nav{margin-bottom:18px;text-align:center}
+        .nav a{color:var(--accent);text-decoration:none;margin:4px 5px;padding:7px 12px;border:1px solid #1f2740;border-radius:8px;background:var(--card);font-size:14px;display:inline-block}
+        .nav a:hover{background:#1f2740}
+        .badge-time{display:inline-block;background:#0c1328;border:1px solid #1f2740;color:#ff9e64;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;margin-left:8px;vertical-align:middle}
+    </style>
+    <!-- Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'dark',
+            sequence: {
+                showSequenceNumbers: true
+            }
+        });
+        
+        // Add hover tooltips after Mermaid renders
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                addHoverTooltips();
+            }, 1000); // Wait for Mermaid to render
+        });
+        
+        function addHoverTooltips() {
+            // Create tooltip element
+            const tooltip = document.createElement('div');
+            tooltip.id = 'mermaid-tooltip';
+            tooltip.style.cssText = `
+                position: absolute;
+                background: #1a1a2e;
+                color: #e6e9ef;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 18px;
+                border: 1px solid #7aa2f7;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 1000;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s;
+                max-width: 70vw;
+                word-wrap: break-word;
+            `;
+            document.body.appendChild(tooltip);
+            
+            // Define tooltips for different message types.
+            // "...envelope..." stands for the same params._meta block shown in
+            // full on server/discover — every request repeats it.
+            const tooltips = {
+                'server/discover': '{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}',
+                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
+                'tools/list': '{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{"_meta":{...envelope...}}}',
+                'tools/list result': '{"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project... Pass a directory to search it directly; omit it and the server asks, falling back to its working directory.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"directory":{"type":"string","description":"the absolute directory to search; omit it to have the server ask for one over a Multi Round-Trip Request and fall back to its working directory"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}',
+                'tools/call (directory)': '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../com/workshop/mcp/tools"}}}',
+                'tools/call (directory) result': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'tools/call': '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"}}}',
+                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","required":["directory"],"properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}}}}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
+                'tools/call (retry)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../com/workshop/mcp/tools"}}}}}',
+                'tools/call (retry) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'tools/call (declined)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"decline"}}}}',
+                'tools/call (fallback) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}  —  searched from the server working directory, because the asking ran out',
+                'tools/call (tasks ext)': 'Same request as the one-hop call above — there is no task opt-in any more. The client merely declared io.modelcontextprotocol/tasks in its clientCapabilities.extensions, which permits the server to answer with a handle: {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope with tasks extension...},"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../com/workshop/mcp/tools"}}}  —  drop the directory and the handle still comes back first, with the question arriving later as an input_required status on the task itself',
+                'task handle': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"task","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:06.276669Z","ttlMs":300000,"pollIntervalMs":1000}}',
+                'tasks/get': '{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{"_meta":{...envelope...},"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f"}}',
+                'tasks/get result': '{"jsonrpc":"2.0","id":"inspector-ext-4","result":{"resultType":"complete","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
+                'notifications/tasks': '{"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
+                'subscriptions/listen': '{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{"_meta":{...envelope...},"notifications":{"toolsListChanged":true,"promptsListChanged":true,"resourcesListChanged":true,"resourceSubscriptions":["ui://keyword-search/mcp-app.html"]}}}',
+                'notifications/subscriptions/acknowledged': '{"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}',
+                'subscriptions/listen result': '{"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"}}}'
+            };
+            
+            // Wait a bit more for Mermaid to fully render
+            setTimeout(() => {
+                // Try multiple selectors to catch different Mermaid versions
+                const messageSelectors = [
+                    '.messageText',
+                    '.messageLine0', 
+                    '.messageLine1',
+                    'text[class*="messageText"]',
+                    'text[class*="messageLine"]',
+                    '.message-text',
+                    'g.message text',
+                    'g[class*="message"] text'
+                ];
+                
+                let messageElements = [];
+                messageSelectors.forEach(selector => {
+                    const elements = document.querySelectorAll(selector);
+                    messageElements = messageElements.concat(Array.from(elements));
+                });
+                
+                // Remove duplicates
+                messageElements = [...new Set(messageElements)];
+                
+                console.log('Found message elements:', messageElements.length);
+                
+                messageElements.forEach((element, index) => {
+                    const text = (element.textContent || element.innerHTML || '').trim();
+                    console.log(`Element ${index}: "${text}"`);
+                    
+                    // Find matching tooltip with precise matching
+                    let tooltipText = '';
+                    let matchedKey = '';
+                    
+                    // Sort keys by length (longest first) to avoid partial matches
+                    const sortedKeys = Object.keys(tooltips).sort((a, b) => b.length - a.length);
+                    
+                    for (const key of sortedKeys) {
+                        const value = tooltips[key];
+                        
+                        // Try exact match first (most precise)
+                        if (text === key) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Exact match: "${text}" === "${key}"`);
+                            break;
+                        }
+                        
+                        // Try exact match ignoring case
+                        if (text.toLowerCase() === key.toLowerCase()) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Case-insensitive exact match: "${text}" === "${key}"`);
+                            break;
+                        }
+                        
+                        // Try contains match but only if the key is substantial (avoid single char matches)
+                        if (key.length >= 4 && text.includes(key)) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Contains match: "${text}" contains "${key}"`);
+                            break;
+                        }
+                        
+                        // Try word boundary match (key as whole word in text)
+                        const wordRegex = new RegExp('\\b' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                        if (wordRegex.test(text)) {
+                            tooltipText = value;
+                            matchedKey = key;
+                            console.log(`Word boundary match: "${text}" contains word "${key}"`);
+                            break;
+                        }
+                    }
+                    
+                    if (tooltipText) {
+                        console.log(`Final match: "${text}" matched with key "${matchedKey}"`);
+                        
+                        element.addEventListener('mouseenter', (e) => {
+                            tooltip.innerHTML = `<strong>${matchedKey}</strong><br/>${tooltipText}`;
+                            tooltip.style.opacity = '1';
+                            updateTooltipPosition(e, tooltip);
+                        });
+                        
+                        element.addEventListener('mousemove', (e) => {
+                            updateTooltipPosition(e, tooltip);
+                        });
+                        
+                        element.addEventListener('mouseleave', () => {
+                            tooltip.style.opacity = '0';
+                        });
+                        
+                        element.style.cursor = 'help';
+                        element.style.textDecoration = 'underline';
+                        element.style.textDecorationStyle = 'dotted';
+                    } else {
+                        console.log(`No match found for: "${text}"`);
+                    }
+                });
+            }, 500); // Additional delay for Mermaid rendering
+        }
+        
+        function updateTooltipPosition(e, tooltip) {
+            // Get mouse position relative to the page (including scroll)
+            const x = e.pageX + 10;
+            const y = e.pageY - 10;
+            
+            // Set initial position
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+            
+            // Force a reflow to get accurate dimensions
+            tooltip.offsetHeight;
+            
+            // Get tooltip dimensions after positioning
+            const rect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            let finalX = x;
+            let finalY = y;
+            
+            // Adjust if tooltip goes off right edge
+            if (rect.right > viewportWidth) {
+                finalX = e.pageX - rect.width - 10;
+            }
+            
+            // Adjust if tooltip goes off top edge
+            if (rect.top < 0) {
+                finalY = e.pageY + 20;
+            }
+            
+            // Adjust if tooltip goes off bottom edge
+            if (rect.bottom > viewportHeight) {
+                finalY = e.pageY - rect.height - 10;
+            }
+            
+            // Apply final position
+            tooltip.style.left = finalX + 'px';
+            tooltip.style.top = finalY + 'px';
+        }
+    </script>
+    <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+<header>
+    <h1>MCP Workshop – JSON‑RPC Communication Flow <span class="badge-time">5 &ndash; 8 min</span></h1>
+    <p class="subtitle">The whole exchange as one sequence diagram &mdash; discovery, cacheable reads, a round-trip tool call, a task handle, and a notification stream. Hover any message for the real JSON.</p>
+</header>
+<main>
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="overview.html">Overview</a>
+        <a href="flow-diagram.html">Flow Diagram</a>
+        <a href="extensions.html">Extensions</a>
+        <a href="mcp-apps.html">MCP Apps</a>
+        <a href="tasks.html">Tasks</a>
+        <a href="agent.html">Agent</a>
+        <a href="runtime-facts.html">Runtime Facts</a>
+        <a href="trace-log.html">Trace Log</a>
+        <a href="contact.html">Contact</a>
+        <a href="#" id="theme-toggle">Light</a>
+    </div>
+
+    <section class="card">
+        <div class="mermaid">
+            sequenceDiagram
+            autonumber
+            participant Client as mcp-inspector (Client)
+            participant Server as agent-mcp-workshop (Server)
+
+            Note over Client,Server: Discovery — no handshake, no session (2026-07-28)
+
+            Client->>Server: server/discover
+            Note over Client: id is the string "server-discover-probe-1"
+            Server-->>Client: server/discover result
+            Note over Client,Server: supportedVersions + capabilities + _meta.serverInfo<br/>Nothing is remembered — no session is created
+
+            Note over Client,Server: Stateless requests — every one repeats params._meta
+            Client->>Server: tools/list
+            Server-->>Client: tools/list result
+            Note over Server: cacheable, so resultType + ttlMs + cacheScope
+
+            Note over Client,Server: tools/call — Multi Round-Trip Requests (MRTR)
+            Client->>Server: tools/call (directory)
+            Server-->>Client: tools/call (directory) result
+            Note over Client,Server: one hop, nothing asked — passing the directory as a tool<br/>argument is the migration that replaced the deprecated roots
+
+            Client->>Server: tools/call
+            Note over Server: no directory argument → embed elicitation/create in the result
+            Server-->>Client: input_required (elicitation/create)
+            Note over Client: mode "form" — the user types a directory
+            Note over Client,Server: the retry carries a brand new id + inputResponses<br/>+ requestState echoed back byte-exact
+
+            alt the user accepted the form
+                Client->>Server: tools/call (retry)
+                Server-->>Client: tools/call (retry) result
+            else declined, or no elicitation capability
+                Client->>Server: tools/call (declined)
+                Server-->>Client: tools/call (fallback) result
+                Note over Server: searches the server's own working directory,<br/>so the call never dead-ends
+            end
+
+            Note over Client,Server: Task handle — the server's decision, not a client opt-in
+            Client->>Server: tools/call (tasks ext)
+            Server-->>Client: task handle
+            Note over Server: tool runs on a background thread
+
+            Client->>Server: tasks/get
+            Note over Client: polled once a second with the string ids<br/>inspector-ext-1, -2, -3 … while the status is working
+            Server->>Client: notifications/tasks
+            Server-->>Client: tasks/get result
+            Note over Client,Server: the completed tasks/get carries the underlying result
+
+            Note over Client,Server: subscriptions/listen — one request, many notifications
+            Client->>Server: subscriptions/listen
+            Server->>Client: notifications/subscriptions/acknowledged
+            Note over Client,Server: _meta.subscriptionId is REQUIRED here —<br/>omit it and the client waits forever
+            Server-->>Client: subscriptions/listen result
+            Note over Server: this server advertises listChanged: false,<br/>so nothing is honored and the stream closes at once
+        </div>
+        <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the full stateless lifecycle: discovery, cacheable reads, an MRTR round trip, a task handle, and a notification stream.</div>
+    </section>
+
+    <div class="footer">© 2025 MCP Workshop. Diagram rendered with Mermaid.</div>
+</main>
+<script src="theme.js"></script>
+</body>
+</html>

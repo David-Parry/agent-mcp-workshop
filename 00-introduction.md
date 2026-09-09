@@ -12,7 +12,7 @@ Let's be clear from the start: the code in this workshop works. It's functional,
 
 What we're really diving into is the **message protocol itself** - the actual JSON-RPC messages flowing between MCP clients and servers. We'll explore:
 
-- How initialization handshakes establish capabilities
+- How discovery and the per-request `_meta` envelope establish capabilities, now that revision `2026-07-28` has deleted the initialization handshake
 - The exact structure of tool invocation messages
 - How responses are formatted and errors are handled
 - The bidirectional nature of MCP communication
@@ -71,7 +71,7 @@ By the end of this workshop, you'll understand:
 
 1. **The MCP wire protocol** - Every message, every field, every response
 2. **How to build MCP tools** - Creating deterministic functions that agents can invoke
-3. **The client-server dance** - How initialization, capability negotiation, and tool calls actually work
+3. **The client-server dance** - How discovery, per-request capability declaration, and tool calls actually work without a session
 4. **Agent integration** - How AI agents discover and use your tools
 5. **Real-world application** - A working system you can adapt for your own needs
 

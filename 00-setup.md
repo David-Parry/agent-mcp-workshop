@@ -27,7 +27,7 @@ Install Node.js v22 or later with NPM 10.9+. Download from [Node.js official web
 Install the MCP Inspector tool globally:
 
 ```bash
-npm install -g @modelcontextprotocol/inspector
+npm install -g @modelcontextprotocol/inspector@2.5.0
 ```
 
 ## Verification
@@ -64,7 +64,7 @@ Step 4: Verifying Node.js, NPM, and npx installation...
 
 Step 5: Verifying MCP Inspector...
 ----------------------------------
-✅ Step 5 PASSED: MCP Inspector started successfully!
+✅ Step 5 PASSED: MCP Inspector ran successfully!
 
 Summary
 =======
@@ -72,6 +72,26 @@ Summary
 ```
 
 **The Summary section should show all tests passed (green).** If any tests fail, resolve the issues before the workshop.
+
+## During the workshop
+
+Each chapter is a branch. Switch to one with:
+
+```bash
+./clean-checkout.sh 01-chapter
+```
+
+Every branch carries the complete `lessons/` directory, so you can read any chapter at any time — you are never limited to the one you are on.
+
+Check your work at any point with:
+
+```bash
+./gradlew chapterTest -Pchapter=01
+```
+
+The tests fail until your implementation is correct, so red is the normal starting state for a chapter.
+
+> **`clean-checkout.sh` deletes local work.** It runs `git clean -fdx`, which removes every untracked and ignored file — including code you have written but not committed. Commit or copy anything you want to keep before switching chapters.
 
 ## IDE / Editor
 

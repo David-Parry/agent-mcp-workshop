@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "workshop": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "{YOUR_BASE}/build/libs/agent-mcp-workshop-0.0.1.jar"
+      ],
+      "env": {
+      },
+      "protocolEra": "modern",
+      "modernLogLevel": "off"
+    }
+  }
+}
