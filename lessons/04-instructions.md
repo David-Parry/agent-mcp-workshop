@@ -54,36 +54,86 @@ This utility class provides several key functions for handling Javadoc HTML reso
 Now we need to add the handlers for RESOURCES_LIST and RESOURCES_READ to our message router.
 
 **Action Required**:
-Add the following code to your `IORouter.java` file in the switch statement, **after** the INITIALIZE case line 71:
+Add the following code to your `IORouter.java` file inside the `switch (uniqueKey)` block — the one that runs *after* the `server/discover` shortcut, the method-registry check, and the `envelopeFor` validation you wrote in Chapter 3:
 
 ```java
 case RESOURCES_LIST -> {
     ResourcesListResultBuilder builder = ResourcesListResultBuilder
             .builder()
             .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
+            .addResource(ResourceBuilder.builder()
+                    .withUri(KEYWORD_APP_URI)
+                    .withName("Keyword Search App")
+                    .withDescription("Interactive keyword search results dashboard")
+                    .withMimeType(Resource.MIME_TYPE_UI_APP)
+                    .build())
             .withNextCursor("pageNext");
-    success(message.id(), builder.build());
+    ResourcesListResult result = builder.build();
+    success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
+                                                  LIST_TTL_MILLIS, CacheScope.PUBLIC));
+}
+case RESOURCES_TEMPLATES_LIST -> {
+    // Clients fetch this whenever a server declares any resource
+    // capability, so it has to be answered even though this server
+    // exposes no templates.
+    success(message.id(), ResourceTemplatesListResult.empty(LIST_TTL_MILLIS));
 }
 case RESOURCES_READ -> {
     ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
     String resourceUri = param.uri();
     ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
-    if (resourceUri != null && !resourceUri.isEmpty()) {
-        try {
-            String content = JavadocResources.readResourceContent(resourceUri);
-            builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
-        } catch (Exception e) {
-            logger.log("Error reading resource: " + resourceUri);
-            builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
-        }
-    } else {
+    if (resourceUri == null || resourceUri.isEmpty()) {
         builder
                 .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
                 .asError();
+    } else {
+        // The app is the one resource whose uri is not also its
+        // classpath path, but it is read and reported like any
+        // other, so the two share a single failure path.
+        boolean isApp = KEYWORD_APP_URI.equals(resourceUri);
+        String mimeType = isApp ? Resource.MIME_TYPE_UI_APP : DEFAULT_MIME_TYPE;
+        try {
+            String content = JavadocResources.readResourceContent(
+                    isApp ? "lesson/mcp-app.html" : resourceUri);
+            builder.addTextContent(resourceUri, mimeType, content);
+        } catch (Exception e) {
+            logger.log("[API][SENT] resources/read — error reading resource: " + resourceUri);
+            builder.addTextContent(resourceUri, mimeType, e.getMessage()).asError();
+        }
     }
-    success(message.id(), builder.build());
+    ReadResourceResult result = builder.build();
+    success(message.id(), new ReadResourceResult(result.contents(), result.isError(),
+                                                 LIST_TTL_MILLIS, CacheScope.PUBLIC));
 }
 ```
+
+This refers to one more constant next to `LIST_TTL_MILLIS` from chapter 3:
+
+```java
+/** The uri the keyword-search app is published under. */
+private static final String KEYWORD_APP_URI = "ui://keyword-search/mcp-app.html";
+```
+
+> **A forward reference.** The app resource and its `MIME_TYPE_UI_APP` belong to MCP Apps, which is chapter 6. It is listed here because a resource list that gains entries later would invalidate the cache hint you are about to set, and because leaving it out now means rewriting this handler twice. Treat it as plumbing for now; chapter 6 is where you build the app itself and it starts to mean something.
+
+#### Why every list result is rebuilt before it is sent
+
+Notice the shape of each `success(...)` call: the builder produces a result, and then that result is immediately copied into a new record with two extra values.
+
+```java
+ResourcesListResult result = builder.build();
+success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
+                                              LIST_TTL_MILLIS, CacheScope.PUBLIC));
+```
+
+The builders do not know about caching, so `builder.build()` alone yields `ttlMs = 0` and `cacheScope = private` — telling the client "never reuse this, ask me again every time." For a list of 70-odd Javadoc resources that is a lot of pointless traffic.
+
+Wrapping the built result restates it with the cache hints attached:
+
+- **`ttlMs = LIST_TTL_MILLIS`** — the client may reuse this answer for a minute
+- **`cacheScope = PUBLIC`** — the answer does not depend on who is asking, so a shared cache may hold it
+
+`PUBLIC` is only safe because these results are derived from static configuration. The moment a result depends on the caller, it has to be `PRIVATE`. Get this wrong and one client sees another client's answer.
 
 #### What the RESOURCES_LIST handler does:
 
@@ -150,23 +200,26 @@ After copying the KeyWordSearch.java file, add the following code to your `IORou
 
 ```java
 case TOOLS_LIST -> {
-    KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
-    ToolsListResultBuilder builder = ToolsListResultBuilder
-            .builder()
-            .addTool(keyWordSearch.name(), keyWordSearch.description(), keyWordSearch.schema());
-    success(message.id(), builder.build());
+    KeyWordSearch keyWordSearch = new KeyWordSearch();
+    AppTool appTool = AppToolBuilder.builder()
+            .withName(keyWordSearch.name())
+            .withDescription(keyWordSearch.description())
+            .withInputSchema(keyWordSearch.schema())
+            .withResourceUri(KEYWORD_APP_URI)
+            .build();
+    success(message.id(), new AppToolsListResult(List.of(appTool), LIST_TTL_MILLIS, CacheScope.PUBLIC));
 }
 case TOOLS_CALL -> {
-    KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
     ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
-    if (keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
-        success(message.id(), keyWordSearch.call(toolCallParams));
-    } else {
+    KeyWordSearch keyWordSearch = new KeyWordSearch();
+    if (!keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
         success(message.id(), ToolCallResultBuilder
                 .builder()
                 .addTextContent("Tool not found: " + toolCallParams.name())
                 .asError()
                 .build());
+    } else {
+        handleKeywordSearch(message.id(), toolCallParams, envelope);
     }
 }
 ```
@@ -176,9 +229,11 @@ case TOOLS_CALL -> {
 1. **Creates a KeyWordSearch tool instance**: This is our example tool that searches for keywords in files within specified directories
 
 2. **Builds the tools list response**:
-   - Uses `ToolsListResultBuilder` to construct the response
+   - Uses `AppToolBuilder` to construct the response
    - Adds the tool with its name, description, and JSON schema
-   - The schema defines the parameters the tool accepts — just `keyword`. The search directory is **not** a tool parameter; it is supplied at runtime via the MCP roots mechanism or, in Ch 5, via an elicitation form.
+   - `withResourceUri` attaches the app `_meta` block that chapter 6 explains. A plain `ToolsListResultBuilder` would produce a valid tool too, just without the UI association — this builder is the same thing with that one extra field
+   - The result is wrapped in `AppToolsListResult` with the same `LIST_TTL_MILLIS` / `PUBLIC` hints as the resource list, for the same reason
+   - The schema defines two parameters: `keyword`, which is required, and `directory`, which is optional. Supplying `directory` is the **one-hop path** — everything the tool needs arrives with the call. In Ch 5 you will add what happens when it is omitted: the server asks for a directory over a Multi Round-Trip Request, and falls back to its own working directory if the client offers nothing.
 
 3. **Enables client autocomplete**:
    - When the client receives this list, it knows what tools are available
@@ -193,13 +248,14 @@ case TOOLS_CALL -> {
    - Checks if the requested tool name matches our KeyWordSearch tool
    - This is case-insensitive to be more forgiving
 
-3. **Executes the tool**:
-   - If the tool is found, calls the tool's `call()` method with the parameters
-   - The KeyWordSearch tool will search for the keyword in the specified paths
-
-4. **Handles unknown tools**:
+3. **Handles unknown tools first**:
    - If the client requests a tool we don't have, returns a clear error message
-   - This helps with debugging and provides good user experience
+   - Note this is `isError: true` inside a *successful* result, not a JSON-RPC error. The protocol worked; the request was just for something that does not exist
+
+4. **Delegates the real work**:
+   - `handleKeywordSearch` is where the call actually happens, and it needs the `envelope` because what it is allowed to do depends on this client's capabilities
+   - A client that can show a form may be asked for a missing directory; one that cannot has to be answered some other way
+   - That branching is chapter 5's subject. For now the method is already present on your branch, so the call compiles and runs — a call **with** a `directory` argument goes straight through it and searches
 
 ## Part 3: Implementing the Prompts Capability
 
@@ -213,30 +269,30 @@ Add the following code to your `IORouter.java` file in the switch statement, **a
 
 ```java
 case PROMPTS_LIST -> {
-    KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
     PromptsListResultBuilder builder = PromptsListResultBuilder
             .builder()
-            .withPrompt("search_keyword", "Creates a prompt, to search for a word using the " + keyWordSearch.name() + " tool.")
+            .withPrompt("search_keyword",
+                        "Creates a prompt, to search for a word using the key_word_search tool.")
             .withPromptArgument("keyword", "The word to search for", true)
             .withNextCursor("nextPage");
-    success(message.id(), builder.build());
+    PromptsListResult result = builder.build();
+    success(message.id(), new PromptsListResult(result.prompts(), result.nextCursor(),
+                                                LIST_TTL_MILLIS, CacheScope.PUBLIC));
 }
 ```
 
 #### What the PROMPTS_LIST handler does:
 
-1. **Creates a KeyWordSearch instance**: This ensures the prompt is linked to our actual tool
-
-2. **Builds a prompt definition**:
+1. **Builds a prompt definition**:
    - `withPrompt()`: Defines a prompt with ID "search_keyword" and a description
    - The description mentions the tool name to make the connection clear
 
-3. **Defines prompt arguments**:
+2. **Defines prompt arguments**:
    - `withPromptArgument()`: Specifies that this prompt needs a "keyword" argument
    - The `true` parameter indicates this argument is required
    - The description helps users understand what to provide
 
-4. **Sets a cursor**: Similar to resources, indicates potential pagination (not implemented)
+3. **Sets a cursor**: Similar to resources, indicates potential pagination (not implemented)
 
 ### Step 2: Understanding the PROMPTS_GET Handler (Already Implemented)
 
@@ -277,18 +333,28 @@ success(message.id(), builder.build());
 The COMPLETION_COMPLETE handler is already present in your IORouter.java file. This handler is responsible for providing autocomplete suggestions based on user input. Let's examine how it works in the context of our keyword search prompt:
 
 ```java
-  case COMPLETION_COMPLETE -> {
-                CompletionCompleteParams params = deserializer.deserializeParams(message,
-                                                                                 CompletionCompleteParams.class);
-                if ("keyword" .equalsIgnoreCase(params.argument().name())) {
-                    // Simulating a keyword search completion
-                    CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
-                    response.value("the").value("and").total(3).hasMore(true);
-                    success(message.id(), response.build());
-                }
-            }
-
+case COMPLETION_COMPLETE -> {
+    CompletionCompleteParams params = deserializer.deserializeParams(message,
+                                                                     CompletionCompleteParams.class);
+    CompletionArgument argument = params.argument();
+    if (argument == null) {
+        logger.log("[API][SENT] completion/complete — no argument to complete (returning -32602)");
+        error(message.id(), ErrorCodes.INVALID_PARAMS, "completion/complete requires an argument");
+    } else if ("keyword".equalsIgnoreCase(argument.name())) {
+        // Simulating a keyword search completion
+        CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
+        response.value("the").value("and").total(3).hasMore(true);
+        success(message.id(), response.build());
+    } else {
+        success(message.id(), CompletionCompleteBuilder.withValue("java").total(1).hasMore(false).build());
+    }
+}
 ```
+
+Both of the extra branches matter, and both were bugs before they were features:
+
+- **`argument == null`**: `params.argument()` is not guaranteed to be there. Calling `.name()` on it straight away throws a `NullPointerException` out of the router, and because the throw happens before any reply is written, the client sits waiting for a response that never comes until it times out. A `-32602` says the same thing in a way the client can act on.
+- **The `else`**: without it, a completion request for any argument other than `keyword` matches no branch and falls out of the `switch` silently — again, no reply. Every path through a request handler has to end in exactly one `success` or one `error`.
 
 This is where the real autocomplete magic happens through the interaction of PROMPTS_LIST and PROMPTS_GET:
 
@@ -353,9 +419,12 @@ cd inspector
 
 ### For Tools:
 - The "List Tools" button shows the key_word_search tool
-- The tool's schema shows it accepts a single "keyword" parameter
-- Calling the tool with roots configured returns a list of files containing the keyword with occurrence counts
-- Calling the tool **without** roots configured returns a clear error message — Ch 5 wires up the elicitation flow that asks the user for a directory just-in-time
+- The tool's schema shows a required "keyword" parameter and an optional "directory" one
+- Calling the tool **with** a directory returns a list of files containing the keyword with occurrence counts
+- Calling the tool **without** one does *not* fail. What happens depends on the client, and there are two outcomes worth seeing:
+  - The Inspector can display a form, so it is **asked** for a directory — the response comes back as `input_required` rather than a result, and the Inspector shows you a prompt. That is the Multi Round-Trip Request, and chapter 5 is where you implement it.
+  - A client that cannot display a form gets searched results anyway, because the server falls back to its own working directory. Since `run.sh` `cd`s into `inspector/` first, that is the `inspector` folder — so a search for `class` finds far less than you might expect. That is the fallback working correctly, not a bug.
+- Either way, note what you do **not** get: a failure. Missing an optional argument is not an error condition when the server has two reasonable ways to carry on
 
 ### For Prompts:
 - The "List Prompts" button shows the search_keyword prompt

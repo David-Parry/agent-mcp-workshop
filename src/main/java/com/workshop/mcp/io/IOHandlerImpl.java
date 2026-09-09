@@ -146,12 +146,14 @@ public class IOHandlerImpl implements IOHandler {
      */
     @Override
     public void startInputReader() {
-        if (running.get()) {
+        // Claim the running flag in a single atomic step. Reading the flag here
+        // and setting it further down would let two threads both get past this
+        // point and open two Scanners over the same System.in.
+        if (!running.compareAndSet(false, true)) {
             return; // Already running
         }
 
         try (Scanner scanner = new Scanner(System.in)) {
-            running.set(true);
             try {
                 while (running.get()) {
                     if (!scanner.hasNextLine()) {

@@ -1,9 +1,14 @@
 # Model Context Protocol (MCP) - Key Points Review
 
+## Hands-on
+- [Chapter 2 instructions: reading JSON-RPC messages](02-instructions.md) — implement `JsonRpcMessageDeserializer`
+
 ## Message Diagram Walkthrough
 - [High-level class diagram illustrates key MCP components](02-message-class-diagram.md)
 - [Message flow diagram](02-mcp-message-flow.md)
 - [JSON Message flow diagram](02-mcp-json-communication-flow-diagram.md)
+
+Each diagram is a Markdown file with the Mermaid source embedded in it, so it renders in the editor and on GitHub without a separate viewer.
 
 ## JSON-RPC 2.0 Foundation
 

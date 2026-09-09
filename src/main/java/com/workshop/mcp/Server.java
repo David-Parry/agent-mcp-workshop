@@ -116,7 +116,7 @@ public class Server {
         } catch (Exception e) {
             logger.log("Error in main method", e);
             stop();
-            exit();
+            exit(1);
         }
     }
 
@@ -193,27 +193,33 @@ public class Server {
             Thread.sleep(1);
 
             // Force exit with success code
-            exit();
+            exit(0);
         } catch (InterruptedException e) {
             // Thread was interrupted, exit gracefully
             Thread.currentThread().interrupt();
             logger.log("Application interrupted during shutdown", e);
             // Force exit with error code
-            exit();
+            exit(1);
         }
     }
 
     /**
-     * Terminates the JVM with a success status code.
+     * Terminates the JVM with the given status code.
      * <p>
      * Extracted into a package-private method so unit tests can override it
      * with a no-op: calling {@link System#exit(int)} from a test kills the
      * test runner JVM mid-suite, silently skipping every remaining test.
-     * Production behavior is unchanged.
      * </p>
+     * <p>
+     * The status is a parameter because a server that failed to start, or was
+     * interrupted partway through shutdown, previously reported success to
+     * whatever launched it.
+     * </p>
+     *
+     * @param status the process exit status, zero only on a clean shutdown
      */
-    void exit() {
-        System.exit(0);
+    void exit(int status) {
+        System.exit(status);
     }
 
 

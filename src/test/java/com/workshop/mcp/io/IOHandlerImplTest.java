@@ -367,6 +367,104 @@ class IOHandlerImplTest {
         readerThread.join(1000);
     }
 
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void testStartInputReader_ReentrantCall_ReturnsWithoutDisturbingTheReader() {
+        // Given
+        String testInput = "only line\n";
+        System.setIn(new ByteArrayInputStream(testInput.getBytes()));
+
+        List<String> receivedLines = new ArrayList<>();
+        AtomicBoolean stillRunningAfterReentrantCall = new AtomicBoolean();
+        Consumer<String> listener = line -> {
+            receivedLines.add(line);
+            // The running flag is set while listeners are notified, so this
+            // nested call has to bail out instead of draining the stream again
+            ioHandler.startInputReader();
+            stillRunningAfterReentrantCall.set(ioHandler.isRunning());
+        };
+        ioHandler.addLineListener(listener);
+
+        // When
+        ioHandler.startInputReader();
+
+        // Then
+        assertEquals(1, receivedLines.size());
+        assertEquals("only line", receivedLines.get(0));
+        assertTrue(stillRunningAfterReentrantCall.get());
+        assertFalse(ioHandler.isRunning());
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void testStopRunning_FromListener_HaltsTheReaderLoop() {
+        // Given
+        String testInput = "first\nsecond\n";
+        System.setIn(new ByteArrayInputStream(testInput.getBytes()));
+
+        List<String> receivedLines = new ArrayList<>();
+        Consumer<String> listener = line -> {
+            receivedLines.add(line);
+            ioHandler.stopRunning();
+        };
+        ioHandler.addLineListener(listener);
+
+        // When
+        ioHandler.startInputReader();
+
+        // Then
+        assertEquals(1, receivedLines.size(), "The loop must not read past the stop request");
+        assertEquals("first", receivedLines.get(0));
+        assertFalse(ioHandler.isRunning());
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void testStartInputReader_WithFailingInputStream_SwallowsTheFailure() {
+        // Given
+        System.setIn(new FailingInputStream(() -> { }));
+
+        // When & Then
+        assertDoesNotThrow(() -> ioHandler.startInputReader());
+        assertFalse(ioHandler.isRunning());
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void testStartInputReader_WithFailingInputStreamAfterStopRunning_SwallowsTheFailure() {
+        // Given - the reader is told to stop before the read blows up, so the
+        // failure is expected rather than logged
+        System.setIn(new FailingInputStream(ioHandler::stopRunning));
+
+        // When & Then
+        assertDoesNotThrow(() -> ioHandler.startInputReader());
+        assertFalse(ioHandler.isRunning());
+    }
+
+    // Input stream that fails on the first read, running a hook just beforehand
+    private static class FailingInputStream extends InputStream {
+        private final Runnable beforeFailure;
+
+        FailingInputStream(Runnable beforeFailure) {
+            this.beforeFailure = beforeFailure;
+        }
+
+        @Override
+        public int read() {
+            return fail();
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) {
+            return fail();
+        }
+
+        private int fail() {
+            beforeFailure.run();
+            throw new IllegalStateException("input stream failure");
+        }
+    }
+
     // Helper class for testing JSON serialization
     private static class TestMessage {
         String name;

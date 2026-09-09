@@ -24,8 +24,8 @@ public class ElicitationBuilder {
      * Creates an {@link ElicitationCreateParams} that asks the user for an
      * absolute path to a directory the keyword-search tool should search in.
      * <p>
-     * The server asks for this only after an embedded {@code roots/list} came
-     * back empty. Because the result is embedded in an
+     * The server asks for this only when the call carried no {@code directory}
+     * argument to search in. Because the result is embedded in an
      * {@code InputRequiredResult} rather than sent as a request, the answer
      * arrives on the client's retry of the original {@code tools/call} — the
      * server does not store it, since there is no session to store it in.

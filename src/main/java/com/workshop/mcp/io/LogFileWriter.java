@@ -210,10 +210,15 @@ public class LogFileWriter implements LogFile {
      * Close the logger and release resources
      */
     public void close() {
+        PrintWriter closing = logWriter;
+        // Cleared before the close is attempted, not after. Leaving the field
+        // set when close() threw kept it pointing at a dead writer, and since
+        // logging only reopens the file when the field is null, every later
+        // line was silently dropped.
+        logWriter = null;
         try {
-            if (logWriter != null) {
-                logWriter.close();
-                logWriter = null;
+            if (closing != null) {
+                closing.close();
             }
         } catch (Exception ignored) {
             // Ignore any exceptions during close

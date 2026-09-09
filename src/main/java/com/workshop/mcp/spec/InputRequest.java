@@ -12,32 +12,25 @@ package com.workshop.mcp.spec;
  * Note what is missing: there is no {@code jsonrpc} and no {@code id}. An
  * embedded request is "de-JSON-RPC'd", identified purely by its
  * {@link #method()}, and correlated by the key it sits under in
- * {@link InputRequiredResult#inputRequests()}. Only
- * {@code elicitation/create}, {@code roots/list}, and
- * {@code sampling/createMessage} are permitted.
+ * {@link InputRequiredResult#inputRequests()}.
+ * </p>
+ * <p>
+ * The revision permits three embedded methods: {@code elicitation/create},
+ * {@code roots/list}, and {@code sampling/createMessage}. This server builds
+ * only the first. The other two are deprecated under the {@code 2026-07-28}
+ * feature lifecycle policy — ask the user, take a tool parameter, or call a
+ * provider API directly instead — so there is no factory for either here, and
+ * a client that receives one from some other server is unaffected by their
+ * absence.
  * </p>
  *
- * @param method one of {@code elicitation/create}, {@code roots/list}, or
- *               {@code sampling/createMessage}
+ * @param method always {@code elicitation/create} as built by this server
  * @param params the parameters for that method, or null when it takes none
  *
  * @see InputRequiredResult
  * @since 1.0
  */
 public record InputRequest(String method, Object params) {
-
-    /**
-     * Builds an embedded {@code roots/list} request.
-     * <p>
-     * {@code roots/list} takes no parameters, and clients typically answer it
-     * from their configured roots without prompting the user.
-     * </p>
-     *
-     * @return the embedded request
-     */
-    public static InputRequest rootsList() {
-        return new InputRequest(UniqueKeys.ROOTS_LIST.getValue(), null);
-    }
 
     /**
      * Builds an embedded {@code elicitation/create} request.
@@ -49,13 +42,4 @@ public record InputRequest(String method, Object params) {
         return new InputRequest(UniqueKeys.ELICITATION_CREATE.getValue(), params);
     }
 
-    /**
-     * Builds an embedded {@code sampling/createMessage} request.
-     *
-     * @param message the sampling request to hand to the client's model
-     * @return the embedded request
-     */
-    public static InputRequest sampling(CreateSamplingMessage message) {
-        return new InputRequest(UniqueKeys.SAMPLING_CREATE_MESSAGE.getValue(), message);
-    }
 }

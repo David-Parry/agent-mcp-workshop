@@ -17,20 +17,26 @@ import java.util.Map;
  * The pre-{@code 2026-07-28} top-level {@code tasks} slot is gone.
  * </p>
  *
- * @param sampling    the sampling support declared by the client
- * @param roots       the roots support declared by the client
+ * <p>
+ * A client's {@code roots} and {@code sampling} declarations are deliberately
+ * not modelled. Both are deprecated under the {@code 2026-07-28} feature
+ * lifecycle policy, and this server embeds neither a {@code roots/list} nor a
+ * {@code sampling/createMessage}, so the fields would be read by nothing.
+ * Clients still declare them — SEP-2577 says they should keep doing so for the
+ * whole deprecation period — and that costs nothing here, because an
+ * unrecognised key is simply ignored. Directories reach the search tool
+ * through its {@code directory} argument instead, which is the migration the
+ * specification names in place of roots.
+ * </p>
+ *
  * @param elicitation the elicitation modes the client can render
  * @param extensions  optional extension declarations, keyed by identifier
  *
- * @see SamplingCapability
- * @see RootsCapability
  * @see Elicitation
  * @see RequestEnvelope
  * @since 1.0
  */
 public record ClientCapabilities(
-    SamplingCapability sampling,
-    RootsCapability roots,
     Elicitation elicitation,
     Map<String, Object> extensions
 ) {

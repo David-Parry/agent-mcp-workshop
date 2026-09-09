@@ -179,12 +179,6 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Deserializes the params field of a JSON-RPC request into a specific type.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;T</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#deserializeResult(com.workshop.mcp.spec.JsonRpcResponse,java.lang.Class)" class="member-name-link">deserializeResult</a><wbr>(<a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec">JsonRpcResponse</a>&nbsp;response,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;resultClass)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Deserializes the result field of a JSON-RPC success response into a specific type.</div>
-</div>
 </div>
 </div>
 </div>
@@ -273,30 +267,6 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="deserializeResult(com.workshop.mcp.spec.JsonRpcResponse,java.lang.Class)">
-<h3>deserializeResult</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">T</span>&nbsp;<span class="element-name">deserializeResult</span><wbr><span class="parameters">(<a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec">JsonRpcResponse</a>&nbsp;response,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;resultClass)</span></div>
-<div class="block">Deserializes the result field of a JSON-RPC success response into a specific type.
- <p>
- This method is useful for converting the generic result Object from a
- <a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec"><code>JsonRpcResponse</code></a> into a strongly-typed result object specific
- to the method that was called.
- </p></div>
-<dl class="notes">
-<dt>Type Parameters:</dt>
-<dd><code>T</code> - the type to deserialize the result into</dd>
-<dt>Parameters:</dt>
-<dd><code>response</code> - the JSON-RPC success response containing the result to deserialize</dd>
-<dd><code>resultClass</code> - the class of the result type</dd>
-<dt>Returns:</dt>
-<dd>the deserialized result object</dd>
-<dt>Throws:</dt>
-<dd><code>com.google.gson.JsonSyntaxException</code> - if the result cannot be deserialized to the specified type</dd>
-</dl>
-</section>
-</li>
-<li>
 <section class="detail" id="deserializeParams(com.workshop.mcp.spec.JsonRpcNotification,java.lang.Class)">
 <h3>deserializeParams</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">T</span>&nbsp;<span class="element-name">deserializeParams</span><wbr><span class="parameters">(<a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec">JsonRpcNotification</a>&nbsp;request,
@@ -328,9 +298,8 @@ loadScripts(document, 'script');</script>
 <div class="block">Converts an already-parsed JSON value into a specific type.
  <p>
  Needed for the answers in <code>params.inputResponses</code>: they arrive as
- a heterogeneous map, since one key may hold a <code>roots/list</code> result
- and the next an <code>elicitation/create</code> result, so each is converted
- once the caller knows which it expects.
+ a map of raw JSON values keyed by the question they answer, so each is
+ converted once the caller knows which type it expects.
  </p></div>
 <dl class="notes">
 <dt>Type Parameters:</dt>

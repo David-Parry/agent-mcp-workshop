@@ -300,7 +300,7 @@
     <!-- input_required inside a task -->
     <section class="card">
         <h2>When a Task Needs Input</h2>
-        <p>A task can hit the same wall a synchronous call does: it needs roots, or a form filled in, and it cannot send a request to ask. The resolution is the same MRTR idea, spread over the polling loop.</p>
+        <p>A task can hit the same wall a synchronous call does: it needs a form filled in, and it cannot send a request to ask. The resolution is the same MRTR idea, spread over the polling loop.</p>
         <ol style="line-height:1.9">
             <li>The task transitions to <span class="status-pill s-input">input_required</span>, and the next <code>tasks/get</code> snapshot carries the <code>inputRequests</code> map.</li>
             <li>The client resolves them exactly as it would inline, then calls <strong><code>tasks/update</code></strong> with the <code>taskId</code> and an <code>inputResponses</code> map.</li>

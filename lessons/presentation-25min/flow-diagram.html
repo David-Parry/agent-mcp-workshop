@@ -68,14 +68,15 @@
                 'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
                 'tools/list': '{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{"_meta":{...envelope...}}}',
                 'tools/list result': '{"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project... Pass a directory to search it directly; omit it and the server asks, falling back to its working directory.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"directory":{"type":"string","description":"the absolute directory to search; omit it to have the server ask for one over a Multi Round-Trip Request and fall back to its working directory"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}',
-                'tools/call': '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"}}}',
-                'input_required (roots/list)': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"input_required","inputRequests":{"search_roots":{"method":"roots/list"}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"}}',
-                'tools/call (retry)': '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9","inputResponses":{"search_roots":{"roots":[{"uri":"file:///Users/.../com/workshop/mcp/tools","name":"workshop-tools"}]}}}}',
-                'tools/call (retry) result': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
-                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":11,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","required":["directory"],"properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}}}}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
-                'tools/call (retry 2)': '{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../com/workshop/mcp/tools"}}}}}',
-                'tools/call (retry 2) result': '{"jsonrpc":"2.0","id":12,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
-                'tools/call (tasks ext)': 'Same request as the retry above — there is no task opt-in any more. The client merely declared io.modelcontextprotocol/tasks in its clientCapabilities.extensions, which permits the server to answer with a handle: {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope with tasks extension...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"...","inputResponses":{...}}}',
+                'tools/call (directory)': '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../com/workshop/mcp/tools"}}}',
+                'tools/call (directory) result': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'tools/call': '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"}}}',
+                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","required":["directory"],"properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}}}}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
+                'tools/call (retry)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../com/workshop/mcp/tools"}}}}}',
+                'tools/call (retry) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
+                'tools/call (declined)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"decline"}}}}',
+                'tools/call (fallback) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}  —  searched from the server working directory, because the asking ran out',
+                'tools/call (tasks ext)': 'Same request as the one-hop call above — there is no task opt-in any more. The client merely declared io.modelcontextprotocol/tasks in its clientCapabilities.extensions, which permits the server to answer with a handle: {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope with tasks extension...},"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../com/workshop/mcp/tools"}}}  —  drop the directory and the handle still comes back first, with the question arriving later as an input_required status on the task itself',
                 'task handle': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"task","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:06.276669Z","ttlMs":300000,"pollIntervalMs":1000}}',
                 'tasks/get': '{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{"_meta":{...envelope...},"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f"}}',
                 'tasks/get result': '{"jsonrpc":"2.0","id":"inspector-ext-4","result":{"resultType":"complete","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
@@ -267,20 +268,23 @@
             Note over Server: cacheable, so resultType + ttlMs + cacheScope
 
             Note over Client,Server: tools/call — Multi Round-Trip Requests (MRTR)
-            Client->>Server: tools/call
-            Note over Server: no directory yet → embed roots/list in the result
-            Server-->>Client: input_required (roots/list)
-            Note over Client: answered from client configuration<br/>the user is never troubled
-            Client->>Server: tools/call (retry)
-            Note over Client,Server: brand new id + inputResponses<br/>+ requestState echoed back byte-exact
+            Client->>Server: tools/call (directory)
+            Server-->>Client: tools/call (directory) result
+            Note over Client,Server: one hop, nothing asked — passing the directory as a tool<br/>argument is the migration that replaced the deprecated roots
 
-            alt roots resolved a directory
+            Client->>Server: tools/call
+            Note over Server: no directory argument → embed elicitation/create in the result
+            Server-->>Client: input_required (elicitation/create)
+            Note over Client: mode "form" — the user types a directory
+            Note over Client,Server: the retry carries a brand new id + inputResponses<br/>+ requestState echoed back byte-exact
+
+            alt the user accepted the form
+                Client->>Server: tools/call (retry)
                 Server-->>Client: tools/call (retry) result
-            else roots came back empty
-                Server-->>Client: input_required (elicitation/create)
-                Note over Client: mode "form" — the user types a directory
-                Client->>Server: tools/call (retry 2)
-                Server-->>Client: tools/call (retry 2) result
+            else declined, or no elicitation capability
+                Client->>Server: tools/call (declined)
+                Server-->>Client: tools/call (fallback) result
+                Note over Server: searches the server's own working directory,<br/>so the call never dead-ends
             end
 
             Note over Client,Server: Task handle — the server's decision, not a client opt-in

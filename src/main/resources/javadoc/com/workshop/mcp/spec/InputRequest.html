@@ -92,8 +92,7 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-method">method</span></code> - one of <code>elicitation/create</code>, <code>roots/list</code>, or
-               <code>sampling/createMessage</code></dd>
+<dd><code><span id="param-method">method</span></code> - always <code>elicitation/create</code> as built by this server</dd>
 <dd><code><span id="param-params">params</span></code> - the parameters for that method, or null when it takes none</dd>
 </dl>
 <hr>
@@ -110,9 +109,16 @@ loadScripts(document, 'script');</script>
  Note what is missing: there is no <code>jsonrpc</code> and no <code>id</code>. An
  embedded request is "de-JSON-RPC'd", identified purely by its
  <a href="#method()"><code>method()</code></a>, and correlated by the key it sits under in
- <a href="InputRequiredResult.html#inputRequests()"><code>InputRequiredResult.inputRequests()</code></a>. Only
- <code>elicitation/create</code>, <code>roots/list</code>, and
- <code>sampling/createMessage</code> are permitted.
+ <a href="InputRequiredResult.html#inputRequests()"><code>InputRequiredResult.inputRequests()</code></a>.
+ </p>
+ <p>
+ The revision permits three embedded methods: <code>elicitation/create</code>,
+ <code>roots/list</code>, and <code>sampling/createMessage</code>. This server builds
+ only the first. The other two are deprecated under the <code>2026-07-28</code>
+ feature lifecycle policy — ask the user, take a tool parameter, or call a
+ provider API directly instead — so there is no factory for either here, and
+ a client that receives one from some other server is unaffected by their
+ absence.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -179,16 +185,6 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-params"><code>params</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="InputRequest.html" title="class in com.workshop.mcp.spec">InputRequest</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#rootsList()" class="member-name-link">rootsList</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Builds an embedded <code>roots/list</code> request.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="InputRequest.html" title="class in com.workshop.mcp.spec">InputRequest</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#sampling(com.workshop.mcp.spec.CreateSamplingMessage)" class="member-name-link">sampling</a><wbr>(<a href="CreateSamplingMessage.html" title="class in com.workshop.mcp.spec">CreateSamplingMessage</a>&nbsp;message)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Builds an embedded <code>sampling/createMessage</code> request.</div>
-</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
@@ -233,21 +229,6 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="rootsList()">
-<h3>rootsList</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="InputRequest.html" title="class in com.workshop.mcp.spec">InputRequest</a></span>&nbsp;<span class="element-name">rootsList</span>()</div>
-<div class="block">Builds an embedded <code>roots/list</code> request.
- <p>
- <code>roots/list</code> takes no parameters, and clients typically answer it
- from their configured roots without prompting the user.
- </p></div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>the embedded request</dd>
-</dl>
-</section>
-</li>
-<li>
 <section class="detail" id="elicitation(com.workshop.mcp.spec.ElicitationCreateParams)">
 <h3>elicitation</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="InputRequest.html" title="class in com.workshop.mcp.spec">InputRequest</a></span>&nbsp;<span class="element-name">elicitation</span><wbr><span class="parameters">(<a href="ElicitationCreateParams.html" title="class in com.workshop.mcp.spec">ElicitationCreateParams</a>&nbsp;params)</span></div>
@@ -255,19 +236,6 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>params</code> - the form to present to the user</dd>
-<dt>Returns:</dt>
-<dd>the embedded request</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="sampling(com.workshop.mcp.spec.CreateSamplingMessage)">
-<h3>sampling</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="InputRequest.html" title="class in com.workshop.mcp.spec">InputRequest</a></span>&nbsp;<span class="element-name">sampling</span><wbr><span class="parameters">(<a href="CreateSamplingMessage.html" title="class in com.workshop.mcp.spec">CreateSamplingMessage</a>&nbsp;message)</span></div>
-<div class="block">Builds an embedded <code>sampling/createMessage</code> request.</div>
-<dl class="notes">
-<dt>Parameters:</dt>
-<dd><code>message</code> - the sampling request to hand to the client's model</dd>
 <dt>Returns:</dt>
 <dd>the embedded request</dd>
 </dl>

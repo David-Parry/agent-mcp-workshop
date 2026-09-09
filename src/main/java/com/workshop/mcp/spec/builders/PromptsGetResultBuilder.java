@@ -124,8 +124,12 @@ public class PromptsGetResultBuilder {
      * @return this builder instance for method chaining
      */
     public PromptsGetResultBuilder addTextMessage(String role, String text, Map<String,String> arguments) {
-        if (arguments != null && !arguments.isEmpty()) {
-            text += "'" + arguments.get("keyword") + "'";
+        // Only the keyword is interpolated, so a map that does not carry one
+        // leaves the text alone. Testing the map for emptiness instead used to
+        // append the literal 'null' and send the model off to search for it.
+        String keyword = arguments == null ? null : arguments.get("keyword");
+        if (keyword != null && !keyword.isBlank()) {
+            text += "'" + keyword + "'";
         }
         this.messages.add(new Message(role, new MessageContent(text, "text")));
         return this;

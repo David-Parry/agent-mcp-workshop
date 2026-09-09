@@ -22,17 +22,20 @@ classDiagram
 
     %% Supporting Classes
     class ServerCapabilities
-    class ClientCapabilities
+    class ClientCapabilities {
+        +Elicitation elicitation
+        +Map~String, Object~ extensions
+    }
     class ServerInfo
     class ClientInfo
     class Capability
-    class RootsCapability
-    class SamplingCapability
     class Elicitation
     class MetaKeys
 
     %% Server and related
     class Server
+    class Router
+    class IORouter
     class JsonRpcMessageDeserializer
     class DiscoverResultBuilder
 
@@ -57,12 +60,13 @@ classDiagram
     RequestEnvelope ..> MetaKeys : keyed by
 
     ServerCapabilities ..> Capability : contains
-    ClientCapabilities ..> RootsCapability : contains
-    ClientCapabilities ..> SamplingCapability : contains
     ClientCapabilities ..> Elicitation : contains
+    Elicitation ..> Capability : form and url
 
-    Server ..> JsonRpcMessageDeserializer : uses
-    Server ..> DiscoverResultBuilder : uses
+    Server ..> Router : hands every line to
+    IORouter ..|> Router : implements
+    IORouter ..> JsonRpcMessageDeserializer : uses
+    IORouter ..> DiscoverResultBuilder : uses
     JsonRpcMessageDeserializer ..> McpGson : uses
 
     DiscoverResultBuilder ..> DiscoverResult : builds

@@ -54,7 +54,7 @@
 <body>
 <header>
     <h1>MCP Extensions &amp; Multi Round-Trip Requests</h1>
-    <p class="subtitle">The extensions capability map, and how a server asks for roots, sampling, or user input now that it cannot call the client at all</p>
+    <p class="subtitle">The extensions capability map, and how a server asks for user input now that it cannot call the client at all</p>
 </header>
 <main>
     <div class="nav">
@@ -103,7 +103,7 @@
 
 // the client, in params._meta of every request
 "io.modelcontextprotocol/clientCapabilities": {
-  "roots": { "listChanged": true },
+  "roots": { "listChanged": true },   // deprecated — ignored here
   "elicitation": { "form": {}, "url": {} },
   "extensions": { "io.modelcontextprotocol/tasks": {} }
 }</pre>
@@ -181,42 +181,42 @@
                 <span class="step-num">1</span>
                 <div class="step-content">
                     <h4>Client declares what it can answer</h4>
-                    <p>In the <code>_meta</code> envelope of the <code>tools/call</code> itself: <code>"roots": { "listChanged": true }</code>, <code>"elicitation": { "form": {}, "url": {} }</code>. No handshake to remember it, so it rides along every time.</p>
+                    <p>In the <code>_meta</code> envelope of the <code>tools/call</code> itself: <code>"elicitation": { "form": {}, "url": {} }</code>, plus the extensions map. No handshake to remember it, so it rides along every time. A real client also sends <code>"roots": { "listChanged": true }</code> and <code>"sampling"</code>; both are deprecated under SEP&#8209;2577, this server models neither, and an unrecognised key costs nothing.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">2</span>
                 <div class="step-content">
                     <h4>Server replies with a question, not the answer</h4>
-                    <p><code>tools/call key_word_search</code> arrives with no <code>directory</code> argument, so there is nothing to search. The server replies <code>resultType: "input_required"</code>, embedding <code>roots/list</code> under the key <code>search_roots</code>, plus a <code>requestState</code> holding the keyword and how far the exchange has got.</p>
+                    <p><code>tools/call key_word_search</code> arrives with no <code>directory</code> argument, so there is nothing to search. The server replies <code>resultType: "input_required"</code>, embedding <code>elicitation/create</code> under the key <code>search_directory</code>, plus a <code>requestState</code> holding the keyword and how far the exchange has got.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">3</span>
                 <div class="step-content">
                     <h4>Client resolves the embedded request</h4>
-                    <p>It answers <code>roots/list</code> from its own configuration — the user is never troubled. Only if that comes back empty does the server escalate to an embedded <code>elicitation/create</code> and a form appears.</p>
+                    <p>It renders the form described by <code>params.requestedSchema</code> and waits for the human to type a path. There used to be a cheaper question ahead of this one — an embedded <code>roots/list</code>, answered from client configuration without troubling anyone — but roots is deprecated, and the <code>directory</code> argument replaced it.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">4</span>
                 <div class="step-content">
                     <h4>Client re-sends the original request under a new id</h4>
-                    <p>Not a response to anything — a fresh <code>tools/call</code>, id <code>1</code> → <code>2</code>, with <code>inputResponses.search_roots</code> filled in and <code>requestState</code> returned unchanged.</p>
+                    <p>Not a response to anything — a fresh <code>tools/call</code>, id <code>1</code> → <code>2</code>, with <code>inputResponses.search_directory</code> filled in and <code>requestState</code> returned unchanged.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">5</span>
                 <div class="step-content">
                     <h4>Server decodes its own state and continues</h4>
-                    <p><code>SearchContinuation.decode(requestState)</code> recovers the keyword and stage, the roots supply the directory, and the search finally runs. The server remembered nothing between the two requests — it did not have to.</p>
+                    <p><code>SearchContinuation.decode(requestState)</code> recovers the keyword and stage, the form answer supplies the directory, and the search finally runs. The server remembered nothing between the two requests — it did not have to.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">6</span>
                 <div class="step-content">
                     <h4>And when the asking runs out</h4>
-                    <p>A declined form, or a client that can neither answer <code>roots/list</code> nor show one, leaves the server with no answer and nothing left to ask. It searches its own working directory rather than failing — the call always produces a result.</p>
+                    <p>A declined form, or a client that cannot show one at all, leaves the server with no answer and nothing left to ask. It searches its own working directory rather than failing — the call always produces a result.</p>
                 </div>
             </div>
         </div>
@@ -226,22 +226,25 @@
         </div>
 
         <h3>The Embedded Request (Server → Client, inside a result)</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Stage one. Note what is <em>missing</em> from the embedded request: no <code>jsonrpc</code>, no <code>id</code>. It is identified purely by its <code>method</code> and correlated by the key it sits under.</p>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Note what is <em>missing</em> from the embedded request: no <code>jsonrpc</code>, no <code>id</code>. It is identified purely by its <code>method</code> and correlated by the key it sits under.</p>
         <pre>{
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
     "resultType": "input_required",
     "inputRequests": {
-      "search_roots": { "method": "roots/list" }
+      "search_directory": {
+        "method": "elicitation/create",
+        "params": { "mode": "form" }
+      }
     },
-    "requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"
+    "requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
   }
 }</pre>
-        <p style="color:var(--muted);font-size:13px;margin-top:8px"><code>inputRequests</code> is a <strong>keyed map, not an array</strong> — <code>search_roots</code> is the server's own label, and the answer comes back under exactly that key. Only three methods may ever be embedded: <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code>.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:8px"><code>inputRequests</code> is a <strong>keyed map, not an array</strong> — <code>search_directory</code> is the server's own label, and the answer comes back under exactly that key. Only three methods may ever be embedded: <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code> — and this server builds only the last of them, the other two being deprecated under SEP&#8209;2577. <code>params</code> is abbreviated above; here it is in full.</p>
 
-        <h3>Stage Two — Escalating to the User</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">If the roots answer was <code>[]</code>, the server asks the person instead. Same mechanism, different embedded method:</p>
+        <h3>The Form Itself</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">The whole <code>params</code> object, exactly as the client receives it and renders it:</p>
         <pre>"inputRequests": {
   "search_directory": {
     "method": "elicitation/create",
@@ -274,17 +277,18 @@
     "name": "key_word_search",
     "arguments": { "keyword": "record" },
     "inputResponses": {
-      "search_roots": {           // ← keyed by the server's own label
-        "roots": [{ "uri": "file:///…/mcp/tools", "name": "workshop-tools" }]
+      "search_directory": {       // ← keyed by the server's own label
+        "action": "accept",
+        "content": { "directory": "/…/mcp/tools" }
       }
     },
-    "requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"
+    "requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
   }
 }</pre>
-        <p style="color:var(--muted);font-size:13px;margin-top:8px">An input response is the <strong>bare result</strong> the embedded method would have returned — <code>{"roots": [...]}</code>, not anything JSON-RPC-shaped. For the elicitation stage it is <code>{"action": "accept", "content": {...}}</code>, and the user may equally answer <code>"decline"</code> or <code>"cancel"</code>.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:8px">An input response is the <strong>bare result</strong> the embedded method would have returned — <code>{"action": "accept", "content": {...}}</code>, not anything JSON-RPC-shaped. Only <code>accept</code> carries content; the user may equally answer <code>"decline"</code> or <code>"cancel"</code>, and then the server falls back to its working directory.</p>
 
         <div class="key-concept">
-            <strong>Why <code>requestState</code> exists:</strong> it is an <em>opaque string</em>, not JSON. Sessions are gone, so the server has nowhere to keep what it learned while producing the interim result — the continuation state has to travel to the client and back. This repo base64-encodes <code>{"keyword":"record","stage":"roots"}</code> into it, but the protocol guarantees only that the client returns the exact bytes. Treat it as a cookie you wrote to yourself.
+            <strong>Why <code>requestState</code> exists:</strong> it is an <em>opaque string</em>, not JSON. Sessions are gone, so the server has nowhere to keep what it learned while producing the interim result — the continuation state has to travel to the client and back. This repo base64-encodes <code>{"keyword":"record","stage":"directory"}</code> into it, but the protocol guarantees only that the client returns the exact bytes. Treat it as a cookie you wrote to yourself.
         </div>
 
         <h3>What Changed — Old Shape vs. New</h3>
@@ -295,7 +299,7 @@
                 <tr><td>Correlation</td><td>Request <code>id</code> (e.g. <code>-4000</code>) and a held response</td><td>The key in <code>inputRequests</code> / <code>inputResponses</code></td></tr>
                 <tr><td>Server memory</td><td>Held the paused <code>tools/call</code> id in a field</td><td><code>requestState</code>, round-tripped through the client</td></tr>
                 <tr><td>Request id on completion</td><td>Original id reused</td><td>Brand new id — a new request entirely</td></tr>
-                <tr><td>Where roots come from</td><td><code>roots/list</code> sent at startup</td><td>Embedded <code>roots/list</code>, asked only when needed</td></tr>
+                <tr><td>Where the directory comes from</td><td><code>roots/list</code> sent at startup</td><td>The tool's own <code>directory</code> argument, or an embedded <code>elicitation/create</code> &mdash; roots is deprecated under SEP&#8209;2577</td></tr>
                 <tr><td>Declaring elicitation</td><td><code>experimental["io.modelcontextprotocol/elicitation"]</code></td><td>Client capability in each request's <code>_meta</code></td></tr>
             </tbody>
         </table>
@@ -307,13 +311,13 @@
         <h3>Inspector: See the MRTR Loop Live</h3>
         <p style="color:var(--muted);font-size:14px">Two ways in — the Inspector UI, or <code>inspector/modern-mrtr.sh</code>, which walks both paths in one go.</p>
         <ul>
-            <li>Connect — nothing is asked. No roots request goes out at startup, because a server has no way to send one</li>
+            <li>Connect — nothing is asked. No request of any kind goes out from the server at startup, because a server has no way to send one</li>
             <li>Open <strong>Tools</strong> and invoke <code>key_word_search</code> with a keyword <em>and</em> a <code>directory</code> — one request, one <code>complete</code> result. That is the baseline to contrast against</li>
             <li>Now drop the <code>directory</code> argument and invoke it again</li>
-            <li>The first answer is <code>resultType: "input_required"</code> with <code>inputRequests.search_roots</code> — <em>a result, not a request</em>. Point at the missing <code>id</code> inside it</li>
-            <li>The client answers <code>roots/list</code> from configuration and re-sends <code>tools/call</code> under a <strong>new id</strong>. Compare the two ids in the trace</li>
-            <li>Base64-decode the <code>requestState</code> on screen: <code>{"keyword":"record","stage":"roots"}</code> — the server's memory, in the client's hands</li>
-            <li>Now clear the roots and repeat: the form for <code>directory</code> appears, carrying <code>mode: "form"</code>, and it takes a third <code>tools/call</code> to finish</li>
+            <li>The answer is <code>resultType: "input_required"</code> with <code>inputRequests.search_directory</code> — <em>a result, not a request</em>. Point at the missing <code>id</code> inside it</li>
+            <li>The <strong>Search Directory</strong> form appears, carrying <code>mode: "form"</code>. Submit an absolute path and the client re-sends <code>tools/call</code> under a <strong>new id</strong>. Compare the two ids in the trace</li>
+            <li>Base64-decode the <code>requestState</code> on screen: <code>{"keyword":"record","stage":"directory"}</code> — the server's memory, in the client's hands</li>
+            <li>Point at the client's own <code>"roots": {"listChanged": true}</code> in the envelope while you are there: the Inspector still declares it, correctly, because roots is deprecated rather than removed. The server never reads it</li>
             <li>Decline that form — the search still returns, rooted at the server's working directory. There is no dead end to demo, by design</li>
         </ul>
     </div>

@@ -123,7 +123,7 @@ Implement the three core MCP capabilities to create a useful server.
 - `RESOURCES_READ` handler (content retrieval)
 
 #### Tools Capability
-- `KeyWordSearch` tool implementation — accepts a single `keyword` parameter; the search directory is supplied later via roots or elicitation (Ch 5), **not** as a tool argument
+- `KeyWordSearch` tool implementation — accepts a required `keyword` parameter and an optional `directory`; supplying the directory is the one-hop path, and Ch 5 adds what happens when it is left out
 - `TOOLS_LIST` handler (tool discovery)
 - `TOOLS_CALL` handler (tool execution)
 
@@ -135,13 +135,13 @@ Implement the three core MCP capabilities to create a useful server.
 - Builder pattern for response construction
 - JSON Schema for tool parameters
 - Classpath resource loading
-- Roots-based directory configuration (clean separation between tool args and runtime context)
+- Runtime context as a tool argument, resolved per call — there is no session to configure it in
 
 ### Verification
 - "List Resources" shows Javadoc files
-- "List Tools" shows `key_word_search` with one input field (`keyword`)
+- "List Tools" shows `key_word_search` with a required `keyword` and an optional `directory`
 - "List Prompts" shows `search_keyword`
-- Calling the tool without roots returns a clear error directing the user to either set MCP roots or accept the directory elicitation in Ch 5
+- Calling the tool without a `directory` returns a clear tool-level error, because the version written so far has no other way to find out where to look — Ch 5 adds the round trip and the working-directory fallback behind it
 
 ### Outcome
 A working MCP server with all three core capabilities — ready to be extended with experimental features.
@@ -159,7 +159,7 @@ Wire up the MCP extension mechanism, then ask the user for a missing search dire
 - `extensions` capability map in `ServerCapabilities`, alongside the surviving `experimental`
 - `withExtension()` builder method
 - `InputRequiredResult` and `InputRequest` — an embedded method call with no `jsonrpc` and no `id`
-- **The MRTR loop**: `TOOLS_CALL` answers `resultType: "input_required"`, embedding `roots/list` and then escalating to `elicitation/create`
+- **The MRTR loop**: `TOOLS_CALL` answers `resultType: "input_required"`, embedding an `elicitation/create` form
 - `SearchContinuation` — the keyword and stage, base64-encoded into the opaque `requestState`
 
 ### Key Concepts
@@ -168,13 +168,13 @@ Wire up the MCP extension mechanism, then ask the user for a missing search dire
 - The retry is a **brand new request with a brand new id**, not a response — correlated only by the echoed `requestState`
 - Statelessness forces the continuation onto the wire: the server has nowhere to keep it
 - Always leave a one-hop path — MRTR is optional for clients, so the directory is also an optional tool argument
+- Removed (SEP-2575) is not deprecated (SEP-2577): `initialize` and its family are physically gone, whereas roots, sampling, and logging still work and are still declared by clients — this server just does not build on them
 
 ### Verification
 - The `server/discover` result carries `extensions: { "io.modelcontextprotocol/ui": {...}, "io.modelcontextprotocol/tasks": {} }`
 - Nothing is asked at startup — a server has no way to ask
 - `tools/call key_word_search` **with** a `directory` argument completes in one hop
-- **Without** it, the first answer is `input_required` embedding `roots/list`, and the client re-sends under a new id
-- Empty roots escalate to an embedded `elicitation/create` with `mode: "form"`
+- **Without** it, the answer is `input_required` embedding an `elicitation/create` with `mode: "form"`, and the client re-sends under a new id once the user has filled it in
 - Declining the form falls back to the server's working directory rather than failing
 
 ### Outcome
@@ -304,8 +304,8 @@ By completing this workshop, you'll have:
 
 ## Next Steps After Workshop
 
-- Add additional tools to your server, advertising `execution.taskSupport` where appropriate
+- Add additional tools to your server, deciding per call whether each one hands back a task handle
 - Implement custom resources for your domain
 - Create specialized prompts for your workflows
-- Extend task augmentation to `sampling/createMessage` or `elicitation/create` (Ch 7 covers tools-only as the primary path)
+- Extend task augmentation to `elicitation/create` (Ch 7 covers tools-only as the primary path)
 - Share your MCP server with your team

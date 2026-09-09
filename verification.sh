@@ -134,7 +134,7 @@ fi
 echo ""
 
 
-# Step 6: Verify MCP Inspector can run
+# Step 5: Verify MCP Inspector can run
 echo "Step 5: Verifying MCP Inspector..."
 echo "----------------------------------"
 echo "Fetching and running the MCP Inspector to verify npx functionality..."
@@ -174,7 +174,6 @@ if [ $JDK_EXIT_CODE -eq 0 ] && [ $VERSION_EXIT_CODE -eq 0 ] && [ $CLEAN_EXIT_COD
     echo "  - Gradle wrapper ✓"
     echo "  - Gradle project build ✓"
     echo "  - Node.js, NPM, and npx ✓"
-    echo "  - qodo 0.9+ ✓"
     echo "  - MCP Inspector ✓"
     exit 0
 else

@@ -265,7 +265,7 @@
                 <p style="font-size:12px;color:var(--muted);margin:0">listen — one long-lived request, many notifications</p>
             </div>
         </div>
-        <p style="color:var(--muted);font-size:13px;margin-top:10px"><code>roots/list</code>, <code>sampling/createMessage</code> and <code>elicitation/create</code> are still method names, but no longer messages a server may send. They now travel <em>inside</em> a result — see Chapter 5.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:10px"><code>roots/list</code>, <code>sampling/createMessage</code> and <code>elicitation/create</code> are still method names, but no longer messages a server may send. They now travel <em>inside</em> a result — see Chapter 5. Sending any of them <em>to</em> this server is <code>-32601</code>, and two of the three, roots and sampling, are additionally deprecated under SEP&#8209;2577, so this server embeds only <code>elicitation/create</code>.</p>
 
         <h3>Stateless by Design — Now Literally</h3>
         <p>Older revisions were stateless in spirit and stateful in practice: an <code>initialize</code> handshake opened a session, and everything after it assumed that session existed. <code>2026-07-28</code> removed the handshake outright. There is no first message, no session, nothing to resume. This means:</p>

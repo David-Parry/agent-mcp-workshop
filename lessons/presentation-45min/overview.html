@@ -169,7 +169,7 @@ sequenceDiagram
             </div>
             <div class="feature-card">
                 <h4>➡️ Client-Initiated</h4>
-                <p>Only the client sends requests. A server that needs roots, sampling, or user input embeds the question <em>in its result</em> and the client comes back — the Multi Round-Trip Request.</p>
+                <p>Only the client sends requests. A server that needs user input embeds the question <em>in its result</em> and the client comes back — the Multi Round-Trip Request.</p>
             </div>
             <div class="feature-card">
                 <h4>🧩 Extensible</h4>
@@ -193,7 +193,7 @@ sequenceDiagram
             </div>
             <div class="feature-card">
                 <h4>🤝 Sampling</h4>
-                <p>Server can ask the client to run an LLM inference on its behalf — embedded in a result, then answered on the next round trip.</p>
+                <p>Server can ask the client to run an LLM inference on its behalf — embedded in a result, then answered on the next round trip. <em>Deprecated on <code>2026-07-28</code>; the guidance is to call a provider API directly, so this server does not implement it.</em></p>
             </div>
         </div>
     </section>

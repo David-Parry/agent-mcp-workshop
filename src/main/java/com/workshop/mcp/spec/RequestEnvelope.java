@@ -73,25 +73,6 @@ public record RequestEnvelope(
     }
 
     /**
-     * Reports whether the client can answer an embedded {@code roots/list}.
-     *
-     * @return true when roots support is available
-     */
-    public boolean supportsRoots() {
-        return clientCapabilities != null && clientCapabilities.roots() != null;
-    }
-
-    /**
-     * Reports whether the client can answer an embedded
-     * {@code sampling/createMessage}.
-     *
-     * @return true when sampling support is available
-     */
-    public boolean supportsSampling() {
-        return clientCapabilities != null && clientCapabilities.sampling() != null;
-    }
-
-    /**
      * Reports whether the client declared the tasks extension on this request.
      * <p>
      * A server must not hand back a task handle to a client that did not

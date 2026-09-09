@@ -26,12 +26,17 @@ sequenceDiagram
 
     rect rgb(255, 200, 100)
         Note over Client,Server: Multi Round-Trip Requests
+        Client->>Server: tools/call (with a directory argument)
+        Server-->>Client: resultType: "complete"
+        Note right of Server: One hop. The argument settles<br/>where to search, so nothing<br/>below is needed.
+
         Client->>Server: tools/call (no directory argument)
         Server-->>Client: resultType: "input_required"
-        Note right of Server: Embeds roots/list under<br/>inputRequests, plus an opaque<br/>requestState. A server MUST NOT<br/>send a request of its own.
+        Note right of Server: Embeds elicitation/create under<br/>inputRequests, plus an opaque<br/>requestState. A server MUST NOT<br/>send a request of its own.
         Client->>Server: tools/call (NEW id, inputResponses + requestState)
         Note right of Client: The retry is a brand new request,<br/>not a response
         Server-->>Client: resultType: "complete"
+        Note right of Server: Declined, or a client that cannot<br/>show a form? The server searches<br/>its own working directory.
     end
 
     rect rgb(255, 150, 100)
@@ -69,6 +74,7 @@ sequenceDiagram
         Server-->>Client: resultType: "task" (a handle, unsolicited)
         Client->>Server: tasks/get (polling)
         Server-->>Client: status working → completed
+        Note right of Server: A task that needs a directory asks<br/>for it as an input_required status,<br/>answered with tasks/update — the<br/>handle already used up resultType
     end
 
     rect rgb(120, 200, 180)
@@ -97,6 +103,9 @@ sequenceDiagram
 3. **The Server Cannot Call the Client**:
    - A server MUST NOT send a request; modern clients silently discard inbound ones
    - `roots/list`, `sampling/createMessage`, and `elicitation/create` are now *embedded in a result* under `inputRequests`, and answered on a retry under `inputResponses`
+   - Embedded is not inbound: all three still return `-32601` when a client sends one as a request, because they are things a server asks for and never answers
+   - This server embeds only `elicitation/create`; the other two are deprecated under SEP-2577, and the `key_word_search` tool's `directory` argument is the migration the specification names in place of roots
+   - Deprecated is not removed: roots stays in the specification and keeps working for the whole deprecation period, clients SHOULD go on declaring the capability, and this server simply ignores the key it does not model
    - The retry is a **new request with a new id**, correlated only by the echoed `requestState`
 
 4. **Independent Operation Groups**:
@@ -114,7 +123,7 @@ sequenceDiagram
    - `tools/call` requires knowing available tools from `tools/list`
    - `prompts/get` requires knowing prompt names from `prompts/list`
    - `resources/read` requires knowing resource URIs from `resources/list`
-   - The `key_word_search` tool takes an optional `directory`; omit it and the round trips above supply one
+   - The `key_word_search` tool takes an optional `directory`; supply it and the call finishes in one hop, omit it and the round trip above asks the user for one, falling back to the server's own working directory when nothing is offered
 
 ## Error Handling:
 - Any request can return a `JsonRpcErrorResponse`

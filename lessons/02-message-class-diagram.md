@@ -13,17 +13,15 @@ classDiagram
     
     %% Core Protocol Classes - Second Row
     class DiscoverResult
-    class CreateSamplingMessage
     class CompletionCompleteResponse
-    class RootsResponse
-    class RootsResponse
-    class Root
+    class InputRequiredResult
+    class InputRequest
     
     %% Parameter Classes
     class RequestEnvelope
     class PromptsGetParams
     class ToolCallParams
-    class ReadResourceParams
+    class ReadResourceParam
     class CompletionCompleteParams
     class ToolsListParams
     class PromptsListParams
@@ -53,12 +51,16 @@ classDiagram
     class Message
     class ContentItem
     class ServerCapabilities
-    class ClientCapabilities
+    class ClientCapabilities {
+        +Elicitation elicitation
+        +Map~String, Object~ extensions
+    }
     class ServerInfo
     class ClientInfo
     class Capability
-    class SamplingCapability
-    class RootsCapability
+    class Elicitation
+    class ElicitationCreateParams
+    class ElicitationCreateResult
     class MetaInfo
     class CompletionArgument
     class PromptRef
@@ -70,11 +72,10 @@ classDiagram
     JsonRpcErrorResponse ..> JsonRpcError : contains
     
     %% JsonRpcRequest can contain these in params field
-    JsonRpcRequest ..> CreateSamplingMessage : params
     JsonRpcRequest ..> RequestEnvelope : params._meta
     JsonRpcRequest ..> PromptsGetParams : params
     JsonRpcRequest ..> ToolCallParams : params
-    JsonRpcRequest ..> ReadResourceParams : params
+    JsonRpcRequest ..> ReadResourceParam : params
     JsonRpcRequest ..> CompletionCompleteParams : params
     JsonRpcRequest ..> ToolsListParams : params
     JsonRpcRequest ..> PromptsListParams : params
@@ -82,7 +83,7 @@ classDiagram
     
     %% JsonRpcResponse can contain these in result field
     JsonRpcResponse ..> CompletionCompleteResponse : result
-    JsonRpcResponse ..> RootsResponse : result
+    JsonRpcResponse ..> InputRequiredResult : result
     JsonRpcResponse ..> DiscoverResult : result
     JsonRpcResponse ..> ToolsListResult : result
     JsonRpcResponse ..> ToolCallResult : result
@@ -90,30 +91,32 @@ classDiagram
     JsonRpcResponse ..> PromptsGetResult : result
     JsonRpcResponse ..> ResourcesListResult : result
     JsonRpcResponse ..> ReadResourceResult : result
-    ToolCallResult ..> RootsResponse : inputResponses
+    
+    %% Multi Round-Trip Requests — the question travels out in a result,
+    %% the answer comes back in the params of the retry
+    InputRequiredResult ..> InputRequest : inputRequests
+    InputRequest ..> ElicitationCreateParams : params
+    ToolCallParams ..> ElicitationCreateResult : inputResponses
     
     %% Additional relationships discovered
     ToolsListResult ..> Tool : contains
-    RootsResponse ..> Root : contains
     ReadResourceResult ..> TextReadResource : contains
     ToolCallResult ..> ContentItem : contains
     PromptsGetResult ..> Message : contains
-    CreateSamplingMessage ..> Message : contains
     DiscoverResult ..> ServerCapabilities : contains
     DiscoverResult ..> ServerInfo : in _meta
     RequestEnvelope ..> ClientCapabilities : contains
     RequestEnvelope ..> ClientInfo : contains
     ServerCapabilities ..> Capability : contains
-    ClientCapabilities ..> SamplingCapability : contains
-    ClientCapabilities ..> RootsCapability : contains
+    ClientCapabilities ..> Elicitation : contains
+    Elicitation ..> Capability : form and url
     Tool ..> InputSchema : contains
     CompletionCompleteParams ..> MetaInfo : contains
     CompletionCompleteParams ..> CompletionArgument : contains
     CompletionCompleteParams ..> PromptRef : contains
     PromptsGetParams ..> MetaInfo : contains
     ToolCallParams ..> MetaInfo : contains
-    ReadResourceParams ..> MetaInfo : contains
+    ReadResourceParam ..> MetaInfo : contains
     ToolsListParams ..> MetaInfo : contains
     PromptsListParams ..> MetaInfo : contains
-    TasksGetParams ..> MetaInfo : contains
 ```

@@ -98,13 +98,14 @@
 
             <div class="fact-card">
                 <h3>Client Capabilities</h3>
-                <p style="margin:0 0 8px;color:var(--muted);font-size:13px">Per-request facts, not session state &mdash; a client may send a different set on each call, and the server reads it fresh every time:</p>
+                <p style="margin:0 0 8px;color:var(--muted);font-size:13px">Per-request facts, not session state &mdash; a client may send a different set on each call, and the server reads it fresh every time. It acts on exactly one of them, plus the extensions map:</p>
                 <ul>
-                    <li><strong>Roots:</strong> &#10003; (listChanged: true)</li>
-                    <li><strong>Elicitation:</strong> &#10003; (form, url)</li>
-                    <li><strong>Sampling:</strong> sent when the client can answer an embedded <code>sampling/createMessage</code></li>
+                    <li><strong>Elicitation:</strong> &#10003; (form, url) &mdash; the one capability this server reads and acts on</li>
                     <li><strong>Extensions:</strong> <code>io.modelcontextprotocol/tasks</code>, <code>io.modelcontextprotocol/ui</code></li>
+                    <li><strong>Roots:</strong> still arrives as <code>listChanged: true</code>; deprecated under SEP&#8209;2577, modelled nowhere here, and ignored as an unrecognised key</li>
+                    <li><strong>Sampling:</strong> same story &mdash; clients still declare it, this server never asks for it</li>
                 </ul>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Clients are <em>supposed</em> to keep declaring the deprecated two throughout the deprecation period, so their arrival is correct behaviour, not a client bug.</p>
             </div>
 
             <div class="fact-card">
@@ -194,9 +195,10 @@
             <div class="fact-card">
                 <h3>Round-Trip Details</h3>
                 <ul>
-                    <li><strong>Embeddable methods:</strong> <code>roots/list</code>, <code>sampling/createMessage</code>, <code>elicitation/create</code> &mdash; and nothing else</li>
+                    <li><strong>Embeddable methods:</strong> <code>roots/list</code>, <code>sampling/createMessage</code>, <code>elicitation/create</code> &mdash; and nothing else. Sending any of the three <em>to</em> the server is <code>-32601</code></li>
+                    <li><strong>Built by this server:</strong> exactly one, <code>elicitation/create</code>. The other two are deprecated under SEP&#8209;2577</li>
                     <li><strong>Shape:</strong> <code>inputRequests</code> is a keyed map; each entry has <code>method</code> + optional <code>params</code>, no <code>jsonrpc</code>, no <code>id</code></li>
-                    <li><strong>Keys used here:</strong> <code>search_roots</code>, then <code>search_directory</code></li>
+                    <li><strong>Key used here:</strong> <code>search_directory</code></li>
                     <li><strong>Elicitation:</strong> <code>mode: "form"</code>; the old <code>elicitationId</code> is gone</li>
                     <li><strong><code>requestState</code>:</strong> opaque string, base64 JSON of <code>{keyword, stage}</code>, echoed back byte-exact</li>
                 </ul>
@@ -229,9 +231,9 @@
                 <ul>
                     <li><strong>1.</strong> <code>server/discover</code> &mdash; string id, no session created</li>
                     <li><strong>2.</strong> <code>tools/list</code> &mdash; cacheable, so <code>ttlMs</code> + <code>cacheScope</code></li>
-                    <li><strong>3.</strong> <code>tools/call</code> &rarr; <code>input_required</code>, embedding <code>roots/list</code></li>
-                    <li><strong>4.</strong> Retry with a new id, <code>inputResponses</code>, and the same <code>requestState</code></li>
-                    <li><strong>5.</strong> Roots empty? Escalate to an embedded <code>elicitation/create</code> and retry again</li>
+                    <li><strong>3.</strong> <code>tools/call</code> with a <code>directory</code> argument &mdash; one hop, nothing asked</li>
+                    <li><strong>4.</strong> <code>tools/call</code> without it &rarr; <code>input_required</code>, embedding <code>elicitation/create</code></li>
+                    <li><strong>5.</strong> Retry with a new id, <code>inputResponses</code>, and the same <code>requestState</code>; declined or unaskable, and the working directory is the fallback</li>
                     <li><strong>6.</strong> Same call from a tasks-capable client &rarr; <code>resultType: "task"</code></li>
                     <li><strong>7.</strong> <code>tasks/get</code> polled once a second until <code>completed</code></li>
                     <li><strong>8.</strong> <code>subscriptions/listen</code>, acknowledged and closed</li>
@@ -242,7 +244,7 @@
                 <h3>Tool Execution Results</h3>
                 <ul>
                     <li><strong>Search Keyword:</strong> "record"</li>
-                    <li><strong>Search Directory:</strong> from the client's roots, or from the elicited directory</li>
+                    <li><strong>Search Directory:</strong> from the call's <code>directory</code> argument, or the elicited directory, or the server's working directory</li>
                     <li><strong>Files Matched:</strong> 1 <em>(one small package, so the trace stays readable)</em></li>
                     <li><strong>Result Shape:</strong> <code>resultType: "complete"</code> plus one text content block per file, <code>path, keyword_count=N</code></li>
                 </ul>

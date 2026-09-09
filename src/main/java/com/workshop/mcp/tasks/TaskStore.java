@@ -136,6 +136,7 @@ public class TaskStore {
             entry.result = result;
             entry.inputRequests = null;
             snapshot = entry.snapshot();
+            entry.notifyAll();
         }
         fireStatusChange(entry, snapshot);
     }
@@ -163,6 +164,7 @@ public class TaskStore {
             entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
             entry.inputRequests = null;
             snapshot = entry.snapshot();
+            entry.notifyAll();
         }
         fireStatusChange(entry, snapshot);
     }
@@ -236,9 +238,61 @@ public class TaskStore {
             entry.inputRequests = null;
             entry.inputResponses = accepted;
             snapshot = entry.snapshot();
+            entry.notifyAll();
         }
         fireStatusChange(entry, snapshot);
         return snapshot;
+    }
+
+    /**
+     * Blocks the task's own background work until the client answers what
+     * {@link #requireInput} asked for.
+     * <p>
+     * This is the half of task-level input that lives on the server's side of
+     * the round trip. {@code requireInput} publishes the question and returns
+     * immediately, because the thread that publishes it is answering a
+     * {@code tasks/get} poll and must not be held; the work itself then waits
+     * here until a {@code tasks/update} arrives on another thread and calls
+     * {@link #applyInput}.
+     * </p>
+     * <p>
+     * A {@code null} return means the task is not going to get an answer, and
+     * the two reasons are worth telling apart: the task may have gone terminal
+     * while waiting (a {@code tasks/cancel}), in which case there is nothing
+     * left to do, or the wait may simply have run out, in which case the work
+     * is free to carry on without the input. Callers distinguish them by
+     * re-reading the status.
+     * </p>
+     *
+     * @param taskId        target task
+     * @param timeoutMillis how long to wait for an answer
+     * @return the accepted answers, or {@code null} if the task went terminal
+     *         or the wait expired
+     */
+    public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
+        Entry entry = entries.get(taskId);
+        if (entry == null) {
+            return null;
+        }
+        long deadline = System.currentTimeMillis() + timeoutMillis;
+        synchronized (entry) {
+            while (TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    return null;
+                }
+                try {
+                    entry.wait(remaining);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+            if (entry.isTerminal()) {
+                return null;
+            }
+            return entry.inputResponses == null ? Map.of() : Map.copyOf(entry.inputResponses);
+        }
     }
 
     /**
@@ -283,6 +337,7 @@ public class TaskStore {
             entry.lastUpdatedAt = Instant.now().toString();
             entry.inputRequests = null;
             snapshot = entry.snapshot();
+            entry.notifyAll();
         }
         fireStatusChange(entry, snapshot);
         return snapshot;

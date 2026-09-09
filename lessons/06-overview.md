@@ -79,21 +79,25 @@ sequenceDiagram
 
 To make a tool into an MCP App you add **three things**:
 
-### 1. Declare the extension in `initialize`
+### 1. Declare the extension in `server/discover`
 
-The server's `initialize` response must advertise MCP Apps support in the `experimental` capabilities, just like elicitation:
+The server's `server/discover` result must advertise MCP Apps support in the `extensions` map, keyed by identifier:
 
 ```json
 {
   "capabilities": {
-    "experimental": {
-      "io.modelcontextprotocol/apps": {}
+    "extensions": {
+      "io.modelcontextprotocol/ui": {
+        "mimeTypes": ["text/html;profile=mcp-app"]
+      }
     }
   }
 }
 ```
 
-The host checks this field during the handshake. If it is absent the host will not attempt to load or render your UI — the tool still works, but the app never appears.
+Unlike most extensions, this one carries real configuration rather than an empty `{}` — the host needs to know which MIME types this server can render.
+
+The host checks this at discovery. If it is absent the host will not attempt to load or render your UI — the tool still works, but the app never appears.
 
 ### 3. `_meta` on the tool definition
 
@@ -105,16 +109,19 @@ The host checks this field during the handshake. If it is absent the host will n
   "_meta": {
     "ui": {
       "resourceUri": "ui://keyword-search/mcp-app.html"
-    }
+    },
+    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
   }
 }
 ```
+
+The URI appears twice on purpose. Hosts read either the nested `ui.resourceUri` or the flat `ui/resourceUri` depending on their vintage, so the server writes both; `AppMeta.of` is what keeps the two in step.
 
 ### 4. A resource handler for the `ui://` URI
 
 When the host requests `ui://keyword-search/mcp-app.html` via `resources/read`, your server returns the bundled HTML. The host renders it in a sandboxed iframe.
 
-The MIME type for MCP App resources is `application/vnd.mcp-ui.app+html`.
+The MIME type for MCP App resources is `text/html;profile=mcp-app`, available as `Resource.MIME_TYPE_UI_APP`. This is the one value the Inspector's renderer accepts — anything else, including the plausible-looking `application/vnd.mcp-ui.app+html`, is rejected with **"Unsupported UI resource content format"** and your app never renders.
 
 ## The New Spec Objects
 
@@ -122,8 +129,8 @@ This lesson adds three new Java types to the workshop codebase that represent th
 
 | Class | Purpose |
 |-------|---------|
-| `UiMeta` | Holds the `resourceUri` pointing to the `ui://` HTML resource |
-| `AppMeta` | Wraps `UiMeta` as the `_meta` field on a tool |
+| `UiMeta` | Holds the `resourceUri` pointing to the `ui://` HTML resource, plus an optional `visibility` hint |
+| `AppMeta` | Wraps `UiMeta` as the `_meta` field on a tool, and mirrors the URI under the flat `ui/resourceUri` key |
 | `AppTool` | A tool record that includes `_meta` alongside name, description, and inputSchema |
 
 And a builder:
@@ -164,7 +171,7 @@ MCP Apps extend the protocol you already understand — tools and resources — 
 
 Your job as the server author is simple:
 
-1. Declare `"io.modelcontextprotocol/apps"` in `experimental` during `initialize`
+1. Declare `"io.modelcontextprotocol/ui"` in `extensions` in the `server/discover` result
 2. Add `_meta.ui.resourceUri` to your tool definition
 3. Serve the HTML when the host requests it
 4. Write the HTML app that presents your tool's data

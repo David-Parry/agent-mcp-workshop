@@ -55,11 +55,11 @@ A skill is a single prompt-driven command. A plugin is a container that bundles 
 
 ## The Two-Folder Structure
 
-The same pattern as earlier chapters: reference lives in `lesson/`, your working copy is at the project root.
+The same pattern as earlier chapters: reference lives in `lessons/`, your working copy is at the project root.
 
 ```
 agent-mcp-workshop/
-├── lesson/keyword-audit-plugin/   ← reference — read from here
+├── lessons/keyword-audit-plugin/   ← reference — read from here
 │   ├── .claude-plugin/
 │   │   └── plugin.json
 │   └── skills/

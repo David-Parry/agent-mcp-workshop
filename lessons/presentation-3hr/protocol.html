@@ -250,7 +250,7 @@
             </div>
         </div>
 
-        <p style="color:var(--muted);font-size:13px;margin-top:12px">Three namespaces are conspicuously absent from that grid, and their absence is the shape of the revision. <code>roots/*</code>, <code>sampling/*</code>, and <code>elicitation/*</code> are no longer methods you can send anywhere: they exist only <em>embedded inside a result</em>. Send one to this server and you get <code>-32601</code>, the same as any deleted method.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px">Three namespaces are conspicuously absent from that grid, and their absence is the shape of the revision. <code>roots/*</code>, <code>sampling/*</code>, and <code>elicitation/*</code> are no longer methods you can send anywhere: they exist only <em>embedded inside a result</em>. Send one to this server and you get <code>-32601</code>, the same as any deleted method. Two of the three are additionally deprecated under SEP-2577, which is a separate matter from where they may travel: this server embeds only <code>elicitation/create</code>, and gets its directories from a tool parameter rather than from Roots.</p>
 
         <h3>Stateless by Design — Now Literally</h3>
         <p>This slide used to carry an asterisk. The server held no application state between calls, but it did hold a session: a negotiated protocol version, a capability set, a roots list, sometimes a half-finished tool call. Revision <code>2026-07-28</code> removed the asterisk by removing the session.</p>

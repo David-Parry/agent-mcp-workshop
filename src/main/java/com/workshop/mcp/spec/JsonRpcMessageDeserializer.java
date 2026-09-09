@@ -66,7 +66,11 @@ public class JsonRpcMessageDeserializer {
     public Object deserialize(String json) {
         JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
         if (jsonObject.has("method")) {
-            if (jsonObject.has("id")) {
+            // An explicit "id": null is still no id. Testing only for the key
+            // being present classified such a message as a request, and the
+            // server then answered a notification with a null id.
+            JsonElement id = jsonObject.get("id");
+            if (id != null && !id.isJsonNull()) {
                 return gson.fromJson(json, JsonRpcRequest.class);
             } else {
                 return gson.fromJson(json, JsonRpcNotification.class);
@@ -99,24 +103,6 @@ public class JsonRpcMessageDeserializer {
     }
 
     /**
-     * Deserializes the result field of a JSON-RPC success response into a specific type.
-     * <p>
-     * This method is useful for converting the generic result Object from a
-     * {@link JsonRpcResponse} into a strongly-typed result object specific
-     * to the method that was called.
-     * </p>
-     *
-     * @param <T> the type to deserialize the result into
-     * @param response the JSON-RPC success response containing the result to deserialize
-     * @param resultClass the class of the result type
-     * @return the deserialized result object
-     * @throws com.google.gson.JsonSyntaxException if the result cannot be deserialized to the specified type
-     */
-    public <T> T deserializeResult(JsonRpcResponse response, Class<T> resultClass) {
-        return gson.fromJson(gson.toJson(response.result()), resultClass);
-    }
-
-    /**
      * Deserializes the params field of a JSON-RPC notification into a specific type.
      * <p>
      * This method is useful for converting the generic params Map from a
@@ -138,9 +124,8 @@ public class JsonRpcMessageDeserializer {
      * Converts an already-parsed JSON value into a specific type.
      * <p>
      * Needed for the answers in {@code params.inputResponses}: they arrive as
-     * a heterogeneous map, since one key may hold a {@code roots/list} result
-     * and the next an {@code elicitation/create} result, so each is converted
-     * once the caller knows which it expects.
+     * a map of raw JSON values keyed by the question they answer, so each is
+     * converted once the caller knows which type it expects.
      * </p>
      *
      * @param <T>   the target type

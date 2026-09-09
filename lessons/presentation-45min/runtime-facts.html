@@ -90,12 +90,14 @@
 
             <div class="fact-card">
                 <h3>Client Capabilities</h3>
-                <p style="color:var(--muted);font-size:12px;margin:0 0 6px">Sent in <code>_meta</code> on <em>every</em> request</p>
+                <p style="color:var(--muted);font-size:12px;margin:0 0 6px">Sent in <code>_meta</code> on <em>every</em> request. The server acts on one of them, plus the extensions map</p>
                 <ul>
-                    <li><strong>Roots:</strong> ✓ (listChanged: true)</li>
+                    <li><strong>Elicitation:</strong> ✓ (when the UI can show a form) &mdash; the only capability this server reads</li>
                     <li><strong>Extensions:</strong> tasks, ui</li>
-                    <li><strong>Elicitation:</strong> ✓ (when the UI can show a form)</li>
+                    <li><strong>Roots:</strong> still sent (listChanged: true), deprecated under SEP&#8209;2577, ignored here</li>
+                    <li><strong>Sampling:</strong> likewise sent and likewise ignored</li>
                 </ul>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Clients SHOULD keep declaring the deprecated two for the whole deprecation period, so seeing them is correct.</p>
             </div>
 
             <div class="fact-card">
@@ -124,7 +126,7 @@
                 <ul>
                     <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
                     <li><strong>Description:</strong> Searches for keywords across project files</li>
-                    <li><strong>Parameters:</strong> keyword (required), directory (optional) <em>&mdash; omit the directory and it comes from an embedded <code>roots/list</code> or elicitation form, falling back to the server's working directory</em></li>
+                    <li><strong>Parameters:</strong> keyword (required), directory (optional) <em>&mdash; omit the directory and it comes from an embedded elicitation form, falling back to the server's working directory</em></li>
                     <li><strong>Task Support:</strong> server's call, per request — <code>execution.taskSupport</code> no longer exists</li>
                     <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code> (under both <code>_meta.ui.resourceUri</code> and <code>_meta["ui/resourceUri"]</code>)</li>
                 </ul>
@@ -173,9 +175,9 @@
                     <li><strong>4.</strong> Resource reading</li>
                     <li><strong>5.</strong> Prompts discovery</li>
                     <li><strong>6.</strong> Prompt execution</li>
-                    <li><strong>7.</strong> Tool call &rarr; <code>input_required</code> (embedded <code>roots/list</code>)</li>
+                    <li><strong>7.</strong> Tool call with no <code>directory</code> &rarr; <code>input_required</code> (embedded <code>elicitation/create</code>)</li>
                     <li><strong>8.</strong> Retry under a new id, carrying <code>inputResponses</code></li>
-                    <li><strong>9.</strong> Escalation to elicitation, if roots came back empty</li>
+                    <li><strong>9.</strong> Declined, or no elicitation capability &rarr; the working-directory fallback</li>
                     <li><strong>10.</strong> Task handle &rarr; <code>tasks/get</code> polling</li>
                     <li><strong>11.</strong> <code>subscriptions/listen</code> &rarr; acknowledgment</li>
                 </ul>

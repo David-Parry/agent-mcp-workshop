@@ -92,6 +92,8 @@ MCP uses JSON-RPC 2.0 over STDIO, which means every message is a self-contained 
 
 Note the id: a **string**, not a number. JSON-RPC has always allowed either, and modern clients use strings for out-of-band traffic like discovery probes. A server must echo it back in exactly the form it arrived.
 
+Note also what the client declares in there: `"roots":{"listChanged":true}`. Roots is deprecated on this revision and this server does not model the key at all, so Gson drops it on the way in. That is not a client bug — a deprecated feature stays functional for at least a year, and clients are told to keep declaring it for the whole transition. A server ignoring a capability it has no use for is the entire handling required.
+
 This single line contains everything needed to describe the caller — there is no handshake to establish it once. The server reads it from stdin using:
 
 ```java
@@ -191,7 +193,7 @@ private RequestEnvelope envelopeFor(JsonRpcRequest message) {
 
 That `-32022` payload is doing real work. Without a handshake there is no moment in which to renegotiate, so the error itself has to tell the client what it could have said instead.
 
-The deeper consequence is architectural: capability flags stop being fields. `hasRoots` and `hasSampling` used to be set once at initialization and read forever after. Now they are per-request facts — `envelope.supportsRoots()` — and a server that caches them has quietly reintroduced the session the revision just removed.
+The deeper consequence is architectural: capability flags stop being fields. `hasRoots` and `hasElicitation` used to be set once at initialization and read forever after. Now they are per-request facts — `envelope.supportsElicitationForm()` — and a server that caches them has quietly reintroduced the session the revision just removed.
 
 ## One-Directional Communication: The Server Cannot Call You
 
@@ -199,15 +201,17 @@ Earlier revisions let a server send requests to a client, and this workshop used
 
 That removes the only mechanism servers had for `roots/list`, `sampling/createMessage`, and `elicitation/create`. What replaces it is Multi Round-Trip Requests: the server asks by *answering*.
 
+Only one of those three is worth building on today. Roots and sampling are both deprecated under the same revision's feature lifecycle policy — the migrations it names are to take directories as ordinary tool parameters and to call an LLM provider API directly — so this server embeds a form and nothing else. Deprecated is not removed: both keep working for at least a year, and clients keep declaring them. It is simply that new code should not be written against a feature the specification has already started retiring.
+
 ```java
 // The tool needs a directory and has none. Ask for one — inside the result.
 success(requestId, InputRequiredResult.of(
-        SearchContinuation.KEY_ROOTS,
-        InputRequest.rootsList(),
-        SearchContinuation.awaitingRoots(keyword).encode()));
+        SearchContinuation.KEY_DIRECTORY,
+        InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
+        SearchContinuation.awaitingDirectory(keyword).encode()));
 ```
 
-The client sees `resultType: "input_required"`, resolves the embedded request from its own configuration, and re-sends the **original** call as a brand new request with a brand new id, carrying the answers under `inputResponses` and the server's `requestState` echoed back byte-exact.
+The client sees `resultType: "input_required"`, resolves the embedded request — here by rendering the form and letting the user answer it — and re-sends the **original** call as a brand new request with a brand new id, carrying the answers under `inputResponses` and the server's `requestState` echoed back byte-exact.
 
 The `requestState` is the whole trick. The server has nowhere to remember what it was doing between two independent requests, so the continuation travels to the client and back:
 
@@ -232,18 +236,32 @@ public void route(String message) {
     switch (object) {
         case JsonRpcRequest request -> process(request);
         case JsonRpcNotification notification -> process(notification);
-        case JsonRpcResponse successResponse -> process(successResponse);
         case JsonRpcErrorResponse errorResponse -> process(errorResponse);
-        default -> logger.log("Unknown message type: " + object);
+        default -> logger.log("[API][RECEIVED] unknown message type: " + object);
     }
 }
 ```
+
+There is no arm for a successful `JsonRpcResponse`, and its absence is the point. A response only ever answers a request, and this server sends none — so a success response arriving on stdin is either a client bug or a stray, and it falls to the `default` arm to be logged and dropped. The error-response arm survives only because a client may legitimately report that it could not process something the server emitted.
 
 This pattern matching approach (using Java's modern switch expressions) creates a clean, extensible routing system. Each message type has its own processing logic:
 
 ```java
 private void process(JsonRpcRequest message) {
     UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
+
+    // Whether the method exists comes first. A method this revision removed
+    // must answer -32601 Method not found, and validating the envelope before
+    // checking that would answer -32602 for a method that is simply gone.
+    if (uniqueKey == null || !INBOUND_METHODS.contains(uniqueKey)) {
+        error(message.id(), ErrorCodes.METHOD_NOT_FOUND, "Method not found: " + message.method());
+        return;
+    }
+    RequestEnvelope envelope = envelopeFor(message);
+    if (envelope == null) {
+        return; // envelopeFor has already answered with -32602
+    }
+
     switch (uniqueKey) {
         case PROMPTS_LIST -> { /* ... */ }
         case PROMPTS_GET -> { /* ... */ }
@@ -253,10 +271,11 @@ private void process(JsonRpcRequest message) {
         case RESOURCES_READ -> { /* ... */ }
         case TASKS_GET -> { /* ... */ }
         case SUBSCRIPTIONS_LISTEN -> { /* ... */ }
-        default -> logger.log("Unhandled RpcRequest method: " + uniqueKey);
     }
 }
 ```
+
+Two things about this shape are easy to get wrong. The order of those first two checks is load-bearing: a legacy client calling `initialize` should be told the method no longer exists, not that its parameters are wrong, and validating the `_meta` envelope first produces exactly that wrong answer. And there is no `default` arm, because `INBOUND_METHODS` has already excluded everything the switch cannot handle — a `default` there would be unreachable. What keeps the set and the switch in agreement is a test that walks every registered method and asserts each one gets a response.
 
 ## The Complete STDIO Loop: Putting It All Together
 
@@ -327,7 +346,7 @@ public class KeyWordSearch implements Tool {
 
     @Override
     public InputSchema schema() {
-        InputSchemaBuilder builder = InputSchemaBuilder
+        return InputSchemaBuilder
                 .builder()
                 .withType("object")
                 .addProperty(PropertySchemaBuilder
@@ -335,37 +354,40 @@ public class KeyWordSearch implements Tool {
                         .withKey("keyword")
                         .withType("string")
                         .withDescription("the keyword to search for in a file")
-                        .required());
-        if (this.roots == null || this.roots.isEmpty()) {
-            builder.addProperty(PropertySchemaBuilder
-                    .builder()
-                    .withKey("root_directory")
-                    .withType("string")
-                    .withDescription("The absolute path to the root directory")
-                    .required());
-        }
-        return builder.build();
+                        .required())
+                .addProperty(PropertySchemaBuilder
+                        .builder()
+                        .withKey("directory")
+                        .withType("string")
+                        .withDescription("the absolute directory to search; omit it to have the "
+                                         + "server ask for one over a Multi Round-Trip Request and "
+                                         + "fall back to its working directory"))
+                .build();
     }
 }
 ```
 
+Note that the schema is fixed rather than conditional. An earlier version of this tool varied its own schema depending on whether the server had roots configured — which only made sense while a server had long-lived roots to consult. It has none now, so `directory` is simply an optional argument, and the round trip is what happens when it is left out.
+
 The schema definition is particularly important—it enables AI clients to understand exactly how to invoke the tool. The actual implementation showcases robust file handling:
 
 ```java
-public ToolCallResult call(ToolCallParams toolCallParams) {
+public ToolCallResult call(ToolCallParams toolCallParams, Set<String> directories) {
     String keyword = toolCallParams.arguments().get("keyword");
     ToolCallResultBuilder builder = ToolCallResultBuilder.builder();
-    
-    if (roots.isEmpty()) {
-        builder.addTextContent("No root directories specified for search.");
+
+    if (directories == null || directories.isEmpty()) {
+        builder.addTextContent("No search directory was resolved for this call.");
         builder.asError();
     } else {
-        List<ContentItem> contentItems = searchKeywordInDirectories(roots, keyword);
+        List<ContentItem> contentItems = searchKeywordInDirectories(directories, keyword);
         builder.withContent(contentItems);
     }
     return builder.build();
 }
 ```
+
+The directories arrive as a call parameter rather than a constructor argument, and that is not a style preference. The tool used to hold them in a field, which was harmless while a fresh instance was built per call but left the type looking as though it remembered something between calls. With sessions gone there is nothing to remember: the router resolves the directories afresh for every `tools/call` — from the argument, from an elicited answer, or from the working-directory fallback — and hands them over. Making the per-call lifetime structural is cheaper than maintaining it as a convention.
 
 ## Debugging STDIO Communication
 
@@ -432,15 +454,15 @@ The prompt system creates user-friendly interfaces for tools:
 
 ```java
 case PROMPTS_LIST -> {
-    KeyWordSearch keyWordSearch = new KeyWordSearch(this.roots);
     PromptsListResultBuilder builder = PromptsListResultBuilder
             .builder()
             .withPrompt("search_keyword",
-                        "Creates a prompt, to search for a word using the " + 
-                        keyWordSearch.name() + " tool.")
+                        "Creates a prompt, to search for a word using the key_word_search tool.")
             .withPromptArgument("keyword", "The word to search for", true)
             .withNextCursor("nextPage");
-    success(message.id(), builder.build());
+    PromptsListResult result = builder.build();
+    success(message.id(), new PromptsListResult(result.prompts(), result.nextCursor(),
+                                                LIST_TTL_MILLIS, CacheScope.PUBLIC));
 }
 ```
 
@@ -520,13 +542,13 @@ The use of shutdown hooks and countdown latches ensures graceful termination eve
 ```java
 public record JsonRpcRequest(
     String jsonrpc,
-    Long id,
+    RequestId id,
     String method,
     Object params
 ) {}
 ```
 
-Java records provide immutable, self-documenting protocol structures.
+Java records provide immutable, self-documenting protocol structures. Note `RequestId` rather than `Long` — JSON-RPC allows an id to be either a string or a number, and typing it as `Long` is what makes the server die with a `NumberFormatException` on the very first request from a client that uses string ids.
 
 ### 2. Builder Pattern for Complex Responses
 ```java

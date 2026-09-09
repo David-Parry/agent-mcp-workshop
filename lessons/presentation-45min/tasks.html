@@ -259,7 +259,7 @@
     <!-- input_required inside a task -->
     <section class="card">
         <h2>When a Task Needs Something &mdash; <code>tasks/update</code></h2>
-        <p>A task can hit the same wall a synchronous call does: it needs roots, a form answer, or a sampling round before it can finish. It parks in <code>input_required</code>, and the poll that finds it there comes back carrying the question:</p>
+        <p>A task can hit the same wall a synchronous call does: it needs a form answer before it can finish. It parks in <code>input_required</code>, and the poll that finds it there comes back carrying the question:</p>
         <pre>// tasks/get, while the task waits
 {
   "resultType": "complete",
@@ -285,7 +285,7 @@
         <p style="color:var(--muted);font-size:13px">Note what is <em>not</em> here: the old <code>_meta.io.modelcontextprotocol/related-task</code> wrapper. Task messages are a flat shape now, and <code>taskId</code> is the correlation.</p>
 
         <div class="key-concept">
-            <strong>A handle and a question are alternatives, not a sequence.</strong> <code>resultType</code> holds one value, so the response to a <code>tools/call</code> is <em>either</em> a task handle <em>or</em> an <code>input_required</code> — never one then the other. The server has to commit to the shape before the tool starts working out what it is missing. Get that order wrong and a task-declaring client gets <em>"Unsupported result type <code>input_required</code> for <code>tools/call</code>"</em> back from the Inspector, whose task path never enables auto-fulfilment. So <code>key_word_search</code> hands a task client its handle immediately; the Chapter 5 round trips only run for clients being answered inline.
+            <strong>A handle and a question are alternatives, not a sequence.</strong> <code>resultType</code> holds one value, so the response to a <code>tools/call</code> is <em>either</em> a task handle <em>or</em> an <code>input_required</code> — never one then the other. The server has to commit to the shape before the tool starts working out what it is missing. Get that order wrong and a task-declaring client gets <em>"Unsupported result type <code>input_required</code> for <code>tools/call</code>"</em> back from the Inspector, whose task path never enables auto-fulfilment. So <code>key_word_search</code> hands a task client its handle immediately &mdash; and then asks the <em>same</em> question at the task level, as an <code>input_required</code> status answered by <code>tasks/update</code>. Nothing is given up by committing early; the question simply moves off the call and onto the task.
         </div>
     </section>
 

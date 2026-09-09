@@ -156,7 +156,7 @@
             <li><strong>Tasks:</strong> a task handle the server chose to return, a status notification, and polling to completion</li>
             <li><strong>Rejections:</strong> the removed <code>initialize</code> at <code>-32601</code>, plus <code>-32022</code> and <code>-32602</code> for a bad envelope</li>
         </ul>
-        <p>Server capabilities advertised: <code>completions</code>, <code>prompts</code>, <code>resources</code>, <code>tools</code>, and <code>extensions</code> (<code>io.modelcontextprotocol/ui</code>, <code>io.modelcontextprotocol/tasks</code>). Client side, repeated on every single request: <code>roots</code>, <code>elicitation</code>, and the same two extensions.</p>
+        <p>Server capabilities advertised: <code>completions</code>, <code>prompts</code>, <code>resources</code>, <code>tools</code>, and <code>extensions</code> (<code>io.modelcontextprotocol/ui</code>, <code>io.modelcontextprotocol/tasks</code>). Client side, repeated on every single request: <code>elicitation</code> and the same two extensions &mdash; plus a deprecated <code>roots</code> that real clients still send and this server ignores.</p>
     </section>
 
     <div class="footer">&copy; 2025 MCP Workshop. Multi-page analysis of JSON-RPC communication flow.</div>

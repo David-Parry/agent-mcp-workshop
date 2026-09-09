@@ -185,14 +185,6 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color">
 <div class="block">Method for listing available resource templates.</div>
 </div>
-<div class="col-first odd-row-color"><code><a href="#ROOTS_LIST" class="member-name-link">ROOTS_LIST</a></code></div>
-<div class="col-last odd-row-color">
-<div class="block">Name of an embedded <code>roots/list</code> request.</div>
-</div>
-<div class="col-first even-row-color"><code><a href="#SAMPLING_CREATE_MESSAGE" class="member-name-link">SAMPLING_CREATE_MESSAGE</a></code></div>
-<div class="col-last even-row-color">
-<div class="block">Name of an embedded <code>sampling/createMessage</code> request.</div>
-</div>
 <div class="col-first odd-row-color"><code><a href="#SERVER_DISCOVER" class="member-name-link">SERVER_DISCOVER</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Method for discovering a server's supported protocol revisions,
@@ -449,26 +441,6 @@ the order they are declared.</div>
  prefix is reserved for future use. The params are the full task
  snapshot.
  </p></div>
-</section>
-</li>
-<li>
-<section class="detail" id="ROOTS_LIST">
-<h3>ROOTS_LIST</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">ROOTS_LIST</span></div>
-<div class="block">Name of an embedded <code>roots/list</code> request.
- <p>
- Not a method this server receives. Modern clients discard inbound
- server-to-client requests, so a server that needs the client's roots
- embeds this name in an <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a> instead.
- </p></div>
-</section>
-</li>
-<li>
-<section class="detail" id="SAMPLING_CREATE_MESSAGE">
-<h3>SAMPLING_CREATE_MESSAGE</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">SAMPLING_CREATE_MESSAGE</span></div>
-<div class="block">Name of an embedded <code>sampling/createMessage</code> request.
- Embedded in an <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a> rather than sent as a request.</div>
 </section>
 </li>
 <li>

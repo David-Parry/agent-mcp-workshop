@@ -11,8 +11,6 @@ javadoc/com/workshop/mcp/spec/CompletionArgument.html
 javadoc/com/workshop/mcp/spec/CompletionCompleteParams.html
 javadoc/com/workshop/mcp/spec/CompletionCompleteResponse.html
 javadoc/com/workshop/mcp/spec/ContentItem.html
-javadoc/com/workshop/mcp/spec/CreateSamplingMessage.html
-javadoc/com/workshop/mcp/spec/DependencyInfo.html
 javadoc/com/workshop/mcp/spec/DiscoverResult.html
 javadoc/com/workshop/mcp/spec/Elicitation.html
 javadoc/com/workshop/mcp/spec/ElicitationCreateParams.html
@@ -35,8 +33,6 @@ javadoc/com/workshop/mcp/spec/Message.html
 javadoc/com/workshop/mcp/spec/MessageContent.html
 javadoc/com/workshop/mcp/spec/MetaInfo.html
 javadoc/com/workshop/mcp/spec/MetaKeys.html
-javadoc/com/workshop/mcp/spec/ModelHint.html
-javadoc/com/workshop/mcp/spec/ModelPreferences.html
 javadoc/com/workshop/mcp/spec/NotificationCancelledParams.html
 javadoc/com/workshop/mcp/spec/Prompt.html
 javadoc/com/workshop/mcp/spec/PromptArgument.html
@@ -46,6 +42,7 @@ javadoc/com/workshop/mcp/spec/PromptsGetResult.html
 javadoc/com/workshop/mcp/spec/PromptsListParams.html
 javadoc/com/workshop/mcp/spec/PromptsListResult.html
 javadoc/com/workshop/mcp/spec/PropertySchema.html
+javadoc/com/workshop/mcp/spec/PropertySchemaTypeAdapter.html
 javadoc/com/workshop/mcp/spec/ReadResourceParam.html
 javadoc/com/workshop/mcp/spec/ReadResourceResult.html
 javadoc/com/workshop/mcp/spec/RequestEnvelope.html
@@ -56,10 +53,6 @@ javadoc/com/workshop/mcp/spec/ResourceTemplatesListResult.html
 javadoc/com/workshop/mcp/spec/ResourcesListResult.html
 javadoc/com/workshop/mcp/spec/ResultType.html
 javadoc/com/workshop/mcp/spec/Role.html
-javadoc/com/workshop/mcp/spec/Root.html
-javadoc/com/workshop/mcp/spec/RootsCapability.html
-javadoc/com/workshop/mcp/spec/RootsResponse.html
-javadoc/com/workshop/mcp/spec/SamplingCapability.html
 javadoc/com/workshop/mcp/spec/ServerCapabilities.html
 javadoc/com/workshop/mcp/spec/ServerInfo.html
 javadoc/com/workshop/mcp/spec/SubscriptionFilter.html

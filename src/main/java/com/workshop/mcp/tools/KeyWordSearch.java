@@ -10,8 +10,10 @@ import com.workshop.mcp.spec.builders.InputSchemaBuilder;
 import com.workshop.mcp.spec.builders.PropertySchemaBuilder;
 import com.workshop.mcp.spec.builders.ToolCallResultBuilder;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.MalformedInputException;
+import java.io.InputStreamReader;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -23,11 +25,21 @@ import java.util.stream.Stream;
 /**
  * Searches a set of directories for a keyword.
  * <p>
- * The directories are supplied per call rather than held by the server.
- * Revision {@code 2026-07-28} removed protocol sessions, so there is no
- * long-lived set of roots to consult: the router resolves the directories for
- * each {@code tools/call} — from the client's roots or from an elicited
- * directory — and constructs this tool with them.
+ * This tool holds no state, and in particular it does not hold the directories
+ * it searches. Revision {@code 2026-07-28} removed protocol sessions, so there
+ * is no long-lived set of directories to consult: the router resolves them
+ * afresh for every {@code tools/call} — from the call's own {@code directory}
+ * argument, from an elicited path, or from
+ * the working-directory fallback — and passes them to
+ * {@link #call(ToolCallParams, Set)}.
+ * </p>
+ * <p>
+ * An earlier version took the directories in its constructor and kept them in a
+ * field. That was harmless while a fresh instance was built per call, but it
+ * left the type looking like it remembered something across calls, and it meant
+ * reading the tool's own metadata required inventing an empty set to construct
+ * it with. Taking them as a call parameter makes the per-call lifetime
+ * structural instead of a convention someone has to maintain.
  * </p>
  *
  * @see SearchContinuation
@@ -36,16 +48,6 @@ import java.util.stream.Stream;
 public class KeyWordSearch implements Tool {
     private static final LogFile logger = LogFileWriter.getInstance();
     private static final String FILE_PREFIX = "file://";
-    private final Set<String> roots;
-
-    /**
-     * Creates the tool for one call.
-     *
-     * @param roots the directories to search, resolved for this request
-     */
-    public KeyWordSearch(Set<String> roots) {
-        this.roots = roots;
-    }
 
     @Override
     public String name() {
@@ -88,16 +90,18 @@ public class KeyWordSearch implements Tool {
      * </p>
      *
      * @param toolCallParams the call parameters, whose {@code keyword} argument drives the search
+     * @param directories    the directories to search, resolved for this call alone
      * @return the matching files and their match counts
      */
-    public ToolCallResult call(ToolCallParams toolCallParams) {
+    @Override
+    public ToolCallResult call(ToolCallParams toolCallParams, Set<String> directories) {
         String keyword = toolCallParams.arguments().get("keyword");
         ToolCallResultBuilder builder = ToolCallResultBuilder.builder();
-        if (roots.isEmpty()) {
+        if (directories == null || directories.isEmpty()) {
             builder.addTextContent("No search directory was resolved for this call.");
             builder.asError();
         } else {
-            List<ContentItem> contentItems = searchKeywordInDirectories(roots, keyword);
+            List<ContentItem> contentItems = searchKeywordInDirectories(directories, keyword);
             builder.withContent(contentItems);
         }
         return builder.build();
@@ -211,9 +215,20 @@ public class KeyWordSearch implements Tool {
     private int searchInFile(Path file, String keyword) throws IOException {
         int count = 0;
 
-        try {
-            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-            for (String line : lines) {
+        // Undecodable bytes are replaced rather than thrown on. isTextFile
+        // only probes the first ten lines, so a file that turns out to hold
+        // one bad byte further down had already been accepted as text — and
+        // failing the decode here discarded every match in the readable part
+        // of it. Whether that happened depended on where the byte fell
+        // relative to the decoder's buffer, so the same content reported
+        // different results at different sizes.
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                Files.newInputStream(file),
+                StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPLACE)
+                        .onUnmappableCharacter(CodingErrorAction.REPLACE)))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
                 // Count occurrences of keyword in the line (case-sensitive)
                 int index = 0;
                 while ((index = line.indexOf(keyword, index)) != -1) {
@@ -221,12 +236,6 @@ public class KeyWordSearch implements Tool {
                     index += keyword.length();
                 }
             }
-        } catch (MalformedInputException e) {
-            // Not a text file, skip it
-            return 0;
-        } catch (IOException e) {
-            // Error reading file
-            throw e;
         }
 
         return count;

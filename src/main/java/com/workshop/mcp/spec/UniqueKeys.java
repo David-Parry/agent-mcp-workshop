@@ -155,22 +155,6 @@ public enum UniqueKeys {
     NOTIFICATIONS_TASKS("notifications/tasks"),
 
     /**
-     * Name of an embedded {@code roots/list} request.
-     * <p>
-     * Not a method this server receives. Modern clients discard inbound
-     * server-to-client requests, so a server that needs the client's roots
-     * embeds this name in an {@link InputRequiredResult} instead.
-     * </p>
-     */
-    ROOTS_LIST("roots/list"),
-
-    /**
-     * Name of an embedded {@code sampling/createMessage} request.
-     * Embedded in an {@link InputRequiredResult} rather than sent as a request.
-     */
-    SAMPLING_CREATE_MESSAGE("sampling/createMessage"),
-
-    /**
      * Name of an embedded {@code elicitation/create} request.
      * Embedded in an {@link InputRequiredResult} rather than sent as a request.
      */

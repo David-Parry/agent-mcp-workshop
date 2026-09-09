@@ -89,7 +89,7 @@
 
     <section class="card">
         <h2>The Server Can No Longer Call You</h2>
-        <p>On <code>2026-07-28</code> a server MUST NOT send a request to a client &mdash; modern clients silently discard inbound requests. That kills the three things servers used to ask for: <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code>.</p>
+        <p>On <code>2026-07-28</code> a server MUST NOT send a request to a client &mdash; modern clients silently discard inbound requests. That kills the three things servers used to ask for: <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code>. All three survive as <em>embedded</em> requests; two of them, roots and sampling, are also deprecated under SEP&#8209;2577, so this server builds only <code>elicitation/create</code>.</p>
         <div class="highlight-box">
             <strong>Multi Round-Trip Requests (MRTR):</strong> the server asks by <em>answering</em>. It replies <code>resultType: "input_required"</code> with the question embedded in the result; the client gathers the answers and <strong>re-sends the original request as a brand new request with a brand new id</strong>, carrying <code>inputResponses</code> and the <code>requestState</code> echoed back byte-exact.
         </div>
@@ -97,36 +97,38 @@
             <div>
                 <h3 style="margin-top:0">An embedded request</h3>
 <pre>"inputRequests": {
-  "search_roots": {
-    "method": "roots/list"
+  "search_directory": {
+    "method": "elicitation/create",
+    "params": { "mode": "form" }
   }
 }</pre>
-                <p style="color:var(--muted);font-size:13px;margin:0">A keyed <strong>map</strong>, not an array. Each entry has <code>method</code> plus optional <code>params</code> &mdash; and no <code>jsonrpc</code>, no <code>id</code>. Only those three methods may be embedded.</p>
+                <p style="color:var(--muted);font-size:13px;margin:0">A keyed <strong>map</strong>, not an array. Each entry has <code>method</code> plus optional <code>params</code> &mdash; and no <code>jsonrpc</code>, no <code>id</code>. Only those three methods may be embedded, and this server builds just this one. (<code>params</code> abbreviated; the full form is below.)</p>
             </div>
             <div>
                 <h3 style="margin-top:0">Why <code>requestState</code> exists</h3>
                 <p style="margin:0 0 8px">Sessions are gone, so the server has nowhere to remember what it was doing. The continuation travels to the client and back:</p>
-<pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJyb290cyJ9"
+<pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
 
   decodes to
-  {"keyword":"record","stage":"roots"}</pre>
+  {"keyword":"record","stage":"directory"}</pre>
                 <p style="color:var(--muted);font-size:13px;margin:0">An <strong>opaque string</strong> to the client. This repo happens to base64 its JSON; the protocol only guarantees the exact bytes come back.</p>
             </div>
         </div>
     </section>
 
     <section class="card">
-        <h2>Elicitation &mdash; Two Escalating Questions</h2>
-        <p>The <code>key_word_search</code> tool needs a directory, and there are two ways it can get one. Pass <code>arguments.directory</code> and the call finishes in a single hop. Omit it &mdash; which is what a caller working from the tool description alone usually does &mdash; and the server has to ask, so it asks the cheapest question first.</p>
+        <h2>Elicitation &mdash; The One Question Left</h2>
+        <p>The <code>key_word_search</code> tool needs a directory, and there are two ways it can get one. Pass <code>arguments.directory</code> and the call finishes in a single hop &mdash; that argument <em>is</em> the migration the specification names in place of the now-deprecated roots. Omit it &mdash; which is what a caller working from the tool description alone usually does &mdash; and the server has to ask, so it embeds a form.</p>
 
         <div class="flow-steps">
-            <div class="flow-step"><span class="step-num">1</span><div><code>tools/call</code> arrives with no <code>directory</code> argument, so the server answers <code>input_required</code> embedding <code>roots/list</code>.</div></div>
-            <div class="flow-step"><span class="step-num">2</span><div>Clients answer <code>roots/list</code> from their own configuration &mdash; the user is never troubled.</div></div>
-            <div class="flow-step"><span class="step-num">3</span><div>Client re-sends <code>tools/call</code> with a <strong>new id</strong>, the same <code>requestState</code>, and the roots under <code>inputResponses.search_roots</code>.</div></div>
-            <div class="flow-step"><span class="step-num">4</span><div>Got a directory? Search and return <code>resultType: "complete"</code>. Roots came back <em>empty</em>? Escalate &mdash; answer <code>input_required</code> again, this time embedding <code>elicitation/create</code>.</div></div>
-            <div class="flow-step"><span class="step-num">5</span><div>The client renders the form, the user types a path, and the call is re-sent once more. The server never stored a thing.</div></div>
-            <div class="flow-step"><span class="step-num">6</span><div>Declined the form, or could not show one? The server stops asking and searches its own working directory &mdash; the call always returns a result, never a dead end.</div></div>
+            <div class="flow-step"><span class="step-num">1</span><div><code>tools/call</code> arrives with no <code>directory</code> argument, so the server answers <code>input_required</code> embedding <code>elicitation/create</code>.</div></div>
+            <div class="flow-step"><span class="step-num">2</span><div>The client renders the form (<code>mode: "form"</code>) and the user types a path.</div></div>
+            <div class="flow-step"><span class="step-num">3</span><div>Client re-sends <code>tools/call</code> with a <strong>new id</strong>, the same <code>requestState</code>, and the answer under <code>inputResponses.search_directory</code>.</div></div>
+            <div class="flow-step"><span class="step-num">4</span><div>Server decodes its own <code>requestState</code>, reads the directory out of the map, searches, and returns <code>resultType: "complete"</code>. It never stored a thing.</div></div>
+            <div class="flow-step"><span class="step-num">5</span><div>Declined the form, or could not show one? The server stops asking and searches its own working directory &mdash; the call always returns a result, never a dead end.</div></div>
         </div>
+
+        <p style="color:var(--muted);font-size:13px">There used to be a cheaper question ahead of that form: an embedded <code>roots/list</code>, which a client answers from its own configuration without troubling anyone, escalating to the form only when the roots came back empty. Roots is deprecated under SEP&#8209;2577, so that stage is gone and the <code>directory</code> argument took its place. Deprecated is not removed, though &mdash; roots stays in the spec and works for at least twelve months, and real clients (the Inspector included) still declare <code>"roots": {"listChanged": true}</code> on every request. This server simply does not read the key.</p>
 
         <div class="highlight-box">
             <strong>Always leave a one-hop path.</strong> MRTR is optional for clients, and not every one implements it &mdash; the Inspector's own task-augmented <code>tools/call</code> path rejects <code>input_required</code> outright. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all, so take the input as an optional argument and treat asking as the fallback.
@@ -162,7 +164,7 @@
                 <h3>The answer, on the retry</h3>
 <pre>{
   "method": "tools/call",
-  "id": 5,
+  "id": 3,
   "params": {
     "_meta": { ...envelope... },
     "name": "key_word_search",
@@ -204,7 +206,7 @@
             <li>Call <code>key_word_search</code> with a <code>directory</code> argument first &mdash; one request, one <code>complete</code> result. That is the baseline.</li>
             <li>Drop the argument and call it again &mdash; now the reply is <code>input_required</code>, neither an answer nor an error.</li>
             <li>Point at the <code>requestState</code>, then at the <strong>new id</strong> on the retry: two JSON-RPC exchanges, one logical call.</li>
-            <li>Clear the roots and run it again to trigger the escalation to the directory form.</li>
+            <li>Decline the form and run it again &mdash; the search still returns, rooted at the server's working directory. There is no dead end to demo, by design.</li>
         </ul>
     </div>
 

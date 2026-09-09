@@ -30,7 +30,7 @@ sequenceDiagram
         Note over Client,Server: Multi Round-Trip Requests
         Client->>Server: tools/call (no directory argument)
         Server-->>Client: resultType: "input_required"
-        Note right of Server: Embeds roots/list under<br/>inputRequests, plus an opaque<br/>requestState. A server MUST NOT<br/>send a request of its own.
+        Note right of Server: Embeds elicitation/create under<br/>inputRequests, plus an opaque<br/>requestState. A server MUST NOT<br/>send a request of its own.
         Client->>Server: tools/call (NEW id, inputResponses + requestState)
         Note right of Client: The retry is a brand new request,<br/>not a response
         Server-->>Client: resultType: "complete"
@@ -100,6 +100,9 @@ sequenceDiagram
    - A server MUST NOT send a request; modern clients silently discard inbound ones
    - `roots/list`, `sampling/createMessage`, and `elicitation/create` are now *embedded in a result* under `inputRequests`, and answered on a retry under `inputResponses`
    - The retry is a **new request with a new id**, correlated only by the echoed `requestState`
+   - This server embeds only `elicitation/create`; the other two are deprecated under SEP-2577, and the `key_word_search` tool's `directory` argument is the migration the specification names in place of roots
+   - Deprecated is not removed: roots stays in the specification and keeps working for the whole deprecation period, clients SHOULD go on declaring the capability, and this server simply ignores the key it does not model
+   - All three remain rejected inbound with `-32601`, because being deprecated does not make a thing answerable
 
 4. **Independent Operation Groups**:
    - **Tools**: `tools/list` → `tools/call`

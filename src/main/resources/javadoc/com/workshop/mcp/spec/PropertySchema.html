@@ -92,10 +92,11 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-key">key</span></code> - the name of the property</dd>
+<dd><code><span id="param-key">key</span></code> - the name of the property; consumed by <a href="InputSchema.html" title="class in com.workshop.mcp.spec"><code>InputSchema</code></a>, not serialized</dd>
 <dd><code><span id="param-type">type</span></code> - the JSON Schema type of the property (e.g., "string", "number", "boolean")</dd>
 <dd><code><span id="param-description">description</span></code> - a human-readable description of the property's purpose and constraints</dd>
-<dd><code><span id="param-isRequired">isRequired</span></code> - whether this property is required in the input</dd>
+<dd><code><span id="param-isRequired">isRequired</span></code> - whether this property is required in the input; consumed by
+                   <a href="InputSchema.html" title="class in com.workshop.mcp.spec"><code>InputSchema</code></a>, not serialized</dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">PropertySchema</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;key, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;type, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description, boolean&nbsp;isRequired)
@@ -106,6 +107,15 @@ loadScripts(document, 'script');</script>
  within an input schema. It follows JSON Schema conventions to specify the type,
  description, and requirements for each property, enabling validation and
  documentation of tool inputs.
+ </p>
+ <p>
+ Only <code>type</code> and <code>description</code> are written to the wire. The other
+ two components are inputs to <a href="InputSchema.html" title="class in com.workshop.mcp.spec"><code>InputSchema</code></a>, which consumes them and
+ expresses the same facts in its own shape: <code>key</code> becomes the property's
+ position in <a href="InputSchema.html#properties()"><code>InputSchema.properties()</code></a>, and <code>isRequired</code> becomes
+ membership of <a href="InputSchema.html#required()"><code>InputSchema.required()</code></a>. Serializing them on the property
+ as well would state each fact twice using keywords JSON Schema does not
+ define, so <a href="PropertySchemaTypeAdapter.html" title="class in com.workshop.mcp.spec"><code>PropertySchemaTypeAdapter</code></a> omits them.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -114,6 +124,7 @@ loadScripts(document, 'script');</script>
 <dd>
 <ul class="tag-list">
 <li><a href="InputSchema.html" title="class in com.workshop.mcp.spec"><code>InputSchema</code></a></li>
+<li><a href="PropertySchemaTypeAdapter.html" title="class in com.workshop.mcp.spec"><code>PropertySchemaTypeAdapter</code></a></li>
 </ul>
 </dd>
 </dl>

@@ -4,14 +4,19 @@
 
 The first step in building our MCP server is to implement the input reading functionality. This code handles reading lines from System.in (standard input) and distributing them to registered listeners.
 
-### Code to Add to the Server
+### Code to Add to IOHandlerImpl
 
-Copy the following code block and add it to the `startInputReader()` method in your IOHandlerImpl implementation:
+Copy the following code block into the body of the `startInputReader()` method in `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`:
 
 ```java
-//line 142 
+// Claim the running flag in a single atomic step. If we read the flag here and
+// set it further down, two threads could both get past this check and open two
+// Scanners over the same System.in.
+if (!running.compareAndSet(false, true)) {
+    return; // Already running
+}
+
 try (Scanner scanner = new Scanner(System.in)) {
-    running.set(true);
     try {
         while (running.get()) {
             if (!scanner.hasNextLine()) {
@@ -46,7 +51,9 @@ This code block implements the core input reading loop for the MCP server. Let's
    - This ensures the Scanner is properly closed when done
 
 2. **Running State Management**:
-   - Sets `running.set(true)` to indicate the reader is active
+   - `running.compareAndSet(false, true)` marks the reader active and tells us whether we were the thread that claimed it
+   - If it returns false another thread is already reading, so we return rather than open a second Scanner over the same `System.in`
+   - Doing the check and the set as one atomic operation is the whole point: a separate `running.get()` followed by `running.set(true)` leaves a window where two threads both believe they won
    - The `running` AtomicBoolean allows thread-safe control of the reading loop
 
 3. **Main Reading Loop**:
@@ -83,10 +90,9 @@ The next critical component is the `publishLine` method, which distributes recei
 
 ### Code to Add to the IOHandlerImpl
 
-Copy the following code block and add it to the `publishLine(String line)` method in your Server implementation:
+Copy the following code block into the body of the `publishLine(String line)` method in `IOHandlerImpl`:
 
 ```java
-// line 96
 for (Consumer<String> listener : lineListeners) {
     try {
         listener.accept(line);
@@ -136,10 +142,9 @@ The `emit` method is responsible for sending JSON-formatted responses back to th
 
 ### Code to Add to the IOHandlerImpl
 
-Copy the following code block and add it to the `emit(Object message)` method in your  implementation:
+Copy the following code block into the body of the `emit(Object message)` method in `IOHandlerImpl`:
 
 ```java
-//line 117
 String text = gson.toJson(message);
 logger.log("[API][SENT]: " + text);
 writer.println(text);
@@ -189,3 +194,25 @@ The `emit` method is essential because it:
 - Error handling for serialization failures should be considered in production
 
 This method works in conjunction with the input reader to create a complete request-response cycle for the MCP protocol.
+
+## You are done when the tests pass
+
+All three methods are graded by tests that ship on this branch. Run them:
+
+```bash
+./gradlew chapterTest -Pchapter=01
+```
+
+Before you write anything they fail, which is expected — that is the red starting state. When `IOHandlerImplTest` and `LogFileWriterTest` are green, the transport layer is finished and you can move on to chapter 2.
+
+If you want to see the full failure output for a single test while debugging:
+
+```bash
+./gradlew chapterTest -Pchapter=01 --info
+```
+
+A few failures worth recognising:
+
+- `testStartInputReader_AlreadyRunning` or `testStartInputReader_ReentrantCall_...` failing usually means the `compareAndSet` guard is missing, so a second call starts a second Scanner.
+- `testListenerExceptionHandling` failing means the `try`/`catch` inside the `publishLine` loop is missing, so one broken listener stops the rest from being notified.
+- `testEmit_*` failing usually means the `writer.flush()` call is missing and the message is still sitting in the buffer.

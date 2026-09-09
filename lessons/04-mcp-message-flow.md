@@ -7,7 +7,7 @@ sequenceDiagram
     participant Client
     participant Server
     
-    Note over Client,Server: Prerequisites: Initialization already completed (from Lesson 3)
+    Note over Client,Server: Prerequisites: server/discover answered, and every request below carries its own params._meta envelope (from Lesson 3)
     
     rect rgb(100, 200, 100)
         Note over Client,Server: Resource Operations
@@ -31,7 +31,7 @@ sequenceDiagram
         Note right of Client: Gets tool info:<br/>- name: "key_word_search"<br/>- description<br/>- JSON schema
         
         Client->>Server: tools/call (request)
-        Note right of Client: Sends tool name and params:<br/>- keyword: "class"<br/>(directory comes from roots, not args)
+        Note right of Client: Sends tool name and params:<br/>- keyword: "class"<br/>- directory: "/path/to/project" (optional)
         Note right of Server: Executes KeyWordSearch<br/>Searches files for keyword
         Server-->>Client: tools/call (response)
         Note right of Client: Receives search results:<br/>- file paths<br/>- occurrence counts

@@ -58,14 +58,26 @@ CACHEABLE_METHODS = [
 ]
 
 # Client capability presets. These arrive per request now, not once.
-ROOTS_AND_FORMS = {"roots": {"listChanged": True}, "elicitation": {"form": {}, "url": {}}}
+#
+# The roots declaration is deliberate: roots is deprecated under SEP-2577, which
+# tells clients to keep declaring what they support for the whole transition, so
+# a real client still sends this. The server models no roots capability at all,
+# and these presets prove that the unrecognised key is simply ignored rather
+# than upsetting the capability it does read.
 FORMS_ONLY = {"elicitation": {"form": {}, "url": {}}}
+DEPRECATED_AND_FORMS = {"roots": {"listChanged": True}, "sampling": {},
+                        "elicitation": {"form": {}, "url": {}}}
 TASK_CLIENT = {"roots": {"listChanged": True}, "extensions": {TASKS_EXTENSION: {}}}
+TASK_CLIENT_WITH_FORMS = {"elicitation": {"form": {}, "url": {}},
+                          "extensions": {TASKS_EXTENSION: {}}}
 NO_CAPABILITIES = {}
 
-# Keys the keyword-search tool answers its embedded requests under.
-KEY_ROOTS = "search_roots"
+# The key the keyword-search tool answers its one embedded request under.
 KEY_DIRECTORY = "search_directory"
+
+# The key the removed roots stage used to answer under. Kept only so the
+# scenarios can assert it never appears again.
+KEY_ROOTS_GONE = "search_roots"
 
 
 def find_jar():
@@ -154,7 +166,7 @@ class Client:
             msg["params"] = params
         self.send(msg)
 
-    def request(self, id_, method, params=None, capabilities=ROOTS_AND_FORMS):
+    def request(self, id_, method, params=None, capabilities=DEPRECATED_AND_FORMS):
         """Send a request carrying the stateless _meta envelope."""
         body = dict(params or {})
         body["_meta"] = envelope(capabilities)
@@ -247,9 +259,9 @@ def make_keyword_dir(keyword="needleword", occurrences=3):
     return d
 
 
-def roots_answer(directory, name="harness-root"):
-    """The bare result an embedded roots/list would have returned."""
-    return {"roots": [{"uri": "file://" + directory, "name": name}]}
+def form_answer(directory):
+    """The bare result an embedded elicitation/create would have returned."""
+    return {"action": "accept", "content": {"directory": directory}}
 
 
 def search_call(keyword="needleword", request_state=None, input_responses=None):
@@ -398,8 +410,11 @@ def s_removed_methods(c):
 
 @scenario("embedded_only_methods", "extensions")
 def s_embedded_only_methods(c):
-    # These three are things the server asks for inside a result, never things
-    # it answers, because a modern client discards inbound requests.
+    # These three are things a server asks for inside a result, never things it
+    # answers, because a modern client discards inbound requests. All three are
+    # rejected inbound even though this server embeds only the last of them:
+    # roots and sampling are both deprecated under SEP-2577, so it builds
+    # neither. Being deprecated does not make them answerable.
     for i, method in enumerate(["roots/list", "sampling/createMessage", "elicitation/create"]):
         c.request(200 + i, method)
         c.expect_error(200 + i, code=METHOD_NOT_FOUND)
@@ -459,11 +474,14 @@ def s_uncacheable_results(c):
 
 # ------------------------------------------------- Multi Round-Trip Requests
 
-@scenario("mrtr_roots", "extensions, flow-diagram")
-def s_mrtr_roots(c):
+@scenario("mrtr_elicitation", "extensions, flow-diagram")
+def s_mrtr_elicitation(c):
     directory = make_keyword_dir()
 
-    # First attempt: nothing to search yet, so the server embeds a roots/list.
+    # Nothing to search yet, so the server asks the user for a directory. This
+    # used to be a two-stage escalation that embedded a roots/list first and
+    # only fell through to the form when the roots answer came back empty.
+    # Roots is deprecated under SEP-2577, so the form is now the only question.
     c.request(1, "tools/call", search_call())
     asked = c.expect_result(1)
     require_result_type(asked, "input_required", "an unanswerable tools/call")
@@ -471,50 +489,15 @@ def s_mrtr_roots(c):
     requests = asked.get("inputRequests")
     if not isinstance(requests, dict):
         raise Failure(f"inputRequests is a keyed map, not an array: {asked}")
-    embedded = requests.get(KEY_ROOTS)
-    if not embedded or embedded.get("method") != "roots/list":
-        raise Failure(f"expected an embedded roots/list under {KEY_ROOTS!r}: {asked}")
+    if KEY_ROOTS_GONE in requests:
+        raise Failure(f"the deprecated roots/list stage must not be embedded any more: {asked}")
+    embedded = requests.get(KEY_DIRECTORY)
+    if not embedded or embedded.get("method") != "elicitation/create":
+        raise Failure(f"expected an embedded elicitation/create under {KEY_DIRECTORY!r}: {asked}")
     for absent in ("jsonrpc", "id"):
         if absent in embedded:
             raise Failure(f"an embedded request carries no {absent}: {embedded}")
 
-    # There is no session, so the continuation travels to the client and back.
-    request_state = asked.get("requestState")
-    if not isinstance(request_state, str) or not request_state:
-        raise Failure(f"input_required must carry an opaque requestState: {asked}")
-    if decode_state(request_state) != {"keyword": "needleword", "stage": "roots"}:
-        raise Failure(f"requestState did not preserve the keyword and stage: {request_state}")
-
-    # The retry is a brand new request with a brand new id, carrying the
-    # answers plus the state echoed back byte-exact.
-    c.request(2, "tools/call", search_call(
-        request_state=request_state,
-        input_responses={KEY_ROOTS: roots_answer(directory)},
-    ))
-    done = c.expect_result(2)
-    require_result_type(done, "complete", "the answered retry")
-    if done.get("isError"):
-        raise Failure(f"the answered retry should have run the search: {done}")
-    if "keyword_count=3" not in json.dumps(done.get("content") or []):
-        raise Failure(f"expected keyword_count=3 from the supplied root: {done}")
-
-
-@scenario("mrtr_elicitation", "extensions")
-def s_mrtr_elicitation(c):
-    directory = make_keyword_dir()
-    roots_state = encode_state("needleword", "roots")
-
-    # Empty roots escalate to asking the user directly.
-    c.request(1, "tools/call", search_call(
-        request_state=roots_state,
-        input_responses={KEY_ROOTS: {"roots": []}},
-    ))
-    asked = c.expect_result(1)
-    require_result_type(asked, "input_required", "a tools/call whose roots came back empty")
-
-    embedded = (asked.get("inputRequests") or {}).get(KEY_DIRECTORY)
-    if not embedded or embedded.get("method") != "elicitation/create":
-        raise Failure(f"empty roots should escalate to an embedded elicitation/create: {asked}")
     params = embedded.get("params") or {}
     if params.get("mode") != "form":
         raise Failure(f"elicitation params carry mode form|url on this revision: {embedded}")
@@ -523,17 +506,23 @@ def s_mrtr_elicitation(c):
     if "directory" not in ((params.get("requestedSchema") or {}).get("required") or []):
         raise Failure(f"the form should require 'directory': {embedded}")
 
-    directory_state = asked["requestState"]
-    if decode_state(directory_state)["stage"] != "directory":
-        raise Failure(f"the continuation should have advanced to the directory stage: {directory_state}")
+    # There is no session, so the continuation travels to the client and back.
+    directory_state = asked.get("requestState")
+    if not isinstance(directory_state, str) or not directory_state:
+        raise Failure(f"input_required must carry an opaque requestState: {asked}")
+    if decode_state(directory_state) != {"keyword": "needleword", "stage": "directory"}:
+        raise Failure(f"requestState did not preserve the keyword and stage: {directory_state}")
 
-    # Accepting the form completes the exchange.
+    # The retry is a brand new request with a brand new id, carrying the
+    # answers plus the state echoed back byte-exact.
     c.request(2, "tools/call", search_call(
         request_state=directory_state,
-        input_responses={KEY_DIRECTORY: {"action": "accept", "content": {"directory": directory}}},
+        input_responses={KEY_DIRECTORY: form_answer(directory)},
     ))
     done = c.expect_result(2)
     require_result_type(done, "complete", "the elicited retry")
+    if done.get("isError"):
+        raise Failure(f"the answered retry should have run the search: {done}")
     if "keyword_count=3" not in json.dumps(done.get("content") or []):
         raise Failure(f"the elicited directory should have been searched: {done}")
 
@@ -548,13 +537,22 @@ def s_mrtr_elicitation(c):
     if declined.get("isError"):
         raise Failure(f"a declined form falls back to the working directory, it does not fail: {declined}")
 
-    # A client that can neither answer roots nor render a form is not asked at
-    # all, and lands on the same fallback.
+    # A client that cannot render a form is not asked at all, and lands on the
+    # same fallback.
     c.request(4, "tools/call", search_call(), capabilities=NO_CAPABILITIES)
     unasked = c.expect_result(4)
     require_result_type(unasked, "complete", "a call to a client with no answerable capability")
     if unasked.get("isError"):
         raise Failure(f"a client that cannot be asked still gets a search: {unasked}")
+
+    # A client whose only answerable capability is the deprecated one the
+    # server dropped is in exactly the same position.
+    c.request(5, "tools/call", search_call(),
+              capabilities={"roots": {"listChanged": True}})
+    roots_only = c.expect_result(5)
+    require_result_type(roots_only, "complete", "a call from a roots-only client")
+    if roots_only.get("inputRequests"):
+        raise Failure(f"a roots-only client must not be asked anything: {roots_only}")
 
 
 @scenario("task_client_is_not_asked", "extensions, tasks")
@@ -567,12 +565,8 @@ def s_task_client_is_not_asked(c):
     type 'input_required' for tools/call" — its task path never enables
     multi-round-trip auto-fulfilment.
     """
-    # Declares roots AND elicitation AND tasks: the tool would like to ask,
-    # and must not.
-    capabilities = dict(ROOTS_AND_FORMS)
-    capabilities["extensions"] = {TASKS_EXTENSION: {}}
-
-    c.request(1, "tools/call", search_call(), capabilities=capabilities)
+    # Declares elicitation AND tasks: the tool would like to ask, and must not.
+    c.request(1, "tools/call", search_call(), capabilities=TASK_CLIENT_WITH_FORMS)
     handle = c.expect_result(1)
     require_result_type(handle, "task", "a tools/call from a task-declaring client")
     if not handle.get("taskId"):
@@ -605,6 +599,17 @@ def s_directory_argument(c):
         raise Failure(f"the directory argument should be discoverable in the schema: {schema}")
     if "directory" in (schema.get("required") or []):
         raise Failure(f"the directory argument is optional, not required: {schema}")
+
+    # The deck prints this schema as valid JSON Schema. PropertySchema carries a
+    # key and a requiredness flag for the builder, both already expressed by the
+    # enclosing schema and neither a JSON Schema keyword.
+    for name, prop in (schema.get("properties") or {}).items():
+        strays = sorted(set(prop) - {"type", "description"})
+        if strays:
+            raise Failure(
+                f"property {name!r} writes non-JSON-Schema keywords {strays}: {prop}")
+    if schema.get("required") != ["keyword"]:
+        raise Failure(f"requiredness must survive in the required array: {schema}")
 
 
 # ------------------------------------------------- Subscriptions
@@ -652,8 +657,8 @@ def s_tasks(c):
     # Task creation is the server's decision now; params.task was removed and
     # a handle only ever goes to a client that declared the extension.
     c.request(1, "tools/call", search_call(
-        request_state=encode_state("needleword", "roots"),
-        input_responses={KEY_ROOTS: roots_answer(directory)},
+        request_state=encode_state("needleword", "directory"),
+        input_responses={KEY_DIRECTORY: form_answer(directory)},
     ), capabilities=TASK_CLIENT)
     handle = c.expect_result(1)
     require_result_type(handle, "task", "a tools/call from a task-capable client")
@@ -704,6 +709,67 @@ def s_tasks(c):
     c.expect_error("inspector-ext-99", code=INVALID_PARAMS)
 
 
+@scenario("tasks_input_required", "tasks, extensions")
+def s_tasks_input_required(c):
+    """A task asks for input as a status, and tasks/update answers it.
+
+    This is the task-level counterpart of the tools/call round trip. The call
+    itself was already answered with a handle, and resultType holds one value,
+    so the question cannot ride on that result. It surfaces as the task's own
+    input_required status, which the client sees when it polls tasks/get.
+    """
+    directory = make_keyword_dir()
+
+    # No directory, and no prior answers: the tool has nothing to search yet.
+    # The client must be able to render a form, or the task would find nothing
+    # worth asking and finish from the working directory without ever waiting.
+    c.request(1, "tools/call", search_call(), capabilities=TASK_CLIENT_WITH_FORMS)
+    handle = c.expect_result(1)
+    require_result_type(handle, "task", "a tools/call from a task-declaring client")
+    task_id = handle["taskId"]
+
+    # Poll until the task publishes what it is waiting for.
+    deadline = time.time() + 15.0
+    poll = 0
+    asked = None
+    while time.time() < deadline:
+        c.request(f"ask-{poll}", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+        snapshot = c.expect_result(f"ask-{poll}")
+        if snapshot.get("status") == "input_required":
+            asked = snapshot
+            break
+        poll += 1
+        time.sleep(0.3)
+    if asked is None:
+        raise Failure(f"task {task_id} never asked for input")
+
+    embedded = (asked.get("inputRequests") or {}).get(KEY_DIRECTORY)
+    if not embedded or embedded.get("method") != "elicitation/create":
+        raise Failure(f"a waiting task must publish its embedded request: {asked}")
+
+    # tasks/update is the round trip. Before requireInput was wired up no task
+    # ever reached input_required, so this only ever returned -32602.
+    c.request(2, "tasks/update",
+              {"taskId": task_id, "inputResponses": {KEY_DIRECTORY: form_answer(directory)}},
+              capabilities=TASK_CLIENT)
+    require_result_type(c.expect_result(2), "complete", "tasks/update answering what the task asked")
+
+    # And the task resumes with that answer.
+    deadline = time.time() + 15.0
+    poll = 0
+    while time.time() < deadline:
+        c.request(f"done-{poll}", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+        snapshot = c.expect_result(f"done-{poll}")
+        if snapshot.get("status") == "completed":
+            underlying = snapshot.get("result") or {}
+            if "keyword_count=3" not in json.dumps(underlying.get("content") or []):
+                raise Failure(f"the task should have searched the directory it was given: {snapshot}")
+            return
+        poll += 1
+        time.sleep(0.3)
+    raise Failure(f"task {task_id} never resumed after tasks/update")
+
+
 @scenario("tasks_gated", "tasks")
 def s_tasks_gated(c):
     directory = make_keyword_dir()
@@ -711,9 +777,9 @@ def s_tasks_gated(c):
     # The same call from a client that did not declare the extension runs
     # inline: handing a task to a client that cannot poll would strand it.
     c.request(1, "tools/call", search_call(
-        request_state=encode_state("needleword", "roots"),
-        input_responses={KEY_ROOTS: roots_answer(directory)},
-    ), capabilities=ROOTS_AND_FORMS)
+        request_state=encode_state("needleword", "directory"),
+        input_responses={KEY_DIRECTORY: form_answer(directory)},
+    ), capabilities=DEPRECATED_AND_FORMS)
     result = c.expect_result(1)
     require_result_type(result, "complete", "a tools/call from a client without the tasks extension")
     if "keyword_count=3" not in json.dumps(result.get("content") or []):

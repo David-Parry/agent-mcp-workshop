@@ -3,7 +3,7 @@
 Based on the instruction file and building upon the foundation from lesson 3, here's what will take place in this lesson:
 
 ## Core Objective
-This lesson completes the MCP server implementation by adding three main capabilities that were advertised during initialization: Resources, Tools, and Prompts. These features transform the basic message router into a fully functional MCP server that can expose content, provide executable functionality, and offer intelligent user guidance.
+This lesson completes the MCP server implementation by adding three main capabilities that were advertised in the `server/discover` response: Resources, Tools, and Prompts. These features transform the basic message router into a fully functional MCP server that can expose content, provide executable functionality, and offer intelligent user guidance.
 
 ## Key Implementation Tasks
 
@@ -31,13 +31,13 @@ The Resources feature allows servers to expose various types of content that cli
 Tools provide executable functionality that clients can discover and invoke:
 
 - **KeyWordSearch Tool**: A practical example tool that:
-  - Searches for the supplied keyword across every file under the server's configured roots
-  - Accepts a single parameter defined by JSON Schema (`keyword`) — the search directory is supplied at runtime via the MCP roots mechanism or, starting in Ch 5, via an on-demand elicitation form
+  - Searches for the supplied keyword across every file under the directories it is given
+  - Accepts two parameters defined by JSON Schema: `keyword`, required, and `directory`, optional. Supplying both is the one-hop path; Ch 5 adds what happens when `directory` is omitted, which is a Multi Round-Trip Request for one, backed by the server's own working directory
   - Returns structured results with file paths and occurrence counts
-  - Demonstrates proper tool implementation patterns and a clean separation between tool arguments and runtime context
+  - Demonstrates proper tool implementation patterns, and why a tool holds no state now that there is no session to hold its context in: the directories are a parameter of `call`, not a field, so a directory resolved for one call is unreachable from the next
 
 - **TOOLS_LIST Handler**: Enables tool discovery:
-  - Creates a `KeyWordSearch` instance with configured root directories
+  - Creates a `KeyWordSearch` instance purely to read its name, description, and schema
   - Uses `ToolsListResultBuilder` to expose the tool's name, description, and schema
   - The schema enables client-side parameter validation and autocomplete
 

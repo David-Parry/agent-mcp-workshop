@@ -125,6 +125,11 @@ public class AppToolBuilder {
 
     /**
      * Builds and returns the configured {@link AppTool}.
+     * <p>
+     * The resource URI is written under both {@code _meta.ui.resourceUri} and
+     * the flat {@code _meta["ui/resourceUri"]}, matching what the reference
+     * MCP Apps extension puts on the wire.
+     * </p>
      *
      * @return a new AppTool with the configured name, description, schema, and UI metadata
      * @throws IllegalStateException if name, description, or resourceUri is missing
@@ -139,7 +144,6 @@ public class AppToolBuilder {
         if (resourceUri == null || resourceUri.isBlank()) {
             throw new IllegalStateException("resourceUri is required for AppTool — use withResourceUri(\"ui://...\")" );
         }
-        AppMeta meta = new AppMeta(new UiMeta(resourceUri));
-        return new AppTool(name, description, inputSchema, meta);
+        return new AppTool(name, description, inputSchema, AppMeta.of(resourceUri));
     }
 }

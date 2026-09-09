@@ -64,13 +64,31 @@ public class IORouter implements Router {
     private static final boolean TASK_HANDLES_ENABLED = true;
 
     /**
+     * How long a task waiting in {@code input_required} gives the client to
+     * answer with {@code tasks/update} before carrying on without the input.
+     * <p>
+     * Bounded on purpose: a task that waited forever would sit there until its
+     * TTL expired, and the client has no obligation to answer at all.
+     * </p>
+     */
+    private static final long TASK_INPUT_TIMEOUT_MILLIS = 60_000L;
+
+    /**
      * The methods this server accepts as inbound requests.
      * <p>
-     * {@link UniqueKeys} also names the three methods that only ever appear
-     * embedded in an {@link InputRequiredResult} — {@code roots/list},
-     * {@code sampling/createMessage}, and {@code elicitation/create}. Those
-     * are things this server asks for, never things it answers, so a client
-     * sending one gets {@link ErrorCodes#METHOD_NOT_FOUND}.
+     * The revision also defines three methods that only ever appear embedded
+     * in an {@link InputRequiredResult} — {@code roots/list},
+     * {@code sampling/createMessage}, and {@code elicitation/create}. Only the
+     * last is something this server asks for; the other two are deprecated
+     * under SEP-2577 and are not built here at all. None is ever answered, so
+     * a client sending any of them gets {@link ErrorCodes#METHOD_NOT_FOUND}.
+     * </p>
+     * <p>
+     * Every member of this set must have an arm in the switch in
+     * {@link #process(JsonRpcRequest)}, or the request is accepted and then
+     * silently dropped. That agreement is checked by a test rather than
+     * guarded at runtime, because the only thing that can break it is an edit
+     * to this file.
      * </p>
      */
     private static final Set<UniqueKeys> INBOUND_METHODS = EnumSet.of(
@@ -91,7 +109,6 @@ public class IORouter implements Router {
     private final IOHandler io;
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
     private final TaskStore taskStore = new TaskStore();
-    private RequestId subscriptionId = null;
 
     public IORouter(IOHandler io) {
         this.io = io;
@@ -177,7 +194,7 @@ public class IORouter implements Router {
                 success(message.id(), builder.build());
             }
             case TOOLS_LIST -> {
-                KeyWordSearch keyWordSearch = new KeyWordSearch(Set.of());
+                KeyWordSearch keyWordSearch = new KeyWordSearch();
                 AppTool appTool = AppToolBuilder.builder()
                         .withName(keyWordSearch.name())
                         .withDescription(keyWordSearch.description())
@@ -188,7 +205,7 @@ public class IORouter implements Router {
             }
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
-                KeyWordSearch keyWordSearch = new KeyWordSearch(Set.of());
+                KeyWordSearch keyWordSearch = new KeyWordSearch();
                 if (!keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
                     success(message.id(), ToolCallResultBuilder
                             .builder()
@@ -201,7 +218,10 @@ public class IORouter implements Router {
             }
             case TASKS_GET -> {
                 TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
-                TaskResult detail = taskStore.detail(params.taskId());
+                // A missing taskId is answered, not faulted on: reading a null
+                // id straight into the store threw out of the router and left
+                // the client waiting for a reply that never came.
+                TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
                 if (detail == null) {
                     logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
@@ -212,7 +232,7 @@ public class IORouter implements Router {
             }
             case TASKS_UPDATE -> {
                 TasksUpdateParams params = deserializer.deserializeParams(message, TasksUpdateParams.class);
-                if (taskStore.get(params.taskId()) == null) {
+                if (params.taskId() == null || taskStore.get(params.taskId()) == null) {
                     logger.log("[API][SENT] tasks/update — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to update task: Task not found");
                 } else if (taskStore.applyInput(params.taskId(), params.inputResponses()) == null) {
@@ -227,7 +247,7 @@ public class IORouter implements Router {
             }
             case TASKS_CANCEL -> {
                 TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
-                Task before = taskStore.get(params.taskId());
+                Task before = params.taskId() == null ? null : taskStore.get(params.taskId());
                 if (before == null) {
                     logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
@@ -269,26 +289,24 @@ public class IORouter implements Router {
                 ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
                 String resourceUri = param.uri();
                 ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
-                if (KEYWORD_APP_URI.equals(resourceUri)) {
-                    try {
-                        String html = JavadocResources.readResourceContent("lesson/mcp-app.html");
-                        builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, html);
-                    } catch (Exception e) {
-                        logger.log("[API][SENT] resources/read — error reading UI app resource: " + resourceUri);
-                        builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, e.getMessage()).asError();
-                    }
-                } else if (resourceUri != null && !resourceUri.isEmpty()) {
-                    try {
-                        String content = JavadocResources.readResourceContent(resourceUri);
-                        builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
-                    } catch (Exception e) {
-                        logger.log("[API][SENT] resources/read — error reading resource: " + resourceUri);
-                        builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
-                    }
-                } else {
+                if (resourceUri == null || resourceUri.isEmpty()) {
                     builder
                             .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
                             .asError();
+                } else {
+                    // The app is the one resource whose uri is not also its
+                    // classpath path, but it is read and reported like any
+                    // other, so the two share a single failure path.
+                    boolean isApp = KEYWORD_APP_URI.equals(resourceUri);
+                    String mimeType = isApp ? Resource.MIME_TYPE_UI_APP : DEFAULT_MIME_TYPE;
+                    try {
+                        String content = JavadocResources.readResourceContent(
+                                isApp ? "lesson/mcp-app.html" : resourceUri);
+                        builder.addTextContent(resourceUri, mimeType, content);
+                    } catch (Exception e) {
+                        logger.log("[API][SENT] resources/read — error reading resource: " + resourceUri);
+                        builder.addTextContent(resourceUri, mimeType, e.getMessage()).asError();
+                    }
                 }
                 ReadResourceResult result = builder.build();
                 success(message.id(), new ReadResourceResult(result.contents(), result.isError(),
@@ -297,7 +315,11 @@ public class IORouter implements Router {
             case COMPLETION_COMPLETE -> {
                 CompletionCompleteParams params = deserializer.deserializeParams(message,
                                                                                  CompletionCompleteParams.class);
-                if ("keyword".equalsIgnoreCase(params.argument().name())) {
+                CompletionArgument argument = params.argument();
+                if (argument == null) {
+                    logger.log("[API][SENT] completion/complete — no argument to complete (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "completion/complete requires an argument");
+                } else if ("keyword".equalsIgnoreCase(argument.name())) {
                     // Simulating a keyword search completion
                     CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
                     response.value("the").value("and").total(3).hasMore(true);
@@ -307,11 +329,6 @@ public class IORouter implements Router {
                 }
             }
             case SUBSCRIPTIONS_LISTEN -> acknowledgeSubscription(message);
-            default -> {
-                // Unreachable: INBOUND_METHODS gates entry to this switch.
-                logger.log("[API][SENT] no handler for registered method '" + message.method() + "'");
-                error(message.id(), ErrorCodes.INTERNAL_ERROR, "No handler for method: " + message.method());
-            }
         }
     }
 
@@ -407,10 +424,7 @@ public class IORouter implements Router {
             directories.add(argument);
         }
 
-        if (SearchContinuation.STAGE_ROOTS.equals(stage)) {
-            directories.addAll(rootsFrom(params.inputResponse(SearchContinuation.KEY_ROOTS)));
-            logger.log("[API][RECEIVED] tools/call retry — roots answer supplied " + directories.size() + " root(s)");
-        } else if (SearchContinuation.STAGE_DIRECTORY.equals(stage)) {
+        if (SearchContinuation.STAGE_DIRECTORY.equals(stage)) {
             String directory = elicitedDirectory(params.inputResponse(SearchContinuation.KEY_DIRECTORY));
             if (directory != null) {
                 directories.add(directory);
@@ -423,32 +437,37 @@ public class IORouter implements Router {
             return;
         }
 
-        // Nothing to search yet, so the tool would like to ask. Whether it may
-        // depends on the answer shape this request is already committed to:
-        // a client that declared the tasks extension is getting a handle, and
-        // input_required is not a handle. Asking anyway is what produces
-        // "Unsupported result type 'input_required' for tools/call" from the
-        // Inspector's task path, which never enables auto-fulfilment.
-        if (!answersWithTask(envelope)) {
-            // Ask for roots first, since clients answer that from
-            // configuration without troubling the user, and escalate to asking
-            // the user directly only if that came back empty.
-            if (stage == null && envelope.supportsRoots()) {
-                logger.log("[API][SENT] tools/call — input_required, embedding roots/list");
-                success(requestId, InputRequiredResult.of(SearchContinuation.KEY_ROOTS,
-                                                          InputRequest.rootsList(),
-                                                          SearchContinuation.awaitingRoots(keyword).encode()));
-                return;
-            }
+        // Nothing to search yet, so the tool needs to ask. How it asks depends
+        // on the answer shape this request is already committed to, because
+        // resultType holds one value: a request answered with a task handle
+        // cannot also be answered with input_required. Answering the call
+        // itself is what produces "Unsupported result type 'input_required'
+        // for tools/call" from the Inspector's task path.
+        //
+        // So a task-declaring client gets its handle now and the question
+        // arrives later as a *status* on that task, resolved through
+        // tasks/update rather than by re-sending this call.
+        if (answersWithTask(envelope)) {
+            Task task = taskStore.create(null);
+            logger.log("[API][SENT] tools/call — created taskId=" + task.taskId()
+                       + " with no directory; the task will ask for one");
+            success(requestId, TaskResult.handle(task));
+            runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params, keyword), envelope);
+            return;
+        }
 
-            if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
-                logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
-                success(requestId, InputRequiredResult.of(
-                        SearchContinuation.KEY_DIRECTORY,
-                        InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
-                        SearchContinuation.awaitingDirectory(keyword).encode()));
-                return;
-            }
+        // Asking the user for a directory is the only question this tool has
+        // left. It used to embed a roots/list first, since a client answers
+        // that from configuration without troubling anyone, but roots is
+        // deprecated under SEP-2577 and the directory argument above is the
+        // migration the spec names in its place.
+        if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
+            logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
+            success(requestId, InputRequiredResult.of(
+                    SearchContinuation.KEY_DIRECTORY,
+                    InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
+                    SearchContinuation.awaitingDirectory(keyword).encode()));
+            return;
         }
 
         // There is nothing left to ask, or nothing that may be asked. Rather
@@ -502,17 +521,26 @@ public class IORouter implements Router {
      */
     private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
                                           Set<String> directories, RequestEnvelope envelope) {
-        ToolCallParams resolved = new ToolCallParams(params._meta(), params.name(),
-                                                     Map.of("keyword", keyword == null ? "" : keyword),
-                                                     null, null);
+        ToolCallParams resolved = resolvedCall(params, keyword);
         if (answersWithTask(envelope)) {
             Task task = taskStore.create(null);
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId() + " status=" + task.status());
             success(requestId, TaskResult.handle(task));
             runToolAsTask(task.taskId(), resolved, directories);
         } else {
-            success(requestId, new KeyWordSearch(directories).call(resolved));
+            success(requestId, new KeyWordSearch().call(resolved, directories));
         }
+    }
+
+    /**
+     * Strips a call down to the arguments the tool itself needs, dropping the
+     * round-trip bookkeeping. The keyword may have arrived either as an
+     * argument or on a {@link SearchContinuation}, so it is passed explicitly.
+     */
+    private ToolCallParams resolvedCall(ToolCallParams params, String keyword) {
+        return new ToolCallParams(params._meta(), params.name(),
+                                  Map.of("keyword", keyword == null ? "" : keyword),
+                                  null, null);
     }
 
     private String directoryArgument(ToolCallParams params) {
@@ -522,27 +550,6 @@ public class IORouter implements Router {
 
     private String keywordArgument(ToolCallParams params) {
         return params.arguments() == null ? null : params.arguments().get("keyword");
-    }
-
-    /**
-     * Reads the roots out of an embedded {@code roots/list} answer.
-     * <p>
-     * An input response is the bare result the method would have returned, so
-     * this is a {@code {"roots": [...]}} object rather than anything
-     * JSON-RPC-shaped.
-     * </p>
-     */
-    private Set<String> rootsFrom(Object inputResponse) {
-        Set<String> uris = new LinkedHashSet<>();
-        RootsResponse response = deserializer.convert(inputResponse, RootsResponse.class);
-        if (response != null && response.roots() != null) {
-            for (Root root : response.roots()) {
-                if (root != null && root.uri() != null && !root.uri().isBlank()) {
-                    uris.add(root.uri());
-                }
-            }
-        }
-        return uris;
     }
 
     /**
@@ -567,16 +574,12 @@ public class IORouter implements Router {
             case NOTIFICATION_CANCELLED -> {
                 NotificationCancelledParams params = deserializer.deserializeParams(message,
                                                                                     NotificationCancelledParams.class);
-                // Cancelling the listen request is how a client closes a
-                // subscription, since stdio has no stream to close.
-                if (subscriptionId != null && subscriptionId.equals(params.requestId())) {
-                    logger.log("[API][RECEIVED] notifications/cancelled — closing subscription "
-                               + subscriptionId);
-                    closeSubscription();
-                } else {
-                    logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
-                               + " reason=" + params.reason());
-                }
+                // There is never an in-flight request to abandon: this server
+                // answers every request before returning, and its one
+                // long-lived request, subscriptions/listen, is closed as it is
+                // acknowledged. So the cancellation is recorded and nothing else.
+                logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
+                           + " reason=" + params.reason());
             }
             default -> logger.log("[API][RECEIVED] unhandled notification method: " + message.method()
                                   + " for message: " + message);
@@ -602,9 +605,16 @@ public class IORouter implements Router {
      * The acknowledgment reports the intersection of what the client asked for
      * and what this server advertised, so the client is never left waiting on
      * a notification that will not come. This server advertises no
-     * {@code listChanged} support — its tool, prompt, and resource lists are
-     * fixed — so that intersection is empty and the stream is closed
-     * immediately rather than held open to deliver nothing.
+     * {@code listChanged} support and no resource subscriptions — its tool,
+     * prompt, and resource lists are fixed — so that intersection is always
+     * empty and the stream is closed as soon as it is acknowledged rather than
+     * held open to deliver nothing. A server with something to say would keep
+     * the id and answer later instead.
+     * </p>
+     * <p>
+     * The close is the one place in this revision where a {@code _meta} member
+     * is genuinely required: it must carry the subscription id, because
+     * closing without it reads to the client as a dropped connection.
      * </p>
      */
     private void acknowledgeSubscription(JsonRpcRequest message) {
@@ -615,36 +625,15 @@ public class IORouter implements Router {
                 : params.notifications();
         SubscriptionFilter honored = requested.honoredUnder(discoverResult().capabilities());
 
-        subscriptionId = message.id();
-        logger.log("[API][SENT] subscriptions/listen — acknowledging id=" + subscriptionId
+        logger.log("[API][SENT] subscriptions/listen — acknowledging id=" + message.id()
                    + " honored=" + honored);
         io.emit(new JsonRpcNotification(
                 JSON_RPC_VERSION,
                 UniqueKeys.NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED.getValue(),
-                SubscriptionsAcknowledgedParams.of(subscriptionId, honored)));
+                SubscriptionsAcknowledgedParams.of(message.id(), honored)));
 
-        if (honored.isEmpty()) {
-            logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
-            closeSubscription();
-        }
-    }
-
-    /**
-     * Ends a subscription with the graceful-close result.
-     * <p>
-     * This is the one place in the revision where a {@code _meta} member is
-     * genuinely required: the close result must carry the subscription id.
-     * Closing without it reads to the client as a dropped connection.
-     * </p>
-     */
-    private void closeSubscription() {
-        if (subscriptionId == null) {
-            return;
-        }
-        RequestId closing = subscriptionId;
-        subscriptionId = null;
-        logger.log("[API][SENT] subscriptions/listen — graceful close for id=" + closing);
-        success(closing, SubscriptionsListenResult.closing(closing));
+        logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
+        success(message.id(), SubscriptionsListenResult.closing(message.id()));
     }
 
     /**
@@ -657,7 +646,7 @@ public class IORouter implements Router {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Thread.sleep(4000L);
-                ToolCallResult result = new KeyWordSearch(directories).call(params);
+                ToolCallResult result = new KeyWordSearch().call(params, directories);
                 taskStore.complete(taskId, result);
                 logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
             } catch (InterruptedException ie) {
@@ -669,6 +658,86 @@ public class IORouter implements Router {
                 taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
             }
         }, "task-" + taskId).start();
+    }
+
+    /**
+     * Spawn a background thread for a task that still has to find out where to
+     * search.
+     * <p>
+     * This is the task-level counterpart of the {@code tools/call} round trip,
+     * and the difference is where the question lives. There, the question is
+     * the <em>result</em> of the call and the client answers by re-sending the
+     * whole call. Here the call has already been answered — with a handle —
+     * so the question surfaces as the task's {@code input_required}
+     * <em>status</em>, which a client sees when it polls {@code tasks/get} and
+     * answers with {@code tasks/update}. The work waits in
+     * {@link TaskStore#awaitInput} in between.
+     * </p>
+     * <p>
+     * A client that answers nothing is not a failure: the search falls back to
+     * the server's working directory, exactly as the inline path does.
+     * </p>
+     */
+    private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
+        new Thread(() -> {
+            logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
+            try {
+                Set<String> directories = new LinkedHashSet<>();
+
+                if (envelope.supportsElicitationForm()) {
+                    Map<String, Object> answers = askOnTask(
+                            taskId, SearchContinuation.KEY_DIRECTORY,
+                            InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()));
+                    if (isTerminal(taskId)) {
+                        return;
+                    }
+                    String directory = elicitedDirectory(answers.get(SearchContinuation.KEY_DIRECTORY));
+                    if (directory != null) {
+                        directories.add(directory);
+                    }
+                }
+
+                if (directories.isEmpty()) {
+                    String workingDirectory = workingDirectory();
+                    logger.log("[TASK " + taskId + "] nothing was offered, using the working directory "
+                               + workingDirectory);
+                    directories.add(workingDirectory);
+                }
+
+                ToolCallResult result = new KeyWordSearch().call(params, directories);
+                taskStore.complete(taskId, result);
+                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
+            } catch (Exception e) {
+                logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
+                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
+            }
+        }, "task-" + taskId).start();
+    }
+
+    /**
+     * Publishes one question on a task and blocks until the client answers it
+     * with {@code tasks/update}.
+     * <p>
+     * An unanswered question is not distinguished from an unasked one: both
+     * yield no answers, and the caller checks the task's status to tell a
+     * cancellation from a client that simply stayed quiet. A quiet client is
+     * not a failure — the search falls back to the working directory.
+     * </p>
+     *
+     * @return the answers, empty when none arrived
+     */
+    private Map<String, Object> askOnTask(String taskId, String key, InputRequest request) {
+        taskStore.requireInput(taskId, Map.of(key, request));
+        logger.log("[TASK " + taskId + "] input_required — asking for " + request.method()
+                   + " under key=" + key);
+        Map<String, Object> answers = taskStore.awaitInput(taskId, TASK_INPUT_TIMEOUT_MILLIS);
+        logger.log("[TASK " + taskId + "] "
+                   + (answers == null ? "no answer arrived for " + key : "tasks/update answered " + key));
+        return answers == null ? Map.of() : answers;
+    }
+
+    private boolean isTerminal(String taskId) {
+        return TaskStatus.fromValue(taskStore.get(taskId).status()).isTerminal();
     }
 
     /**

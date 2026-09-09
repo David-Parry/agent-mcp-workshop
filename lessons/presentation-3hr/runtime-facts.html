@@ -91,9 +91,10 @@
                 <h3>Client Capabilities</h3>
                 <p style="color:var(--muted);font-size:12px;margin:0 0 6px">Sent in <code>_meta</code> on <em>every</em> request — there is no handshake to remember them</p>
                 <ul>
-                    <li><strong>Roots:</strong> ✓ (listChanged: true)</li>
-                    <li><strong>Elicitation:</strong> ✓ (form and url)</li>
+                    <li><strong>Elicitation:</strong> ✓ (form and url) &mdash; the one capability this server reads and acts on</li>
                     <li><strong>Extensions:</strong> tasks, ui</li>
+                    <li><strong>Roots:</strong> still arrives as <code>listChanged: true</code> &mdash; deprecated under SEP&#8209;2577, not removed, so a correct client keeps declaring it. Modelled nowhere here, and ignored</li>
+                    <li><strong>Sampling:</strong> likewise sent, and likewise ignored</li>
                 </ul>
             </div>
 
@@ -123,7 +124,7 @@
                 <ul>
                     <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
                     <li><strong>Description:</strong> Searches for keywords across project files</li>
-                    <li><strong>Parameters:</strong> keyword (required), directory (optional) <em>&mdash; omit the directory and it comes from <code>roots/list</code> or the elicitation form, falling back to the server's working directory</em></li>
+                    <li><strong>Parameters:</strong> keyword (required), directory (optional) <em>&mdash; omit the directory and it comes from the elicitation form, falling back to the server's working directory</em></li>
                     <li><strong>Task Support:</strong> the server's call, per request — <code>execution.taskSupport</code> no longer exists</li>
                     <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code> (under both <code>_meta.ui.resourceUri</code> and <code>_meta["ui/resourceUri"]</code>)</li>
                 </ul>
@@ -173,9 +174,9 @@
                     <li><strong>4.</strong> Resource reading</li>
                     <li><strong>5.</strong> Prompts discovery</li>
                     <li><strong>6.</strong> Prompt execution</li>
-                    <li><strong>7.</strong> Tool call &rarr; <code>input_required</code> (embedded <code>roots/list</code>)</li>
+                    <li><strong>7.</strong> Tool call with no directory &rarr; <code>input_required</code> (embedded <code>elicitation/create</code>)</li>
                     <li><strong>8.</strong> Retry under a new id, carrying <code>inputResponses</code></li>
-                    <li><strong>9.</strong> Escalation to elicitation, if roots came back empty</li>
+                    <li><strong>9.</strong> Declined, or no <code>elicitation</code> declared &rarr; the working-directory fallback</li>
                     <li><strong>10.</strong> Task handle &rarr; <code>tasks/get</code> polling</li>
                     <li><strong>11.</strong> <code>subscriptions/listen</code> &rarr; acknowledgment</li>
                 </ul>

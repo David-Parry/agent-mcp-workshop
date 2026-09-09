@@ -73,7 +73,7 @@
         <a href="#" id="theme-toggle" style="background:var(--fg);color:var(--bg);font-weight:700">Light</a>
     </div>
 
-    <!-- Chapter 3: Handshake -->
+    <!-- Chapter 3: Discovery -->
     <section class="card">
         <div class="timing-badge">23 – 25 min</div>
         <span class="chapter-badge">Chapter 3</span>
@@ -102,7 +102,7 @@
     }
   }}
 }</pre>
-                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Note the <strong>string</strong> id. Ids may be strings or numbers now, and a server must echo one back in exactly the form it arrived.</p>
+                <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Note the <strong>string</strong> id. Ids may be strings or numbers now, and a server must echo one back in exactly the form it arrived. Note also the <code>roots</code> declaration: it is deprecated under SEP&#8209;2577, but clients SHOULD keep sending it for the whole deprecation period, so it keeps arriving. This server does not model it and ignores the key.</p>
             </div>
             <div class="cap-card">
                 <h4>server/discover result (Server → Client)</h4>
@@ -326,8 +326,8 @@ default                 → error(id, METHOD_NOT_FOUND)</pre>
 
         <h3>KeyWordSearch Implementation</h3>
         <ul>
-            <li>Walks the directory tree recursively from each configured root</li>
-            <li>Roots arrive as an <strong>embedded <code>roots/list</code></strong> answer in a follow-up <code>tools/call</code> (Ch&nbsp;5) &mdash; never as a tool parameter, and never by the server calling the client</li>
+            <li>Walks the directory tree recursively from each directory it was handed for this call &mdash; it holds none of its own</li>
+            <li>Directories arrive on the call itself as the optional <code>directory</code> argument, or as an <strong>embedded <code>elicitation/create</code></strong> answer in a follow-up <code>tools/call</code> (Ch&nbsp;5), or from the working-directory fallback &mdash; never from server memory</li>
             <li>Counts occurrences of <code>keyword</code> per file (case-insensitive)</li>
             <li>Returns one text content item per matching file with its count</li>
             <li>The JSON Schema <code>required</code> array enables client-side validation before the request is even sent</li>

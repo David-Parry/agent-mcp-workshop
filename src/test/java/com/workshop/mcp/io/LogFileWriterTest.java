@@ -5,10 +5,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -16,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -499,5 +505,180 @@ class LogFileWriterTest {
                 "First part of newline message should be present");
         assertEquals("newline", lines.get(specialMessages.length + 1), 
                 "Second part of newline message should be on next line");
+    }
+
+    @Test
+    @DisplayName("Should close the open writer when the log file is recreated")
+    void testCreateNewLogFileClosesTheOpenWriter() throws Exception {
+        // Given
+        logFile = LogFileWriter.getInstance();
+        logFile.log("Before reopen");
+
+        // When
+        Method createNewLogFile = LogFileWriter.class.getDeclaredMethod("createNewLogFile");
+        createNewLogFile.setAccessible(true);
+        createNewLogFile.invoke(logFile);
+        logFile.log("After reopen");
+
+        // Then
+        Path logsDir = Paths.get("logs");
+        Path logFilePath = Files.list(logsDir)
+                .filter(path -> path.toString().endsWith(".log"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Log file not found"));
+
+        List<String> lines = Files.readAllLines(logFilePath);
+        assertEquals(2, lines.size(), "The reopened writer should append to the same file");
+        assertTrue(lines.get(0).contains("Before reopen"), "First line should survive the reopen");
+        assertTrue(lines.get(1).contains("After reopen"), "Second line should be written after the reopen");
+    }
+
+    @Test
+    @DisplayName("Should swallow raw logging failures when no log file can be opened")
+    void testLogRawSwallowsLogFileCreationFailure() throws IOException {
+        // Given
+        logFile = LogFileWriter.getInstance();
+
+        // When/Then
+        withBrokenLogDestinations(() -> assertDoesNotThrow(() -> logFile.logRaw("dropped message")));
+    }
+
+    @Test
+    @DisplayName("Should swallow exception logging failures when no log file can be opened")
+    void testLogWithExceptionSwallowsLogFileCreationFailure() throws IOException {
+        // Given
+        logFile = LogFileWriter.getInstance();
+
+        // When/Then
+        withBrokenLogDestinations(
+                () -> assertDoesNotThrow(() -> logFile.log("dropped message", new IllegalStateException("boom"))));
+    }
+
+    @Test
+    @DisplayName("Should swallow failures raised while closing the writer")
+    void testCloseSwallowsWriterFailure() throws Exception {
+        // Given - PrintWriter only absorbs IOException from close(), so an
+        // unchecked failure is the only kind that reaches LogFileWriter.close()
+        logFile = LogFileWriter.getInstance();
+        Field logWriterField = LogFileWriter.class.getDeclaredField("logWriter");
+        logWriterField.setAccessible(true);
+        logWriterField.set(logFile, new PrintWriter(new Writer() {
+            @Override
+            public void write(char[] buffer, int offset, int length) {
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+                throw new IllegalStateException("close failed");
+            }
+        }));
+
+        // When/Then
+        assertDoesNotThrow(() -> logFile.close());
+
+        logWriterField.set(logFile, null);
+    }
+
+    @Test
+    @DisplayName("Should fall back to an unknown process id when ProcessHandle is unavailable")
+    void testResolveProcessIdFallsBackWhenProcessHandleIsUnavailable() throws Exception {
+        // Given
+        Class<?> isolatedWriter = new ProcessHandleHidingClassLoader().loadClass(LogFileWriter.class.getName());
+
+        // When
+        Object isolatedInstance = isolatedWriter.getMethod("getInstance").invoke(null);
+
+        // Then
+        Field processIdField = isolatedWriter.getDeclaredField("processId");
+        processIdField.setAccessible(true);
+        assertEquals("unknown", processIdField.get(isolatedInstance));
+    }
+
+    /**
+     * Runs the action with both log destinations broken: {@code logs} is a plain
+     * file so the primary writer cannot be opened, and the temp directory the
+     * writer falls back to does not exist.
+     */
+    private void withBrokenLogDestinations(Runnable action) throws IOException {
+        Path logsDir = Paths.get("logs");
+        deleteRecursively(logsDir);
+        Files.createFile(logsDir);
+        String originalTempDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempDir.resolve("absent").toString());
+
+        try {
+            action.run();
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTempDir);
+            Files.deleteIfExists(logsDir);
+            Files.createDirectories(logsDir);
+        }
+    }
+
+    private static void deleteRecursively(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.delete(path);
+                } catch (IOException e) {
+                    // Ignore
+                }
+            });
+        }
+    }
+
+    /**
+     * Loads {@link LogFileWriter} in isolation with {@code java.lang.ProcessHandle}
+     * hidden, which is the only way to reach the PID fallback on a JVM that ships
+     * the class the resolver reflects on.
+     */
+    private static final class ProcessHandleHidingClassLoader extends ClassLoader {
+
+        ProcessHandleHidingClassLoader() {
+            super(LogFileWriter.class.getClassLoader());
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            if ("java.lang.ProcessHandle".equals(name)) {
+                throw new ClassNotFoundException(name);
+            }
+            if (!LogFileWriter.class.getName().equals(name)) {
+                return super.loadClass(name, resolve);
+            }
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> isolated = findLoadedClass(name);
+                if (isolated == null) {
+                    byte[] bytecode = readBytecode(name);
+                    // The original protection domain has to be carried over: an
+                    // agent that skips classes with no code source location
+                    // would otherwise leave this copy uninstrumented.
+                    isolated = defineClass(name, bytecode, 0, bytecode.length,
+                            LogFileWriter.class.getProtectionDomain());
+                }
+                if (resolve) {
+                    resolveClass(isolated);
+                }
+                return isolated;
+            }
+        }
+
+        private byte[] readBytecode(String name) throws ClassNotFoundException {
+            try (InputStream bytecode = getParent().getResourceAsStream(name.replace('.', '/') + ".class")) {
+                if (bytecode == null) {
+                    throw new ClassNotFoundException(name);
+                }
+                return bytecode.readAllBytes();
+            } catch (IOException e) {
+                throw new ClassNotFoundException(name, e);
+            }
+        }
     }
 }

@@ -9,13 +9,7 @@
       "env": {
       },
       "protocolEra": "modern",
-      "modernLogLevel": "off",
-      "roots": [
-        {
-          "uri": "file:///Users/davidparry/code/github/mcp-servers/agent-mcp-workshop",
-          "name": "workshop-tools"
-        }
-      ]
+      "modernLogLevel": "off"
     }
   }
 }

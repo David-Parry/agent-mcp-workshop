@@ -5,10 +5,13 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -46,10 +49,20 @@ class ServerTest {
     private static Server testableServer(IOHandler io, Router router, CountDownLatch latch) {
         return new Server(io, router, latch) {
             @Override
-            void exit() {
+            void exit(int status) {
                 // no-op in tests
             }
         };
+    }
+
+    /**
+     * Raises the server's private shutdown flag the same way the shutdown hook
+     * installed by {@link Server#start()} does, without waiting for JVM exit.
+     */
+    private static void flagShuttingDown(Server server) throws Exception {
+        Field field = Server.class.getDeclaredField("isShuttingDown");
+        field.setAccessible(true);
+        ((AtomicBoolean) field.get(server)).set(true);
     }
     
     @Nested
@@ -408,6 +421,81 @@ class ServerTest {
 
             // Then
             verify(mockLatch, atLeast(2)).await(anyLong(), any(TimeUnit.class));
+        }
+
+        @Test
+        @Timeout(value = 5, unit = TimeUnit.SECONDS)
+        @DisplayName("Should exit without touching the IOHandler when there is none")
+        void keepRunning_WithNullIOHandler_ExitsOnReleasedLatch() {
+            Server serverWithNullIO = testableServer(null, mockRouter, new CountDownLatch(0));
+
+            Assertions.assertDoesNotThrow(serverWithNullIO::keepRunning);
+        }
+
+        @Test
+        @Timeout(value = 5, unit = TimeUnit.SECONDS)
+        @DisplayName("Should re-assert the interrupt flag when interrupted while waiting")
+        void keepRunning_WhenInterrupted_RestoresInterruptFlag() {
+            when(mockIOHandler.isRunning()).thenReturn(true);
+            Server serverUnderTest = testableServer(mockIOHandler, mockRouter, new CountDownLatch(1));
+
+            try {
+                // A pre-set interrupt makes await() throw straight away, so the
+                // test never sits through the 500ms poll tick.
+                Thread.currentThread().interrupt();
+
+                serverUnderTest.keepRunning();
+
+                Assertions.assertTrue(Thread.currentThread().isInterrupted(),
+                        "The interrupt swallowed by await() must be restored");
+            } finally {
+                Thread.interrupted();
+            }
+        }
+
+        @Test
+        @Timeout(value = 5, unit = TimeUnit.SECONDS)
+        @DisplayName("Should not count the latch down when shutdown is already under way")
+        void keepRunning_WhenShutdownAlreadyFlagged_SkipsCountDown() {
+            CountDownLatch latch = new CountDownLatch(1);
+            Server serverUnderTest = testableServer(mockIOHandler, mockRouter, latch);
+            // Reproduces the shutdown hook winning the race between the loop's
+            // flag check and its compare-and-set.
+            when(mockIOHandler.isRunning()).thenAnswer(invocation -> {
+                flagShuttingDown(serverUnderTest);
+                return false;
+            });
+
+            serverUnderTest.keepRunning();
+
+            Assertions.assertEquals(1, latch.getCount(), "The losing thread must not release the latch");
+        }
+    }
+
+    @Nested
+    @DisplayName("Exit Method Tests")
+    class ExitMethodTests {
+
+        @Test
+        @Timeout(value = 30, unit = TimeUnit.SECONDS)
+        @DisplayName("Should terminate the JVM with the status it was given")
+        void exit_TerminatesJvmWithTheGivenStatus() {
+            // System.exit(n) is compiled to Runtime.getRuntime().exit(n), so
+            // stubbing Runtime is what keeps the real call from taking the test
+            // runner down. This is the one test that runs Server.exit() itself
+            // rather than the no-op override used everywhere else.
+            Runtime runtime = mock(Runtime.class);
+            Server realServer = new Server(mockIOHandler, mockRouter, mockLatch);
+
+            try (MockedStatic<Runtime> runtimeStatic = mockStatic(Runtime.class)) {
+                runtimeStatic.when(Runtime::getRuntime).thenReturn(runtime);
+
+                realServer.exit(0);
+                realServer.exit(1);
+            }
+
+            verify(runtime).exit(0);
+            verify(runtime).exit(1);
         }
     }
 

@@ -13,11 +13,12 @@
 6. Create the `NotificationCancelledParams` record and wire up type-safe handling
 
 **How to verify you're done:**
+- Run `./gradlew chapterTest -Pchapter=03` and see it go green
 - Run `./gradlew clean build` successfully
 - Launch MCP Inspector and connect to your server
 - Discovery completes (green status)
 - Sending `initialize` returns `-32601`, not a crash
-- Click "List Resources" and check `inspector/logs/` — you should see "Notification cancelled reason" with the actual reason text (not raw JSON)
+- Click "List Resources" and check `inspector/logs/` — you should see a line starting `[API][RECEIVED] notifications/cancelled requestId=` followed by the actual reason text, not raw JSON
 
 ---
 
@@ -75,9 +76,79 @@ public record RequestId(String stringValue, Long numberValue) {
 }
 ```
 
-Gson cannot serialize that record usefully on its own — it would emit `{"stringValue":...,"numberValue":null}` rather than a bare scalar. It needs a `TypeAdapter`, registered on **every** Gson instance in the process. That is what `RequestIdTypeAdapter` and the shared `McpGson.create()` factory are for: `JsonRpcMessageDeserializer` reads ids and `IOHandlerImpl` writes them, and if only one of them knows about the adapter you get a server that can parse a string id but cannot answer it.
+Gson cannot serialize that record usefully on its own — it would emit `{"stringValue":...,"numberValue":null}` rather than a bare scalar. It needs a `TypeAdapter`.
 
-Then retype `id` from `Long` to `RequestId` on `JsonRpcRequest`, `JsonRpcResponse`, and `JsonRpcErrorResponse`.
+**Action Required**: Create `RequestIdTypeAdapter.java` in the same package:
+
+```java
+package com.workshop.mcp.spec;
+
+import com.google.gson.JsonParseException;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+
+import java.io.IOException;
+
+public class RequestIdTypeAdapter extends TypeAdapter<RequestId> {
+
+    @Override
+    public void write(JsonWriter out, RequestId value) throws IOException {
+        if (value == null) {
+            out.nullValue();
+        } else if (value.isString()) {
+            out.value(value.stringValue());
+        } else {
+            out.value(value.numberValue());
+        }
+    }
+
+    @Override
+    public RequestId read(JsonReader in) throws IOException {
+        return switch (in.peek()) {
+            case NULL -> {
+                in.nextNull();
+                yield null;
+            }
+            case STRING -> RequestId.of(in.nextString());
+            case NUMBER -> RequestId.of(in.nextLong());
+            default -> throw new JsonParseException(
+                    "A JSON-RPC id must be a string or a number, but was " + in.peek());
+        };
+    }
+}
+```
+
+Note `case NUMBER -> RequestId.of(in.nextLong())`. Typing the field as plain `Object` instead would have let Gson parse every number as a `Double`, and the server would echo the id `1` back as `1.0` — which no client will match to its pending request.
+
+The adapter is useless unless **every** Gson instance in the process has it registered. `JsonRpcMessageDeserializer` reads ids and `IOHandlerImpl` writes them; if only one of them knows about the adapter, you get a server that can parse a string id but cannot answer it. So there is one factory that both call.
+
+**Action Required**: Create `McpGson.java`:
+
+```java
+package com.workshop.mcp.spec;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+public final class McpGson {
+
+    private McpGson() {
+    }
+
+    public static Gson create() {
+        return new GsonBuilder()
+                .registerTypeAdapter(RequestId.class, new RequestIdTypeAdapter())
+                .create();
+    }
+}
+```
+
+Then replace every `new Gson()` in `JsonRpcMessageDeserializer` and `IOHandlerImpl` with `McpGson.create()`.
+
+> You will register a second adapter here in chapter 4, once `PropertySchema` exists and needs to be written as valid JSON Schema.
+
+Finally, retype `id` from `Long` to `RequestId` on `JsonRpcRequest`, `JsonRpcResponse`, and `JsonRpcErrorResponse`.
 
 ### Second Implementation Task: The `server/discover` Handler
 
@@ -94,7 +165,14 @@ if (uniqueKey == UniqueKeys.SERVER_DISCOVER) {
 }
 ```
 
-with the result itself built from static configuration:
+with the result itself built from static configuration. It refers to a constant you need to declare alongside the other fields at the top of `IORouter`:
+
+```java
+/** How long a client may cache a list result before asking again. */
+private static final long LIST_TTL_MILLIS = 60_000L;
+```
+
+One minute is a deliberate compromise: long enough that a client is not re-listing tools on every keystroke, short enough that a server restart with a changed tool set is picked up while the workshop is still on the same slide. You will reuse this same constant for every list result in chapter 4, so all of them expire together.
 
 ```java
 private DiscoverResult discoverResult() {
@@ -284,7 +362,7 @@ This shows the importance of implementing everything you advertise. In the disco
 
 #### Step 5.1: Examine the Logs
 
-**Action Required**: Look at the [server logs](inspector/logs) when errors occur. You'll notice that we're printing out the raw JSON but haven't properly deserialized the notification parameters. This makes it difficult to work with the notification data in a type-safe manner.
+**Action Required**: Look at the [server logs](../inspector/logs) when errors occur. You'll notice that we're printing out the raw JSON but haven't properly deserialized the notification parameters. This makes it difficult to work with the notification data in a type-safe manner.
 
 #### Step 5.2: Add Notification Deserialization Support
 
@@ -359,13 +437,22 @@ private void process(JsonRpcNotification message) {
     UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
     switch (uniqueKey) {
         case NOTIFICATION_CANCELLED -> {
-           NotificationCancelledParams params = deserializer.deserializeParams(message, NotificationCancelledParams.class);
-           logger.log("Notification cancelled reason " + params.reason());
+            NotificationCancelledParams params = deserializer.deserializeParams(message,
+                                                                                NotificationCancelledParams.class);
+            // There is never an in-flight request to abandon: this server
+            // answers every request before returning, and its one
+            // long-lived request, subscriptions/listen, is closed as it is
+            // acknowledged. So the cancellation is recorded and nothing else.
+            logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
+                       + " reason=" + params.reason());
         }
-        default -> logger.log("Unhandled notification method: " + uniqueKey + " for message: " + message);
+        default -> logger.log("[API][RECEIVED] unhandled notification method: " + message.method()
+                              + " for message: " + message);
     }
 }
 ```
+
+The `[API][RECEIVED]` prefix matches the one `startInputReader` uses, so a single grep over the log file shows everything that arrived, in order.
 
 ## What this change accomplishes:
 
@@ -428,8 +515,10 @@ Remember: the `LogFileWriter` we're using writes to `inspector/logs/` specifical
 
 5. **Check the improved logging**:
    - Open the latest log file in `inspector/logs/`
-   - Look for the cancellation notification
-   - You should now see the properly deserialized cancellation reason being logged
+   - Search it for `notifications/cancelled`
+   - You should now see the deserialized id and reason, for example
+     `[API][RECEIVED] notifications/cancelled requestId=3 reason=McpError: MCP error -32001: Request timed out`,
+     rather than the raw params map
 
 6. **Try the three rejections** with `inspector/modern-probe.sh`, which sends them back to back:
    - `initialize` → `-32601`

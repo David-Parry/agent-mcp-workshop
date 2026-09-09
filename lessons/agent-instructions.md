@@ -9,11 +9,11 @@ In this lesson you will:
 4. Run each skill individually, then run the full supervised audit end-to-end
 5. Write your own skill and add it to the plugin
 
-The reference plugin lives at `lesson/keyword-audit-plugin/`. Your working copy will be at `keyword-audit-plugin/` in the project root — the same two-folder pattern used in earlier chapters.
+The reference plugin lives at `lessons/keyword-audit-plugin/`. Your working copy will be at `keyword-audit-plugin/` in the project root — the same two-folder pattern used in earlier chapters.
 
 ```
 agent-mcp-workshop/
-├── lesson/keyword-audit-plugin/   ← reference — read from here
+├── lessons/keyword-audit-plugin/   ← reference — read from here
 │   ├── .claude-plugin/
 │   │   └── plugin.json
 │   └── skills/
@@ -93,7 +93,7 @@ mkdir -p keyword-audit-plugin/.claude-plugin
 mkdir -p keyword-audit-plugin/skills
 ```
 
-Open `lesson/keyword-audit-plugin/.claude-plugin/plugin.json` and read it:
+Open `lessons/keyword-audit-plugin/.claude-plugin/plugin.json` and read it:
 
 ```json
 {
@@ -110,7 +110,7 @@ Open `lesson/keyword-audit-plugin/.claude-plugin/plugin.json` and read it:
 The manifest requires a `name` field. `skills` points to the directory where Claude Code will look for skill subdirectories. Copy it:
 
 ```bash
-cp lesson/keyword-audit-plugin/.claude-plugin/plugin.json keyword-audit-plugin/.claude-plugin/plugin.json
+cp lessons/keyword-audit-plugin/.claude-plugin/plugin.json keyword-audit-plugin/.claude-plugin/plugin.json
 ```
 
 Your structure so far:
@@ -126,12 +126,12 @@ keyword-audit-plugin/
 
 ## Step 4: Copy and Learn Each Skill
 
-Copy each skill from `lesson/keyword-audit-plugin/skills/` into `keyword-audit-plugin/skills/`. **Read the `SKILL.md` before running it.**
+Copy each skill from `lessons/keyword-audit-plugin/skills/` into `keyword-audit-plugin/skills/`. **Read the `SKILL.md` before running it.**
 
 ### Skill 1: `keyword-search` — The Data Layer
 
 ```bash
-cp -r lesson/keyword-audit-plugin/skills/keyword-search keyword-audit-plugin/skills/
+cp -r lessons/keyword-audit-plugin/skills/keyword-search keyword-audit-plugin/skills/
 ```
 
 Open `keyword-audit-plugin/skills/keyword-search/SKILL.md`.
@@ -151,7 +151,7 @@ This is the **data layer** — deterministic search results with no interpretati
 ### Skill 2: `keyword-report` — The Analysis Layer
 
 ```bash
-cp -r lesson/keyword-audit-plugin/skills/keyword-report keyword-audit-plugin/skills/
+cp -r lessons/keyword-audit-plugin/skills/keyword-report keyword-audit-plugin/skills/
 ```
 
 Open `keyword-audit-plugin/skills/keyword-report/SKILL.md`.
@@ -171,7 +171,7 @@ This is the **analysis layer** — the same data as `keyword-search`, but struct
 ### Skill 3: `java-script-runner` — The Execution Layer
 
 ```bash
-cp -r lesson/keyword-audit-plugin/skills/java-script-runner keyword-audit-plugin/skills/
+cp -r lessons/keyword-audit-plugin/skills/java-script-runner keyword-audit-plugin/skills/
 ```
 
 Open `keyword-audit-plugin/skills/java-script-runner/SKILL.md`.
@@ -203,7 +203,7 @@ This is the **execution layer** — a JVM process that returns a structural prof
 ### Skill 4: `audit` — The Orchestrator
 
 ```bash
-cp -r lesson/keyword-audit-plugin/skills/audit keyword-audit-plugin/skills/
+cp -r lessons/keyword-audit-plugin/skills/audit keyword-audit-plugin/skills/
 ```
 
 Open `keyword-audit-plugin/skills/audit/SKILL.md`.
@@ -257,7 +257,7 @@ The script:
 1. Checks that `keyword-audit-plugin/.claude-plugin/plugin.json` exists (Step 4 must be complete)
 2. Resolves the project root to an absolute path
 3. Builds the JAR if it's missing
-4. Expands `lesson/mcp.json` into `.mcp-resolved.json` with your real path substituted
+4. Expands `lessons/mcp.json` into `.mcp-resolved.json` with your real path substituted
 5. Starts Claude Code with both MCP server and plugin:
 
 ```bash
@@ -267,7 +267,7 @@ claude --mcp-config .mcp-resolved.json --strict-mcp-config \
 
 > **`--plugin-dir`** loads the plugin from its source directory without any global install. Changes to `SKILL.md` files take effect on the next session start. This is **development mode** — the same plugin directory you just built.
 
-> **`.mcp-resolved.json`** is a generated file the script writes on startup and deletes on exit. It's the expanded form of `lesson/mcp.json` with the absolute JAR path filled in. You never edit it directly.
+> **`.mcp-resolved.json`** is a generated file the script writes on startup and deletes on exit. It's the expanded form of `lessons/mcp.json` with the absolute JAR path filled in. You never edit it directly.
 
 Verify the plugin loaded:
 ```
@@ -357,9 +357,9 @@ Overall hotspot: IORouter.java — analyzing now...
 Hotspot Analysis: IORouter.java
 ────────────────────────────────────────────────────────────
 IORouter.java is the central JSON-RPC dispatcher for the MCP server.
-Its 12 TODOs are concentrated in the ELICITATION and SAMPLING handlers —
-protocol features that have been stubbed but not yet fully implemented.
-This is planned work, not forgotten debt.
+Its 12 TODOs are concentrated in the ELICITATION and TASKS handlers —
+the multi-round-trip paths, where the work is stubbed but not yet
+fully implemented. This is planned work, not forgotten debt.
 ────────────────────────────────────────────────────────────
 ```
 
