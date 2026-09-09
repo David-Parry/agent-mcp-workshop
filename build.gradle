@@ -193,3 +193,62 @@ test {
         }
     }
 }
+
+// The self-check a student runs while working through a chapter:
+//
+//     ./gradlew chapterTest -Pchapter=03
+//
+// It runs only the tests tagged for that chapter, so the failures a student
+// sees are about the code they are currently writing. Running the full `test`
+// task on a chapter branch reports failures from every chapter not yet
+// reached, which buries the ones that matter.
+//
+// This deliberately skips the coverage gate. Coverage is a property of the
+// finished server, not of a chapter in progress.
+tasks.register('chapterTest', Test) {
+    group = 'verification'
+    description = 'Runs one chapter\'s tests, e.g. ./gradlew chapterTest -Pchapter=03'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    // Accept 3 or 03 so a student who types the obvious thing is not punished.
+    def requested = providers.gradleProperty('chapter').getOrNull()
+    def chapter = requested?.trim()?.padLeft(2, '0')
+
+    useJUnitPlatform {
+        // An unmatched tag would run everything, so fall back to a tag that
+        // deliberately matches nothing and let doFirst report the real problem.
+        includeTags(chapter ? "chapter${chapter}" : 'chapter-not-specified')
+    }
+
+    doFirst {
+        if (!chapter) {
+            throw new GradleException(
+                    'Which chapter? Pass one, for example: ./gradlew chapterTest -Pchapter=01')
+        }
+        if (!(chapter ==~ /0[1-7]/)) {
+            throw new GradleException(
+                    "There is no chapter '${requested}'. The workshop has chapters 01 to 07.")
+        }
+        println "Running the chapter ${chapter} tests. Red until your implementation is right."
+    }
+
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                if (result.testCount == 0) {
+                    println "\nNo tests are tagged for chapter ${chapter}."
+                } else if (result.failedTestCount == 0) {
+                    println "\nChapter ${chapter}: all ${result.testCount} tests pass. On to the next one."
+                } else {
+                    println "\nChapter ${chapter}: ${result.failedTestCount} of ${result.testCount} " +
+                            'tests still failing.'
+                }
+            }
+        }
+    }
+}

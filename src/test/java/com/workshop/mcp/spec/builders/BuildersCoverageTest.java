@@ -28,6 +28,7 @@ import com.workshop.mcp.spec.TextReadResource;
 import com.workshop.mcp.spec.Tool;
 import com.workshop.mcp.spec.ToolCallResult;
 import com.workshop.mcp.spec.ToolsListResult;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +51,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * builder's optional setters, its collection-replacing setters, and every
  * validation path it can refuse on are covered here.
  */
+@Tag("chapter05")
+@Tag("chapter06")
 class BuildersCoverageTest {
 
     // --- AppToolBuilder ------------------------------------------------

@@ -3,6 +3,7 @@ package com.workshop.mcp.tools;
 import com.workshop.mcp.spec.ContentItem;
 import com.workshop.mcp.spec.ToolCallParams;
 import com.workshop.mcp.spec.ToolCallResult;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.mockStatic;
  * the files it refuses to read, and the failures it swallows so one unreadable
  * corner of a tree cannot sink the whole search.
  */
+@Tag("chapter04")
 class KeyWordSearchTest {
 
     private static final String KEYWORD = "needle";

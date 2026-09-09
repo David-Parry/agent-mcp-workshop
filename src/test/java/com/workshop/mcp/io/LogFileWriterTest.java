@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for the LogFileWriter class.
  * Tests singleton behavior, logging functionality, file operations, and error handling.
  */
+@Tag("chapter01")
 class LogFileWriterTest {
 
     @TempDir

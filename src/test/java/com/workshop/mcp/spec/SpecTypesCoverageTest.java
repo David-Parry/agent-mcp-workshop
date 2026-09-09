@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * convenience constructors that supply the {@code resultType} and caching
  * hints protocol revision {@code 2026-07-28} requires on every result.
  */
+@Tag("chapter03")
 class SpecTypesCoverageTest {
 
     // --- enums ---------------------------------------------------------

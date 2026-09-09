@@ -1,6 +1,7 @@
 package com.workshop.mcp.resources;
 
 import com.workshop.mcp.spec.Resource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * read or parsed has to degrade into a usable {@link Resource} instead of
  * failing the whole listing.
  */
+@Tag("chapter04")
 class JavadocResourcesTest {
 
     /** A page generated into main resources; its description runs past the 200-character limit. */

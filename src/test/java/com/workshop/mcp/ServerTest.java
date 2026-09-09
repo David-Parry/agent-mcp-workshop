@@ -23,6 +23,7 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Server Tests")
+@Tag("chapter01")
 class ServerTest {
 
     @Mock

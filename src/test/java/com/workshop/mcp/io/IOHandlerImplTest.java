@@ -1,6 +1,7 @@
 package com.workshop.mcp.io;
 
 import com.google.gson.Gson;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("chapter01")
 class IOHandlerImplTest {
 
     private IOHandlerImpl ioHandler;

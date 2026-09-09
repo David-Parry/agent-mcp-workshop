@@ -12,6 +12,7 @@ import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.SearchContinuation;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -63,6 +64,7 @@ class IORouterTest {
     // --- server/discover -----------------------------------------------
 
     @Test
+    @Tag("chapter03")
     void discoverIsAnsweredWithAStringIdEchoedBackAsAString() {
         router.route("""
                 {"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{%s}}"""
@@ -75,6 +77,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void discoverAdvertisesTheSupportedRevisionAndServerIdentityInMeta() {
         router.route("""
                 {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
@@ -93,6 +96,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void discoverIsAnsweredEvenWhenTheEnvelopeNamesAnUnsupportedRevision() {
         // A client calls discover precisely to learn which revisions the
         // server speaks, so rejecting it for guessing wrong would be circular.
@@ -104,6 +108,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void discoverDeclaresCapabilitiesWithoutTheRetiredTasksSlot() {
         router.route("""
                 {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
@@ -118,6 +123,7 @@ class IORouterTest {
     // --- the per-request envelope --------------------------------------
 
     @Test
+    @Tag("chapter03")
     void aRequestWithoutTheEnvelopeIsRejectedAsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
@@ -126,6 +132,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aRequestDeclaringAnUnsupportedRevisionIsRejectedWithRenegotiationData() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{
@@ -142,6 +149,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void methodsRemovedByThisRevisionAreNotFoundRatherThanInvalid() {
         // Method existence is settled before the envelope is looked at, so a
         // legacy client is told the method is gone, not that its _meta is off.
@@ -156,6 +164,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void theThreeEmbeddedRequestMethodsAreNotAcceptedAsInboundRequests() {
         // These are things the server asks for, never things it answers.
         for (String method : List.of("roots/list", "sampling/createMessage", "elicitation/create")) {
@@ -169,6 +178,7 @@ class IORouterTest {
     // --- cacheable results ---------------------------------------------
 
     @Test
+    @Tag("chapter04")
     void cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
@@ -187,6 +197,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter06")
     void appToolsCarryTheResourceUriUnderBothMetaKeys() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
@@ -200,6 +211,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void anInputSchemaWritesOnlyJsonSchemaKeywords() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
@@ -234,6 +246,7 @@ class IORouterTest {
     // --- Multi Round-Trip Requests -------------------------------------
 
     @Test
+    @Tag("chapter05")
     void theSearchToolHoldsNoStateSoADirectoryCannotOutliveItsCall() {
         for (Field field : KeyWordSearch.class.getDeclaredFields()) {
             assertTrue(Modifier.isStatic(field.getModifiers()),
@@ -244,6 +257,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aDirectoryFromOneCallIsNotReusedByTheNext() {
         // Supplying a directory must not teach the server anything. The very
         // next bare call has to ask again.
@@ -272,6 +286,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aClientDeclaringTheDeprecatedRootsAndSamplingCapabilitiesIsUnaffected() {
         // Roots and sampling are both deprecated under SEP-2577, which tells
         // clients to keep declaring what they support for the whole transition
@@ -300,6 +315,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aDeprecatedRootsDeclarationDoesNotMakeTheServerAskForRoots() {
         // The server used to embed a roots/list here. Roots is deprecated, so
         // it no longer does — and a client that can only answer roots is
@@ -319,6 +335,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void allThreeEmbeddedOnlyMethodsAreRejectedInbound() {
         // Sampling stays rejected inbound even though the server never embeds
         // it, because the revision makes all three embedded-only.
@@ -332,6 +349,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void theRemovedRootsListChangedNotificationIsNotRoutable() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"notifications/roots/list_changed",
@@ -342,6 +360,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aToolCallWithNoDirectoryAsksTheUserForOne() {
         router.route(toolCall(1, null, null));
 
@@ -363,6 +382,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void theQuestionIsAskedOnceAndOnlyOnce() {
         // The stage on the continuation is what stops the server asking the
         // same thing again when the answer was unusable. Without it a client
@@ -377,6 +397,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void anElicitedDirectoryRunsTheSearch(@org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
 
@@ -390,6 +411,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aDeclinedElicitationFallsBackToTheWorkingDirectory() {
         String state = SearchContinuation.awaitingDirectory("record").encode();
         router.route(toolCall(5, state, """
@@ -402,6 +424,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aClientThatCannotShowAFormIsNotAsked() {
         router.route("""
                 {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{
@@ -416,6 +439,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aDirectoryArgumentSkipsTheRoundTripEntirely(@org.junit.jupiter.api.io.TempDir Path directory)
             throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
@@ -437,6 +461,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aCorruptRequestStateIsTreatedAsAFirstAttemptRatherThanAnError() {
         // The state came from this server, but it made a round trip through a
         // client and cannot be trusted to come back intact.
@@ -451,6 +476,7 @@ class IORouterTest {
 
     @Test
     @Timeout(10)
+    @Tag("chapter07")
     void aTaskCapableClientGetsAHandleItCanPoll(@org.junit.jupiter.api.io.TempDir Path directory)
             throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
@@ -481,6 +507,7 @@ class IORouterTest {
 
     @Test
     @Timeout(10)
+    @Tag("chapter07")
     void aTaskClientIsNeverAskedForInputOnTheCallItself() {
         // input_required and task are alternative result types for the same
         // response, so a request already committed to a handle cannot also
@@ -505,6 +532,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskAsksForItsDirectoryAsAStatusAndResumesOnTasksUpdate(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
@@ -543,6 +571,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskWhoseFormIsDeclinedStillFinishesFromTheWorkingDirectory() throws Exception {
         router.route(taskCallWithoutADirectory(13, """
                 "elicitation":{"form":{},"url":{}}"""));
@@ -561,6 +590,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt() throws Exception {
         router.route(taskCallWithoutADirectory(15, """
                 "elicitation":{"form":{}}"""));
@@ -608,6 +638,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter07")
     void aTaskHandleIsNeverGivenToAClientThatCannotPollForIt(
             @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
@@ -621,6 +652,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter07")
     void pollingAnUnknownTaskIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":"ext-1","method":"tasks/get",
@@ -632,6 +664,7 @@ class IORouterTest {
     // --- subscriptions -------------------------------------------------
 
     @Test
+    @Tag("chapter03")
     void aSubscriptionIsAcknowledgedAndClosedWithItsSubscriptionId() {
         router.route("""
                 {"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen",
@@ -655,6 +688,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aListenRequestThatNamesNoNotificationsIsStillAcknowledged() {
         router.route("""
                 {"jsonrpc":"2.0","id":"listen:1","method":"subscriptions/listen",
@@ -669,6 +703,7 @@ class IORouterTest {
     // --- message dispatch ----------------------------------------------
 
     @Test
+    @Tag("chapter03")
     void everyMethodTheServerAcceptsIsActuallyAnswered() throws Exception {
         // The registry that decides what is not -32601 and the switch that
         // handles what got past it are two lists that have to agree. There is
@@ -699,6 +734,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void aPromptWithArgumentsThatNameNoKeywordDoesNotSendTheModelAfterTheWordNull() {
         router.route("""
                 {"jsonrpc":"2.0","id":59,"method":"prompts/get",
@@ -712,6 +748,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void completingWithNoArgumentIsAnsweredRatherThanFaultedOn() {
         router.route("""
                 {"jsonrpc":"2.0","id":60,"method":"completion/complete",
@@ -721,6 +758,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter07")
     void theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId() {
         // Reading a null id into the store threw out of route(), and because
         // the throw escaped instead of becoming an error, the client was left
@@ -736,6 +774,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aBlankLineIsNotAMessageAndIsIgnored() {
         router.route(null);
         router.route("");
@@ -745,6 +784,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aResultFromTheClientIsUnsolicitedAndIgnored() {
         // This revision has the server ask for nothing, so a JSON-RPC result
         // arriving on stdin cannot be an answer to anything it sent.
@@ -755,6 +795,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void anErrorFromTheClientIsRecordedRatherThanAnsweredWithAnotherError() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}""");
@@ -763,6 +804,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aPayloadThatIsNeitherRequestNorReplyIsIgnored() {
         router.route("""
                 {"jsonrpc":"2.0"}""");
@@ -771,6 +813,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void aCancelledNotificationForSomeOtherRequestIsNoted() {
         router.route("""
                 {"jsonrpc":"2.0","method":"notifications/cancelled",
@@ -780,6 +823,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter03")
     void anUnrecognisedNotificationIsIgnoredRatherThanRejected() {
         // Notifications carry no id, so there is nobody to send -32601 to.
         router.route("""
@@ -791,6 +835,7 @@ class IORouterTest {
     // --- prompts, resources, completion ---------------------------------
 
     @Test
+    @Tag("chapter04")
     void promptsListNamesTheSearchPromptAndItsRequiredArgument() {
         router.route("""
                 {"jsonrpc":"2.0","id":20,"method":"prompts/list","params":{%s}}""".formatted(FULL_META));
@@ -805,6 +850,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void resourcesListServesTheJavadocPagesAndTheAppAlongside() {
         router.route("""
                 {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
@@ -818,6 +864,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void theTemplateListIsAnsweredEmptyRatherThanNotAtAll() {
         // Clients fetch this whenever a server declares any resource
         // capability, so leaving it unhandled would strand them on -32601.
@@ -831,6 +878,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter06")
     void readingTheAppUriReturnsTheHtmlUnderTheAppMimeType() {
         router.route(read(23, "ui://keyword-search/mcp-app.html"));
 
@@ -840,6 +888,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void readingAJavadocPageReturnsItsMarkup() {
         router.route(read(24, "javadoc/com/workshop/mcp/spec/RequestId.html"));
 
@@ -848,6 +897,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void readingAResourceThatIsNotThereIsAnErrorResultRatherThanAProtocolError() {
         router.route(read(25, "javadoc/com/workshop/mcp/spec/NoSuchPage.html"));
 
@@ -857,6 +907,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void readingWithAnEmptyUriIsRejectedAsAnErrorResult() {
         router.route(read(26, ""));
 
@@ -864,6 +915,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void readingWithNoUriAtAllIsRejectedAsAnErrorResult() {
         router.route("""
                 {"jsonrpc":"2.0","id":27,"method":"resources/read","params":{%s}}""".formatted(FULL_META));
@@ -872,6 +924,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void completingTheKeywordArgumentOffersSeveralWords() {
         router.route(complete(28, "keyword"));
 
@@ -882,6 +935,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
     void completingAnyOtherArgumentOffersTheSingleFallback() {
         router.route(complete(29, "something-else"));
 
@@ -893,6 +947,7 @@ class IORouterTest {
     // --- tools/call argument handling ------------------------------------
 
     @Test
+    @Tag("chapter04")
     void callingAToolThisServerDoesNotHaveIsAnErrorResult() {
         router.route("""
                 {"jsonrpc":"2.0","id":30,"method":"tools/call",
@@ -905,6 +960,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aCallWithNoArgumentsAtAllStillAsksForSomewhereToSearch() {
         // Both the keyword and the directory are read off a params.arguments
         // that is simply absent here.
@@ -917,6 +973,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aBlankDirectoryArgumentCountsAsNotHavingSuppliedOne() {
         router.route("""
                 {"jsonrpc":"2.0","id":32,"method":"tools/call",
@@ -931,6 +988,7 @@ class IORouterTest {
     // --- reading the answers back ----------------------------------------
 
     @Test
+    @Tag("chapter05")
     void aFormAnswerThatIsNotEvenAnObjectIsTreatedAsNoAnswer() {
         router.route(toolCall(34, SearchContinuation.awaitingDirectory("record").encode(),
                               "\"search_directory\":null"));
@@ -941,6 +999,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere() {
         router.route(toolCall(36, SearchContinuation.awaitingDirectory("record").encode(),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":{}}"));
@@ -950,6 +1009,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void anAcceptedFormWhoseDirectoryIsBlankFallsBackToo() {
         router.route(toolCall(37, SearchContinuation.awaitingDirectory("record").encode(),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":{\"directory\":\"  \"}}"));
@@ -959,6 +1019,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void anAcceptedFormWhoseContentIsNotAnObjectFallsBackToo() {
         router.route(toolCall(38, SearchContinuation.awaitingDirectory("record").encode(),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":\"/tmp\"}"));
@@ -968,6 +1029,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aMissingFormAnswerFallsBackToTheWorkingDirectory() {
         router.route(toolCall(39, SearchContinuation.awaitingDirectory("record").encode(),
                               "\"search_directory\":null"));
@@ -979,6 +1041,7 @@ class IORouterTest {
     // --- tasks: rejected updates and cancels ------------------------------
 
     @Test
+    @Tag("chapter07")
     void updatingATaskThatDoesNotExistIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":40,"method":"tasks/update",
@@ -989,6 +1052,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void answeringATaskThatIsNoLongerAskingAnythingIsRejected(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         router.route(taskCallWithADirectory(41, directory.toString()));
@@ -1010,6 +1074,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter07")
     void cancellingATaskThatDoesNotExistIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":43,"method":"tasks/cancel",
@@ -1020,6 +1085,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void cancellingATaskTwiceIsRejectedTheSecondTime() {
         router.route(taskCallWithoutADirectory(44, "\"elicitation\":{\"form\":{}}"));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
@@ -1038,6 +1104,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskWithNothingLeftToAskRunsTheSearchAndCompletes(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
@@ -1052,6 +1119,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskWhoseSearchBlowsUpIsFailedRatherThanLeftWorking() throws Exception {
         // A NUL byte cannot appear in a path, so resolving this one throws
         // straight out of the search and into the task's own catch.
@@ -1064,6 +1132,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskThatIsInterruptedMidFlightIsFailedRatherThanLeftWorking() throws Exception {
         router.route(taskCallWithADirectory(49, System.getProperty("user.dir")));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
@@ -1077,6 +1146,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskWhoseFormIsAcceptedSearchesTheDirectoryItWasGiven(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
@@ -1098,6 +1168,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskForAClientThatCannotShowAFormNeverWaitsAndSearchesTheWorkingDirectory() throws Exception {
         // This client declares only the deprecated capability the server
         // dropped, so there is nothing the task can usefully ask. It must run
@@ -1113,6 +1184,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskAnsweredWithNothingUsableFallsBackToTheWorkingDirectory() throws Exception {
         // The form came back with an answer that resolves to no directory at
         // all, and there is no second question to escalate to.
@@ -1133,6 +1205,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void cancellingATaskThatIsWaitingOnItsFormStopsItToo() throws Exception {
         router.route(taskCallWithoutADirectory(55, "\"elicitation\":{\"form\":{},\"url\":{}}"));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
@@ -1145,6 +1218,7 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter05")
     void aCallThatNamesADirectoryButNoKeywordSearchesForNothingRatherThanFailing(
             @org.junit.jupiter.api.io.TempDir Path directory) {
         router.route("""
@@ -1159,6 +1233,7 @@ class IORouterTest {
 
     @Test
     @Timeout(30)
+    @Tag("chapter07")
     void aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking() throws Exception {
         router.route(taskCallWithoutADirectory(50, "\"elicitation\":{\"form\":{}}"));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();

@@ -6,6 +6,7 @@ import com.workshop.mcp.spec.Task;
 import com.workshop.mcp.spec.TaskResult;
 import com.workshop.mcp.spec.TaskStatus;
 import com.workshop.mcp.spec.builders.ElicitationBuilder;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * extension: every legal transition, every guard that rejects an illegal one,
  * and the two halves of task-level input that meet in {@code awaitInput}.
  */
+@Tag("chapter07")
 class TaskStoreTest {
 
     private static final String UNKNOWN_ID = "no-such-task";

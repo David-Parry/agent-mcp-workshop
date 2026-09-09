@@ -1,6 +1,7 @@
 package com.workshop.mcp.spec;
 
 import com.google.gson.JsonSyntaxException;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * JSON-RPC shapes a message is read as, and how the stateless envelope of
  * protocol revision {@code 2026-07-28} is lifted out of {@code params._meta}.
  */
+@Tag("chapter02")
 class JsonRpcMessageDeserializerTest {
 
     /** The client-capability envelope a well-formed request of this revision carries. */
