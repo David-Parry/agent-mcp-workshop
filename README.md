@@ -1,5 +1,12 @@
 # Agent MCP Workshop
 
+> **You are on `complete`: the finished server**, every chapter implemented and every test
+> passing. This is the reference — read it when you are stuck, and the instructor demonstrates
+> from it. It is not where you start.
+>
+> To do the workshop, begin with `./clean-checkout.sh 01-chapter`. To check your machine before
+> the first session, start from `trunk`.
+
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
 
 This is an **instructor-led** workshop. You can work through it alone, but a lot of the reasoning is discussed live.
@@ -47,8 +54,8 @@ Red means keep going; green means move on.
 
 ## Reference branches
 
-- `complete` — the finished server, all chapters done. Useful when you are stuck, and what the instructor demonstrates from.
-- `trunk` — the canonical source the chapter branches are generated from.
+- `complete` — the finished server, all chapters done. It is what the instructor demonstrates from, where these chapter branches are generated from, and where to look when you are stuck.
+- `trunk` — setup and environment verification only. No server code, no lessons.
 
 ## Building
 

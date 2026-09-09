@@ -6,8 +6,8 @@ method bodies emptied, Javadoc left intact, everything still compiling. A
 student fills the bodies back in and `./gradlew chapterTest -Pchapter=NN`
 tells them when they are right.
 
-The branches are independent projections of trunk rather than a chain, so
-chapter 5 is not "chapter 4 plus more" -- it is trunk with chapter 5's work
+The branches are independent projections of complete rather than a chain, so
+chapter 5 is not "chapter 4 plus more" -- it is complete with chapter 5's work
 removed and everything else present. That keeps every branch buildable and
 lets a student start anywhere.
 
