@@ -19,21 +19,25 @@ Follow [00-setup.md](00-setup.md) and run `./verification.sh` from **`trunk`**. 
 
 Each chapter is a git branch. The branch contains the server **as far as this lesson**, with this chapter's methods emptied out, plus the tests that grade them. Later chapters' code is not here.
 
-When this chapter's tests are green, move on with:
+### This chapter (`02-chapter`)
 
-```bash
-./clean-checkout.sh 03-chapter
-```
-
-That discards uncommitted work on purpose: the next branch already contains the solutions for chapters 1–2.
-
-### Knowing when you are done
+Grade **this** branch with `02` — not the next chapter's number:
 
 ```bash
 ./gradlew chapterTest -Pchapter=02
 ```
 
-Red means keep going; green means move on. `./gradlew test` on this branch runs only the chapters you have reached.
+Red means keep going; green means this chapter is done. `./gradlew test` on this branch runs only the chapters you have reached.
+
+### Next chapter (`03-chapter`)
+
+When **this** chapter's tests are green, check out `03-chapter` — that is the following lesson, not this one:
+
+```bash
+./clean-checkout.sh 03-chapter
+```
+
+That discards uncommitted work on purpose: `03-chapter` already contains the solutions for chapters 1–2.
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
 
