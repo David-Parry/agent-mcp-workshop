@@ -1,5 +1,0 @@
-javadoc-fixtures/ShortBlock.html
-
-javadoc-fixtures/notes.txt
-  javadoc-fixtures/TitleOnly.html  
-javadoc-fixtures/NoDescription.html

@@ -28,7 +28,6 @@ public final class McpGson {
     public static Gson create() {
         return new GsonBuilder()
                 .registerTypeAdapter(RequestId.class, new RequestIdTypeAdapter())
-                .registerTypeAdapter(PropertySchema.class, new PropertySchemaTypeAdapter())
                 .create();
     }
 }
