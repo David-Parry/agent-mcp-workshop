@@ -124,7 +124,7 @@ class ServerTest {
             when(mockLatch.await(anyLong(), any(TimeUnit.class))).thenReturn(true);
             
             // Use a separate thread to avoid System.exit
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -132,7 +132,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             Thread.sleep(100); // Give time for initial setup
             testThread.interrupt(); // Interrupt before System.exit
             testThread.join(500);
@@ -150,7 +149,7 @@ class ServerTest {
                 .when(mockIOHandler).addLineListener(any());
             
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -158,7 +157,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             testThread.join(500);
             
             // Then
@@ -179,7 +177,7 @@ class ServerTest {
             // Since we can't directly verify shutdown hook registration in JDK 21,
             // we verify the behavior indirectly through the expected method calls
             
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -187,7 +185,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             Thread.sleep(100); // Give time for start method to execute
             testThread.interrupt();
             testThread.join(500);
@@ -209,7 +206,7 @@ class ServerTest {
             when(mockLatch.await(anyLong(), any(TimeUnit.class))).thenReturn(true);
             
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -217,7 +214,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             Thread.sleep(100);
             testThread.interrupt();
             testThread.join(500);
@@ -236,7 +232,7 @@ class ServerTest {
                 .when(mockIOHandler).startInputReader();
             
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -244,7 +240,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             testThread.join(500);
             
             // Then
@@ -263,7 +258,7 @@ class ServerTest {
             when(mockLatch.await(anyLong(), any(TimeUnit.class))).thenReturn(false);
             
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -271,7 +266,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             Thread.sleep(200); // Allow time for keepRunning to execute
             testThread.interrupt();
             testThread.join(500);
@@ -290,7 +284,7 @@ class ServerTest {
             Server serverWithNullIO = testableServer(null, mockRouter, mockLatch);
             
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     serverWithNullIO.start();
                 } catch (NullPointerException e) {
@@ -300,7 +294,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             testThread.join(500);
             
             // Then - test completes without hanging
@@ -318,7 +311,7 @@ class ServerTest {
             InOrder inOrder = inOrder(mockIOHandler);
             
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.start();
                 } catch (Exception e) {
@@ -326,7 +319,6 @@ class ServerTest {
                 }
             });
             
-            testThread.start();
             Thread.sleep(100);
             testThread.interrupt();
             testThread.join(500);
@@ -350,7 +342,7 @@ class ServerTest {
             when(mockLatch.await(anyLong(), any(TimeUnit.class))).thenReturn(false).thenReturn(true);
 
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.keepRunning();
                 } catch (Exception e) {
@@ -358,7 +350,6 @@ class ServerTest {
                 }
             });
 
-            testThread.start();
             Thread.sleep(100);
             testThread.interrupt();
             testThread.join(500);
@@ -379,7 +370,7 @@ class ServerTest {
             when(mockLatch.await(anyLong(), any(TimeUnit.class))).thenReturn(false);
 
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.keepRunning();
                 } catch (Exception e) {
@@ -387,7 +378,6 @@ class ServerTest {
                 }
             });
 
-            testThread.start();
             Thread.sleep(200); // Allow multiple polling cycles
             testThread.interrupt();
             testThread.join(500);
@@ -407,7 +397,7 @@ class ServerTest {
                 .thenReturn(true);  // Second check - shutdown triggered
 
             // When
-            Thread testThread = new Thread(() -> {
+            Thread testThread = Thread.ofVirtual().start(() -> {
                 try {
                     server.keepRunning();
                 } catch (Exception e) {
@@ -415,7 +405,6 @@ class ServerTest {
                 }
             });
 
-            testThread.start();
             Thread.sleep(100);
             testThread.interrupt();
             testThread.join(500);

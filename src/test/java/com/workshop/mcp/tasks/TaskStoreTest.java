@@ -396,12 +396,10 @@ class TaskStoreTest {
         store.requireInput(task.taskId(), Map.of("directory", directoryRequest()));
         AtomicReference<Map<String, Object>> answers = new AtomicReference<>(Map.of());
         AtomicBoolean interruptRestored = new AtomicBoolean();
-        Thread waiter = new Thread(() -> {
+        Thread waiter = Thread.ofVirtual().start(() -> {
             answers.set(store.awaitInput(task.taskId(), 60_000L));
             interruptRestored.set(Thread.currentThread().isInterrupted());
         });
-
-        waiter.start();
         waiter.interrupt();
         waiter.join(4_000L);
 

@@ -231,7 +231,7 @@
             Client->>Server: tools/call (tasks client)
             Note over Client,Server: no params.task opt-in exists any more —<br/>the client only declared the tasks extension
             Server-->>Client: tools/call (task handle)
-            Note over Server: resultType "task" + ttlMs + pollIntervalMs<br/>tool runs on a background thread
+            Note over Server: resultType "task" + ttlMs + pollIntervalMs<br/>tool runs on a virtual thread
 
             Client->>Server: tasks/get
             Server-->>Client: tasks/get result (working)

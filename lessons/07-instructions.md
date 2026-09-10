@@ -125,7 +125,7 @@ These records name only the fields they read. The `_meta` envelope is still requ
 
 There is nothing to add to `ServerCapabilities` — Chapter 5 already gave it its `extensions` map, and tasks go in it like any other extension.
 
-**Action Required**: `discoverResult()` is already on `IORouter.java` at **line 329**. Add `withTasksExtension()` to that builder chain:
+**Action Required**: `discoverResult()` is already on `IORouter.java` at **line 336**. Add `withTasksExtension()` to that builder chain:
 
 ```java
 private DiscoverResult discoverResult() {
@@ -180,7 +180,7 @@ public boolean supportsTasks() {
 }
 ```
 
-**Action Required**: Fill `answersWithTask` at **line 443** of `IORouter.java` (or confirm it already matches):
+**Action Required**: Fill `answersWithTask` at **line 450** of `IORouter.java` (or confirm it already matches):
 
 ```java
 private boolean answersWithTask(RequestEnvelope envelope) {
@@ -261,7 +261,7 @@ TASKS_CANCEL("tasks/cancel"),
 NOTIFICATIONS_TASKS("notifications/tasks"),
 ```
 
-And register the three requests as inbound. `INBOUND_METHODS` is at **line 94** of `IORouter.java`:
+And register the three requests as inbound. `INBOUND_METHODS` is at **line 95** of `IORouter.java`:
 
 ```java
 private static final Set<UniqueKeys> INBOUND_METHODS = EnumSet.of(
@@ -281,7 +281,7 @@ Note the notification is the bare `notifications/tasks`, not `notifications/task
 
 ### a) Field and constructor
 
-The `taskStore` field is at **line 111** of `IORouter.java`; the constructor that wires `onStatusChange` is at **line 113**:
+The `taskStore` field is at **line 112** of `IORouter.java`; the constructor that wires `onStatusChange` is at **line 120**:
 
 ```java
 private final TaskStore taskStore = new TaskStore();
@@ -307,7 +307,7 @@ public record AppTool(
 
 ### c) Answer `tools/call` with a handle
 
-In `executeKeyWordSearchCall` at **line 469** of `IORouter.java` — the method Chapter 5 left you with — branch on the predicate rather than on a request field:
+In `executeKeyWordSearchCall` at **line 476** of `IORouter.java` — the method Chapter 5 left you with — branch on the predicate rather than on a request field:
 
 ```java
 private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
@@ -323,11 +323,14 @@ private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params
 }
 ```
 
-`runToolAsTask` is at **line 591** of `IORouter.java`:
+`runToolAsTask` is at **line 598** of `IORouter.java`. It hands the work to
+`runOnVirtualThread`, which is already in the class: `Thread.ofVirtual()`, named
+`task-<id>`. Virtual threads unmount while they sleep, which is what we want for
+blocking tool work.
 
 ```java
 private void runToolAsTask(String taskId, ToolCallParams params, Set<String> directories) {
-    new Thread(() -> {
+    runOnVirtualThread(taskId, () -> {
         try {
             Thread.sleep(4000L);                    // so the transition is observable
             ToolCallResult result = new KeyWordSearch().call(params, directories);
@@ -338,7 +341,7 @@ private void runToolAsTask(String taskId, ToolCallParams params, Set<String> dir
         } catch (Exception e) {
             taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
         }
-    }, "task-" + taskId).start();
+    });
 }
 ```
 
@@ -350,7 +353,7 @@ That forces an ordering on `handleKeywordSearch`: it has to commit to the answer
 
 > Unsupported result type `input_required` for `tools/call`: multi-round-trip auto-fulfilment is not enabled on this instance
 
-**Action Required**: In `handleKeywordSearch` at **line 359** of `IORouter.java`, once no directory has been resolved, take the task branch *first*:
+**Action Required**: In `handleKeywordSearch` at **line 366** of `IORouter.java`, once no directory has been resolved, take the task branch *first*:
 
 ```java
 if (answersWithTask(envelope)) {
@@ -363,11 +366,11 @@ if (answersWithTask(envelope)) {
 // … only now the Chapter 5 input_required branch …
 ```
 
-Nothing is given up by committing early. The question simply moves off the call and onto the task, where it is asked as a **status**. Fill `runSearchAsTaskThatAsks` at **line 628** of `IORouter.java`:
+Nothing is given up by committing early. The question simply moves off the call and onto the task, where it is asked as a **status**. Fill `runSearchAsTaskThatAsks` at **line 635** of `IORouter.java`:
 
 ```java
 private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
-    new Thread(() -> {
+    runOnVirtualThread(taskId, () -> {
         Set<String> directories = new LinkedHashSet<>();
 
         // The same single question the inline path asks, carried by the task
@@ -390,7 +393,7 @@ private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, Reque
         }
 
         taskStore.complete(taskId, new KeyWordSearch().call(params, directories));
-    }, "task-" + taskId).start();
+    });
 }
 
 private Map<String, Object> askOnTask(String taskId, String key, InputRequest request) {
@@ -446,7 +449,7 @@ Do not skip the `params.taskId() == null` guards. A request that omits `taskId` 
 
 ### f) Emit the status notification
 
-`sendTaskStatusNotification` is at **line 665** of `IORouter.java`:
+`sendTaskStatusNotification` is at **line 703** of `IORouter.java`:
 
 ```java
 private void sendTaskStatusNotification(TaskResult task) {

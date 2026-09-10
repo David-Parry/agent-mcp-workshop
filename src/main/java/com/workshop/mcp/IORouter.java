@@ -17,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.workshop.mcp.spec.Message.KEY_WORD_MESSAGE;
 import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
@@ -109,6 +110,12 @@ public class IORouter implements Router {
     private final IOHandler io;
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
     private final TaskStore taskStore = new TaskStore();
+    /**
+     * Live task workers, keyed by task id. Virtual threads unmount while they
+     * sleep or wait, so {@link Thread#getAllStackTraces()} will not find them;
+     * this map is how {@link #interruptTaskWorker} still can.
+     */
+    private final ConcurrentHashMap<String, Thread> taskWorkers = new ConcurrentHashMap<>();
 
     public IORouter(IOHandler io) {
         this.io = io;
@@ -637,12 +644,12 @@ public class IORouter implements Router {
     }
 
     /**
-     * Spawn a background thread that runs the actual tool work and records
+     * Spawn a virtual thread that runs the actual tool work and records
      * its outcome in the {@link TaskStore}. A small sleep is included so the
      * "working to completed" transition is observable in the inspector.
      */
     private void runToolAsTask(String taskId, ToolCallParams params, Set<String> directories) {
-        new Thread(() -> {
+        runOnVirtualThread(taskId, () -> {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Thread.sleep(4000L);
@@ -657,11 +664,11 @@ public class IORouter implements Router {
                 logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
                 taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
             }
-        }, "task-" + taskId).start();
+        });
     }
 
     /**
-     * Spawn a background thread for a task that still has to find out where to
+     * Spawn a virtual thread for a task that still has to find out where to
      * search.
      * <p>
      * This is the task-level counterpart of the {@code tools/call} round trip,
@@ -679,7 +686,7 @@ public class IORouter implements Router {
      * </p>
      */
     private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
-        new Thread(() -> {
+        runOnVirtualThread(taskId, () -> {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Set<String> directories = new LinkedHashSet<>();
@@ -711,7 +718,37 @@ public class IORouter implements Router {
                 logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
                 taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
             }
-        }, "task-" + taskId).start();
+        });
+    }
+
+    /**
+     * Runs task work on a named virtual thread and keeps a live reference to
+     * it. {@link Thread#ofVirtual()} is the right default here: the body
+     * sleeps and waits on I/O, which unmounts the worker so a carrier thread
+     * is not pinned for the whole 4-second demo delay.
+     */
+    private void runOnVirtualThread(String taskId, Runnable body) {
+        Thread worker = Thread.ofVirtual().name("task-" + taskId).unstarted(() -> {
+            try {
+                body.run();
+            } finally {
+                taskWorkers.remove(taskId);
+            }
+        });
+        taskWorkers.put(taskId, worker);
+        worker.start();
+    }
+
+    /**
+     * Interrupts the virtual thread running {@code taskId}, if it is still live.
+     */
+    boolean interruptTaskWorker(String taskId) {
+        Thread worker = taskWorkers.get(taskId);
+        if (worker == null) {
+            return false;
+        }
+        worker.interrupt();
+        return true;
     }
 
     /**

@@ -102,7 +102,8 @@ public class Server {
             // Add a listener for individual lines
             this.io.addLineListener(router::route);
 
-            // Create a shutdown hook to close resources properly
+            // Create a shutdown hook to close resources properly.
+            // The JVM requires shutdown hooks to be platform threads.
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 if (isShuttingDown.compareAndSet(false, true)) {
                     stop();

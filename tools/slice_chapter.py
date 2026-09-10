@@ -530,7 +530,7 @@ def remove_case(text, label):
 
 def method_sig_pattern(name):
     return re.compile(
-        r"^([ \t]*)(?:(?:public|private|protected|static|final|synchronized|@\w+(?:\([^)]*\))?)\s+)+"
+        r"^([ \t]*)(?:(?:public|private|protected|static|final|synchronized|@\w+(?:\([^)]*\))?)\s+)*"
         r"(?:<[^>]+>\s*)?"
         r"[\w.$]+(?:\s*<[^;{]*?>)?(?:\[\])?\s+"
         + re.escape(name) + r"\s*\([^;{)]*\)\s*"
@@ -640,7 +640,15 @@ def strip_tasks(text):
         count=1,
         flags=re.S,
     )
-    text = text.replace("    private final TaskStore taskStore = new TaskStore();\n\n", "")
+    text = re.sub(
+        r"    private final TaskStore taskStore = new TaskStore();\n"
+        r"    /\*\*\n     \* Live task workers.*?"
+        r"    private final ConcurrentHashMap<String, Thread> taskWorkers = new ConcurrentHashMap<>();\n",
+        "",
+        text,
+        count=1,
+        flags=re.S,
+    )
     text = text.replace(
         "        this.io = io;\n        this.taskStore.onStatusChange(this::sendTaskStatusNotification);\n",
         "        this.io = io;\n",
@@ -649,12 +657,14 @@ def strip_tasks(text):
         text = remove_case(text, label)
     for name in (
         "answersWithTask", "runToolAsTask", "runSearchAsTaskThatAsks",
+        "runOnVirtualThread", "interruptTaskWorker",
         "askOnTask", "isTerminal", "sendTaskStatusNotification",
     ):
         text = remove_method(text, name)
     text = replace_method(text, "executeKeyWordSearchCall", EXECUTE_INLINE)
     text = replace_method(text, "handleKeywordSearch", HANDLE_KEYWORD_SEARCH_CH5)
     text = text.replace("import com.workshop.mcp.tasks.TaskStore;\n\n", "")
+    text = text.replace("import java.util.concurrent.ConcurrentHashMap;\n", "")
     return text
 
 

@@ -1134,7 +1134,7 @@ class IORouterTest {
                    "the client is told why, not just that it failed: " + error);
     }
 
-    // --- tasks: the background thread's own outcomes ----------------------
+    // --- tasks: the virtual thread's own outcomes ----------------------
 
     @Test
     @Timeout(30)
@@ -1176,6 +1176,12 @@ class IORouterTest {
         JsonObject failed = awaitTaskStatus(taskId, "failed");
         assertTrue(failed.getAsJsonObject("error").get("message").getAsString().contains("Interrupted"),
                    "" + failed);
+    }
+
+    @Test
+    @Tag("chapter07")
+    void interruptTaskWorkerReturnsFalseWhenThatTaskIsNotRunning() {
+        assertFalse(router.interruptTaskWorker("no-such-task"));
     }
 
     @Test
@@ -1284,17 +1290,15 @@ class IORouterTest {
     }
 
     /**
-     * Interrupts the thread a task runs on, by the name
-     * {@code runToolAsTask} gives it.
+     * Interrupts the virtual thread a task runs on.
+     * Sleeping virtual threads are unmounted, so they do not appear in
+     * {@link Thread#getAllStackTraces()}.
      */
-    private static void interruptTaskThread(String taskId) throws InterruptedException {
+    private void interruptTaskThread(String taskId) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 5_000L;
         while (System.currentTimeMillis() < deadline) {
-            for (Thread thread : Thread.getAllStackTraces().keySet()) {
-                if (("task-" + taskId).equals(thread.getName())) {
-                    thread.interrupt();
-                    return;
-                }
+            if (router.interruptTaskWorker(taskId)) {
+                return;
             }
             Thread.sleep(10L);
         }

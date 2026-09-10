@@ -109,7 +109,7 @@ class LogFileWriterTest {
         int threadCount = 10;
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch endLatch = new CountDownLatch(threadCount);
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         AtomicReference<LogFile> firstInstance = new AtomicReference<>();
 
         // When
@@ -421,7 +421,7 @@ class LogFileWriterTest {
         int messagesPerThread = 10;
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch endLatch = new CountDownLatch(threadCount);
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
         // When
         for (int i = 0; i < threadCount; i++) {

@@ -290,7 +290,7 @@
             Note over Client,Server: Task handle — the server's decision, not a client opt-in
             Client->>Server: tools/call (tasks ext)
             Server-->>Client: task handle
-            Note over Server: tool runs on a background thread
+            Note over Server: tool runs on a virtual thread
 
             Client->>Server: tasks/get
             Note over Client: polled once a second with the string ids<br/>inspector-ext-1, -2, -3 … while the status is working

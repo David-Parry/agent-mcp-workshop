@@ -104,8 +104,7 @@ class IOHandlerImplTest {
 
         // When
         ioHandler.addLineListener(listener);
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
 
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS));
@@ -143,8 +142,7 @@ class IOHandlerImplTest {
         ioHandler.addLineListener(listener2);
         ioHandler.addLineListener(listener3);
         
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
 
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS));
@@ -179,8 +177,7 @@ class IOHandlerImplTest {
         ioHandler.addLineListener(listener2);
         ioHandler.removeLineListener(listener1);
         
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
 
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS));
@@ -220,8 +217,7 @@ class IOHandlerImplTest {
         ioHandler.addLineListener(listener1);
         ioHandler.addLineListener(listener2);
         
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
 
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS));
@@ -248,12 +244,10 @@ class IOHandlerImplTest {
         ioHandler.addLineListener(listener);
 
         // When
-        Thread readerThread1 = new Thread(() -> ioHandler.startInputReader());
-        readerThread1.start();
+        Thread readerThread1 = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
         Thread.sleep(100); // Give first thread time to start
         
-        Thread readerThread2 = new Thread(() -> ioHandler.startInputReader());
-        readerThread2.start();
+        Thread readerThread2 = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
 
         // Then
         assertTrue(latch.await(2, TimeUnit.SECONDS));
@@ -276,8 +270,7 @@ class IOHandlerImplTest {
         ioHandler.addLineListener(listener);
 
         // When
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
         
         assertTrue(latch.await(2, TimeUnit.SECONDS)); // Wait for at least one line
         assertTrue(ioHandler.isRunning());
@@ -308,8 +301,7 @@ class IOHandlerImplTest {
         });
 
         // When
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
         
         // Wait for the reader to actually start processing
         assertTrue(startedLatch.await(2, TimeUnit.SECONDS));
@@ -329,8 +321,7 @@ class IOHandlerImplTest {
         System.setIn(emptyStream);
 
         // When
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
         readerThread.join(1000);
 
         // Then
@@ -355,8 +346,7 @@ class IOHandlerImplTest {
         ioHandler.addLineListener(listener);
 
         // When
-        Thread readerThread = new Thread(() -> ioHandler.startInputReader());
-        readerThread.start();
+        Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
 
         // Then
         assertTrue(latch.await(3, TimeUnit.SECONDS));

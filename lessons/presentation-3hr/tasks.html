@@ -216,7 +216,7 @@
                 <span class="step-num">3</span>
                 <div class="step-content">
                     <h4>Background execution</h4>
-                    <p>Server spawns a thread (or hands off to a queue). The router keeps processing other requests while the task runs.</p>
+                    <p>Server spawns a virtual thread (or hands off to a queue). The router keeps processing other requests while the task runs.</p>
                 </div>
             </div>
             <div class="flow-step">
@@ -335,7 +335,7 @@
             <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskResult</code>, <code>TasksGetParams</code>, <code>TasksUpdateParams</code>. Point out <code>TaskResult</code>'s three shapes — handle, poll snapshot, notification payload — all one record, differing only in which <code>resultType</code> it wears.</li>
             <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL. Note the ids are UUIDs, and say why: with <code>tasks/list</code> gone, holding the id is the whole access control story.</li>
             <li><strong>In <code>IORouter.java</code></strong>, show <code>envelope.supportsTasks()</code> gating task creation, and the <code>TASK_HANDLES_ENABLED</code> flag. Then search the file for <code>params.task</code> and find nothing — the client's opt-in no longer exists.</li>
-            <li><strong>Walk the task branch of <code>TOOLS_CALL</code></strong> — the server decides, creates the task, returns the handle, and runs <code>key_word_search</code> on a background thread (it sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable).</li>
+            <li><strong>Walk the task branch of <code>TOOLS_CALL</code></strong> — the server decides, creates the task, returns the handle, and runs <code>key_word_search</code> on a virtual thread (it sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable).</li>
             <li><strong>In Inspector:</strong> call <code>key_word_search</code> and get back <code>resultType: "task"</code> in milliseconds. Read the flat fields off the result — no nested <code>task</code> object to open.</li>
             <li><strong>Poll it:</strong> <code>tasks/get</code> with the <code>taskId</code>, three or four times, until <code>completed</code>. Show that the terminal snapshot carries the search hits under <code>result</code> — and then try <code>tasks/result</code> and get <code>-32601</code>, which is the fastest way to make the removal memorable.</li>
             <li><strong>Watch the ordering trap:</strong> in the log, the <code>notifications/tasks</code> for <code>working</code> is emitted <em>before</em> the <code>tools/call</code> reply that hands out the <code>taskId</code>. A client that assumed notifications only arrive after the handle would drop it. Correlation is by id, never by arrival order.</li>
