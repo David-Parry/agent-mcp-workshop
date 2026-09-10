@@ -217,52 +217,13 @@ public class IORouter implements Router {
                 }
             }
             case TASKS_GET -> {
-                TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
-                // A missing taskId is answered, not faulted on: reading a null
-                // id straight into the store threw out of the router and left
-                // the client waiting for a reply that never came.
-                TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
-                if (detail == null) {
-                    logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
-                } else {
-                    logger.log("[API][SENT] tasks/get taskId=" + detail.taskId() + " status=" + detail.status());
-                    success(message.id(), detail);
-                }
+                // Chapter 07: answer TASKS_GET.
             }
             case TASKS_UPDATE -> {
-                TasksUpdateParams params = deserializer.deserializeParams(message, TasksUpdateParams.class);
-                if (params.taskId() == null || taskStore.get(params.taskId()) == null) {
-                    logger.log("[API][SENT] tasks/update — unknown taskId=" + params.taskId() + " (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to update task: Task not found");
-                } else if (taskStore.applyInput(params.taskId(), params.inputResponses()) == null) {
-                    logger.log("[API][SENT] tasks/update rejected — taskId=" + params.taskId()
-                               + " is not awaiting input (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS,
-                          "Cannot update task: it is not waiting for input");
-                } else {
-                    logger.log("[API][SENT] tasks/update — taskId=" + params.taskId() + " resumed");
-                    success(message.id(), Map.of("resultType", ResultType.COMPLETE));
-                }
+                // Chapter 07: answer TASKS_UPDATE.
             }
             case TASKS_CANCEL -> {
-                TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
-                Task before = params.taskId() == null ? null : taskStore.get(params.taskId());
-                if (before == null) {
-                    logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
-                } else {
-                    Task cancelled = taskStore.cancel(params.taskId());
-                    if (cancelled == null) {
-                        logger.log("[API][SENT] tasks/cancel rejected — taskId=" + params.taskId()
-                                   + " already terminal (" + before.status() + ", returning -32602)");
-                        error(message.id(), ErrorCodes.INVALID_PARAMS,
-                              "Cannot cancel task: already in terminal status '" + before.status() + "'");
-                    } else {
-                        logger.log("[API][SENT] tasks/cancel — taskId=" + cancelled.taskId() + " cancelled");
-                        success(message.id(), TaskResult.detail(cancelled, null, null, null));
-                    }
-                }
+                // Chapter 07: answer TASKS_CANCEL.
             }
             case RESOURCES_LIST -> {
                 ResourcesListResultBuilder builder = ResourcesListResultBuilder
@@ -365,33 +326,19 @@ public class IORouter implements Router {
         return envelope;
     }
 
-    /**
-     * Builds the {@code server/discover} answer.
-     * <p>
-     * On stdio this is answered by a throwaway probe process, so it is derived
-     * entirely from static configuration.
-     * </p>
-     *
-     * @return the discovery result
-     */
     private DiscoverResult discoverResult() {
-        DiscoverResultBuilder builder = DiscoverResultBuilder
+        return DiscoverResultBuilder
                 .builder()
                 .withDefaultCapabilities()
                 .withExtension(MetaKeys.UI_EXTENSION,
                                Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
-                .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
-                                  + "for one over a Multi Round-Trip Request, and searches its own working "
-                                  + "directory if the client offers nothing.")
+                .withTasksExtension()
+                .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks for one over a Multi Round-Trip Request, and searches its own working directory if the client offers nothing.")
                 .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
-                .withDefaultServerInfo();
-        if (TASK_HANDLES_ENABLED) {
-            // Declaring the extension here is what permits a task handle at
-            // all; a client that does not see it will not poll.
-            builder.withTasksExtension();
-        }
-        return builder.build();
+                .withDefaultServerInfo()
+                .build();
     }
+
 
     /**
      * Runs the keyword search, asking the client for a directory first if it
@@ -679,39 +626,7 @@ public class IORouter implements Router {
      * </p>
      */
     private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
-        new Thread(() -> {
-            logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
-            try {
-                Set<String> directories = new LinkedHashSet<>();
-
-                if (envelope.supportsElicitationForm()) {
-                    Map<String, Object> answers = askOnTask(
-                            taskId, SearchContinuation.KEY_DIRECTORY,
-                            InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()));
-                    if (isTerminal(taskId)) {
-                        return;
-                    }
-                    String directory = elicitedDirectory(answers.get(SearchContinuation.KEY_DIRECTORY));
-                    if (directory != null) {
-                        directories.add(directory);
-                    }
-                }
-
-                if (directories.isEmpty()) {
-                    String workingDirectory = workingDirectory();
-                    logger.log("[TASK " + taskId + "] nothing was offered, using the working directory "
-                               + workingDirectory);
-                    directories.add(workingDirectory);
-                }
-
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
-                taskStore.complete(taskId, result);
-                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
-            } catch (Exception e) {
-                logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
-                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
-            }
-        }, "task-" + taskId).start();
+        // Chapter 07: implement runSearchAsTaskThatAsks(...).
     }
 
     /**

@@ -66,21 +66,9 @@ public class TaskStore {
      * @return a snapshot of the freshly created task
      */
     public Task create(Long requestedTtlMillis) {
-        String id = UUID.randomUUID().toString();
-        String now = Instant.now().toString();
-        Entry entry = new Entry(
-            id,
-            TaskStatus.WORKING.getValue(),
-            "The operation is now in progress.",
-            now,
-            now,
-            clampTtl(requestedTtlMillis),
-            DEFAULT_POLL_INTERVAL_MILLIS
-        );
-        entries.put(id, entry);
-        Task snapshot = entry.snapshot();
-        fireStatusChange(entry, snapshot);
-        return snapshot;
+        // Chapter 07: implement create(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: create(...) is not implemented yet");
     }
 
     /**
@@ -121,24 +109,7 @@ public class TaskStore {
      * @param result the payload that the original request would have returned
      */
     public void complete(String taskId, Object result) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return;
-        }
-        Task snapshot;
-        synchronized (entry) {
-            if (entry.isTerminal()) {
-                return;
-            }
-            entry.status = TaskStatus.COMPLETED.getValue();
-            entry.statusMessage = "The operation completed successfully.";
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.result = result;
-            entry.inputRequests = null;
-            snapshot = entry.snapshot();
-            entry.notifyAll();
-        }
-        fireStatusChange(entry, snapshot);
+        // Chapter 07: implement complete(...).
     }
 
     /**
@@ -149,24 +120,7 @@ public class TaskStore {
      *               {@code statusMessage} and as the {@code error} payload
      */
     public void fail(String taskId, String reason) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return;
-        }
-        Task snapshot;
-        synchronized (entry) {
-            if (entry.isTerminal()) {
-                return;
-            }
-            entry.status = TaskStatus.FAILED.getValue();
-            entry.statusMessage = reason;
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
-            entry.inputRequests = null;
-            snapshot = entry.snapshot();
-            entry.notifyAll();
-        }
-        fireStatusChange(entry, snapshot);
+        // Chapter 07: implement fail(...).
     }
 
     /**
@@ -180,23 +134,9 @@ public class TaskStore {
      *         not exist or is already terminal
      */
     public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return null;
-        }
-        Task snapshot;
-        synchronized (entry) {
-            if (entry.isTerminal()) {
-                return null;
-            }
-            entry.status = TaskStatus.INPUT_REQUIRED.getValue();
-            entry.statusMessage = "The operation is waiting for input.";
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.inputRequests = inputRequests;
-            snapshot = entry.snapshot();
-        }
-        fireStatusChange(entry, snapshot);
-        return snapshot;
+        // Chapter 07: implement requireInput(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: requireInput(...) is not implemented yet");
     }
 
     /**
@@ -214,34 +154,9 @@ public class TaskStore {
      *         not exist or was not waiting for input
      */
     public Task applyInput(String taskId, Map<String, Object> inputResponses) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return null;
-        }
-        Task snapshot;
-        synchronized (entry) {
-            if (!TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)) {
-                return null;
-            }
-            Map<String, Object> accepted = new HashMap<>();
-            if (inputResponses != null && entry.inputRequests != null) {
-                for (String key : entry.inputRequests.keySet()) {
-                    Object answer = inputResponses.get(key);
-                    if (answer != null) {
-                        accepted.put(key, answer);
-                    }
-                }
-            }
-            entry.status = TaskStatus.WORKING.getValue();
-            entry.statusMessage = "The operation resumed with the input provided.";
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.inputRequests = null;
-            entry.inputResponses = accepted;
-            snapshot = entry.snapshot();
-            entry.notifyAll();
-        }
-        fireStatusChange(entry, snapshot);
-        return snapshot;
+        // Chapter 07: implement applyInput(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: applyInput(...) is not implemented yet");
     }
 
     /**
@@ -270,29 +185,9 @@ public class TaskStore {
      *         or the wait expired
      */
     public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return null;
-        }
-        long deadline = System.currentTimeMillis() + timeoutMillis;
-        synchronized (entry) {
-            while (TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)) {
-                long remaining = deadline - System.currentTimeMillis();
-                if (remaining <= 0) {
-                    return null;
-                }
-                try {
-                    entry.wait(remaining);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return null;
-                }
-            }
-            if (entry.isTerminal()) {
-                return null;
-            }
-            return entry.inputResponses == null ? Map.of() : Map.copyOf(entry.inputResponses);
-        }
+        // Chapter 07: implement awaitInput(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: awaitInput(...) is not implemented yet");
     }
 
     /**
@@ -323,24 +218,9 @@ public class TaskStore {
      *         cancellation request is invalid
      */
     public Task cancel(String taskId) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return null;
-        }
-        Task snapshot;
-        synchronized (entry) {
-            if (entry.isTerminal()) {
-                return null;
-            }
-            entry.status = TaskStatus.CANCELLED.getValue();
-            entry.statusMessage = "The task was cancelled by request.";
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.inputRequests = null;
-            snapshot = entry.snapshot();
-            entry.notifyAll();
-        }
-        fireStatusChange(entry, snapshot);
-        return snapshot;
+        // Chapter 07: implement cancel(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: cancel(...) is not implemented yet");
     }
 
     private void fireStatusChange(Entry entry, Task snapshot) {
