@@ -1050,6 +1050,24 @@ def write_readme(chapter: str):
     nxt = f"{n + 1:02d}-chapter" if n < 7 else "complete"
     title = CHAPTER_TITLES[chapter]
     blurb = CHAPTER_BLURBS[chapter]
+    if n < 7:
+        next_section = f'''### Next chapter (`{nxt}`)
+
+When **this** chapter's tests are green, check out `{nxt}` — that is the following lesson, not this one:
+
+```bash
+./clean-checkout.sh {nxt}
+```
+
+That discards uncommitted work on purpose: `{nxt}` already contains the solutions for chapters 1–{n}.'''
+    else:
+        next_section = '''### After this chapter
+
+When **this** chapter's tests are green, `complete` is the finished server with this lesson filled in:
+
+```bash
+./clean-checkout.sh complete
+```'''
     return f'''# Agent MCP Workshop
 
 > **You are on `{chapter}-chapter`: {title}** — {blurb}.
@@ -1071,21 +1089,17 @@ Follow [00-setup.md](00-setup.md) and run `./verification.sh` from **`trunk`**. 
 
 Each chapter is a git branch. The branch contains the server **as far as this lesson**, with this chapter's methods emptied out, plus the tests that grade them. Later chapters' code is not here.
 
-When this chapter's tests are green, move on with:
+### This chapter (`{chapter}-chapter`)
 
-```bash
-./clean-checkout.sh {nxt}
-```
-
-That discards uncommitted work on purpose: the next branch already contains the solutions for chapters 1–{n}.
-
-### Knowing when you are done
+Grade **this** branch with `{chapter}` — not the next chapter's number:
 
 ```bash
 ./gradlew chapterTest -Pchapter={chapter}
 ```
 
-Red means keep going; green means move on. `./gradlew test` on this branch runs only the chapters you have reached.
+Red means keep going; green means this chapter is done. `./gradlew test` on this branch runs only the chapters you have reached.
+
+{next_section}
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
 
