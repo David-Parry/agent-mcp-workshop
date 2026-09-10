@@ -125,7 +125,7 @@ These records name only the fields they read. The `_meta` envelope is still requ
 
 There is nothing to add to `ServerCapabilities` — Chapter 5 already gave it its `extensions` map, and tasks go in it like any other extension.
 
-**Action Required**: Add `withTasksExtension()` to the `DiscoverResultBuilder` chain in `discoverResult()`:
+**Action Required**: `discoverResult()` is already on `IORouter.java` at **line 329**. Add `withTasksExtension()` to that builder chain:
 
 ```java
 private DiscoverResult discoverResult() {
@@ -180,7 +180,7 @@ public boolean supportsTasks() {
 }
 ```
 
-**Action Required**: Add the predicate that decides whether *this* request gets a handle:
+**Action Required**: Fill `answersWithTask` at **line 443** of `IORouter.java` (or confirm it already matches):
 
 ```java
 private boolean answersWithTask(RequestEnvelope envelope) {
@@ -239,13 +239,20 @@ if (inputResponses != null && entry.inputRequests != null) {
 
 The keys are chosen by this server and must not be reused across a task's lifetime, so anything unrecognised is dropped rather than trusted.
 
-See `src/main/java/com/workshop/mcp/tasks/TaskStore.java` for the canonical implementation.
+See `src/main/java/com/workshop/mcp/tasks/TaskStore.java` — the class is already on the branch. Fill the hollowed methods:
+- `create` — **line 68**
+- `complete` — **line 111**
+- `fail` — **line 122**
+- `requireInput` — **line 136**
+- `applyInput` — **line 156**
+- `awaitInput` — **line 187**
+- `cancel` — **line 220**
 
 ---
 
 ## Part 5: Add the Method Constants
 
-**Action Required**: In `UniqueKeys.java`, add the three methods and the notification:
+**Action Required**: In `src/main/java/com/workshop/mcp/spec/UniqueKeys.java`, the three methods and the notification are already declared (`TASKS_GET` at **line 129**, `TASKS_UPDATE` at **line 139**, `TASKS_CANCEL` at **line 144**, `NOTIFICATIONS_TASKS` at **line 155**). Confirm they match:
 
 ```java
 TASKS_GET("tasks/get"),
@@ -254,7 +261,7 @@ TASKS_CANCEL("tasks/cancel"),
 NOTIFICATIONS_TASKS("notifications/tasks"),
 ```
 
-And register the three requests as inbound:
+And register the three requests as inbound. `INBOUND_METHODS` is at **line 94** of `IORouter.java`:
 
 ```java
 private static final Set<UniqueKeys> INBOUND_METHODS = EnumSet.of(
@@ -273,6 +280,8 @@ Note the notification is the bare `notifications/tasks`, not `notifications/task
 ## Part 6: Wire `IORouter`
 
 ### a) Field and constructor
+
+The `taskStore` field is at **line 111** of `IORouter.java`; the constructor that wires `onStatusChange` is at **line 113**:
 
 ```java
 private final TaskStore taskStore = new TaskStore();
@@ -298,7 +307,7 @@ public record AppTool(
 
 ### c) Answer `tools/call` with a handle
 
-In `executeKeyWordSearchCall` — the method Chapter 5 left you with — branch on the predicate rather than on a request field:
+In `executeKeyWordSearchCall` at **line 469** of `IORouter.java` — the method Chapter 5 left you with — branch on the predicate rather than on a request field:
 
 ```java
 private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
@@ -313,6 +322,8 @@ private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params
     }
 }
 ```
+
+`runToolAsTask` is at **line 591** of `IORouter.java`:
 
 ```java
 private void runToolAsTask(String taskId, ToolCallParams params, Set<String> directories) {
@@ -339,7 +350,7 @@ That forces an ordering on `handleKeywordSearch`: it has to commit to the answer
 
 > Unsupported result type `input_required` for `tools/call`: multi-round-trip auto-fulfilment is not enabled on this instance
 
-**Action Required**: In `handleKeywordSearch`, once no directory has been resolved, take the task branch *first*:
+**Action Required**: In `handleKeywordSearch` at **line 359** of `IORouter.java`, once no directory has been resolved, take the task branch *first*:
 
 ```java
 if (answersWithTask(envelope)) {
@@ -352,7 +363,7 @@ if (answersWithTask(envelope)) {
 // … only now the Chapter 5 input_required branch …
 ```
 
-Nothing is given up by committing early. The question simply moves off the call and onto the task, where it is asked as a **status**:
+Nothing is given up by committing early. The question simply moves off the call and onto the task, where it is asked as a **status**. Fill `runSearchAsTaskThatAsks` at **line 628** of `IORouter.java`:
 
 ```java
 private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
@@ -401,6 +412,11 @@ private static final long TASK_INPUT_TIMEOUT_MILLIS = 60_000L;
 
 ### e) Handle the three methods
 
+Paste over the empty cases in `IORouter.java`:
+- `TASKS_GET` — **line 219**
+- `TASKS_UPDATE` — **line 222**
+- `TASKS_CANCEL` — **line 225**
+
 ```java
 case TASKS_GET -> {
     TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
@@ -429,6 +445,8 @@ An unknown task id is `-32602` **Invalid params**, not a "not found" result. And
 Do not skip the `params.taskId() == null` guards. A request that omits `taskId` altogether is a different mistake from one that names a task nobody created, but both are the client's mistake and both deserve `-32602`. Reading a null id straight into the store instead throws a `NullPointerException` out of `route()`, and because that escapes rather than becoming a response, the client is left holding a request that will never be answered — a hang rather than an error, which is far harder to diagnose from the other end.
 
 ### f) Emit the status notification
+
+`sendTaskStatusNotification` is at **line 665** of `IORouter.java`:
 
 ```java
 private void sendTaskStatusNotification(TaskResult task) {
