@@ -18,7 +18,6 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -35,9 +34,8 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Covers the keyword search tool and the continuation state it carries across a
- * Multi Round-Trip Requests exchange: the directories it accepts and rejects,
- * the files it refuses to read, and the failures it swallows so one unreadable
+ * Covers the keyword search tool: the directories it accepts and rejects, the
+ * files it refuses to read, and the failures it swallows so one unreadable
  * corner of a tree cannot sink the whole search.
  */
 @Tag("chapter04")
@@ -259,75 +257,12 @@ class KeyWordSearchTest {
         }
     }
 
-    // --- SearchContinuation ------------------------------------------------
-
-    @Test
-    void awaitingDirectoryCarriesTheKeywordAndTheDirectoryStage() {
-        SearchContinuation state = SearchContinuation.awaitingDirectory(KEYWORD);
-
-        assertEquals(KEYWORD, state.keyword());
-        assertEquals(SearchContinuation.STAGE_DIRECTORY, state.stage());
-    }
-
-    @Test
-    void anEncodedContinuationDecodesBackToTheSameState() {
-        SearchContinuation state = SearchContinuation.awaitingDirectory(KEYWORD);
-
-        SearchContinuation decoded = SearchContinuation.decode(state.encode());
-
-        assertEquals(state, decoded);
-    }
-
-    @Test
-    void anEncodedContinuationIsUnpaddedUrlSafeBase64() {
-        String encoded = SearchContinuation.awaitingDirectory(KEYWORD).encode();
-
-        assertFalse(encoded.contains("="), "requestState travels in JSON, so padding buys nothing");
-        assertFalse(encoded.contains("+") || encoded.contains("/"));
-        assertNotNull(SearchContinuation.decode(encoded));
-    }
-
-    @Test
-    void decodeReturnsNullForAnAbsentRequestState() {
-        assertNull(SearchContinuation.decode(null));
-    }
-
-    @Test
-    void decodeReturnsNullForABlankRequestState() {
-        assertNull(SearchContinuation.decode("   "));
-    }
-
-    @Test
-    void decodeReturnsNullForAValueThatIsNotBase64() {
-        assertNull(SearchContinuation.decode("!!! not base64 !!!"));
-    }
-
-    @Test
-    void decodeReturnsNullForBase64ThatIsNotJson() {
-        assertNull(SearchContinuation.decode(base64("{{{ not json")));
-    }
-
-    @Test
-    void decodeReturnsNullForBase64ThatDecodesToJsonNull() {
-        assertNull(SearchContinuation.decode(base64("null")));
-    }
-
-    @Test
-    void decodeReturnsNullWhenTheStateNamesNoStage() {
-        assertNull(SearchContinuation.decode(base64("{\"keyword\":\"" + KEYWORD + "\"}")),
-                   "a state that does not say which question was asked is not usable");
-    }
-
     // --- helpers -----------------------------------------------------------
 
     private static ToolCallParams params(String keyword) {
         Map<String, String> arguments = new HashMap<>();
         arguments.put("keyword", keyword);
         return new ToolCallParams(null, "key_word_search", arguments, null, null);
-    }
-
-    private static String base64(String json) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
 
     private Path write(String relativePath, String content) throws IOException {

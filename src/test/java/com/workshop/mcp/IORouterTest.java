@@ -115,9 +115,30 @@ class IORouterTest {
 
         JsonObject capabilities = io.only().getAsJsonObject("result").getAsJsonObject("capabilities");
         assertNull(capabilities.get("tasks"), "tasks moved out of capabilities and into extensions");
-        assertTrue(capabilities.getAsJsonObject("extensions").has(MetaKeys.TASKS_EXTENSION));
         assertFalse(capabilities.getAsJsonObject("tools").get("listChanged").getAsBoolean(),
                     "advertising listChanged would make clients hold a subscription open for nothing");
+    }
+
+    @Test
+    @Tag("chapter06")
+    void discoverDeclaresTheUiExtension() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject extensions = io.only().getAsJsonObject("result")
+                .getAsJsonObject("capabilities").getAsJsonObject("extensions");
+        assertTrue(extensions.has(MetaKeys.UI_EXTENSION));
+    }
+
+    @Test
+    @Tag("chapter07")
+    void discoverDeclaresTheTasksExtension() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject extensions = io.only().getAsJsonObject("result")
+                .getAsJsonObject("capabilities").getAsJsonObject("extensions");
+        assertTrue(extensions.has(MetaKeys.TASKS_EXTENSION));
     }
 
     // --- the per-request envelope --------------------------------------
@@ -126,7 +147,7 @@ class IORouterTest {
     @Tag("chapter03")
     void aRequestWithoutTheEnvelopeIsRejectedAsInvalidParams() {
         router.route("""
-                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""");
+                {"jsonrpc":"2.0","id":1,"method":"subscriptions/listen","params":{}}""");
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
@@ -135,7 +156,7 @@ class IORouterTest {
     @Tag("chapter03")
     void aRequestDeclaringAnUnsupportedRevisionIsRejectedWithRenegotiationData() {
         router.route("""
-                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{
+                {"jsonrpc":"2.0","id":1,"method":"subscriptions/listen","params":{"_meta":{
                   "io.modelcontextprotocol/protocolVersion":"2025-11-25",
                   "io.modelcontextprotocol/clientCapabilities":{}}}}""");
 
@@ -286,7 +307,7 @@ class IORouterTest {
     }
 
     @Test
-    @Tag("chapter03")
+    @Tag("chapter05")
     void aClientDeclaringTheDeprecatedRootsAndSamplingCapabilitiesIsUnaffected() {
         // Roots and sampling are both deprecated under SEP-2577, which tells
         // clients to keep declaring what they support for the whole transition
@@ -315,7 +336,7 @@ class IORouterTest {
     }
 
     @Test
-    @Tag("chapter03")
+    @Tag("chapter05")
     void aDeprecatedRootsDeclarationDoesNotMakeTheServerAskForRoots() {
         // The server used to embed a roots/list here. Roots is deprecated, so
         // it no longer does — and a client that can only answer roots is
@@ -851,6 +872,19 @@ class IORouterTest {
 
     @Test
     @Tag("chapter04")
+    void resourcesListServesTheJavadocPages() {
+        router.route("""
+                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
+        assertTrue(resources.size() >= 1, "expected Javadoc pages, got " + resources.size());
+        assertTrue(resources.asList().stream()
+                           .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("javadoc/")),
+                   "Javadoc pages must be listed");
+    }
+
+    @Test
+    @Tag("chapter06")
     void resourcesListServesTheJavadocPagesAndTheAppAlongside() {
         router.route("""
                 {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));

@@ -32,7 +32,7 @@ Tools provide executable functionality that clients can discover and invoke:
 
 - **KeyWordSearch Tool**: A practical example tool that:
   - Searches for the supplied keyword across every file under the directories it is given
-  - Accepts two parameters defined by JSON Schema: `keyword`, required, and `directory`, optional. Supplying both is the one-hop path; Ch 5 adds what happens when `directory` is omitted, which is a Multi Round-Trip Request for one, backed by the server's own working directory
+  - Accepts two parameters defined by JSON Schema: `keyword` and `directory`, both required. A call without a directory is a tool-level error in this chapter; Chapter 5 turns that gap into a round-trip question
   - Returns structured results with file paths and occurrence counts
   - Demonstrates proper tool implementation patterns, and why a tool holds no state now that there is no session to hold its context in: the directories are a parameter of `call`, not a field, so a directory resolved for one call is unreachable from the next
 
@@ -56,7 +56,7 @@ Prompts create user-friendly templates that guide clients in using tools effecti
   - Uses `PromptsListResultBuilder` to construct the response
   - Enables intelligent client-side autocomplete and suggestions
 
-- **PROMPTS_GET Handler** (already implemented): Generates interactive guidance:
+- **PROMPTS_GET Handler**: Generates interactive guidance:
   - Returns contextual messages based on provided arguments
   - Creates a conversation-like flow showing what will happen
   - Adapts responses based on whether arguments are provided

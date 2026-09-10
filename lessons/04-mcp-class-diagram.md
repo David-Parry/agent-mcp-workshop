@@ -77,28 +77,17 @@ classDiagram
     }
 
     %% Tool-related Classes
-    class AppToolsListResult {
+    class ToolsListResult {
         +String resultType
-        +List~AppTool~ tools
+        +List~ToolRecord~ tools
         +Long ttlMs
         +String cacheScope
     }
 
-    class AppTool {
+    class ToolRecord {
         +String name
         +String description
         +InputSchema inputSchema
-        +AppMeta _meta
-    }
-
-    class AppMeta {
-        +UiMeta ui
-        +String resourceUri
-    }
-
-    class UiMeta {
-        +String resourceUri
-        +List~String~ visibility
     }
 
     class InputSchema {
@@ -196,12 +185,9 @@ classDiagram
         +build() ReadResourceResult
     }
 
-    class AppToolBuilder {
-        +withName(String)
-        +withDescription(String)
-        +withInputSchema(InputSchema)
-        +withResourceUri(String)
-        +build() AppTool
+    class ToolsListResultBuilder {
+        +addTool(String, String, InputSchema)
+        +build() ToolsListResult
     }
 
     class ToolCallResultBuilder {
@@ -255,7 +241,7 @@ classDiagram
     JsonRpcResponse ..> ResourcesListResult : result
     JsonRpcResponse ..> ReadResourceResult : result
     JsonRpcResponse ..> ResourceTemplatesListResult : result
-    JsonRpcResponse ..> AppToolsListResult : result
+    JsonRpcResponse ..> ToolsListResult : result
     JsonRpcResponse ..> ToolCallResult : result
     JsonRpcResponse ..> PromptsListResult : result
     JsonRpcResponse ..> PromptsGetResult : result
@@ -263,10 +249,8 @@ classDiagram
     ResourcesListResult "1" --> "*" Resource : contains
     ReadResourceResult "1" --> "*" TextReadResource : contains
 
-    AppToolsListResult "1" --> "*" AppTool : contains
-    AppTool "1" --> "1" InputSchema : has
-    AppTool "1" --> "1" AppMeta : _meta
-    AppMeta "1" --> "1" UiMeta : ui
+    ToolsListResult "1" --> "*" ToolRecord : contains
+    ToolRecord "1" --> "1" InputSchema : has
     InputSchema "1" --> "*" PropertySchema : properties
     ToolCallResult "1" --> "*" ContentItem : contains
 
@@ -278,7 +262,7 @@ classDiagram
     ResourcesListResultBuilder ..> ResourcesListResult : builds
     ResourceBuilder ..> Resource : builds
     ReadResourceResultBuilder ..> ReadResourceResult : builds
-    AppToolBuilder ..> AppTool : builds
+    ToolsListResultBuilder ..> ToolsListResult : builds
     ToolCallResultBuilder ..> ToolCallResult : builds
     PromptsListResultBuilder ..> PromptsListResult : builds
     PromptsGetResultBuilder ..> PromptsGetResult : builds
@@ -299,9 +283,8 @@ classDiagram
 - **ResourceTemplatesListResult**: Answered as empty, because clients ask for it whenever a server declares any resource capability
 
 ### Tool Classes
-- **AppTool**: A tool with name, description, input schema, and the `_meta` block associating it with a UI
-- **AppToolsListResult**: The list of available tools, plus cache hints
-- **AppMeta** / **UiMeta**: The app association. `AppMeta` carries both the nested `ui` object and a flat `ui/resourceUri` alias, so clients that read either form find it
+- **Tool** (shown as `ToolRecord` above): a tool with name, description, and input schema. Chapter 6 adds `_meta` and an `AppTool` for the UI association
+- **ToolsListResult**: The list of available tools, plus cache hints
 - **InputSchema**: JSON Schema definition for tool parameters
 - **PropertySchema**: One property in that schema. Note `key` and `isRequired` are bookkeeping for the builder and are deliberately *not* serialized — a custom `TypeAdapter` writes only `type` and `description`, because anything else would not be valid JSON Schema
 - **ToolCallParams**: Parameters for executing a tool. `arguments` is `Map<String, String>`, so a tool receives its arguments already flattened to strings
@@ -318,7 +301,7 @@ classDiagram
 ### Builder Classes
 Each major result type has a builder for type-safe construction:
 - `ResourcesListResultBuilder`, `ResourceBuilder`, `ReadResourceResultBuilder`
-- `AppToolBuilder`, `ToolCallResultBuilder`
+- `ToolsListResultBuilder`, `ToolCallResultBuilder`
 - `PromptsListResultBuilder`, `PromptsGetResultBuilder`
 
 Remember that builders do not set `ttlMs` or `cacheScope`. The router restates each built list result with those values, which is why the handlers all end with a `new SomeResult(result.…(), LIST_TTL_MILLIS, CacheScope.PUBLIC)`.

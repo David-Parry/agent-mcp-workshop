@@ -4,8 +4,8 @@
 > passing. This is the reference — read it when you are stuck, and the instructor demonstrates
 > from it. It is not where you start.
 >
-> To do the workshop, begin with `./clean-checkout.sh 01-chapter`. To check your machine before
-> the first session, start from `trunk`.
+> To do the workshop, verify on `trunk` with `./verification.sh`, then
+> `./clean-checkout.sh 01-chapter`. This branch is the reference, not the start.
 
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
 
@@ -13,17 +13,19 @@ This is an **instructor-led** workshop. You can work through it alone, but a lot
 
 ## Before class
 
-Follow [00-setup.md](00-setup.md) and run `./verification.sh`. Every step must pass before the first session.
+Follow [00-setup.md](00-setup.md) and run `./verification.sh` from **`trunk`**. Every step must pass before the first session.
 
 ## How the workshop is organised
 
-Each chapter is a git branch. The branch gives you the whole server with that chapter's methods emptied out, plus the tests that grade them. You fill in the bodies.
+The student path is `trunk` → `01-chapter` → … → `07-chapter`. Each chapter branch is a **slice of this tree**: chapters 1..N-1 already filled, chapter N hollowed, later chapters absent. `04t-chapter` is not part of that path.
+
+After verifying on `trunk`:
 
 ```bash
-./clean-checkout.sh 01-chapter   # start here
+./clean-checkout.sh 01-chapter
 ```
 
-Read the chapter's instructions in [lessons/](lessons/) — every branch carries the full set, so you can read ahead or look back at any time.
+On `complete` you can read every lesson. On a chapter branch, `lessons/` holds **this chapter only**.
 
 Chapter order is in [lessons/sylabus.md](lessons/sylabus.md):
 

@@ -75,11 +75,7 @@ Understanding of how MCP messages are structured and exchanged.
 Implement `server/discover` and the per-request envelope that replaced the handshake.
 
 ### What You'll Build
-- `RequestId` plus a Gson `TypeAdapter` — a JSON-RPC id is a string *or* a number
-- `server/discover` handler (versions, capabilities, identity, cache hints)
-- `RequestEnvelope` validation — the three distinct rejections
-- Notification deserialization infrastructure
-- `NotificationCancelledParams` record
+- Fill `discoverResult()`, `envelopeFor()`, the request prelude, and the notification handler — those methods are empty; the types (`RequestId`, `McpGson`, `NotificationCancelledParams`) are already on the branch
 
 ### Key Concepts
 - Statelessness: revision `2026-07-28` deleted `initialize`, `notifications/initialized`, and `ping`
@@ -89,12 +85,10 @@ Implement `server/discover` and the per-request envelope that replaced the hands
 - STDIO discipline (never write debug output to stdout)
 
 ### Tasks
-1. Add `RequestId` + `RequestIdTypeAdapter`, registered via the shared `McpGson` factory
-2. Implement the `SERVER_DISCOVER` case in `IORouter`, answered before any version check
-3. Implement `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported`) for an unsupported revision
-4. Build and test with MCP Inspector in modern mode
-5. Add `deserializeParams()` to `JsonRpcMessageDeserializer`
-6. Create `NotificationCancelledParams` record and update the notification handler
+1. Fill `discoverResult()` and the `server/discover` shortcut (answered before any version check)
+2. Fill `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported`) for an unsupported revision
+3. Build and test with MCP Inspector in modern mode (`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`)
+4. Fill the notification handler using Chapter 2's `deserializeParams` and the existing `NotificationCancelledParams`
 
 ### Verification
 - MCP Inspector connects successfully with `"protocolEra": "modern"`
@@ -123,8 +117,8 @@ Implement the three core MCP capabilities to create a useful server.
 - `RESOURCES_READ` handler (content retrieval)
 
 #### Tools Capability
-- `KeyWordSearch` tool implementation — accepts a required `keyword` parameter and an optional `directory`; supplying the directory is the one-hop path, and Ch 5 adds what happens when it is left out
-- `TOOLS_LIST` handler (tool discovery)
+- `KeyWordSearch` tool implementation — required `keyword` and required `directory`. A missing directory is a **tool-level error** (`isError`). Chapter 5 turns that into a round trip.
+- `TOOLS_LIST` handler via `ToolsListResultBuilder` (not `AppToolBuilder`)
 - `TOOLS_CALL` handler (tool execution)
 
 #### Prompts Capability
@@ -139,9 +133,9 @@ Implement the three core MCP capabilities to create a useful server.
 
 ### Verification
 - "List Resources" shows Javadoc files
-- "List Tools" shows `key_word_search` with a required `keyword` and an optional `directory`
+- "List Tools" shows `key_word_search` with a required `keyword` and a required `directory`
 - "List Prompts" shows `search_keyword`
-- Calling the tool without a `directory` returns a clear tool-level error, because the version written so far has no other way to find out where to look — Ch 5 adds the round trip and the working-directory fallback behind it
+- Calling the tool without a `directory` returns a clear tool-level error. Chapter 5 adds the round trip and the working-directory fallback.
 
 ### Outcome
 A working MCP server with all three core capabilities — ready to be extended with experimental features.
@@ -171,7 +165,7 @@ Wire up the MCP extension mechanism, then ask the user for a missing search dire
 - Removed (SEP-2575) is not deprecated (SEP-2577): `initialize` and its family are physically gone, whereas roots, sampling, and logging still work and are still declared by clients — this server just does not build on them
 
 ### Verification
-- The `server/discover` result carries `extensions: { "io.modelcontextprotocol/ui": {...}, "io.modelcontextprotocol/tasks": {} }`
+- The `server/discover` result still has **no** UI or tasks extension — those are Chapters 6 and 7
 - Nothing is asked at startup — a server has no way to ask
 - `tools/call key_word_search` **with** a `directory` argument completes in one hop
 - **Without** it, the answer is `input_required` embedding an `elicitation/create` with `mode: "form"`, and the client re-sends under a new id once the user has filled it in
@@ -191,8 +185,8 @@ Extend the existing tool with an interactive HTML UI that renders inside the con
 
 ### What You'll Build
 - Three new spec records: `UiMeta`, `AppMeta`, `AppTool`
-- `AppToolBuilder` with `withResourceUri(...)` and `withExecution(...)` (the latter advertises task support — used in Ch 7)
-- Declare `io.modelcontextprotocol/apps` in experimental capabilities
+- `AppToolBuilder` with `withResourceUri(...)` — there is no `withExecution` / `taskSupport`
+- Declare `io.modelcontextprotocol/ui` under `capabilities.extensions`
 - Serve `ui://keyword-search/mcp-app.html` from the classpath via `RESOURCES_READ`
 
 ### Key Concepts

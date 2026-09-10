@@ -6,6 +6,8 @@ In this lesson you will extend the `key_word_search` tool with a **UI declaratio
 
 You will not be changing any existing behavior. The tool continues to work exactly as before. You are adding the protocol metadata that tells the host "there is also a UI available for this tool."
 
+The new types (`UiMeta`, `AppMeta`, `AppTool`, `AppToolBuilder`) are already on this branch. `AppMeta.of`, `AppToolBuilder.withResourceUri`, and `AppToolBuilder.build` are **empty** — fill those three methods. The `IORouter` wiring that calls them is already written.
+
 ---
 
 ## Step 1: Understand the Three New Spec Records
@@ -200,185 +202,32 @@ After this, `./gradlew build` will bundle it into the JAR and `readResourceConte
 
 ---
 
-## Step 7: Wire Everything Up in `IORouter.java`
+## Step 7: The IORouter wiring is already on this branch
 
-Four targeted changes — each shown as a before/after pair so you can cut and paste directly.
+`discoverResult()` already declares `io.modelcontextprotocol/ui`. `TOOLS_LIST` already returns an `AppTool` via `AppToolBuilder.withResourceUri`. `RESOURCES_LIST` / `RESOURCES_READ` already serve `ui://keyword-search/mcp-app.html`.
 
-### Change 1 of 4 — Declare the UI Extension in `server/discover`
+Those calls go through `AppMeta.of`, `AppToolBuilder.withResourceUri`, and `AppToolBuilder.build`, which are **empty**. Fill them. Until `build()` returns a real `AppTool`, `tools/list` will fail the chapter tests.
 
-The host checks the `extensions` map of the `server/discover` response to know whether this server supports MCP Apps. Without this declaration the host ignores `_meta.ui.resourceUri` entirely.
+Copy `lessons/mcp-app.html` onto `src/main/resources/lesson/mcp-app.html` if that file is still the lesson handout (the classpath copy is already in `src/main/resources/lesson/` on this branch).
 
-**Find this block** (the `discoverResult()` method Chapter 5 left you with):
+There is no `withExecution` / `taskSupport` field, and nothing is declared under `experimental` or `io.modelcontextprotocol/apps`. The UI extension identifier is `io.modelcontextprotocol/ui`.
+
+Read the existing cases so the three methods you fill have somewhere to land:
+
 ```java
-DiscoverResultBuilder builder = DiscoverResultBuilder
-        .builder()
-        .withDefaultCapabilities()
-        .withInstructions("…")
-        .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
-        .withDefaultServerInfo();
+.withExtension(MetaKeys.UI_EXTENSION,
+               Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
 ```
 
-**Replace it with:**
 ```java
-DiscoverResultBuilder builder = DiscoverResultBuilder
-        .builder()
-        .withDefaultCapabilities()
-        .withExtension(MetaKeys.UI_EXTENSION,
-                       Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
-        .withInstructions("…")
-        .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
-        .withDefaultServerInfo();
+AppTool appTool = AppToolBuilder.builder()
+        .withName(keyWordSearch.name())
+        .withDescription(keyWordSearch.description())
+        .withInputSchema(keyWordSearch.schema())
+        .withResourceUri(KEYWORD_APP_URI)
+        .build();
+success(message.id(), new AppToolsListResult(List.of(appTool), LIST_TTL_MILLIS, CacheScope.PUBLIC));
 ```
-
-Unlike the old builder, ordering does not matter — `build()` folds the accumulated map in at the end.
-
-Note this extension carries a real configuration object rather than an empty `{}`: the host needs to know which MIME types this server can render, and `text/html;profile=mcp-app` is the App profile.
-
-**The `server/discover` response now includes:**
-```json
-{
-  "capabilities": {
-    "extensions": {
-      "io.modelcontextprotocol/ui": {
-        "mimeTypes": ["text/html;profile=mcp-app"]
-      }
-    }
-  }
-}
-```
-
-Note it is `extensions`, not `experimental`. Both maps still exist in `ServerCapabilities`, but `extensions` is for *specified* extensions keyed by identifier, while `experimental` is reserved for genuinely non-standard, in-house capabilities.
-
----
-
-### Change 2 of 4 — Return an `AppTool` from `TOOLS_LIST`
-
-**Find this block** (the `TOOLS_LIST` case):
-```java
-case TOOLS_LIST -> {
-    KeyWordSearch keyWordSearch = new KeyWordSearch();
-    ToolsListResultBuilder builder = ToolsListResultBuilder
-            .builder()
-            .addTool(keyWordSearch.name(), keyWordSearch.description(), keyWordSearch.schema());
-    success(message.id(), builder.build());
-}
-```
-
-**Replace it with:**
-```java
-case TOOLS_LIST -> {
-    KeyWordSearch keyWordSearch = new KeyWordSearch();
-    AppTool appTool = AppToolBuilder.builder()
-            .withName(keyWordSearch.name())
-            .withDescription(keyWordSearch.description())
-            .withInputSchema(keyWordSearch.schema())
-            .withResourceUri(KEYWORD_APP_URI)
-            .build();
-    success(message.id(), new AppToolsListResult(List.of(appTool), LIST_TTL_MILLIS, CacheScope.PUBLIC));
-}
-```
-
-The tool is constructed here purely to read its name, description, and schema — it is never called on this path. `KeyWordSearch` takes no constructor arguments precisely because it holds no state: the directories a search runs against are passed to `call` per invocation, as Chapter 5 established.
-
-`AppToolsListResult` is used instead of `ToolsListResult` because `AppTool` and `Tool` are separate record types — Java's type system does not allow one where the other is expected — and it carries the same `ttlMs` / `cacheScope` hints every cacheable result needs.
-
----
-
-### Change 3 of 4 — Advertise the UI Resource in `RESOURCES_LIST`
-
-The Inspector's Apps tab reads `resources/list` after `tools/list` to confirm the `ui://` resource exists. Without this entry it cannot render the app.
-
-**Find this block** (the `RESOURCES_LIST` case):
-```java
-case RESOURCES_LIST -> {
-    ResourcesListResultBuilder builder = ResourcesListResultBuilder
-            .builder()
-            .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
-            .withNextCursor("pageNext");
-    success(message.id(), builder.build());
-}
-```
-
-**Replace it with:**
-```java
-case RESOURCES_LIST -> {
-    ResourcesListResultBuilder builder = ResourcesListResultBuilder
-            .builder()
-            .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
-            .addResource(ResourceBuilder.builder()
-                    .withUri("ui://keyword-search/mcp-app.html")
-                    .withName("Keyword Search App")
-                    .withDescription("Interactive keyword search results dashboard")
-                    .withMimeType(Resource.MIME_TYPE_UI_APP)
-                    .build())
-            .withNextCursor("pageNext");
-    success(message.id(), builder.build());
-}
-```
-
----
-
-### Change 4 of 4 — Serve the HTML in `RESOURCES_READ`
-
-When the host requests `ui://keyword-search/mcp-app.html`, the server must return the HTML content with the correct MIME type. Add a branch at the top of the `RESOURCES_READ` case that handles `ui://` URIs before falling through to the existing Javadoc logic.
-
-**Find this block** (the `RESOURCES_READ` case):
-```java
-case RESOURCES_READ -> {
-    ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
-    String resourceUri = param.uri();
-    ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
-    if (resourceUri != null && !resourceUri.isEmpty()) {
-        try {
-            String content = JavadocResources.readResourceContent(resourceUri);
-            builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
-        } catch (Exception e) {
-            logger.log("Error reading resource: " + resourceUri);
-            builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
-        }
-    } else {
-        builder
-                .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
-                .asError();
-    }
-    success(message.id(), builder.build());
-}
-```
-
-**Replace it with:**
-```java
-case RESOURCES_READ -> {
-    ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
-    String resourceUri = param.uri();
-    ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
-    if ("ui://keyword-search/mcp-app.html".equals(resourceUri)) {
-        try {
-            String html = JavadocResources.readResourceContent("lesson/mcp-app.html");
-            builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, html);
-        } catch (Exception e) {
-            logger.log("Error reading UI app resource: " + resourceUri);
-            builder.addTextContent(resourceUri, Resource.MIME_TYPE_UI_APP, e.getMessage()).asError();
-        }
-    } else if (resourceUri != null && !resourceUri.isEmpty()) {
-        try {
-            String content = JavadocResources.readResourceContent(resourceUri);
-            builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
-        } catch (Exception e) {
-            logger.log("Error reading resource: " + resourceUri);
-            builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
-        }
-    } else {
-        builder
-                .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
-                .asError();
-    }
-    success(message.id(), builder.build());
-}
-```
-
-The `ui://` branch runs first so it never falls into the Javadoc path. The MIME type `Resource.MIME_TYPE_UI_APP` (`"text/html;profile=mcp-app"`) signals to the host's renderer that this is an interactive app, not a plain HTML document.
-
----
 
 ## Step 8: Rebuild and Test with the Inspector
 

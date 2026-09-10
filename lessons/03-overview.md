@@ -45,12 +45,11 @@ Where the old lesson had a ping handler, this one has the check that replaced it
 - A revision this server does not speak is `-32022`, and the error `data` must carry both `requested` and `supported` so the client knows what to renegotiate to
 - Method existence is settled **first**: a removed method like `initialize` is `-32601` by absence, and complaining about its envelope instead would tell a legacy client the wrong thing about why it failed
 
-### 3. **Notification Deserialization Infrastructure**
+### 3. **Notification handling**
 
-The lesson builds type-safe handling for notifications:
-- Adds a `deserializeParams` method to `JsonRpcMessageDeserializer`
-- Creates a `NotificationCancelledParams` record to represent cancellation data
-- Updates the notification handler to use typed parameters instead of raw JSON
+The lesson fills the hollowed notification switch:
+- Calls Chapter 2's `deserializeParams` on a `NotificationCancelledParams` that is already on the branch
+- Logs the cancellation id and reason instead of raw JSON
 
 The **sequence diagram** shows the cancellation notification flow where the client sends `notifications/cancelled` with a `requestId` and a `reason`.
 
@@ -66,7 +65,7 @@ Students will:
 The **class diagram** reveals the overall architecture:
 - **JSON-RPC Message Types**: `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcNotification`, `JsonRpcErrorResponse`
 - **Protocol Classes**: `DiscoverResult`, `RequestEnvelope`, `NotificationCancelledParams`
-- **Identity**: `RequestId` plus its Gson `TypeAdapter`, because a JSON-RPC id is a string *or* a number
+- **Identity**: `RequestId` plus its Gson `TypeAdapter` (already on the branch from the Chapter 2 types and the shared `McpGson` factory)
 - **Capability System**: how server and client capabilities are structured and communicated
 - **Builder Pattern**: `DiscoverResultBuilder` for constructing complex responses
 

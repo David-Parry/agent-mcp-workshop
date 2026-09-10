@@ -26,9 +26,11 @@ That `tasks/list` removal deserves a note: with sessions gone, there is no sessi
 
 ---
 
-## Part 1: Add the Spec Records
+## Part 1: The spec records are already on the branch
 
-Create the following under `src/main/java/com/workshop/mcp/spec/`.
+`Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams`, and `TasksCancelParams` already exist under `src/main/java/com/workshop/mcp/spec/`. Read them; you do not create them. What you fill is `TaskStore` and the hollowed `TASKS_*` cases.
+
+Note `ttlMs` and `pollIntervalMs` on `Task`. The old names carried no units and were renamed outright.
 
 ### `Task.java` — the store's view
 

@@ -114,7 +114,7 @@ com.mycompany/analytics-dashboard
 }
 ```
 
-By the end of the workshop that `extensions` map holds two real entries — `io.modelcontextprotocol/ui` from Chapter 6 and `io.modelcontextprotocol/tasks` from Chapter 7. The placeholder above just shows the shape.
+By the end of the workshop that `extensions` map holds two real entries — `io.modelcontextprotocol/ui` from Chapter 6 and `io.modelcontextprotocol/tasks` from Chapter 7. **This chapter does not declare either of them.** The placeholder above just shows the shape.
 
 Three details worth pausing on:
 

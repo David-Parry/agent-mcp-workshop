@@ -96,7 +96,7 @@ return value == null ? null : gson.fromJson(gson.toJsonTree(value), type);
 ### Understanding the Code
 
 - **The round trip**: `toJson` then `fromJson` looks wasteful, and it is, but it is the simple way to re-read an already-parsed value as a different type. Clarity beats micro-optimisation in a message that is a few hundred bytes.
-- **`convert` takes the tree, not the text**: it uses `toJsonTree` rather than `toJson`, because it is handed a value that has already been parsed out of a larger object. You will need this in chapter 5, when a client's answers arrive in `params.inputResponses` as a map of raw values keyed by the question they answer — each one is converted only once the caller knows what type to expect.
+- **`convert` takes the tree, not the text**: it uses `toJsonTree` rather than `toJson`, because it is handed a value that has already been parsed out of a larger object. Later chapters reuse `convert` for the same reason.
 - **Null in, null out**: an absent answer must stay absent. Converting null into an empty object of the target type would invent an answer the client never gave.
 
 ## Third Implementation Task: The Stateless Envelope

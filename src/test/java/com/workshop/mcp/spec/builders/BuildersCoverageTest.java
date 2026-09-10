@@ -51,13 +51,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * builder's optional setters, its collection-replacing setters, and every
  * validation path it can refuse on are covered here.
  */
-@Tag("chapter05")
-@Tag("chapter06")
 class BuildersCoverageTest {
 
     // --- AppToolBuilder ------------------------------------------------
 
     @Nested
+    @Tag("chapter06")
     class AppToolBuilderTest {
 
         @Test
@@ -168,6 +167,7 @@ class BuildersCoverageTest {
     // --- CompletionCompleteBuilder -------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class CompletionCompleteBuilderTest {
 
         @Test
@@ -204,6 +204,7 @@ class BuildersCoverageTest {
     // --- DiscoverResultBuilder -----------------------------------------
 
     @Nested
+    @Tag("chapter03")
     class DiscoverResultBuilderTest {
 
         @Test
@@ -306,6 +307,7 @@ class BuildersCoverageTest {
     // --- ElicitationBuilder --------------------------------------------
 
     @Nested
+    @Tag("chapter05")
     class ElicitationBuilderTest {
 
         @Test
@@ -334,6 +336,7 @@ class BuildersCoverageTest {
     // --- InputSchemaBuilder --------------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class InputSchemaBuilderTest {
 
         @Test
@@ -397,6 +400,7 @@ class BuildersCoverageTest {
     // --- PromptBuilder -------------------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class PromptBuilderTest {
 
         @Test
@@ -429,6 +433,7 @@ class BuildersCoverageTest {
     // --- PromptsGetResultBuilder ---------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class PromptsGetResultBuilderTest {
 
         @Test
@@ -516,6 +521,7 @@ class BuildersCoverageTest {
     // --- PromptsListResultBuilder --------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class PromptsListResultBuilderTest {
 
         @Test
@@ -584,6 +590,7 @@ class BuildersCoverageTest {
     // --- PropertySchemaBuilder -----------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class PropertySchemaBuilderTest {
 
         @Test
@@ -676,6 +683,7 @@ class BuildersCoverageTest {
     // --- ReadResourceResultBuilder -------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class ReadResourceResultBuilderTest {
 
         @Test
@@ -714,6 +722,7 @@ class BuildersCoverageTest {
     // --- ResourceBuilder -----------------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class ResourceBuilderTest {
 
         @Test
@@ -817,6 +826,7 @@ class BuildersCoverageTest {
     // --- ResourcesListResultBuilder ------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class ResourcesListResultBuilderTest {
 
         @Test
@@ -852,6 +862,7 @@ class BuildersCoverageTest {
     // --- ToolCallResultBuilder -----------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class ToolCallResultBuilderTest {
 
         @Test
@@ -888,6 +899,7 @@ class BuildersCoverageTest {
     // --- ToolsListResultBuilder ----------------------------------------
 
     @Nested
+    @Tag("chapter04")
     class ToolsListResultBuilderTest {
 
         @Test

@@ -33,7 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * convenience constructors that supply the {@code resultType} and caching
  * hints protocol revision {@code 2026-07-28} requires on every result.
  */
-@Tag("chapter03")
 class SpecTypesCoverageTest {
 
     // --- enums ---------------------------------------------------------
@@ -42,6 +41,7 @@ class SpecTypesCoverageTest {
     class Enums {
 
         @Test
+        @Tag("chapter04")
         void aRoleIsWrittenAsItsLowercaseWireValue() {
             assertEquals("user", Role.USER.getValue());
             assertEquals("assistant", Role.ASSISTANT.getValue());
@@ -50,6 +50,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void eitherRoleIsFoundFromItsWireValue() {
             // fromValue is an instance method, so the lookup searches the whole
             // enum but has to be reached through one of its constants.
@@ -58,12 +59,14 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void anUnknownOrAbsentRoleValueIsNotFound() {
             assertNull(Role.USER.fromValue("moderator"));
             assertNull(Role.USER.fromValue(null));
         }
 
         @Test
+        @Tag("chapter07")
         void onlyTheThreeFinalTaskStatusesAreTerminal() {
             assertFalse(TaskStatus.WORKING.isTerminal());
             assertFalse(TaskStatus.INPUT_REQUIRED.isTerminal());
@@ -73,6 +76,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter07")
         void everyTaskStatusIsFoundFromItsWireValueWhateverItsCase() {
             for (TaskStatus status : TaskStatus.values()) {
                 assertSame(status, TaskStatus.fromValue(status.getValue()));
@@ -81,18 +85,26 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter07")
         void anUnknownOrAbsentTaskStatusIsNotFound() {
             assertNull(TaskStatus.fromValue("paused"));
             assertNull(TaskStatus.fromValue(null));
         }
 
         @Test
+        @Tag("chapter03")
         void aMethodKeyPrintsAsTheMethodNameItStandsFor() {
             assertEquals("tools/call", UniqueKeys.TOOLS_CALL.toString());
+        }
+
+        @Test
+        @Tag("chapter07")
+        void aTaskMethodKeyPrintsAsTheMethodNameItStandsFor() {
             assertEquals("notifications/tasks", UniqueKeys.NOTIFICATIONS_TASKS.getValue());
         }
 
         @Test
+        @Tag("chapter03")
         void aMethodNameThisRevisionRemovedResolvesToNotFoundRatherThanNull() {
             assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("initialize"));
             assertSame(UniqueKeys.SERVER_DISCOVER, UniqueKeys.fromValue("SERVER/DISCOVER"));
@@ -102,6 +114,7 @@ class SpecTypesCoverageTest {
     // --- constant holders ----------------------------------------------
 
     @Nested
+    @Tag("chapter03")
     class ConstantHolders {
 
         @Test
@@ -129,6 +142,7 @@ class SpecTypesCoverageTest {
     // --- RequestId and its adapter --------------------------------------
 
     @Nested
+    @Tag("chapter02")
     class RequestIds {
 
         @Test
@@ -185,6 +199,7 @@ class SpecTypesCoverageTest {
     // --- PropertySchema and its adapter ---------------------------------
 
     @Nested
+    @Tag("chapter04")
     class PropertySchemas {
 
         @Test
@@ -264,6 +279,7 @@ class SpecTypesCoverageTest {
     class Envelopes {
 
         @Test
+        @Tag("chapter02")
         void anEnvelopeIsCompleteOnlyWhenBothRequiredFieldsArePresent() {
             assertTrue(envelope(RequestEnvelope.SUPPORTED_VERSION, capabilities()).isComplete());
             assertFalse(envelope(RequestEnvelope.SUPPORTED_VERSION, null).isComplete());
@@ -271,6 +287,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter02")
         void onlyTheSingleImplementedRevisionIsSupported() {
             assertTrue(envelope(RequestEnvelope.SUPPORTED_VERSION, null).isSupportedVersion());
             assertFalse(envelope("2025-11-25", null).isSupportedVersion());
@@ -279,6 +296,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter02")
         void formElicitationNeedsTheFormModeAndNotMerelyAnElicitationDeclaration() {
             assertTrue(envelope(null, new ClientCapabilities(new Elicitation(new Capability(), null), null))
                                .supportsElicitationForm());
@@ -290,6 +308,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter07")
         void tasksSupportIsReadFromExtensionsRatherThanARetiredTopLevelSlot() {
             assertTrue(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsTasks());
             assertFalse(envelope(null, declaring(MetaKeys.UI_EXTENSION)).supportsTasks());
@@ -298,6 +317,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter02")
         void theRecommendedHalfOfTheEnvelopeIsCarriedVerbatim() {
             RequestEnvelope envelope = new RequestEnvelope(RequestEnvelope.SUPPORTED_VERSION, capabilities(),
                                                            new ClientInfo("inspector", "0.17.0"), "debug");
@@ -311,6 +331,7 @@ class SpecTypesCoverageTest {
     // --- subscriptions ---------------------------------------------------
 
     @Nested
+    @Tag("chapter03")
     class Subscriptions {
 
         @Test
@@ -385,6 +406,7 @@ class SpecTypesCoverageTest {
     class CacheableResults {
 
         @Test
+        @Tag("chapter04")
         void aToolsListIsCompleteAndUnshareableUnlessToldOtherwise() {
             ToolsListResult defaults = new ToolsListResult(List.of(tool()));
             assertEquals(ResultType.COMPLETE, defaults.resultType());
@@ -398,6 +420,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter06")
         void anAppToolsListIsCompleteAndUnshareableUnlessToldOtherwise() {
             AppToolsListResult defaults = new AppToolsListResult(List.of(appTool()));
 
@@ -408,6 +431,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aPromptsListIsCompleteAndUnshareableUnlessToldOtherwise() {
             PromptsListResult defaults = new PromptsListResult(List.of(prompt()), null);
             assertEquals(ResultType.COMPLETE, defaults.resultType());
@@ -423,6 +447,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aResourcesListIsCompleteAndUnshareableUnlessToldOtherwise() {
             ResourcesListResult defaults = new ResourcesListResult(List.of(resource()), null);
             assertEquals(ResultType.COMPLETE, defaults.resultType());
@@ -438,6 +463,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aResourceReadIsCompleteAndUnshareableUnlessToldOtherwise() {
             ReadResourceResult defaults = new ReadResourceResult(List.of(textResource()));
             assertEquals(ResultType.COMPLETE, defaults.resultType());
@@ -454,6 +480,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aServerWithNoTemplatesStillAnswersTheTemplatesListWithAnEmptyOne() {
             ResourceTemplatesListResult empty = ResourceTemplatesListResult.empty(60_000L);
 
@@ -465,6 +492,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aCompletionResponseCarriesNoFreshnessHintsBecauseItIsNotCacheable() {
             CompletionCompleteResponse response =
                     new CompletionCompleteResponse(new Completion(List.of("search_keyword")), 1, false);
@@ -486,6 +514,7 @@ class SpecTypesCoverageTest {
     class WireRecords {
 
         @Test
+        @Tag("chapter04")
         void aResourceDefaultsToHtmlWithNoAnnotations() {
             Resource resource = new Resource("ui://keyword-search/mcp-app.html", "Keyword Search", "The app shell");
 
@@ -494,6 +523,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aResourceMayNameItsAudienceAndPriorityInstead() {
             Resource annotated = new Resource("file:///notes.json", "Notes", "Scratch notes",
                                               Resource.MIME_TYPE_JSON,
@@ -505,6 +535,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void readContentCarriesItsUriAndMimeTypeAlongsideTheText() {
             TextReadResource content = textResource();
 
@@ -514,6 +545,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aToolStatesRequirednessOnceThroughItsSchemaRequiredList() {
             Tool tool = tool();
 
@@ -524,6 +556,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aPromptDeclaresItsArgumentsAndWhichOfThemAreRequired() {
             Prompt prompt = prompt();
             PromptArgument argument = prompt.arguments().get(0);
@@ -535,6 +568,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aCompletionRequestNamesTheArgumentAndThePromptItBelongsTo() {
             CompletionCompleteParams params = new CompletionCompleteParams(
                     new MetaInfo(7),
@@ -549,6 +583,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter05")
         void anElicitationMessageWrapsItsQuestionsInAJsonRpcResult() {
             ElicitationQuestion question =
                     new ElicitationQuestion("directory", "Which directory should be searched?", List.of("."));
@@ -563,11 +598,13 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter05")
         void anOpenEndedQuestionOffersNoOptions() {
             assertNull(new ElicitationQuestion("directory", "Which directory?", null).options());
         }
 
         @Test
+        @Tag("chapter04")
         void aListRequestCarriesNothingBeyondItsOptionalProgressToken() {
             assertEquals(7, new ToolsListParams(new MetaInfo(7))._meta().progressToken());
             assertNull(new PromptsListParams(null)._meta());
@@ -576,6 +613,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter02")
         void aCancellationNamesTheRequestItAbandons() {
             NotificationCancelledParams cancelled =
                     new NotificationCancelledParams(RequestId.of("listen:0"), "the client closed the stream");
@@ -585,11 +623,13 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter02")
         void anUnrecognizedMessageKeepsItsRawJson() {
             assertEquals("{\"jsonrpc\":\"2.0\"}", new Unknown("{\"jsonrpc\":\"2.0\"}").json());
         }
 
         @Test
+        @Tag("chapter05")
         void aRetryLooksUpItsAnswersUnderTheKeysTheServerChose() {
             Map<String, Object> elicited = Map.of("action", "accept", "content", Map.of("directory", "/srv/code"));
             ToolCallParams retry = new ToolCallParams(null, "key_word_search", Map.of("keyword", "record"),
@@ -602,6 +642,7 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
         void aFirstAttemptCarriesNoAnswersAtAll() {
             ToolCallParams first =
                     new ToolCallParams(null, "key_word_search", Map.of("keyword", "record"), null, null);

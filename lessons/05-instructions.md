@@ -42,25 +42,25 @@ Note what is *absent* from that record: there is no top-level `tasks` slot any m
 
 An empty configuration object — `{}` — is the conventional way to say "supported, no settings".
 
-### Step 1: Declare an extension in the discovery response
+### Step 1: Look at discovery — elicitation is not a server extension
 
-`server/discover` is the method that replaced the `initialize` handshake; you built its handler in Chapter 3. Extensions are declared in its result.
+`server/discover` already advertises **core capabilities only** on this branch — tools, resources, prompts, completions — plus instructions that mention the round trip you are about to add. You do not add `withExtension(...)` here.
 
-**Action Required**: Add a `withExtension()` call to the `DiscoverResultBuilder` chain in `discoverResult()`:
+**Do not** declare `io.modelcontextprotocol/ui` or `io.modelcontextprotocol/tasks`. Those arrive in Chapters 6 and 7. Elicitation is not a server extension at all: it is a thing the *client* can do, read per request from `envelope.supportsElicitationForm()`.
+
+Confirm `discoverResult()` looks like this (it is already filled):
 
 ```java
 private DiscoverResult discoverResult() {
-    DiscoverResultBuilder builder = DiscoverResultBuilder
+    return DiscoverResultBuilder
             .builder()
             .withDefaultCapabilities()
-            .withExtension(MetaKeys.UI_EXTENSION,
-                           Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
             .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
                               + "for one over a Multi Round-Trip Request, and searches its own working "
                               + "directory if the client offers nothing.")
             .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
-            .withDefaultServerInfo();
-    return builder.build();
+            .withDefaultServerInfo()
+            .build();
 }
 ```
 
@@ -385,7 +385,7 @@ Make sure `inspector/config.json` has `"protocolEra": "modern"` as a **direct si
 
 - Click **Connect**
 - Find the `server/discover` result — note there is no `initialize` anywhere in the log
-- Expand `capabilities` and confirm `extensions` contains the UI extension key
+- Expand `capabilities` and confirm there is **no** `extensions` map for UI or tasks yet — those are later chapters
 - Confirm `supportedVersions` is a **list**, and that `serverInfo` is under `_meta` rather than in the body
 - Look at what the *client* sent, in `_meta.io.modelcontextprotocol/clientCapabilities`. The Inspector declares `"roots":{"listChanged":true}` there, and will keep doing so — deprecated is not removed. The server does not model the key, so it never arrives anywhere
 

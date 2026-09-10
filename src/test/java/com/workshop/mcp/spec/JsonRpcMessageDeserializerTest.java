@@ -113,12 +113,13 @@ class JsonRpcMessageDeserializerTest {
 
     @Test
     void requestParamsAreReadIntoTheirParamsType() {
-        TasksGetParams params = deserializer.deserializeParams(request("""
-                {"jsonrpc":"2.0","id":1,"method":"tasks/get","params":{%s,"taskId":"task-7"}}"""
-                                                                               .formatted(FULL_META)),
-                                                               TasksGetParams.class);
+        ClientInfo info = deserializer.deserializeParams(request("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list",
+                 "params":{%s,"name":"inspector","version":"1.0"}}""".formatted(FULL_META)),
+                                                               ClientInfo.class);
 
-        assertEquals("task-7", params.taskId());
+        assertEquals("inspector", info.name());
+        assertEquals("1.0", info.version());
     }
 
     @Test
@@ -139,14 +140,14 @@ class JsonRpcMessageDeserializerTest {
         JsonRpcRequest request = request("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
 
-        assertNull(deserializer.deserializeParams(request, TasksGetParams.class));
+        assertNull(deserializer.deserializeParams(request, ClientInfo.class));
     }
 
     // --- convert ----------------------------------------------------------
 
     @Test
     void thereIsNothingToConvertWhenTheAnswerIsAbsent() {
-        assertNull(deserializer.convert(null, ElicitationCreateResult.class));
+        assertNull(deserializer.convert(null, ClientInfo.class));
     }
 
     @Test
@@ -156,12 +157,12 @@ class JsonRpcMessageDeserializerTest {
         // deprecated this is the only answer shape the keyword search asks
         // for, and its content stays untyped because the form is built at
         // runtime rather than declared as a record.
-        Object answer = Map.of("action", "accept", "content", Map.of("directory", "/srv/code"));
+        Object answer = Map.of("name", "inspector", "version", "1.0");
 
-        ElicitationCreateResult elicited = deserializer.convert(answer, ElicitationCreateResult.class);
+        ClientInfo info = deserializer.convert(answer, ClientInfo.class);
 
-        assertEquals("accept", elicited.action());
-        assertEquals(Map.of("directory", "/srv/code"), elicited.content());
+        assertEquals("inspector", info.name());
+        assertEquals("1.0", info.version());
     }
 
     // --- the params._meta envelope ----------------------------------------
