@@ -35,8 +35,6 @@ Every step must pass before the first session. If something fails, fix it now �
 
 That branch is a **slice** of the finished server: Chapter 1's methods are empty, later chapters are not there yet, and `lessons/` holds this chapter only. When a chapter is green, move on with `./clean-checkout.sh 0(N+1)-chapter` — that discards uncommitted work on purpose, because the next branch already contains the solutions for 1..N.
 
-Do not check out `04t-chapter`. It is leftover handshake-era work and is not part of the student path.
-
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
 
 ## How the rest of the workshop is organised
