@@ -1,5 +1,7 @@
 # Agent MCP Workshop
 
+> **You are on `trunk`.** Verify your environment, then start at `01-chapter`.
+
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
 
 This is an **instructor-led** workshop. You can work through it alone, but a lot of the reasoning is discussed live.
@@ -31,32 +33,32 @@ Every step must pass before the first session. If something fails, fix it now �
 ./clean-checkout.sh 01-chapter
 ```
 
-That switches you to the first chapter, which has the real project: the full source tree with chapter 1's methods emptied out for you to fill in, the tests that grade them, and the complete `lessons/` directory.
+That branch is a **slice** of the finished server: Chapter 1's methods are empty, later chapters are not there yet, and `lessons/` holds this chapter only. When a chapter is green, move on with `./clean-checkout.sh 0(N+1)-chapter` — that discards uncommitted work on purpose, because the next branch already contains the solutions for 1..N.
+
+Do not check out `04t-chapter`. It is leftover handshake-era work and is not part of the student path.
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
 
 ## How the rest of the workshop is organised
 
-Each chapter is its own branch, and each carries the full lesson material so you can read ahead or look back:
-
-```bash
-./clean-checkout.sh 03-chapter
-```
+The student path is `trunk` → `01-chapter` → … → `07-chapter`. Each chapter branch contains the server **as far as that lesson**, with that chapter's methods emptied out, plus the tests that grade them. Later chapters' code is not there.
 
 You know a chapter is finished when its tests go green:
 
 ```bash
-./gradlew chapterTest -Pchapter=03
+./gradlew chapterTest -Pchapter=01
 ```
 
 Red is the normal starting state for a chapter — the methods you are about to write are empty.
+
+Stuck? look at `complete`. The full lesson set lives there too.
 
 ## The branches
 
 | Branch | What it is |
 | --- | --- |
 | `trunk` | This one. Setup and verification only, no server code. |
-| `01-chapter` … `07-chapter` | The workshop proper. Each is the full project with that chapter's work removed. |
+| `01-chapter` … `07-chapter` | The workshop proper. Each is a cumulative slice: prior chapters filled, the current chapter hollowed, later chapters absent. |
 | `complete` | The finished server, every chapter done. What the instructor demonstrates from, and where to look when you are stuck. |
 | `agent-chapter` | Optional bonus: wrapping the tool in agent skills. |
 

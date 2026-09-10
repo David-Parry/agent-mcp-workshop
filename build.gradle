@@ -41,10 +41,13 @@ dependencies {
     implementation 'org.slf4j:slf4j-nop:1.7.36'
     implementation 'com.google.code.gson:gson:2.13.1'
     implementation 'org.jsoup:jsoup:1.17.2'
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    // Keep the launcher aligned with the engine instead of Gradle's bundled (older) one
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // 5.20+ ships Byte Buddy 1.17.8+, which can instrument Java 25 bytecode (class file 69)
+    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.20.0'
 }
 
 test {

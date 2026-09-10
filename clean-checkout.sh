@@ -47,6 +47,10 @@ git fetch origin
 git checkout -f -B "$BRANCH" "origin/$BRANCH"
 git clean -fdx
 
-echo
-echo "Now on '$BRANCH'. Lesson materials are in lessons/."
-echo "Check your work with: ./gradlew chapterTest -Pchapter=<NN>"
+echo "Now on '$BRANCH'."
+if [[ "$BRANCH" == *-chapter && "$BRANCH" != agent-chapter ]]; then
+    echo "This chapter's lesson is in lessons/. Later chapters are not on this branch."
+    echo "Check your work with: ./gradlew chapterTest -Pchapter=${BRANCH%%-chapter}"
+else
+    echo "Lesson materials, when present, are in lessons/."
+fi
