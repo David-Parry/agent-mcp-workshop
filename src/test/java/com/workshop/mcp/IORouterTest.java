@@ -119,28 +119,6 @@ class IORouterTest {
                     "advertising listChanged would make clients hold a subscription open for nothing");
     }
 
-    @Test
-    @Tag("chapter06")
-    void discoverDeclaresTheUiExtension() {
-        router.route("""
-                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
-
-        JsonObject extensions = io.only().getAsJsonObject("result")
-                .getAsJsonObject("capabilities").getAsJsonObject("extensions");
-        assertTrue(extensions.has(MetaKeys.UI_EXTENSION));
-    }
-
-    @Test
-    @Tag("chapter07")
-    void discoverDeclaresTheTasksExtension() {
-        router.route("""
-                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
-
-        JsonObject extensions = io.only().getAsJsonObject("result")
-                .getAsJsonObject("capabilities").getAsJsonObject("extensions");
-        assertTrue(extensions.has(MetaKeys.TASKS_EXTENSION));
-    }
-
     // --- the per-request envelope --------------------------------------
 
     @Test
@@ -215,20 +193,6 @@ class IORouterTest {
         assertEquals(ResultType.COMPLETE, promptsGet.get("resultType").getAsString());
         assertNull(promptsGet.get("ttlMs"), "prompts/get is not a cacheable method");
         assertNull(promptsGet.get("cacheScope"), "prompts/get is not a cacheable method");
-    }
-
-    @Test
-    @Tag("chapter06")
-    void appToolsCarryTheResourceUriUnderBothMetaKeys() {
-        router.route("""
-                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
-
-        JsonObject meta = io.only().getAsJsonObject("result")
-                .getAsJsonArray("tools").get(0).getAsJsonObject()
-                .getAsJsonObject("_meta");
-        String expected = "ui://keyword-search/mcp-app.html";
-        assertEquals(expected, meta.getAsJsonObject("ui").get("resourceUri").getAsString());
-        assertEquals(expected, meta.get("ui/resourceUri").getAsString());
     }
 
     @Test
@@ -493,141 +457,6 @@ class IORouterTest {
                      io.only().getAsJsonObject("result").get("resultType").getAsString());
     }
 
-    // --- tasks ---------------------------------------------------------
-
-    @Test
-    @Timeout(10)
-    @Tag("chapter07")
-    void aTaskCapableClientGetsAHandleItCanPoll(@org.junit.jupiter.api.io.TempDir Path directory)
-            throws IOException {
-        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
-
-        router.route("""
-                {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{
-                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
-                           "io.modelcontextprotocol/clientCapabilities":{
-                             "extensions":{"io.modelcontextprotocol/tasks":{}}}},
-                  "name":"key_word_search","arguments":{"keyword":"record"},
-                  "requestState":"%s",
-                  "inputResponses":{"search_directory":{"action":"accept",
-                                     "content":{"directory":"%s"}}}}}"""
-                             .formatted(SearchContinuation.awaitingDirectory("record").encode(), directory));
-
-        JsonObject handle = io.responses().get(0).getAsJsonObject("result");
-        assertEquals(ResultType.TASK, handle.get("resultType").getAsString());
-        assertNotNull(handle.get("taskId"));
-        assertTrue(handle.has("ttlMs"), "renamed from ttl in the tasks extension");
-        assertTrue(handle.has("pollIntervalMs"), "renamed from pollInterval in the tasks extension");
-
-        // The status notification is the bare notifications/tasks, not
-        // notifications/tasks/status — that prefix is reserved.
-        JsonObject notification = io.notifications().get(0);
-        assertEquals("notifications/tasks", notification.get("method").getAsString());
-        assertEquals("working", notification.getAsJsonObject("params").get("status").getAsString());
-    }
-
-    @Test
-    @Timeout(10)
-    @Tag("chapter07")
-    void aTaskClientIsNeverAskedForInputOnTheCallItself() {
-        // input_required and task are alternative result types for the same
-        // response, so a request already committed to a handle cannot also
-        // carry a question. The Inspector's task path rejects the attempt with
-        // "Unsupported result type 'input_required' for tools/call", and it
-        // never enables auto-fulfilment. Note that this client can show a
-        // form, so the tool would very much like to ask.
-        router.route("""
-                {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{
-                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
-                           "io.modelcontextprotocol/clientCapabilities":{
-                             "roots":{"listChanged":true},
-                             "elicitation":{"form":{},"url":{}},
-                             "extensions":{"io.modelcontextprotocol/tasks":{}}}},
-                  "name":"key_word_search","arguments":{"keyword":"record"}}}""");
-
-        JsonObject result = io.responses().get(0).getAsJsonObject("result");
-        assertEquals(ResultType.TASK, result.get("resultType").getAsString(),
-                     "a task-declaring client must get a handle, not a question");
-        assertNotNull(result.get("taskId"));
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskAsksForItsDirectoryAsAStatusAndResumesOnTasksUpdate(
-            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
-        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
-
-        router.route(taskCallWithoutADirectory(11, """
-                "elicitation":{"form":{}}"""));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        // The question could not ride on the call's result, because that was
-        // already spent on the handle. It surfaces as the task's own status.
-        JsonObject asking = awaitTaskStatus(taskId, "input_required");
-        assertEquals("elicitation/create",
-                     asking.getAsJsonObject("inputRequests")
-                             .getAsJsonObject(SearchContinuation.KEY_DIRECTORY).get("method").getAsString(),
-                     "a task in input_required must publish what it is waiting for");
-
-        // Answering it has to be accepted. Before requireInput was wired up,
-        // no task ever reached input_required, so this always came back as
-        // -32602 "Cannot update task: it is not waiting for input".
-        io.clear();
-        router.route("""
-                {"jsonrpc":"2.0","id":12,"method":"tasks/update","params":{%s,
-                  "taskId":"%s",
-                  "inputResponses":{"search_directory":{"action":"accept",
-                                     "content":{"directory":"%s"}}}}}"""
-                             .formatted(FULL_META, taskId, directory));
-        JsonObject update = io.responses().get(0);
-        assertNull(update.get("error"), "answering what the task asked for must not be rejected");
-        assertEquals(ResultType.COMPLETE, update.getAsJsonObject("result").get("resultType").getAsString());
-
-        JsonObject done = awaitTaskStatus(taskId, "completed");
-        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean());
-        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"),
-                   "the task must search the directory it was handed: " + done);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskWhoseFormIsDeclinedStillFinishesFromTheWorkingDirectory() throws Exception {
-        router.route(taskCallWithoutADirectory(13, """
-                "elicitation":{"form":{},"url":{}}"""));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        awaitTaskStatus(taskId, "input_required");
-        router.route("""
-                {"jsonrpc":"2.0","id":14,"method":"tasks/update","params":{%s,
-                  "taskId":"%s","inputResponses":{"search_directory":{"action":"decline"}}}}"""
-                             .formatted(FULL_META, taskId));
-
-        JsonObject done = awaitTaskStatus(taskId, "completed");
-        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
-                    "declining is not a failure — the task falls back to the working directory");
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt() throws Exception {
-        router.route(taskCallWithoutADirectory(15, """
-                "elicitation":{"form":{}}"""));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        awaitTaskStatus(taskId, "input_required");
-        router.route("""
-                {"jsonrpc":"2.0","id":16,"method":"tasks/cancel","params":{%s,"taskId":"%s"}}"""
-                             .formatted(FULL_META, taskId));
-
-        // The waiting thread has to notice and give up; a cancelled task must
-        // not go on to report a result.
-        JsonObject cancelled = awaitTaskStatus(taskId, "cancelled");
-        assertNull(cancelled.get("result"), "a cancelled task must not produce a result: " + cancelled);
-    }
-
     /** A {@code tools/call} from a task client that supplies no directory. */
     private static String taskCallWithoutADirectory(int id, String extraCapability) {
         return """
@@ -656,30 +485,6 @@ class IORouterTest {
             Thread.sleep(50L);
         }
         throw new AssertionError("task never reached " + status + "; last snapshot was " + snapshot);
-    }
-
-    @Test
-    @Tag("chapter07")
-    void aTaskHandleIsNeverGivenToAClientThatCannotPollForIt(
-            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
-        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
-
-        router.route(toolCall(9, SearchContinuation.awaitingDirectory("record").encode(), """
-                "search_directory":{"action":"accept","content":{"directory":"%s"}}"""
-                                     .formatted(directory)));
-
-        assertEquals(ResultType.COMPLETE,
-                     io.only().getAsJsonObject("result").get("resultType").getAsString());
-    }
-
-    @Test
-    @Tag("chapter07")
-    void pollingAnUnknownTaskIsInvalidParams() {
-        router.route("""
-                {"jsonrpc":"2.0","id":"ext-1","method":"tasks/get",
-                 "params":{%s,"taskId":"no-such-task"}}""".formatted(FULL_META));
-
-        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
 
     // --- subscriptions -------------------------------------------------
@@ -779,22 +584,6 @@ class IORouterTest {
     }
 
     @Test
-    @Tag("chapter07")
-    void theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId() {
-        // Reading a null id into the store threw out of route(), and because
-        // the throw escaped instead of becoming an error, the client was left
-        // holding a request that was never going to be answered.
-        for (String method : List.of("tasks/get", "tasks/update", "tasks/cancel")) {
-            io.clear();
-            router.route("""
-                    {"jsonrpc":"2.0","id":61,"method":"%s","params":{%s}}""".formatted(method, FULL_META));
-
-            assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(),
-                         method + " must answer a request with no taskId");
-        }
-    }
-
-    @Test
     @Tag("chapter03")
     void aBlankLineIsNotAMessageAndIsIgnored() {
         router.route(null);
@@ -853,6 +642,19 @@ class IORouterTest {
         assertTrue(io.responses().isEmpty());
     }
 
+
+    @Test
+    @Tag("chapter04")
+    void resourcesListDoesNotAdvertiseTheAppYet() {
+        router.route("""
+                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
+        assertFalse(resources.asList().stream()
+                            .anyMatch(r -> r.getAsJsonObject().get("uri").getAsString().startsWith("ui://")),
+                    "the MCP App resource belongs to chapter 6");
+    }
+
     // --- prompts, resources, completion ---------------------------------
 
     @Test
@@ -884,20 +686,6 @@ class IORouterTest {
     }
 
     @Test
-    @Tag("chapter06")
-    void resourcesListServesTheJavadocPagesAndTheAppAlongside() {
-        router.route("""
-                {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
-
-        JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
-        assertTrue(resources.size() > 1, "the javadoc pages plus the app: " + resources.size());
-        assertTrue(resources.asList().stream()
-                           .anyMatch(r -> "ui://keyword-search/mcp-app.html"
-                                   .equals(r.getAsJsonObject().get("uri").getAsString())),
-                   "the app must be listed beside the javadoc");
-    }
-
-    @Test
     @Tag("chapter04")
     void theTemplateListIsAnsweredEmptyRatherThanNotAtAll() {
         // Clients fetch this whenever a server declares any resource
@@ -909,16 +697,6 @@ class IORouterTest {
         JsonObject result = io.only().getAsJsonObject("result");
         assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
         assertTrue(result.getAsJsonArray("resourceTemplates").isEmpty());
-    }
-
-    @Test
-    @Tag("chapter06")
-    void readingTheAppUriReturnsTheHtmlUnderTheAppMimeType() {
-        router.route(read(23, "ui://keyword-search/mcp-app.html"));
-
-        JsonObject content = firstContent();
-        assertEquals("text/html;profile=mcp-app", content.get("mimeType").getAsString());
-        assertTrue(content.get("text").getAsString().contains("<"), "expected markup");
     }
 
     @Test
@@ -1072,185 +850,6 @@ class IORouterTest {
                      io.only().getAsJsonObject("result").get("resultType").getAsString());
     }
 
-    // --- tasks: rejected updates and cancels ------------------------------
-
-    @Test
-    @Tag("chapter07")
-    void updatingATaskThatDoesNotExistIsInvalidParams() {
-        router.route("""
-                {"jsonrpc":"2.0","id":40,"method":"tasks/update",
-                 "params":{%s,"taskId":"no-such-task","inputResponses":{}}}""".formatted(FULL_META));
-
-        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void answeringATaskThatIsNoLongerAskingAnythingIsRejected(
-            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
-        router.route(taskCallWithADirectory(41, directory.toString()));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-        awaitTaskStatus(taskId, "completed");
-
-        // The task exists, so this is not "task not found" — it is a task that
-        // has no outstanding question for these answers to belong to.
-        io.clear();
-        router.route("""
-                {"jsonrpc":"2.0","id":42,"method":"tasks/update",
-                 "params":{%s,"taskId":"%s","inputResponses":{"search_directory":{"action":"decline"}}}}"""
-                             .formatted(FULL_META, taskId));
-
-        JsonObject error = io.onlyError();
-        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
-        assertTrue(error.get("message").getAsString().contains("not waiting for input"),
-                   "the client is told the task was not asking, not that it vanished: " + error);
-    }
-
-    @Test
-    @Tag("chapter07")
-    void cancellingATaskThatDoesNotExistIsInvalidParams() {
-        router.route("""
-                {"jsonrpc":"2.0","id":43,"method":"tasks/cancel",
-                 "params":{%s,"taskId":"no-such-task"}}""".formatted(FULL_META));
-
-        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void cancellingATaskTwiceIsRejectedTheSecondTime() {
-        router.route(taskCallWithoutADirectory(44, "\"elicitation\":{\"form\":{}}"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        router.route(cancel(45, taskId));
-        io.clear();
-        router.route(cancel(46, taskId));
-
-        JsonObject error = io.onlyError();
-        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
-        assertTrue(error.get("message").getAsString().contains("terminal"),
-                   "the client is told why, not just that it failed: " + error);
-    }
-
-    // --- tasks: the background thread's own outcomes ----------------------
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskWithNothingLeftToAskRunsTheSearchAndCompletes(
-            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
-        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
-
-        router.route(taskCallWithADirectory(47, directory.toString()));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        JsonObject done = awaitTaskStatus(taskId, "completed");
-        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean());
-        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"), "" + done);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskWhoseSearchBlowsUpIsFailedRatherThanLeftWorking() throws Exception {
-        // A NUL byte cannot appear in a path, so resolving this one throws
-        // straight out of the search and into the task's own catch.
-        router.route(taskCallWithADirectory(48, "/tmp/\\u0000nope"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        JsonObject failed = awaitTaskStatus(taskId, "failed");
-        assertNotNull(failed.get("error"), "a failed task must say what went wrong: " + failed);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskThatIsInterruptedMidFlightIsFailedRatherThanLeftWorking() throws Exception {
-        router.route(taskCallWithADirectory(49, System.getProperty("user.dir")));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        interruptTaskThread(taskId);
-
-        JsonObject failed = awaitTaskStatus(taskId, "failed");
-        assertTrue(failed.getAsJsonObject("error").get("message").getAsString().contains("Interrupted"),
-                   "" + failed);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskWhoseFormIsAcceptedSearchesTheDirectoryItWasGiven(
-            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
-        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
-
-        router.route(taskCallWithoutADirectory(52, "\"elicitation\":{\"form\":{},\"url\":{}}"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        awaitTaskStatus(taskId, "input_required");
-        router.route("""
-                {"jsonrpc":"2.0","id":53,"method":"tasks/update","params":{%s,"taskId":"%s",
-                  "inputResponses":{"search_directory":{"action":"accept",
-                                                        "content":{"directory":"%s"}}}}}"""
-                             .formatted(FULL_META, taskId, directory));
-
-        JsonObject done = awaitTaskStatus(taskId, "completed");
-        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"),
-                   "an accepted form must be searched, not fallen back from: " + done);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskForAClientThatCannotShowAFormNeverWaitsAndSearchesTheWorkingDirectory() throws Exception {
-        // This client declares only the deprecated capability the server
-        // dropped, so there is nothing the task can usefully ask. It must run
-        // straight through rather than parking in input_required forever
-        // waiting for an answer that was never requested.
-        router.route(taskCallWithoutADirectory(59, "\"roots\":{\"listChanged\":true}"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        JsonObject done = awaitTaskStatus(taskId, "completed");
-        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
-                    "an unaskable task still searches, from the working directory: " + done);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskAnsweredWithNothingUsableFallsBackToTheWorkingDirectory() throws Exception {
-        // The form came back with an answer that resolves to no directory at
-        // all, and there is no second question to escalate to.
-        router.route(taskCallWithoutADirectory(57, "\"elicitation\":{\"form\":{}}"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        awaitTaskStatus(taskId, "input_required");
-        router.route("""
-                {"jsonrpc":"2.0","id":58,"method":"tasks/update","params":{%s,
-                  "taskId":"%s","inputResponses":{"search_directory":{"action":"accept",
-                                                   "content":{}}}}}"""
-                             .formatted(FULL_META, taskId));
-
-        JsonObject done = awaitTaskStatus(taskId, "completed");
-        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
-                    "an unusable answer is not a failure: " + done);
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void cancellingATaskThatIsWaitingOnItsFormStopsItToo() throws Exception {
-        router.route(taskCallWithoutADirectory(55, "\"elicitation\":{\"form\":{},\"url\":{}}"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        awaitTaskStatus(taskId, "input_required");
-        router.route(cancel(56, taskId));
-
-        JsonObject cancelled = awaitTaskStatus(taskId, "cancelled");
-        assertNull(cancelled.get("result"), "a cancelled task must not fall back and search anyway: " + cancelled);
-    }
-
     @Test
     @Tag("chapter05")
     void aCallThatNamesADirectoryButNoKeywordSearchesForNothingRatherThanFailing(
@@ -1263,24 +862,6 @@ class IORouterTest {
         JsonObject result = io.only().getAsJsonObject("result");
         assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
         assertTrue(result.getAsJsonArray("content").isEmpty(), "an absent keyword matches nothing");
-    }
-
-    @Test
-    @Timeout(30)
-    @Tag("chapter07")
-    void aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking() throws Exception {
-        router.route(taskCallWithoutADirectory(50, "\"elicitation\":{\"form\":{}}"));
-        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
-
-        awaitTaskStatus(taskId, "input_required");
-        router.route("""
-                {"jsonrpc":"2.0","id":51,"method":"tasks/update","params":{%s,"taskId":"%s",
-                  "inputResponses":{"search_directory":{"action":"accept",
-                                     "content":{"directory":"/tmp/\\u0000nope"}}}}}"""
-                             .formatted(FULL_META, taskId));
-
-        JsonObject failed = awaitTaskStatus(taskId, "failed");
-        assertNotNull(failed.get("error"));
     }
 
     /**

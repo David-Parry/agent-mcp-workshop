@@ -66,41 +66,9 @@ class SpecTypesCoverageTest {
         }
 
         @Test
-        @Tag("chapter07")
-        void onlyTheThreeFinalTaskStatusesAreTerminal() {
-            assertFalse(TaskStatus.WORKING.isTerminal());
-            assertFalse(TaskStatus.INPUT_REQUIRED.isTerminal());
-            assertTrue(TaskStatus.COMPLETED.isTerminal());
-            assertTrue(TaskStatus.FAILED.isTerminal());
-            assertTrue(TaskStatus.CANCELLED.isTerminal());
-        }
-
-        @Test
-        @Tag("chapter07")
-        void everyTaskStatusIsFoundFromItsWireValueWhateverItsCase() {
-            for (TaskStatus status : TaskStatus.values()) {
-                assertSame(status, TaskStatus.fromValue(status.getValue()));
-                assertSame(status, TaskStatus.fromValue(status.getValue().toUpperCase(Locale.ROOT)));
-            }
-        }
-
-        @Test
-        @Tag("chapter07")
-        void anUnknownOrAbsentTaskStatusIsNotFound() {
-            assertNull(TaskStatus.fromValue("paused"));
-            assertNull(TaskStatus.fromValue(null));
-        }
-
-        @Test
         @Tag("chapter03")
         void aMethodKeyPrintsAsTheMethodNameItStandsFor() {
             assertEquals("tools/call", UniqueKeys.TOOLS_CALL.toString());
-        }
-
-        @Test
-        @Tag("chapter07")
-        void aTaskMethodKeyPrintsAsTheMethodNameItStandsFor() {
-            assertEquals("notifications/tasks", UniqueKeys.NOTIFICATIONS_TASKS.getValue());
         }
 
         @Test
@@ -308,15 +276,6 @@ class SpecTypesCoverageTest {
         }
 
         @Test
-        @Tag("chapter07")
-        void tasksSupportIsReadFromExtensionsRatherThanARetiredTopLevelSlot() {
-            assertTrue(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsTasks());
-            assertFalse(envelope(null, declaring(MetaKeys.UI_EXTENSION)).supportsTasks());
-            assertFalse(envelope(null, capabilities()).supportsTasks());
-            assertFalse(envelope(null, null).supportsTasks());
-        }
-
-        @Test
         @Tag("chapter02")
         void theRecommendedHalfOfTheEnvelopeIsCarriedVerbatim() {
             RequestEnvelope envelope = new RequestEnvelope(RequestEnvelope.SUPPORTED_VERSION, capabilities(),
@@ -417,17 +376,6 @@ class SpecTypesCoverageTest {
             assertEquals(ResultType.COMPLETE, cacheable.resultType());
             assertEquals(60_000L, cacheable.ttlMs());
             assertEquals(CacheScope.PUBLIC, cacheable.cacheScope());
-        }
-
-        @Test
-        @Tag("chapter06")
-        void anAppToolsListIsCompleteAndUnshareableUnlessToldOtherwise() {
-            AppToolsListResult defaults = new AppToolsListResult(List.of(appTool()));
-
-            assertEquals(ResultType.COMPLETE, defaults.resultType());
-            assertEquals(CacheScope.DEFAULT_TTL_MS, defaults.ttlMs());
-            assertEquals(CacheScope.PRIVATE, defaults.cacheScope());
-            assertEquals("ui://keyword-search/mcp-app.html", defaults.tools().get(0)._meta().resourceUri());
         }
 
         @Test
@@ -676,10 +624,6 @@ class SpecTypesCoverageTest {
         return new Tool("key_word_search", "Searches for a keyword across all project files.", inputSchema());
     }
 
-    private static AppTool appTool() {
-        return new AppTool("key_word_search", "Searches for a keyword across all project files.",
-                           inputSchema(), AppMeta.of("ui://keyword-search/mcp-app.html"));
-    }
 
     private static Prompt prompt() {
         return new Prompt("search_keyword", "Search the project for a keyword",

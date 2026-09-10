@@ -1,7 +1,6 @@
 package com.workshop.mcp.spec.builders;
 
 import com.workshop.mcp.spec.Annotations;
-import com.workshop.mcp.spec.AppTool;
 import com.workshop.mcp.spec.CacheScope;
 import com.workshop.mcp.spec.Capability;
 import com.workshop.mcp.spec.CompletionCompleteResponse;
@@ -52,117 +51,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * validation path it can refuse on are covered here.
  */
 class BuildersCoverageTest {
-
-    // --- AppToolBuilder ------------------------------------------------
-
-    @Nested
-    @Tag("chapter06")
-    class AppToolBuilderTest {
-
-        @Test
-        void anAppToolWritesItsResourceUriUnderBothMetaKeys() {
-            AppTool tool = AppToolBuilder.builder()
-                    .withName("key_word_search")
-                    .withDescription("Searches for a keyword.")
-                    .withInputSchema(schema -> schema.addProperty("keyword", "string", "The keyword", true))
-                    .withResourceUri("ui://keyword-search/mcp-app.html")
-                    .build();
-
-            assertEquals("key_word_search", tool.name());
-            assertEquals("Searches for a keyword.", tool.description());
-            assertEquals(List.of("keyword"), tool.inputSchema().required());
-            assertEquals("ui://keyword-search/mcp-app.html", tool._meta().ui().resourceUri());
-            assertEquals("ui://keyword-search/mcp-app.html", tool._meta().resourceUri());
-            assertNull(tool._meta().ui().visibility());
-        }
-
-        @Test
-        void anAppToolAcceptsAPreBuiltInputSchema() {
-            InputSchema schema = InputSchemaBuilder.builder()
-                    .addProperty("keyword", "string", "The keyword", true)
-                    .build();
-
-            AppTool tool = AppToolBuilder.builder()
-                    .withName("key_word_search")
-                    .withDescription("Searches for a keyword.")
-                    .withInputSchema(schema)
-                    .withResourceUri("ui://keyword-search/mcp-app.html")
-                    .build();
-
-            assertSame(schema, tool.inputSchema());
-        }
-
-        @Test
-        void anAppToolNeedsNoInputSchemaAtAll() {
-            AppTool tool = AppToolBuilder.builder()
-                    .withName("ping")
-                    .withDescription("Takes nothing.")
-                    .withResourceUri("ui://ping/mcp-app.html")
-                    .build();
-
-            assertNull(tool.inputSchema());
-        }
-
-        @Test
-        void anAppToolWithoutANameIsRejected() {
-            AppToolBuilder builder = AppToolBuilder.builder()
-                    .withDescription("Searches for a keyword.")
-                    .withResourceUri("ui://keyword-search/mcp-app.html");
-
-            assertEquals("name is required for AppTool",
-                         assertThrows(IllegalStateException.class, builder::build).getMessage());
-        }
-
-        @Test
-        void aBlankNameIsRefusedJustLikeAMissingOne() {
-            AppToolBuilder builder = AppToolBuilder.builder()
-                    .withName("   ")
-                    .withDescription("Searches for a keyword.")
-                    .withResourceUri("ui://keyword-search/mcp-app.html");
-
-            assertThrows(IllegalStateException.class, builder::build);
-        }
-
-        @Test
-        void anAppToolWithoutADescriptionIsRejected() {
-            AppToolBuilder builder = AppToolBuilder.builder()
-                    .withName("key_word_search")
-                    .withResourceUri("ui://keyword-search/mcp-app.html");
-
-            assertEquals("description is required for AppTool",
-                         assertThrows(IllegalStateException.class, builder::build).getMessage());
-        }
-
-        @Test
-        void aBlankDescriptionIsRefusedJustLikeAMissingOne() {
-            AppToolBuilder builder = AppToolBuilder.builder()
-                    .withName("key_word_search")
-                    .withDescription(" ")
-                    .withResourceUri("ui://keyword-search/mcp-app.html");
-
-            assertThrows(IllegalStateException.class, builder::build);
-        }
-
-        @Test
-        void anAppToolWithoutAResourceUriIsRejected() {
-            AppToolBuilder builder = AppToolBuilder.builder()
-                    .withName("key_word_search")
-                    .withDescription("Searches for a keyword.");
-
-            assertTrue(assertThrows(IllegalStateException.class, builder::build)
-                               .getMessage().startsWith("resourceUri is required for AppTool"));
-        }
-
-        @Test
-        void aBlankResourceUriIsRefusedJustLikeAMissingOne() {
-            AppToolBuilder builder = AppToolBuilder.builder()
-                    .withName("key_word_search")
-                    .withDescription("Searches for a keyword.")
-                    .withResourceUri("  ");
-
-            assertThrows(IllegalStateException.class, builder::build);
-        }
-    }
 
     // --- CompletionCompleteBuilder -------------------------------------
 
