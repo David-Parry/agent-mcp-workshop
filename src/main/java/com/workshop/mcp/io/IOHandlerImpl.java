@@ -1,7 +1,6 @@
 package com.workshop.mcp.io;
 
 import com.google.gson.Gson;
-import com.workshop.mcp.spec.McpGson;
 
 import java.io.PrintWriter;
 import java.util.List;
@@ -38,7 +37,7 @@ public class IOHandlerImpl implements IOHandler {
     private final AtomicBoolean running;
     
     /** Gson instance for JSON serialization of output messages */
-    private final Gson gson = McpGson.create();
+    private final Gson gson = new Gson();
 
     /**
      * Constructs an IOHandlerImpl that uses System.in for input and System.out for output.
@@ -94,13 +93,7 @@ public class IOHandlerImpl implements IOHandler {
      * @param line The line to publish to all listeners. Can be null.
      */
     private void publishLine(String line) {
-        for (Consumer<String> listener : lineListeners) {
-            try {
-                listener.accept(line);
-            } catch (Exception e) {
-                logger.log("Error in line listener", e);
-            }
-        }
+        // Chapter 01: implement publishLine(...).
     }
 
     /**
@@ -114,10 +107,7 @@ public class IOHandlerImpl implements IOHandler {
      */
     @Override
     public void emit(Object message) {
-        String text = gson.toJson(message);
-        logger.log("[API][SENT]: " + text);
-        writer.println(text);
-        writer.flush();
+        // Chapter 01: implement emit(...).
     }
 
     /**
@@ -146,37 +136,7 @@ public class IOHandlerImpl implements IOHandler {
      */
     @Override
     public void startInputReader() {
-        // Claim the running flag in a single atomic step. Reading the flag here
-        // and setting it further down would let two threads both get past this
-        // point and open two Scanners over the same System.in.
-        if (!running.compareAndSet(false, true)) {
-            return; // Already running
-        }
-
-        try (Scanner scanner = new Scanner(System.in)) {
-            try {
-                while (running.get()) {
-                    if (!scanner.hasNextLine()) {
-                        running.set(false);
-                        break;
-                    }
-                    String line = scanner.nextLine();
-                    logger.log("[API][RECEIVED]" + line);
-                    publishLine(line);
-                }
-                logger.log("Input stream closed.");
-            } catch (Exception e) {
-                if (running.get()) { // Only log if we're still supposed to be running
-                    logger.log("Error while reading next line from input reader: ", e);
-                }
-                throw e; // Re-throw to ensure outer catch handles it
-            } finally {
-                stopRunning();
-            }
-        } catch (Exception e) {
-            logger.log("Fatal error in startInputReader: ", e);
-            stopRunning(); // Ensure shutdown on any exception
-        }
+        // Chapter 01: implement startInputReader(...).
     }
 
     /**
