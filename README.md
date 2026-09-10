@@ -41,10 +41,10 @@ That branch is a **slice** of the finished server: Chapter 1's methods are empty
 
 The student path is `trunk` → `01-chapter` → … → `07-chapter`. Each chapter branch contains the server **as far as that lesson**, with that chapter's methods emptied out, plus the tests that grade them. Later chapters' code is not there.
 
-You know a chapter is finished when its tests go green:
+You know a chapter is finished when its tests go green. Use **that** chapter's number (`01` on `01-chapter`, `02` on `02-chapter`, and so on):
 
 ```bash
-./gradlew chapterTest -Pchapter=01
+./gradlew chapterTest -Pchapter=0N
 ```
 
 Red is the normal starting state for a chapter — the methods you are about to write are empty.

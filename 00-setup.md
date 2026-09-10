@@ -83,10 +83,10 @@ The branch you are on now, `trunk`, holds only setup — there is no server code
 
 That branch contains the server as far as Chapter 1, with this chapter's methods emptied out. Later chapters' code is not there yet. On a chapter branch, `lessons/` holds **this chapter only** — the full set lives on `complete`. When Chapter N is green, `./clean-checkout.sh 0(N+1)-chapter` — that discards uncommitted work on purpose, because the next branch already contains the solutions for 1..N.
 
-Check your work at any point with:
+Check your work with **this** chapter's number (`01` on `01-chapter`, `02` on `02-chapter`, and so on):
 
 ```bash
-./gradlew chapterTest -Pchapter=01
+./gradlew chapterTest -Pchapter=0N
 ```
 
 The tests fail until your implementation is correct, so red is the normal starting state for a chapter.
