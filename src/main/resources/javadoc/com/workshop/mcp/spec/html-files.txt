@@ -59,12 +59,6 @@ javadoc/com/workshop/mcp/spec/SubscriptionFilter.html
 javadoc/com/workshop/mcp/spec/SubscriptionsAcknowledgedParams.html
 javadoc/com/workshop/mcp/spec/SubscriptionsListenParams.html
 javadoc/com/workshop/mcp/spec/SubscriptionsListenResult.html
-javadoc/com/workshop/mcp/spec/Task.html
-javadoc/com/workshop/mcp/spec/TaskResult.html
-javadoc/com/workshop/mcp/spec/TaskStatus.html
-javadoc/com/workshop/mcp/spec/TasksCancelParams.html
-javadoc/com/workshop/mcp/spec/TasksGetParams.html
-javadoc/com/workshop/mcp/spec/TasksUpdateParams.html
 javadoc/com/workshop/mcp/spec/TextReadResource.html
 javadoc/com/workshop/mcp/spec/Tool.html
 javadoc/com/workshop/mcp/spec/ToolCallParams.html

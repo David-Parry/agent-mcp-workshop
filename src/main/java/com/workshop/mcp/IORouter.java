@@ -6,8 +6,6 @@ import com.workshop.mcp.io.LogFileWriter;
 import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
-import com.workshop.mcp.tasks.TaskStore;
-
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.SearchContinuation;
 
@@ -45,33 +43,7 @@ public class IORouter implements Router {
     private static final String KEYWORD_APP_URI = "ui://keyword-search/mcp-app.html";
     private static final long LIST_TTL_MILLIS = 60_000L;
 
-    /**
-     * Whether {@code tools/call} hands back a task handle instead of running
-     * the search inline.
-     * <p>
-     * Task creation is the server's decision on this revision: the
-     * {@code params.task} opt-in a client used to send was removed, and
-     * servers MUST ignore it if one arrives. This switch is that decision,
-     * kept as a constant so the workshop can show both shapes of the same
-     * call.
-     * </p>
-     * <p>
-     * A handle is only ever returned to a client that declared the tasks
-     * extension on the request being answered, which is checked separately —
-     * a client that cannot poll must not be handed something to poll.
-     * </p>
-     */
-    private static final boolean TASK_HANDLES_ENABLED = true;
 
-    /**
-     * How long a task waiting in {@code input_required} gives the client to
-     * answer with {@code tasks/update} before carrying on without the input.
-     * <p>
-     * Bounded on purpose: a task that waited forever would sit there until its
-     * TTL expired, and the client has no obligation to answer at all.
-     * </p>
-     */
-    private static final long TASK_INPUT_TIMEOUT_MILLIS = 60_000L;
 
     /**
      * The methods this server accepts as inbound requests.
@@ -101,18 +73,12 @@ public class IORouter implements Router {
             UniqueKeys.RESOURCES_TEMPLATES_LIST,
             UniqueKeys.RESOURCES_READ,
             UniqueKeys.COMPLETION_COMPLETE,
-            UniqueKeys.SUBSCRIPTIONS_LISTEN,
-            UniqueKeys.TASKS_GET,
-            UniqueKeys.TASKS_UPDATE,
-            UniqueKeys.TASKS_CANCEL);
+            UniqueKeys.SUBSCRIPTIONS_LISTEN);
 
     private final IOHandler io;
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
-    private final TaskStore taskStore = new TaskStore();
-
     public IORouter(IOHandler io) {
         this.io = io;
-        this.taskStore.onStatusChange(this::sendTaskStatusNotification);
     }
 
     public void route(String message) {
@@ -216,54 +182,6 @@ public class IORouter implements Router {
                     handleKeywordSearch(message.id(), toolCallParams, envelope);
                 }
             }
-            case TASKS_GET -> {
-                TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
-                // A missing taskId is answered, not faulted on: reading a null
-                // id straight into the store threw out of the router and left
-                // the client waiting for a reply that never came.
-                TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
-                if (detail == null) {
-                    logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
-                } else {
-                    logger.log("[API][SENT] tasks/get taskId=" + detail.taskId() + " status=" + detail.status());
-                    success(message.id(), detail);
-                }
-            }
-            case TASKS_UPDATE -> {
-                TasksUpdateParams params = deserializer.deserializeParams(message, TasksUpdateParams.class);
-                if (params.taskId() == null || taskStore.get(params.taskId()) == null) {
-                    logger.log("[API][SENT] tasks/update — unknown taskId=" + params.taskId() + " (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to update task: Task not found");
-                } else if (taskStore.applyInput(params.taskId(), params.inputResponses()) == null) {
-                    logger.log("[API][SENT] tasks/update rejected — taskId=" + params.taskId()
-                               + " is not awaiting input (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS,
-                          "Cannot update task: it is not waiting for input");
-                } else {
-                    logger.log("[API][SENT] tasks/update — taskId=" + params.taskId() + " resumed");
-                    success(message.id(), Map.of("resultType", ResultType.COMPLETE));
-                }
-            }
-            case TASKS_CANCEL -> {
-                TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
-                Task before = params.taskId() == null ? null : taskStore.get(params.taskId());
-                if (before == null) {
-                    logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
-                } else {
-                    Task cancelled = taskStore.cancel(params.taskId());
-                    if (cancelled == null) {
-                        logger.log("[API][SENT] tasks/cancel rejected — taskId=" + params.taskId()
-                                   + " already terminal (" + before.status() + ", returning -32602)");
-                        error(message.id(), ErrorCodes.INVALID_PARAMS,
-                              "Cannot cancel task: already in terminal status '" + before.status() + "'");
-                    } else {
-                        logger.log("[API][SENT] tasks/cancel — taskId=" + cancelled.taskId() + " cancelled");
-                        success(message.id(), TaskResult.detail(cancelled, null, null, null));
-                    }
-                }
-            }
             case RESOURCES_LIST -> {
                 ResourcesListResultBuilder builder = ResourcesListResultBuilder
                         .builder()
@@ -365,50 +283,19 @@ public class IORouter implements Router {
         return envelope;
     }
 
-    /**
-     * Builds the {@code server/discover} answer.
-     * <p>
-     * On stdio this is answered by a throwaway probe process, so it is derived
-     * entirely from static configuration.
-     * </p>
-     *
-     * @return the discovery result
-     */
     private DiscoverResult discoverResult() {
-        DiscoverResultBuilder builder = DiscoverResultBuilder
+        return DiscoverResultBuilder
                 .builder()
                 .withDefaultCapabilities()
                 .withExtension(MetaKeys.UI_EXTENSION,
                                Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
-                .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
-                                  + "for one over a Multi Round-Trip Request, and searches its own working "
-                                  + "directory if the client offers nothing.")
+                .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks for one over a Multi Round-Trip Request, and searches its own working directory if the client offers nothing.")
                 .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
-                .withDefaultServerInfo();
-        if (TASK_HANDLES_ENABLED) {
-            // Declaring the extension here is what permits a task handle at
-            // all; a client that does not see it will not poll.
-            builder.withTasksExtension();
-        }
-        return builder.build();
+                .withDefaultServerInfo()
+                .build();
     }
 
-    /**
-     * Runs the keyword search, asking the client for a directory first if it
-     * needs one.
-     * <p>
-     * This is the Multi Round-Trip Requests loop, and it exists in this shape
-     * because there is no session to hold the answer in. Each stage returns an
-     * {@link InputRequiredResult} carrying both the question and a
-     * {@link SearchContinuation} that records the keyword and how far the
-     * exchange has got; the client answers by re-sending the whole
-     * {@code tools/call} with a new id.
-     * </p>
-     *
-     * @param requestId the id to answer
-     * @param params    the call parameters, including any prior answers
-     * @param envelope  this request's declared client capabilities
-     */
+
     private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
         SearchContinuation continuation = SearchContinuation.decode(params.requestState());
         String keyword = continuation != null ? continuation.keyword() : keywordArgument(params);
@@ -416,9 +303,6 @@ public class IORouter implements Router {
 
         Set<String> directories = new LinkedHashSet<>();
 
-        // A directory argument settles the question outright. Not every client
-        // can answer an input_required — the Inspector's task-augmented
-        // tools/call path cannot — so the tool has to stay callable in one hop.
         String argument = directoryArgument(params);
         if (argument != null) {
             directories.add(argument);
@@ -437,30 +321,6 @@ public class IORouter implements Router {
             return;
         }
 
-        // Nothing to search yet, so the tool needs to ask. How it asks depends
-        // on the answer shape this request is already committed to, because
-        // resultType holds one value: a request answered with a task handle
-        // cannot also be answered with input_required. Answering the call
-        // itself is what produces "Unsupported result type 'input_required'
-        // for tools/call" from the Inspector's task path.
-        //
-        // So a task-declaring client gets its handle now and the question
-        // arrives later as a *status* on that task, resolved through
-        // tasks/update rather than by re-sending this call.
-        if (answersWithTask(envelope)) {
-            Task task = taskStore.create(null);
-            logger.log("[API][SENT] tools/call — created taskId=" + task.taskId()
-                       + " with no directory; the task will ask for one");
-            success(requestId, TaskResult.handle(task));
-            runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params, keyword), envelope);
-            return;
-        }
-
-        // Asking the user for a directory is the only question this tool has
-        // left. It used to embed a roots/list first, since a client answers
-        // that from configuration without troubling anyone, but roots is
-        // deprecated under SEP-2577 and the directory argument above is the
-        // migration the spec names in its place.
         if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
             logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
             success(requestId, InputRequiredResult.of(
@@ -470,32 +330,13 @@ public class IORouter implements Router {
             return;
         }
 
-        // There is nothing left to ask, or nothing that may be asked. Rather
-        // than fail, search from wherever the server was started — the same
-        // place a shell command with no path argument would look.
         String workingDirectory = workingDirectory();
         logger.log("[API][SENT] tools/call — no directory to search, using the working directory "
                    + workingDirectory);
         executeKeyWordSearchCall(requestId, params, keyword, Set.of(workingDirectory), envelope);
     }
 
-    /**
-     * Reports whether this request will be answered with a task handle.
-     * <p>
-     * The decision has to be made before the tool considers asking for
-     * anything, because a request answered with a handle cannot also be
-     * answered with {@code input_required} — the two are alternative result
-     * types for the same response. A task that needs input must instead reach
-     * {@code input_required} as a <em>status</em>, resolved through
-     * {@code tasks/update}, which is a round trip through a different method.
-     * </p>
-     *
-     * @param envelope the envelope of the request being answered
-     * @return true when a task handle is going back
-     */
-    private boolean answersWithTask(RequestEnvelope envelope) {
-        return TASK_HANDLES_ENABLED && envelope.supportsTasks();
-    }
+
 
     /**
      * Resolves {@code .} to an absolute path.
@@ -511,26 +352,11 @@ public class IORouter implements Router {
         return Path.of("").toAbsolutePath().normalize().toString();
     }
 
-    /**
-     * Runs the search either synchronously or as a task, depending on whether
-     * a task handle can be handed back.
-     * <p>
-     * A server must not return a task to a client that did not declare the
-     * tasks extension on the very request being answered.
-     * </p>
-     */
     private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
                                           Set<String> directories, RequestEnvelope envelope) {
-        ToolCallParams resolved = resolvedCall(params, keyword);
-        if (answersWithTask(envelope)) {
-            Task task = taskStore.create(null);
-            logger.log("[API][SENT] tools/call — created taskId=" + task.taskId() + " status=" + task.status());
-            success(requestId, TaskResult.handle(task));
-            runToolAsTask(task.taskId(), resolved, directories);
-        } else {
-            success(requestId, new KeyWordSearch().call(resolved, directories));
-        }
+        success(requestId, new KeyWordSearch().call(resolvedCall(params, keyword), directories));
     }
+
 
     /**
      * Strips a call down to the arguments the tool itself needs, dropping the
@@ -636,122 +462,8 @@ public class IORouter implements Router {
         success(message.id(), SubscriptionsListenResult.closing(message.id()));
     }
 
-    /**
-     * Spawn a background thread that runs the actual tool work and records
-     * its outcome in the {@link TaskStore}. A small sleep is included so the
-     * "working to completed" transition is observable in the inspector.
-     */
-    private void runToolAsTask(String taskId, ToolCallParams params, Set<String> directories) {
-        new Thread(() -> {
-            logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
-            try {
-                Thread.sleep(4000L);
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
-                taskStore.complete(taskId, result);
-                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                logger.log("[TASK " + taskId + "] interrupted: " + ie.getMessage());
-                taskStore.fail(taskId, "Interrupted: " + ie.getMessage());
-            } catch (Exception e) {
-                logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
-                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
-            }
-        }, "task-" + taskId).start();
-    }
 
-    /**
-     * Spawn a background thread for a task that still has to find out where to
-     * search.
-     * <p>
-     * This is the task-level counterpart of the {@code tools/call} round trip,
-     * and the difference is where the question lives. There, the question is
-     * the <em>result</em> of the call and the client answers by re-sending the
-     * whole call. Here the call has already been answered — with a handle —
-     * so the question surfaces as the task's {@code input_required}
-     * <em>status</em>, which a client sees when it polls {@code tasks/get} and
-     * answers with {@code tasks/update}. The work waits in
-     * {@link TaskStore#awaitInput} in between.
-     * </p>
-     * <p>
-     * A client that answers nothing is not a failure: the search falls back to
-     * the server's working directory, exactly as the inline path does.
-     * </p>
-     */
-    private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
-        new Thread(() -> {
-            logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
-            try {
-                Set<String> directories = new LinkedHashSet<>();
 
-                if (envelope.supportsElicitationForm()) {
-                    Map<String, Object> answers = askOnTask(
-                            taskId, SearchContinuation.KEY_DIRECTORY,
-                            InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()));
-                    if (isTerminal(taskId)) {
-                        return;
-                    }
-                    String directory = elicitedDirectory(answers.get(SearchContinuation.KEY_DIRECTORY));
-                    if (directory != null) {
-                        directories.add(directory);
-                    }
-                }
 
-                if (directories.isEmpty()) {
-                    String workingDirectory = workingDirectory();
-                    logger.log("[TASK " + taskId + "] nothing was offered, using the working directory "
-                               + workingDirectory);
-                    directories.add(workingDirectory);
-                }
 
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
-                taskStore.complete(taskId, result);
-                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
-            } catch (Exception e) {
-                logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
-                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
-            }
-        }, "task-" + taskId).start();
-    }
-
-    /**
-     * Publishes one question on a task and blocks until the client answers it
-     * with {@code tasks/update}.
-     * <p>
-     * An unanswered question is not distinguished from an unasked one: both
-     * yield no answers, and the caller checks the task's status to tell a
-     * cancellation from a client that simply stayed quiet. A quiet client is
-     * not a failure — the search falls back to the working directory.
-     * </p>
-     *
-     * @return the answers, empty when none arrived
-     */
-    private Map<String, Object> askOnTask(String taskId, String key, InputRequest request) {
-        taskStore.requireInput(taskId, Map.of(key, request));
-        logger.log("[TASK " + taskId + "] input_required — asking for " + request.method()
-                   + " under key=" + key);
-        Map<String, Object> answers = taskStore.awaitInput(taskId, TASK_INPUT_TIMEOUT_MILLIS);
-        logger.log("[TASK " + taskId + "] "
-                   + (answers == null ? "no answer arrived for " + key : "tasks/update answered " + key));
-        return answers == null ? Map.of() : answers;
-    }
-
-    private boolean isTerminal(String taskId) {
-        return TaskStatus.fromValue(taskStore.get(taskId).status()).isTerminal();
-    }
-
-    /**
-     * Emit a {@code notifications/tasks} for the given task snapshot.
-     * <p>
-     * The method name is the bare {@code notifications/tasks}; the
-     * {@code notifications/tasks/} prefix is reserved.
-     * </p>
-     */
-    private void sendTaskStatusNotification(TaskResult task) {
-        logger.log("[API][SENT] notifications/tasks — taskId=" + task.taskId() + " status=" + task.status());
-        io.emit(new JsonRpcNotification(
-                JSON_RPC_VERSION,
-                UniqueKeys.NOTIFICATIONS_TASKS.getValue(),
-                task));
-    }
 }
