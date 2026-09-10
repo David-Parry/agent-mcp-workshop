@@ -17,7 +17,7 @@ Follow [00-setup.md](00-setup.md) and run `./verification.sh` from **`trunk`**. 
 
 ## How the workshop is organised
 
-The student path is `trunk` → `01-chapter` → … → `07-chapter`. Each chapter branch is a **slice of this tree**: chapters 1..N-1 already filled, chapter N hollowed, later chapters absent. `04t-chapter` is not part of that path.
+The student path is `trunk` → `01-chapter` → … → `07-chapter`. Each chapter branch is a **slice of this tree**: chapters 1..N-1 already filled, chapter N hollowed, later chapters absent.
 
 After verifying on `trunk`:
 
