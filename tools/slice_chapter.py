@@ -847,6 +847,21 @@ def file_chapter(rel: str) -> int:
     if rel == "src/main/java/com/workshop/mcp/tasks/TaskStore.java":
         return 7
     if rel.startswith("src/main/resources/javadoc/"):
+        name = Path(rel).name
+        if name.endswith(".html"):
+            simple = name.removesuffix(".html")
+            if simple in {"package-summary", "package-tree", "index", "allclasses-index", "index-all"}:
+                return 4
+            if "." in simple:
+                simple = simple.split(".", 1)[0]
+            java = simple + ".java"
+            for ch, names in BUILDER_BY_CH.items():
+                if java in names:
+                    return ch
+            for ch, names in SPEC_BY_CH.items():
+                if java in names:
+                    return ch
+            return 8
         return 4
     if rel == "src/main/resources/lesson/mcp-app.html":
         return 6
@@ -1125,6 +1140,18 @@ def main():
                     parent.rmdir()
                     parent = parent.parent
                 print(f"  drop {rel}")
+
+    listing = ROOT / "src/main/resources/javadoc/com/workshop/mcp/spec/html-files.txt"
+    if listing.exists():
+        kept_lines = []
+        for line in listing.read_text().splitlines():
+            if not line.strip():
+                continue
+            html = ROOT / "src/main/resources" / line.strip()
+            if html.exists():
+                kept_lines.append(line)
+        listing.write_text(("\n".join(kept_lines) + "\n") if kept_lines else "")
+        print(f"  filtered javadoc listing to {len(kept_lines)} pages")
 
     (SRC / "IORouter.java").write_text(transform_iorouter(complete_router, n))
     print("  wrote IORouter for chapter", chapter)
