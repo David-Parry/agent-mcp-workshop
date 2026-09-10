@@ -126,7 +126,7 @@ The server asks its question in one request and reads the answer off a *differen
 
 **Action Required**:
 1. Copy the file `SearchContinuation.java` from the `lessons` folder
-2. Paste it into the tools package at `src/main/java/com/workshop/mcp/tools/SearchContinuation.java`
+2. Paste it into `src/main/java/com/workshop/mcp/tools/SearchContinuation.java` (the file already exists). You can replace from **line 1**, or fill the hollowed methods: `awaitingDirectory` at **line 49**, `encode` at **line 60**, `decode` at **line 77**.
 
 The handout is the complete record with its Javadoc. Abbreviated, it is this:
 
@@ -184,7 +184,7 @@ The state originated on this server, but it made a round trip through a client. 
 
 ### Step 1: Route `tools/call` through a resolver
 
-**Action Required**: In the `TOOLS_CALL` case, hand the keyword search off to a method that owns the round trip:
+**Action Required**: In the `TOOLS_CALL` case at **line 169** of `src/main/java/com/workshop/mcp/IORouter.java`, hand the keyword search off to a method that owns the round trip:
 
 ```java
 case TOOLS_CALL -> {
@@ -206,7 +206,7 @@ Note that `envelope` is passed down. Capabilities are a property of *this reques
 
 ### Step 2: Resolve the directory, asking if necessary
 
-**Action Required**: Add the `handleKeywordSearch` method:
+**Action Required**: Fill `handleKeywordSearch` at **line 284** of `IORouter.java`:
 
 ```java
 private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
@@ -264,7 +264,7 @@ Everything about it follows from having no session:
 
 ### Step 3: Read the answer back
 
-**Action Required**: Add the method that unpacks an `inputResponses` entry:
+**Action Required**: Fill `elicitedDirectory` at **line 334** of `IORouter.java`:
 
 ```java
 private String elicitedDirectory(Object inputResponse) {

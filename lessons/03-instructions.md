@@ -34,7 +34,7 @@ In this lesson we implement the foundational message routing for an MCP server o
 
 ### First Implementation Task: The `server/discover` Handler
 
-Open `IORouter.java`. `discoverResult()` is empty. Fill it:
+Open `src/main/java/com/workshop/mcp/IORouter.java`. `discoverResult()` is empty at **line 131**. Fill the method body:
 
 ```java
 private DiscoverResult discoverResult() {
@@ -60,7 +60,7 @@ private DiscoverResult discoverResult() {
 
 5. **Identifies the server**: `serverInfo` moved into `_meta` under `io.modelcontextprotocol/serverInfo`, alongside every other piece of lifecycle metadata.
 
-The hollowed prelude of `process(JsonRpcRequest)` is where discovery is answered **before** anything else. Fill it so it does this, in this order, then falls into the `switch`:
+The hollowed prelude of `process(JsonRpcRequest)` starts at **line 95**. Fill the body (before `switch`) so it does this, in this order, then falls into the `switch`:
 
 ```java
 UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
@@ -93,7 +93,7 @@ if (envelope == null) {
 
 This is what replaced the handshake. Instead of agreeing on a version once, the server re-reads it from `params._meta` on every request.
 
-**Action Required**: fill `envelopeFor` (it is already on the class, empty):
+**Action Required**: fill `envelopeFor` at **line 125** of `IORouter.java` (it is already on the class, empty):
 
 ```java
 private RequestEnvelope envelopeFor(JsonRpcRequest message) {
@@ -194,7 +194,7 @@ This shows the importance of implementing everything you advertise. In the disco
 
 ### Fifth Implementation Task: Handle cancellations with the deserializer you already wrote
 
-`deserializeParams(JsonRpcNotification, Class)` is the Chapter 2 method. `NotificationCancelledParams` is already in `com.workshop.mcp.spec`. Fill the empty `process(JsonRpcNotification)` so it uses both:
+`deserializeParams(JsonRpcNotification, Class)` is the Chapter 2 method. `NotificationCancelledParams` is already in `com.workshop.mcp.spec`. Fill the empty `process(JsonRpcNotification)` at **line 148** of `IORouter.java` so it uses both:
 
 ```java
 private void process(JsonRpcNotification message) {
@@ -216,7 +216,7 @@ The `[API][RECEIVED]` prefix matches the one `startInputReader` uses, so a singl
 
 Notice what is **not** in that switch: `notifications/initialized`. It went the same way as `initialize`.
 
-Also fill `acknowledgeSubscription()` — a `subscriptions/listen` is acknowledged and then closed, because this server advertises no `listChanged` support.
+Also fill `acknowledgeSubscription()` at **line 185** of `IORouter.java` — a `subscriptions/listen` is acknowledged and then closed, because this server advertises no `listChanged` support.
 
 ### Important Note: Error Handling and STDIO in MCP Servers
 

@@ -16,13 +16,16 @@ Each matching `case` in `IORouter`'s request switch is empty. Copy the helper cl
 
 **Action Required**:
 1. Copy `JavadocResources.java` from the `lessons` folder
-2. Paste it into `src/main/java/com/workshop/mcp/resources/JavadocResources.java` (the file already exists)
+2. Paste it into `src/main/java/com/workshop/mcp/resources/JavadocResources.java` (the file already exists; replace from **line 1**)
 
 The Javadoc HTML files are already at `src/main/resources/javadoc/`. They are bundled into the JAR, which is why the helper reads them with `getResourceAsStream()`.
 
 ### Step 2: Fill the resource handlers
 
-**Action Required**: paste the following into the empty `RESOURCES_LIST`, `RESOURCES_TEMPLATES_LIST`, and `RESOURCES_READ` cases in `IORouter.java`:
+**Action Required**: paste the following over the empty cases in `src/main/java/com/workshop/mcp/IORouter.java`:
+- `RESOURCES_LIST` — **line 151**
+- `RESOURCES_TEMPLATES_LIST` — **line 155**
+- `RESOURCES_READ` — **line 158**
 
 ```java
 case RESOURCES_LIST -> {
@@ -73,13 +76,15 @@ Notice each `success(...)` restates the built result with `LIST_TTL_MILLIS` and 
 
 **Action Required**:
 1. Copy `KeyWordSearch.java` from the `lessons` folder
-2. Paste it into `src/main/java/com/workshop/mcp/tools/KeyWordSearch.java`
+2. Paste it into `src/main/java/com/workshop/mcp/tools/KeyWordSearch.java` (replace from **line 1**)
 
 The schema has a required `keyword` and a required `directory`. Supplying both is the whole call in this chapter.
 
 ### Step 2: Fill the tools handlers
 
-**Action Required**: paste into the empty `TOOLS_LIST` and `TOOLS_CALL` cases:
+**Action Required**: paste into the empty cases in `IORouter.java`:
+- `TOOLS_LIST` — **line 143**
+- `TOOLS_CALL` — **line 147**
 
 ```java
 case TOOLS_LIST -> {
@@ -122,7 +127,10 @@ A missing directory is `isError: true` inside a successful JSON-RPC result. The 
 
 ## Part 3: Implementing the Prompts Capability
 
-**Action Required**: paste into the empty `PROMPTS_LIST`, `PROMPTS_GET`, and `COMPLETION_COMPLETE` cases:
+**Action Required**: paste into the empty cases in `IORouter.java`:
+- `PROMPTS_LIST` — **line 137**
+- `PROMPTS_GET` — **line 140**
+- `COMPLETION_COMPLETE` — **line 162**
 
 ```java
 case PROMPTS_LIST -> {

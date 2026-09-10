@@ -6,7 +6,12 @@ In this lesson you will extend the `key_word_search` tool with a **UI declaratio
 
 You will not be changing any existing behavior. The tool continues to work exactly as before. You are adding the protocol metadata that tells the host "there is also a UI available for this tool."
 
-The new types (`UiMeta`, `AppMeta`, `AppTool`, `AppToolBuilder`) are already on this branch. `AppMeta.of`, `AppToolBuilder.withResourceUri`, and `AppToolBuilder.build` are **empty** — fill those three methods. The `IORouter` wiring that calls them is already written.
+The new types (`UiMeta`, `AppMeta`, `AppTool`, `AppToolBuilder`) are already on this branch. Fill the three empty methods:
+- `AppMeta.of` — **line 35** of `src/main/java/com/workshop/mcp/spec/AppMeta.java`
+- `AppToolBuilder.withResourceUri` — **line 121** of `src/main/java/com/workshop/mcp/spec/builders/AppToolBuilder.java`
+- `AppToolBuilder.build` — **line 138** of the same builder
+
+The `IORouter` wiring that calls them is already written.
 
 ---
 
@@ -25,6 +30,8 @@ public record UiMeta(String resourceUri, List<String> visibility) {}
 Why a record? Because this is pure immutable data with no behavior. Gson serializes the field name `resourceUri` exactly as written, which is exactly what the spec requires.
 
 ### `AppMeta.java` — the middle layer
+
+Paste the `of` factory at **line 35** of `src/main/java/com/workshop/mcp/spec/AppMeta.java`:
 ```java
 public record AppMeta(
         UiMeta ui,
@@ -84,7 +91,7 @@ Both spellings of the URI are there, as described above. When the host sees eith
 
 Open `src/main/java/com/workshop/mcp/spec/builders/AppToolBuilder.java`.
 
-It follows exactly the same fluent-builder pattern used throughout this project (`ToolsListResultBuilder`, `ResourcesListResultBuilder`, etc.), but it produces an `AppTool` instead of a `Tool`. The only addition over the standard tool builder is one method:
+It follows exactly the same fluent-builder pattern used throughout this project (`ToolsListResultBuilder`, `ResourcesListResultBuilder`, etc.), but it produces an `AppTool` instead of a `Tool`. The only addition over the standard tool builder is one method. Paste it at **line 121** of `src/main/java/com/workshop/mcp/spec/builders/AppToolBuilder.java`:
 
 ```java
 public AppToolBuilder withResourceUri(String resourceUri) {
@@ -95,7 +102,7 @@ public AppToolBuilder withResourceUri(String resourceUri) {
 
 This stores the `ui://` URI, which `build()` then hands to `AppMeta.of` before constructing the final `AppTool` record.
 
-The `build()` method enforces that all three required values are present:
+The `build()` method enforces that all three required values are present. Paste it at **line 138** of `AppToolBuilder.java`:
 ```java
 public AppTool build() {
     if (name == null || name.isBlank()) {
@@ -191,7 +198,7 @@ Spend a moment reading the comments in the HTML — they explain:
 
 `JavadocResources.readResourceContent(path)` reads from the classpath (inside the JAR), not from the filesystem. You need to put a copy of the HTML where the build can find it:
 
-**Action Required:** Copy the file:
+**Action Required:** Copy the file onto the classpath (replace `src/main/resources/lesson/mcp-app.html` from **line 1**):
 ```
 cp lessons/mcp-app.html src/main/resources/lesson/mcp-app.html
 ```
@@ -206,7 +213,7 @@ After this, `./gradlew build` will bundle it into the JAR and `readResourceConte
 
 `discoverResult()` already declares `io.modelcontextprotocol/ui`. `TOOLS_LIST` already returns an `AppTool` via `AppToolBuilder.withResourceUri`. `RESOURCES_LIST` / `RESOURCES_READ` already serve `ui://keyword-search/mcp-app.html`.
 
-Those calls go through `AppMeta.of`, `AppToolBuilder.withResourceUri`, and `AppToolBuilder.build`, which are **empty**. Fill them. Until `build()` returns a real `AppTool`, `tools/list` will fail the chapter tests.
+Those calls go through `AppMeta.of` (**line 35**), `AppToolBuilder.withResourceUri` (**line 121**), and `AppToolBuilder.build` (**line 138**), which are **empty**. Fill them. Until `build()` returns a real `AppTool`, `tools/list` will fail the chapter tests.
 
 Copy `lessons/mcp-app.html` onto `src/main/resources/lesson/mcp-app.html` if that file is still the lesson handout (the classpath copy is already in `src/main/resources/lesson/` on this branch).
 

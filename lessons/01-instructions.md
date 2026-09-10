@@ -6,7 +6,7 @@ The first step in building our MCP server is to implement the input reading func
 
 ### Code to Add to IOHandlerImpl
 
-Copy the following code block into the body of the `startInputReader()` method in `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`:
+Paste at **line 138** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `startInputReader()` body:
 
 ```java
 // Claim the running flag in a single atomic step. If we read the flag here and
@@ -90,7 +90,7 @@ The next critical component is the `publishLine` method, which distributes recei
 
 ### Code to Add to the IOHandlerImpl
 
-Copy the following code block into the body of the `publishLine(String line)` method in `IOHandlerImpl`:
+Paste at **line 95** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `publishLine(String line)` body:
 
 ```java
 for (Consumer<String> listener : lineListeners) {
@@ -142,7 +142,7 @@ The `emit` method is responsible for sending JSON-formatted responses back to th
 
 ### Code to Add to the IOHandlerImpl
 
-Copy the following code block into the body of the `emit(Object message)` method in `IOHandlerImpl`:
+Paste at **line 109** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `emit(Object message)` body:
 
 ```java
 String text = gson.toJson(message);

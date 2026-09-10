@@ -4,7 +4,7 @@ In chapter 1 you got lines of text in and out of the process. Those lines are ju
 
 This chapter is where bytes become messages. You will implement `JsonRpcMessageDeserializer`, the single place in the server where inbound JSON is turned into a typed object. Every request the server ever answers passes through the method you are about to write.
 
-Open `src/main/java/com/workshop/mcp/spec/JsonRpcMessageDeserializer.java`. The class, its fields, and its Javadoc are there; the method bodies are empty.
+Open `src/main/java/com/workshop/mcp/spec/JsonRpcMessageDeserializer.java`. The class, its fields, and its Javadoc are there; the method bodies are empty. Each paste below names the line of the hollowed method.
 
 ## The four shapes
 
@@ -21,7 +21,7 @@ Anything that fits none of these is not something this server understands, and i
 
 ## First Implementation Task: Classification
 
-Copy the following into the body of `deserialize(String json)`:
+Paste at **line 66** of `JsonRpcMessageDeserializer.java`, inside the empty `deserialize(String json)` body:
 
 ```java
 JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
@@ -75,19 +75,19 @@ if (jsonObject.has("method")) {
 
 ## Second Implementation Task: Typed Params
 
-Classification gives you a `JsonRpcRequest`, whose `params()` is a generic `Object`. Each method needs its own params record. Copy this into `deserializeParams(JsonRpcRequest request, Class<T> paramsClass)`:
+Classification gives you a `JsonRpcRequest`, whose `params()` is a generic `Object`. Each method needs its own params record. Paste at **line 86**, inside the empty `deserializeParams(JsonRpcRequest request, Class<T> paramsClass)` body:
 
 ```java
 return gson.fromJson(gson.toJson(request.params()), paramsClass);
 ```
 
-And the same into the `JsonRpcNotification` overload:
+And the same at **line 106**, inside the `JsonRpcNotification` overload:
 
 ```java
 return gson.fromJson(gson.toJson(request.params()), paramsClass);
 ```
 
-Then `convert(Object value, Class<T> type)`:
+Then paste at **line 125**, inside `convert(Object value, Class<T> type)`:
 
 ```java
 return value == null ? null : gson.fromJson(gson.toJsonTree(value), type);
@@ -105,7 +105,7 @@ Revision `2026-07-28` removed the `initialize` handshake. There is no longer a m
 
 That block is the envelope, and reading it is how the server knows what it is allowed to do on this call.
 
-Copy this into `deserializeEnvelope(JsonRpcRequest request)`:
+Paste at **line 149**, inside the empty `deserializeEnvelope(JsonRpcRequest request)` body:
 
 ```java
 JsonObject meta = metaObject(request.params());
@@ -119,7 +119,7 @@ return new RequestEnvelope(
         asString(meta.get(MetaKeys.LOG_LEVEL)));
 ```
 
-And the two private helpers it leans on, `metaObject(Object params)`:
+And the two private helpers it leans on. Paste at **line 155**, inside `metaObject(Object params)`:
 
 ```java
 if (params == null) {
@@ -133,7 +133,7 @@ JsonElement meta = tree.getAsJsonObject().get("_meta");
 return (meta != null && meta.isJsonObject()) ? meta.getAsJsonObject() : null;
 ```
 
-...and `asString(JsonElement element)`:
+...and at **line 161**, inside `asString(JsonElement element)`:
 
 ```java
 return (element != null && element.isJsonPrimitive()) ? element.getAsString() : null;
