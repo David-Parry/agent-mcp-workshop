@@ -42,7 +42,6 @@ import java.util.stream.Stream;
  * structural instead of a convention someone has to maintain.
  * </p>
  *
- * @see SearchContinuation
  * @since 1.0
  */
 public class KeyWordSearch implements Tool {

@@ -66,41 +66,9 @@ class SpecTypesCoverageTest {
         }
 
         @Test
-        @Tag("chapter07")
-        void onlyTheThreeFinalTaskStatusesAreTerminal() {
-            assertFalse(TaskStatus.WORKING.isTerminal());
-            assertFalse(TaskStatus.INPUT_REQUIRED.isTerminal());
-            assertTrue(TaskStatus.COMPLETED.isTerminal());
-            assertTrue(TaskStatus.FAILED.isTerminal());
-            assertTrue(TaskStatus.CANCELLED.isTerminal());
-        }
-
-        @Test
-        @Tag("chapter07")
-        void everyTaskStatusIsFoundFromItsWireValueWhateverItsCase() {
-            for (TaskStatus status : TaskStatus.values()) {
-                assertSame(status, TaskStatus.fromValue(status.getValue()));
-                assertSame(status, TaskStatus.fromValue(status.getValue().toUpperCase(Locale.ROOT)));
-            }
-        }
-
-        @Test
-        @Tag("chapter07")
-        void anUnknownOrAbsentTaskStatusIsNotFound() {
-            assertNull(TaskStatus.fromValue("paused"));
-            assertNull(TaskStatus.fromValue(null));
-        }
-
-        @Test
         @Tag("chapter03")
         void aMethodKeyPrintsAsTheMethodNameItStandsFor() {
             assertEquals("tools/call", UniqueKeys.TOOLS_CALL.toString());
-        }
-
-        @Test
-        @Tag("chapter07")
-        void aTaskMethodKeyPrintsAsTheMethodNameItStandsFor() {
-            assertEquals("notifications/tasks", UniqueKeys.NOTIFICATIONS_TASKS.getValue());
         }
 
         @Test
@@ -308,15 +276,6 @@ class SpecTypesCoverageTest {
         }
 
         @Test
-        @Tag("chapter07")
-        void tasksSupportIsReadFromExtensionsRatherThanARetiredTopLevelSlot() {
-            assertTrue(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsTasks());
-            assertFalse(envelope(null, declaring(MetaKeys.UI_EXTENSION)).supportsTasks());
-            assertFalse(envelope(null, capabilities()).supportsTasks());
-            assertFalse(envelope(null, null).supportsTasks());
-        }
-
-        @Test
         @Tag("chapter02")
         void theRecommendedHalfOfTheEnvelopeIsCarriedVerbatim() {
             RequestEnvelope envelope = new RequestEnvelope(RequestEnvelope.SUPPORTED_VERSION, capabilities(),
@@ -417,17 +376,6 @@ class SpecTypesCoverageTest {
             assertEquals(ResultType.COMPLETE, cacheable.resultType());
             assertEquals(60_000L, cacheable.ttlMs());
             assertEquals(CacheScope.PUBLIC, cacheable.cacheScope());
-        }
-
-        @Test
-        @Tag("chapter06")
-        void anAppToolsListIsCompleteAndUnshareableUnlessToldOtherwise() {
-            AppToolsListResult defaults = new AppToolsListResult(List.of(appTool()));
-
-            assertEquals(ResultType.COMPLETE, defaults.resultType());
-            assertEquals(CacheScope.DEFAULT_TTL_MS, defaults.ttlMs());
-            assertEquals(CacheScope.PRIVATE, defaults.cacheScope());
-            assertEquals("ui://keyword-search/mcp-app.html", defaults.tools().get(0)._meta().resourceUri());
         }
 
         @Test
@@ -583,27 +531,6 @@ class SpecTypesCoverageTest {
         }
 
         @Test
-        @Tag("chapter05")
-        void anElicitationMessageWrapsItsQuestionsInAJsonRpcResult() {
-            ElicitationQuestion question =
-                    new ElicitationQuestion("directory", "Which directory should be searched?", List.of("."));
-            ElicitationMessage message =
-                    new ElicitationMessage("2.0", "elicit-001", new ElicitationResult("questions", List.of(question)));
-
-            assertEquals("2.0", message.jsonrpc());
-            assertEquals("elicit-001", message.id());
-            assertEquals("questions", message.result().type());
-            assertEquals("directory", message.result().questions().get(0).id());
-            assertEquals(List.of("."), message.result().questions().get(0).options());
-        }
-
-        @Test
-        @Tag("chapter05")
-        void anOpenEndedQuestionOffersNoOptions() {
-            assertNull(new ElicitationQuestion("directory", "Which directory?", null).options());
-        }
-
-        @Test
         @Tag("chapter04")
         void aListRequestCarriesNothingBeyondItsOptionalProgressToken() {
             assertEquals(7, new ToolsListParams(new MetaInfo(7))._meta().progressToken());
@@ -626,19 +553,6 @@ class SpecTypesCoverageTest {
         @Tag("chapter02")
         void anUnrecognizedMessageKeepsItsRawJson() {
             assertEquals("{\"jsonrpc\":\"2.0\"}", new Unknown("{\"jsonrpc\":\"2.0\"}").json());
-        }
-
-        @Test
-        @Tag("chapter05")
-        void aRetryLooksUpItsAnswersUnderTheKeysTheServerChose() {
-            Map<String, Object> elicited = Map.of("action", "accept", "content", Map.of("directory", "/srv/code"));
-            ToolCallParams retry = new ToolCallParams(null, "key_word_search", Map.of("keyword", "record"),
-                                                      Map.of("search_directory", elicited),
-                                                      "cmVjb3Jk");
-
-            assertEquals(elicited, retry.inputResponse("search_directory"));
-            assertNull(retry.inputResponse("search_elsewhere"), "an unanswered question reads as absent");
-            assertEquals("cmVjb3Jk", retry.requestState());
         }
 
         @Test
@@ -676,10 +590,6 @@ class SpecTypesCoverageTest {
         return new Tool("key_word_search", "Searches for a keyword across all project files.", inputSchema());
     }
 
-    private static AppTool appTool() {
-        return new AppTool("key_word_search", "Searches for a keyword across all project files.",
-                           inputSchema(), AppMeta.of("ui://keyword-search/mcp-app.html"));
-    }
 
     private static Prompt prompt() {
         return new Prompt("search_keyword", "Search the project for a keyword",

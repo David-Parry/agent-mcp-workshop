@@ -1,9 +1,0 @@
-{
-  "name": "keyword-audit-plugin",
-  "description": "Full codebase keyword audit — orchestrates keyword-search, java-script-runner, and keyword-report to identify keyword debt hotspots and synthesize a prioritized audit report",
-  "version": "1.0.0",
-  "author": {
-    "name": "agent-mcp-workshop"
-  },
-  "skills": "./skills"
-}

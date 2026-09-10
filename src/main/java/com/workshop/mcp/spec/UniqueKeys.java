@@ -120,45 +120,7 @@ public enum UniqueKeys {
      * waits forever with no error and no timeout.
      * </p>
      */
-    NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged"),
-
-    /**
-     * Method for polling a task's current state (tasks extension).
-     * Returns the {@link Task} snapshot without blocking.
-     */
-    TASKS_GET("tasks/get"),
-
-    /**
-     * Method for delivering input to a task that is waiting for it (tasks extension).
-     * <p>
-     * This replaced the blocking {@code tasks/result} method. Its only job is
-     * to hand {@code inputResponses} to a task sitting in
-     * {@link TaskStatus#INPUT_REQUIRED}.
-     * </p>
-     */
-    TASKS_UPDATE("tasks/update"),
-
-    /**
-     * Method for explicitly cancelling a task (tasks extension).
-     */
-    TASKS_CANCEL("tasks/cancel"),
-
-    /**
-     * Notification sent when a task transitions to a new status (tasks extension).
-     * <p>
-     * The method name is the bare {@code notifications/tasks}, not
-     * {@code notifications/tasks/status}; the {@code notifications/tasks/}
-     * prefix is reserved for future use. The params are the full task
-     * snapshot.
-     * </p>
-     */
-    NOTIFICATIONS_TASKS("notifications/tasks"),
-
-    /**
-     * Name of an embedded {@code elicitation/create} request.
-     * Embedded in an {@link InputRequiredResult} rather than sent as a request.
-     */
-    ELICITATION_CREATE("elicitation/create");
+    NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged");
 
     private final String value;
 
