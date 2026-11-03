@@ -275,7 +275,8 @@ SPEC_CH2 = {
     "RequestEnvelope.java", "RequestId.java", "RequestIdTypeAdapter.java", "Unknown.java",
 }
 SPEC_CH3 = SPEC_CH2 | {
-    "CacheScope.java", "DiscoverResult.java", "MetaInfo.java", "ResultType.java",
+    "CacheScope.java", "DiscoverResult.java", "MetaInfo.java", "ProgressToken.java",
+    "ProgressTokenTypeAdapter.java", "ResultType.java",
     "ServerCapabilities.java", "ServerInfo.java", "SubscriptionFilter.java",
     "SubscriptionsAcknowledgedParams.java", "SubscriptionsListenParams.java",
     "SubscriptionsListenResult.java", "UniqueKeys.java",
@@ -478,12 +479,10 @@ def hollow_prelude(text, chapter):
     open_brace = text.index("{", m.end() - 1)
     switch_at = text.index("switch (uniqueKey) {", open_brace)
     guard = (
-        f"\n{indent}    // Chapter {chapter}: before anything is routed, answer\n"
-        f"{indent}    // server/discover, reject a method this revision removed,\n"
-        f"{indent}    // and validate the params._meta envelope. Declare the\n"
-        f"{indent}    // uniqueKey and envelope the switch below needs.\n"
-        f"{indent}    UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());\n"
-        f"{indent}    RequestEnvelope envelope = deserializer.deserializeEnvelope(message);\n\n"
+        f"\n{indent}    UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());\n\n"
+        f"{indent}    // Chapter {chapter}: before anything is routed, reject a\n"
+        f"{indent}    // method this server does not answer, validate the\n"
+        f"{indent}    // params._meta envelope, and answer server/discover.\n\n"
         f"{indent}    "
     )
     return text[:open_brace + 1] + guard + text[switch_at:]
@@ -744,7 +743,16 @@ def transform_iorouter(complete_text, chapter):
     if chapter < 5:
         text = text.replace("{@link InputRequiredResult}", "input_required result")
         text = text.replace(" * @see InputRequiredResult\n", "")
-    return text
+    return tidy_blank_lines(text)
+
+
+def tidy_blank_lines(text):
+    """Removing a member leaves behind the blank lines that framed it.
+    complete has no run of blank lines and none just inside a brace, so
+    collapsing them touches only what slicing left."""
+    text = re.sub(r"\n(?:[ \t]*\n){2,}", "\n\n", text)
+    text = re.sub(r"\{\n(?:[ \t]*\n)+", "{\n", text)
+    return re.sub(r"\n(?:[ \t]*\n)+([ \t]*\})", r"\n\1", text)
 
 
 def unique_keys_to_keep(chapter):
@@ -774,13 +782,19 @@ def strip_unique_keys(text, keep):
 
 
 def slice_mcp_gson(text, chapter):
-    if chapter >= 4:
-        return text
-    return text.replace(
-        "                .registerTypeAdapter(RequestId.class, new RequestIdTypeAdapter())\n"
-        "                .registerTypeAdapter(PropertySchema.class, new PropertySchemaTypeAdapter())\n",
-        "                .registerTypeAdapter(RequestId.class, new RequestIdTypeAdapter())\n",
-    )
+    if chapter < 4:
+        text = sub_once(r" and writes a\n     \*         \{@code PropertySchema\} as valid JSON Schema\n",
+                        "\n", text, "McpGson PropertySchema @return")
+        text = sub_once(r"                \.registerTypeAdapter\(PropertySchema\.class, "
+                        r"new PropertySchemaTypeAdapter\(\)\)\n",
+                        "", text, "McpGson PropertySchema adapter")
+    if chapter < 3:
+        text = sub_once(r" and a\n     \*         \{@code ProgressToken\} faithfully\n",
+                        " faithfully\n", text, "McpGson ProgressToken @return")
+        text = sub_once(r"                \.registerTypeAdapter\(ProgressToken\.class, "
+                        r"new ProgressTokenTypeAdapter\(\)\)\n",
+                        "", text, "McpGson ProgressToken adapter")
+    return text
 
 
 def slice_io_handler(text, chapter):
@@ -912,6 +926,8 @@ def file_chapter(rel: str) -> int:
         return 5
     if rel == "src/test/java/com/workshop/mcp/tasks/TaskStoreTest.java":
         return 7
+    if rel == "inspector/modern-mrtr.sh":
+        return 5
     if rel.startswith("inspector/"):
         return 3
     m = re.match(r"lessons/0([1-7])-", rel)

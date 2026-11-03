@@ -107,7 +107,15 @@ class SpecTypesCoverageTest {
         @Tag("chapter03")
         void aMethodNameThisRevisionRemovedResolvesToNotFoundRatherThanNull() {
             assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("initialize"));
-            assertSame(UniqueKeys.SERVER_DISCOVER, UniqueKeys.fromValue("SERVER/DISCOVER"));
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue(null));
+        }
+
+        @Test
+        @Tag("chapter03")
+        void methodNamesAreMatchedExactlyBecauseTheyAreCaseSensitive() {
+            assertSame(UniqueKeys.SERVER_DISCOVER, UniqueKeys.fromValue("server/discover"));
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("SERVER/DISCOVER"));
+            assertSame(UniqueKeys.NOT_FOUND, UniqueKeys.fromValue("Tools/List"));
         }
     }
 
@@ -197,6 +205,64 @@ class SpecTypesCoverageTest {
         private RequestId read(String json) throws IOException {
             try (JsonReader in = new JsonReader(new StringReader(json))) {
                 return new RequestIdTypeAdapter().read(in);
+            }
+        }
+    }
+
+    // --- ProgressToken and its adapter ----------------------------------
+
+    @Nested
+    @Tag("chapter03")
+    class ProgressTokens {
+
+        @Test
+        void aTokenIsEitherAStringOrAnIntegerButNeverBothAndNeverNeither() {
+            assertThrows(IllegalArgumentException.class, () -> new ProgressToken("1", 1L));
+            assertThrows(IllegalArgumentException.class, () -> new ProgressToken(null, null));
+            assertEquals("upload-1", ProgressToken.of("upload-1").toString());
+            assertEquals("7", ProgressToken.of(7L).toString());
+        }
+
+        @Test
+        void eachTokenFormIsWrittenBackAsItArrived() throws IOException {
+            assertEquals("\"upload-1\"", write(ProgressToken.of("upload-1")));
+            assertEquals("7", write(ProgressToken.of(7L)), "an integer token must not come back as 7.0");
+            assertEquals("null", write(null));
+        }
+
+        @Test
+        void eachTokenFormIsReadWithoutBeingCoercedToTheOther() throws IOException {
+            assertEquals(ProgressToken.of("upload-1"), read("\"upload-1\""));
+            assertEquals(ProgressToken.of(7L), read("7"));
+            assertNull(read("null"));
+        }
+
+        @Test
+        void aTokenThatIsNeitherAStringNorAnIntegerIsRejected() {
+            assertThrows(JsonParseException.class, () -> read("true"));
+            assertThrows(JsonParseException.class, () -> read("1.5"));
+        }
+
+        @Test
+        void aStringTokenReadsIntoMetaInfoThroughTheSharedGson() {
+            // An Integer field rejected this outright, so the request carrying
+            // it could not be read into its params record at all.
+            MetaInfo meta = McpGson.create().fromJson("{\"progressToken\":\"upload-1\"}", MetaInfo.class);
+
+            assertEquals(ProgressToken.of("upload-1"), meta.progressToken());
+        }
+
+        private String write(ProgressToken token) throws IOException {
+            StringWriter json = new StringWriter();
+            try (JsonWriter out = new JsonWriter(json)) {
+                new ProgressTokenTypeAdapter().write(out, token);
+            }
+            return json.toString();
+        }
+
+        private ProgressToken read(String json) throws IOException {
+            try (JsonReader in = new JsonReader(new StringReader(json))) {
+                return new ProgressTokenTypeAdapter().read(in);
             }
         }
     }
@@ -576,11 +642,11 @@ class SpecTypesCoverageTest {
         @Tag("chapter04")
         void aCompletionRequestNamesTheArgumentAndThePromptItBelongsTo() {
             CompletionCompleteParams params = new CompletionCompleteParams(
-                    new MetaInfo(7),
+                    new MetaInfo(ProgressToken.of(7)),
                     new CompletionArgument("keyword", "rec"),
                     new PromptRef("ref/prompt", "search_keyword"));
 
-            assertEquals(7, params._meta().progressToken());
+            assertEquals(ProgressToken.of(7), params._meta().progressToken());
             assertEquals("keyword", params.argument().name());
             assertEquals("rec", params.argument().value());
             assertEquals("ref/prompt", params.ref().type());
@@ -611,7 +677,8 @@ class SpecTypesCoverageTest {
         @Test
         @Tag("chapter04")
         void aListRequestCarriesNothingBeyondItsOptionalProgressToken() {
-            assertEquals(7, new ToolsListParams(new MetaInfo(7))._meta().progressToken());
+            assertEquals(ProgressToken.of(7),
+                         new ToolsListParams(new MetaInfo(ProgressToken.of(7)))._meta().progressToken());
             assertNull(new PromptsListParams(null)._meta());
             assertEquals("ui://keyword-search/mcp-app.html",
                          new ReadResourceParam(null, "ui://keyword-search/mcp-app.html").uri());

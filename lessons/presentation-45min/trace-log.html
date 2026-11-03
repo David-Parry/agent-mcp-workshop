@@ -99,7 +99,7 @@
 <div class="log-entry system">          ↑ deletion in this revision is physical — absence from the method registry. Identical -32601 for ping, logging/setLevel, notifications/roots/list_changed, resources/subscribe, resources/unsubscribe, tasks/result, and tasks/list.</div>
 <div class="log-entry received">[2026-09-04 12:41:07.215] [API][RECEIVED]{"jsonrpc":"2.0","id":5,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2025-11-25","io.modelcontextprotocol/clientCapabilities":{}}}}</div>
 <div class="log-entry system">[2026-09-04 12:41:07.216] [API][SENT] tools/list — unsupported protocol version '2025-11-25' (returning -32022)</div>
-<div class="log-entry sent">[2026-09-04 12:41:07.216] [API][SENT]: {"jsonrpc":"2.0","id":5,"error":{"code":-32022,"message":"Unsupported protocol version","data":{"requested":"2025-11-25","supported":["2026-07-28"]}}}</div>
+<div class="log-entry sent">[2026-09-04 12:41:07.216] [API][SENT]: {"jsonrpc":"2.0","id":5,"error":{"code":-32022,"message":"Unsupported protocol version","data":{"supported":["2026-07-28"],"requested":"2025-11-25"}}}</div>
 <div class="log-entry received">[2026-09-04 12:41:07.217] [API][RECEIVED]{"jsonrpc":"2.0","id":6,"method":"tools/list","params":{}}</div>
 <div class="log-entry system">[2026-09-04 12:41:07.218] [API][SENT] tools/list — incomplete _meta envelope (returning -32602)</div>
 <div class="log-entry sent">[2026-09-04 12:41:07.218] [API][SENT]: {"jsonrpc":"2.0","id":6,"error":{"code":-32602,"message":"Requests must carry io.modelcontextprotocol/protocolVersion and io.modelcontextprotocol/clientCapabilities in params._meta"}}</div>

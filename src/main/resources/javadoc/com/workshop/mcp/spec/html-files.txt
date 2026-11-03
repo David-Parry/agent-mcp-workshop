@@ -34,6 +34,8 @@ javadoc/com/workshop/mcp/spec/MessageContent.html
 javadoc/com/workshop/mcp/spec/MetaInfo.html
 javadoc/com/workshop/mcp/spec/MetaKeys.html
 javadoc/com/workshop/mcp/spec/NotificationCancelledParams.html
+javadoc/com/workshop/mcp/spec/ProgressToken.html
+javadoc/com/workshop/mcp/spec/ProgressTokenTypeAdapter.html
 javadoc/com/workshop/mcp/spec/Prompt.html
 javadoc/com/workshop/mcp/spec/PromptArgument.html
 javadoc/com/workshop/mcp/spec/PromptRef.html

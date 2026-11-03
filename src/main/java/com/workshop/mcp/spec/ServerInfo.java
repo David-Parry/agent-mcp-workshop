@@ -23,4 +23,7 @@ package com.workshop.mcp.spec;
 public record ServerInfo(
     String name,
     String version
-) {}
+) {
+    /** This server's identity, the same in discovery and on every other result. */
+    public static final ServerInfo DEFAULT = new ServerInfo("agent-mcp-workshop", "0.0.1");
+}

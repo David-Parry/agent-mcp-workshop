@@ -1,5 +1,8 @@
 package com.workshop.mcp;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
@@ -13,6 +16,7 @@ import com.workshop.mcp.tools.SearchContinuation;
 
 import java.nio.file.Path;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +45,7 @@ import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
  * @since 1.0
  */
 public class IORouter implements Router {
-    private static final LogFile logger = LogFileWriter.getInstance();
+    private static final Gson GSON = McpGson.create();
     private static final String JSON_RPC_VERSION = "2.0";
     private static final String KEYWORD_APP_URI = "ui://keyword-search/mcp-app.html";
     private static final long LIST_TTL_MILLIS = 60_000L;
@@ -107,6 +111,7 @@ public class IORouter implements Router {
             UniqueKeys.TASKS_UPDATE,
             UniqueKeys.TASKS_CANCEL);
 
+    private final LogFile logger;
     private final IOHandler io;
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
     private final TaskStore taskStore = new TaskStore();
@@ -118,26 +123,88 @@ public class IORouter implements Router {
     private final ConcurrentHashMap<String, Thread> taskWorkers = new ConcurrentHashMap<>();
 
     public IORouter(IOHandler io) {
+        this(io, LogFileWriter.getInstance());
+    }
+
+    IORouter(IOHandler io, LogFile logger) {
+        this.logger = logger;
         this.io = io;
         this.taskStore.onStatusChange(this::sendTaskStatusNotification);
     }
 
     public void route(String message) {
-        if (message == null || message.isEmpty()) {
+        if (message == null || message.isBlank()) {
             return;
         }
-        Object object = deserializer.deserialize(message);
+        Object object;
+        try {
+            object = deserializer.deserialize(message);
+        } catch (JsonParseException e) {
+            // Text that is not JSON has no id the server could quote back, so
+            // the error goes out without one, which the schema allows.
+            logger.log("[API][SENT] unparseable message (returning -32700): " + e.getMessage());
+            error(null, ErrorCodes.PARSE_ERROR, "Parse error: the message is not valid JSON");
+            return;
+        }
         switch (object) {
-            case JsonRpcRequest request -> process(request);
+            case JsonRpcRequest request -> answer(request);
             case JsonRpcNotification notification -> process(notification);
             case JsonRpcErrorResponse errorResponse -> process(errorResponse);
-            default -> logger.log("[API][RECEIVED] unknown message type: " + object);
+            case Unknown unknown -> {
+                logger.log("[API][SENT] not a JSON-RPC 2.0 message (returning -32600): " + unknown.json());
+                error(null, ErrorCodes.INVALID_REQUEST, "Invalid Request: not a JSON-RPC 2.0 message");
+            }
+            default -> logger.log("[API][RECEIVED] unexpected message, which a client never sends: " + object);
+        }
+    }
+
+    /**
+     * Processes a request so that it is always answered.
+     * <p>
+     * An exception thrown while handling a request would otherwise reach the
+     * transport, which can only log it, and the client would wait for a reply
+     * that never comes. Params that do not fit the method's params record are
+     * the client's mistake and get {@link ErrorCodes#INVALID_PARAMS}; anything
+     * else is this server's and gets {@link ErrorCodes#INTERNAL_ERROR}.
+     * </p>
+     *
+     * @param request the inbound request
+     */
+    private void answer(JsonRpcRequest request) {
+        try {
+            process(request);
+        } catch (JsonParseException e) {
+            logger.log("[API][SENT] " + request.method() + " — params do not fit (returning -32602): "
+                       + e.getMessage());
+            error(request.id(), ErrorCodes.INVALID_PARAMS, "Invalid params for " + request.method());
+        } catch (RuntimeException e) {
+            logger.log("[API][SENT] " + request.method() + " failed (returning -32603): " + e);
+            error(request.id(), ErrorCodes.INTERNAL_ERROR, "Internal error while handling " + request.method());
         }
     }
 
     private void success(RequestId id, Object message) {
-        JsonRpcResponse response = new JsonRpcResponse(JSON_RPC_VERSION, id, message);
+        JsonRpcResponse response = new JsonRpcResponse(JSON_RPC_VERSION, id, withServerInfo(message));
         io.emit(response);
+    }
+
+    /**
+     * Adds this server's identity to a result's {@code _meta}.
+     * <p>
+     * The revision asks for it on every result, because with no connection
+     * state a client cannot look it up anywhere else. Any {@code _meta} the
+     * result already carries, such as a subscription id, is kept.
+     * </p>
+     *
+     * @param result the result as built by the method's handler
+     * @return the same result as a JSON tree, with {@link MetaKeys#SERVER_INFO} in its {@code _meta}
+     */
+    private static JsonObject withServerInfo(Object result) {
+        JsonObject object = GSON.toJsonTree(result).getAsJsonObject();
+        JsonObject meta = object.get("_meta") instanceof JsonObject existing ? existing : new JsonObject();
+        meta.add(MetaKeys.SERVER_INFO, GSON.toJsonTree(ServerInfo.DEFAULT));
+        object.add("_meta", meta);
+        return object;
     }
 
     private void error(RequestId id, int code, String message) {
@@ -153,28 +220,27 @@ public class IORouter implements Router {
     private void process(JsonRpcRequest message) {
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
 
-        // server/discover is answered before any version check: a client uses
-        // it precisely to find out which versions this server speaks, so
-        // rejecting it for asking with the wrong one would be circular.
-        if (uniqueKey == UniqueKeys.SERVER_DISCOVER) {
-            success(message.id(), discoverResult());
-            logger.log("[API][SENT] server/discover — advertised " + RequestEnvelope.SUPPORTED_VERSIONS);
-            return;
-        }
-
         // Method existence is settled before the envelope is looked at.
         // Deletions in this revision are physical: a method absent from the
         // registry is -32601 by absence, and answering a removed method like
         // initialize with a complaint about its _meta would tell a legacy
         // client the wrong thing about why it failed.
         if (uniqueKey == UniqueKeys.NOT_FOUND || !INBOUND_METHODS.contains(uniqueKey)) {
-            logger.log("[API][SENT] unsupported method '" + message.method() + "' (returning -32601)");
-            error(message.id(), ErrorCodes.METHOD_NOT_FOUND, "Method not found: " + message.method());
+            rejectUnknownMethod(message);
             return;
         }
 
-        RequestEnvelope envelope = envelopeFor(message);
+        // server/discover is answered whatever version it names: a client uses
+        // it precisely to find out which versions this server speaks, so
+        // rejecting it for asking with the wrong one would be circular. It is
+        // still a request, though, so it must carry the required envelope.
+        RequestEnvelope envelope = envelopeFor(message, uniqueKey != UniqueKeys.SERVER_DISCOVER);
         if (envelope == null) {
+            return;
+        }
+        if (uniqueKey == UniqueKeys.SERVER_DISCOVER) {
+            success(message.id(), discoverResult());
+            logger.log("[API][SENT] server/discover — advertised " + RequestEnvelope.SUPPORTED_VERSIONS);
             return;
         }
 
@@ -340,6 +406,31 @@ public class IORouter implements Router {
     }
 
     /**
+     * Answers a method this server does not have with
+     * {@link ErrorCodes#METHOD_NOT_FOUND}.
+     * <p>
+     * {@code initialize} gets more than the bare code. A client still on the
+     * handshake has no way to move forward on its own, so the revision asks a
+     * server that speaks only stateless revisions to name them in any error
+     * it returns to {@code initialize}: this message may be the only
+     * diagnostic the client can show its user.
+     * </p>
+     *
+     * @param message the inbound request
+     */
+    private void rejectUnknownMethod(JsonRpcRequest message) {
+        logger.log("[API][SENT] unsupported method '" + message.method() + "' (returning -32601)");
+        if ("initialize".equals(message.method())) {
+            error(message.id(), ErrorCodes.METHOD_NOT_FOUND,
+                  "Method not found: initialize. This server only supports protocol versions without the "
+                  + "initialize handshake: " + String.join(", ", RequestEnvelope.SUPPORTED_VERSIONS),
+                  Map.of("supported", RequestEnvelope.SUPPORTED_VERSIONS));
+        } else {
+            error(message.id(), ErrorCodes.METHOD_NOT_FOUND, "Method not found: " + message.method());
+        }
+    }
+
+    /**
      * Validates the stateless lifecycle envelope that replaced the handshake.
      * <p>
      * A request missing the protocol version or the client's capabilities
@@ -348,11 +439,13 @@ public class IORouter implements Router {
      * only way a client learns to renegotiate.
      * </p>
      *
-     * @param message the inbound request
+     * @param message        the inbound request
+     * @param versionMatters false for {@code server/discover}, which is answered
+     *                       whatever version it names
      * @return the validated envelope, or null when an error has already been
      *         emitted and the caller should stop
      */
-    private RequestEnvelope envelopeFor(JsonRpcRequest message) {
+    private RequestEnvelope envelopeFor(JsonRpcRequest message, boolean versionMatters) {
         RequestEnvelope envelope = deserializer.deserializeEnvelope(message);
         if (!envelope.isComplete()) {
             logger.log("[API][SENT] " + message.method() + " — incomplete _meta envelope (returning -32602)");
@@ -361,12 +454,13 @@ public class IORouter implements Router {
                   + MetaKeys.CLIENT_CAPABILITIES + " in params._meta");
             return null;
         }
-        if (!envelope.isSupportedVersion()) {
+        if (versionMatters && !envelope.isSupportedVersion()) {
             logger.log("[API][SENT] " + message.method() + " — unsupported protocol version '"
                        + envelope.protocolVersion() + "' (returning -32022)");
-            error(message.id(), ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version",
-                  Map.of("supported", RequestEnvelope.SUPPORTED_VERSIONS,
-                         "requested", envelope.protocolVersion()));
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("supported", RequestEnvelope.SUPPORTED_VERSIONS);
+            data.put("requested", envelope.protocolVersion());
+            error(message.id(), ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", data);
             return null;
         }
         return envelope;
@@ -598,15 +692,15 @@ public class IORouter implements Router {
     }
 
     /**
-     * Opens a {@code subscriptions/listen} stream.
+     * Opens a {@code subscriptions/listen} stream, and closes it again.
      * <p>
-     * Note what is not sent here: a JSON-RPC result. On stdio the listen
-     * request stays open and unanswered for the life of the subscription,
-     * while notifications are interleaved on stdout and demultiplexed by
-     * {@link MetaKeys#SUBSCRIPTION_ID}. The subscription is acknowledged with
-     * a notification instead, and that acknowledgment must carry the
-     * subscription id — a client that does not find it waits forever, with no
-     * error and no timeout.
+     * A stream lasts as long as its listen request is unanswered: on stdio the
+     * request stays open for the life of the subscription, while notifications
+     * are interleaved on stdout and demultiplexed by
+     * {@link MetaKeys#SUBSCRIPTION_ID}. So the subscription is acknowledged
+     * with a notification, not a result, and that acknowledgment must carry
+     * the subscription id — a client that does not find it waits forever, with
+     * no error and no timeout.
      * </p>
      * <p>
      * The acknowledgment reports the intersection of what the client asked for
@@ -619,9 +713,10 @@ public class IORouter implements Router {
      * the id and answer later instead.
      * </p>
      * <p>
-     * The close is the one place in this revision where a {@code _meta} member
-     * is genuinely required: it must carry the subscription id, because
-     * closing without it reads to the client as a dropped connection.
+     * The close is an ordinary {@code complete} result for the listen request,
+     * and the one place in this revision where a {@code _meta} member is
+     * genuinely required: it must carry the subscription id, because closing
+     * without it reads to the client as a dropped connection.
      * </p>
      */
     private void acknowledgeSubscription(JsonRpcRequest message) {

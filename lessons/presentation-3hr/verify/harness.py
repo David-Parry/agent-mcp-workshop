@@ -47,6 +47,8 @@ APP_MIME_TYPE = "text/html;profile=mcp-app"
 
 # Error codes. -32020..-32099 is reserved for the specification on this
 # revision; -32000..-32019 is legacy, and new implementations should not use it.
+PARSE_ERROR = -32700
+INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 UNSUPPORTED_PROTOCOL_VERSION = -32022
@@ -168,9 +170,13 @@ class Client:
                 self.cond.notify_all()
 
     def send(self, obj):
+        self.send_line(json.dumps(obj))
+
+    def send_line(self, text):
+        """Send one line exactly as given, JSON or not."""
         if self.proc.poll() is not None:
             raise Failure(f"server process already exited (code {self.proc.returncode}) before send")
-        self.proc.stdin.write(json.dumps(obj) + "\n")
+        self.proc.stdin.write(text + "\n")
         self.proc.stdin.flush()
 
     def raw_request(self, id_, method, params=None):
@@ -401,10 +407,19 @@ def s_envelope_required(c):
     if data.get("supported") != [PROTOCOL_VERSION]:
         raise Failure(f"-32022 data.supported should list this server's revisions: {error}")
 
-    # Discovery is exempt: a client calls it precisely to find out which
-    # revisions the server speaks, so rejecting the guess would be circular.
-    c.raw_request(3, "server/discover", {"_meta": {META_PROTOCOL_VERSION: LEGACY_VERSION}})
+    # Discovery is exempt from the version check: a client calls it precisely
+    # to find out which revisions the server speaks, so rejecting the guess
+    # would be circular.
+    c.raw_request(3, "server/discover", {"_meta": {
+        META_PROTOCOL_VERSION: LEGACY_VERSION,
+        META_CLIENT_CAPABILITIES: {},
+    }})
     c.expect_result(3)
+
+    # It is not exempt from the envelope, though: a request missing a
+    # required member is malformed whatever its method.
+    c.raw_request(4, "server/discover", {"_meta": {META_PROTOCOL_VERSION: PROTOCOL_VERSION}})
+    c.expect_error(4, code=INVALID_PARAMS)
 
 
 @scenario("removed_methods", "protocol, trace-log", chapter=3)
@@ -430,6 +445,37 @@ def s_removed_methods(c):
             raise Failure(
                 f"{method} was removed in {PROTOCOL_VERSION} and must be {METHOD_NOT_FOUND}, got {error}"
             )
+        # A client still on the handshake cannot move forward by itself, so
+        # its error should say which revisions would work.
+        if method == "initialize" and (error.get("data") or {}).get("supported") != [PROTOCOL_VERSION]:
+            raise Failure(f"the initialize error should name the supported revisions: {error}")
+
+
+@scenario("malformed_messages", "protocol, trace-log", chapter=3)
+def s_malformed_messages(c):
+    def id_less_error(desc):
+        message = c.take(lambda m: "error" in m and "id" not in m, desc=desc)
+        return message["error"].get("code")
+
+    # Text that is not JSON has no id to quote back. The error goes out with
+    # no id member at all: the schema has no null RequestId.
+    c.send_line('{"jsonrpc":"2.0","id":1,"method":')
+    code = id_less_error("the -32700 answering text that is not JSON")
+    if code != PARSE_ERROR:
+        raise Failure(f"text that is not JSON should be {PARSE_ERROR}, got {code}")
+
+    # Well-formed JSON that is not a JSON-RPC 2.0 message is an invalid
+    # request, not a parse error: a batch, and an object without "jsonrpc".
+    for text in ('[{"jsonrpc":"2.0","id":2,"method":"server/discover"}]',
+                 '{"id":3,"method":"server/discover"}'):
+        c.send_line(text)
+        code = id_less_error(f"the -32600 answering {text}")
+        if code != INVALID_REQUEST:
+            raise Failure(f"{text} should be {INVALID_REQUEST}, got {code}")
+
+    # Method names are case-sensitive.
+    c.request(4, "SERVER/DISCOVER")
+    c.expect_error(4, code=METHOD_NOT_FOUND)
 
 
 @scenario("embedded_only_methods", "extensions", chapter=3)
@@ -664,6 +710,9 @@ def s_subscriptions(c):
     require_result_type(close["result"], "complete", "the subscription close")
     if (close["result"].get("_meta") or {}).get(META_SUBSCRIPTION_ID) != listen_id:
         raise Failure(f"the close result must carry the same subscriptionId: {close}")
+    # Every result names the server, not only discover's.
+    if ((close["result"].get("_meta") or {}).get(META_SERVER_INFO) or {}).get("name") != "agent-mcp-workshop":
+        raise Failure(f"the close result should carry _meta.{META_SERVER_INFO} too: {close}")
 
     # A client tears a stream down by naming the listen id; requestId is
     # required on notifications/cancelled now.

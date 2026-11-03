@@ -186,7 +186,8 @@ public class DiscoverResultBuilder {
      * @return this builder instance for method chaining
      */
     public DiscoverResultBuilder withDefaultServerInfo() {
-        return withServerInfo("agent-mcp-workshop", "0.0.1");
+        this.serverInfo = ServerInfo.DEFAULT;
+        return this;
     }
 
     /**

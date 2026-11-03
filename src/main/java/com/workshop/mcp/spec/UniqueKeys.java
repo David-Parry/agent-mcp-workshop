@@ -25,9 +25,11 @@ public enum UniqueKeys {
      * <p>
      * Introduced in {@code 2026-07-28} as the sessionless replacement for the
      * {@code initialize} handshake. Servers MUST implement it. On stdio a
-     * client sends it first as a backward-compatibility probe: an answer means
-     * the server speaks the stateless lifecycle, and silence or an error means
-     * it should fall back to the legacy handshake.
+     * client sends it first as a backward-compatibility probe: an answer, or a
+     * recognised modern error such as
+     * {@link ErrorCodes#UNSUPPORTED_PROTOCOL_VERSION}, means the server speaks
+     * the stateless lifecycle, while silence or any other error means the
+     * client should fall back to the legacy handshake.
      * </p>
      */
     SERVER_DISCOVER("server/discover"),
@@ -104,10 +106,10 @@ public enum UniqueKeys {
      * Method for opening a long-lived notification stream.
      * <p>
      * Introduced in {@code 2026-07-28} to replace the HTTP GET endpoint and
-     * the {@code resources/subscribe} family. On stdio the request is left
-     * unanswered for the life of the subscription; notifications are
-     * interleaved on stdout and demultiplexed by
-     * {@link MetaKeys#SUBSCRIPTION_ID}.
+     * the {@code resources/subscribe} family. The stream lasts as long as the
+     * request is unanswered: notifications are interleaved on stdout and
+     * demultiplexed by {@link MetaKeys#SUBSCRIPTION_ID}, and a server ends it
+     * by answering the request with an ordinary {@code complete} result.
      * </p>
      */
     SUBSCRIPTIONS_LISTEN("subscriptions/listen"),
@@ -193,8 +195,9 @@ public enum UniqueKeys {
     /**
      * Returns the enum constant for the given string value.
      * <p>
-     * This method performs a case-insensitive lookup and returns
-     * {@link #NOT_FOUND} if no matching constant is found.
+     * Method names are case-sensitive, so this method matches exactly:
+     * {@code SERVER/DISCOVER} is not {@code server/discover}, and resolves to
+     * {@link #NOT_FOUND} like any other method this server does not have.
      * </p>
      *
      * @param value the string value to look up
@@ -202,7 +205,7 @@ public enum UniqueKeys {
      */
     public static UniqueKeys fromValue(String value) {
         for (UniqueKeys key : UniqueKeys.values()) {
-            if (key.value.equalsIgnoreCase(value)) {
+            if (key.value.equals(value)) {
                 return key;
             }
         }

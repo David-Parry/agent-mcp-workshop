@@ -12,15 +12,16 @@ package com.workshop.mcp.spec;
  * stateless lifecycle envelope. Those keys are namespaced identifiers that
  * cannot be record component names, so they are read separately by
  * {@link JsonRpcMessageDeserializer#deserializeEnvelope(JsonRpcRequest)}.
- * {@code progressToken} is boxed so its absence reads as null rather than
- * zero, which is a real token value.
+ * {@code progressToken} reads as null when it is absent, and as a string or
+ * an integer when it is present, kept in whichever form the client sent.
  * </p>
  *
  * @param progressToken a unique token used to track the progress of an operation
  *
  * @see RequestEnvelope
+ * @see ProgressToken
  * @since 1.0
  */
 public record MetaInfo(
-    Integer progressToken
+    ProgressToken progressToken
 ) {}

@@ -18,7 +18,7 @@ sequenceDiagram
 
     Server->>Client: discover result<br/>{"jsonrpc": "2.0", "id": "server-discover-probe-1", "result": {<br/>"resultType": "complete", "supportedVersions": ["2026-07-28"],<br/>"capabilities": {"completions": {}, "prompts": {"listChanged": false},<br/>"resources": {"listChanged": false, "subscribe": false}, "tools": {"listChanged": false}},<br/>"instructions": "Searches a project for a keyword.",<br/>"ttlMs": 60000, "cacheScope": "public",<br/>"_meta": {"io.modelcontextprotocol/serverInfo": {"name": "agent-mcp-workshop", "version": "0.0.1"}}}}
 
-    Note over Client,Server: Every message below carries "jsonrpc": "2.0" and an id,<br/>and every request repeats params._meta. They are elided from here on,<br/>and each result is shown without its response wrapper.
+    Note over Client,Server: Every message below carries "jsonrpc": "2.0" and an id,<br/>every request repeats params._meta, and every result carries<br/>serverInfo in its _meta as discover's does. They are elided from here on,<br/>and each result is shown without its response wrapper.
 
     Note over Client,Server: Resource Discovery Phase
 

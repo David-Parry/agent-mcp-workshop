@@ -236,7 +236,7 @@ loadScripts(document, 'script');</script>
    <li>If the JSON contains "method" without "id", it's a <a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec"><code>JsonRpcNotification</code></a></li>
    <li>If the JSON contains "result", it's a <a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec"><code>JsonRpcResponse</code></a></li>
    <li>If the JSON contains "error", it's a <a href="JsonRpcErrorResponse.html" title="class in com.workshop.mcp.spec"><code>JsonRpcErrorResponse</code></a></li>
-   <li>Otherwise, it's wrapped in an <a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> object</li>
+   <li>Otherwise, or if a member has the wrong type for its shape, it's wrapped in an <a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> object</li>
  </ul></div>
 <dl class="notes">
 <dt>Parameters:</dt>

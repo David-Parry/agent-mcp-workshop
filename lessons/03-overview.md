@@ -5,9 +5,10 @@
 **By the end of this lesson, you will have a working MCP server that can:**
 1. Answer `server/discover` with its versions, capabilities, and identity
 2. Read and validate the per-request `_meta` envelope, rejecting requests it cannot honour
-3. Handle notification messages with type-safe deserialization
+3. Acknowledge a `subscriptions/listen` stream, and close it
+4. Handle notification messages with type-safe deserialization
 
-**To verify success:** Run the MCP Inspector in modern mode, connect to your server, and confirm that discovery completes. When you click "List Resources" (which isn't implemented yet), you should see a properly logged cancellation reason instead of raw JSON.
+**To verify success:** `./gradlew chapterTest -Pchapter=03` is green, and so is the harness. Then connect the MCP Inspector to your server and confirm that discovery completes, and that "List Resources" fails at once with `-32601`: the server advertises resources, but their handlers arrive in chapter 04.
 
 ---
 
@@ -43,8 +44,8 @@ This workshop builds a stdio server, so the rest of the revision's transport wor
 
 As shown in the **sequence diagram**, discovery is answered before anything else:
 - The client sends `server/discover`, often with a **string** id such as `"server-discover-probe-1"`
-- The server replies with `supportedVersions`, `capabilities`, `instructions`, cache hints, and its identity under `_meta["io.modelcontextprotocol/serverInfo"]`
-- This is answered *before* any version check — a client calls discovery precisely to learn which versions the server speaks, so rejecting it for guessing wrong would be circular
+- The server replies with `resultType`, `supportedVersions`, `capabilities`, `instructions`, the cache hints `ttlMs` and `cacheScope`, and its identity under `_meta["io.modelcontextprotocol/serverInfo"]`. `resultType` is required on every result, and so are the cache hints on a result that can be cached
+- This is answered whatever version it names — a client calls discovery precisely to learn which versions the server speaks, so rejecting it for guessing wrong would be circular. It must still carry the required envelope
 
 The **class diagram** shows `DiscoverResultBuilder` constructing a `DiscoverResult` with `ServerCapabilities`.
 
@@ -56,7 +57,15 @@ Where the old lesson had a ping handler, this one has the check that replaced it
 - A revision this server does not speak is `-32022`, and the error `data` must carry both `requested` and `supported` so the client knows what to renegotiate to
 - Method existence is settled **first**: a removed method like `initialize` is `-32601` by absence, and complaining about its envelope instead would tell a legacy client the wrong thing about why it failed
 
-### 3. **Notification handling**
+### 3. **Subscriptions**
+
+On this revision a server sends list-changed notifications only on a stream the client opened with `subscriptions/listen`:
+- The server acknowledges the stream first, with `notifications/subscriptions/acknowledged`, naming what it will honour and tagged with the listen request's id as `subscriptionId`
+- Nothing this server lists ever changes, so it honours nothing and closes the stream at once, with a `complete` result for the listen request
+
+The **sequence diagram** shows the acknowledgement and the close.
+
+### 4. **Notification handling**
 
 The lesson fills the hollowed notification switch:
 - Calls Chapter 2's `deserializeParams` on a `NotificationCancelledParams` that is already on the branch
@@ -64,31 +73,33 @@ The lesson fills the hollowed notification switch:
 
 The **sequence diagram** shows the cancellation notification flow where the client sends `notifications/cancelled` with a `requestId` and a `reason`.
 
-### 4. **Testing with MCP Inspector**
+### 5. **Testing with MCP Inspector**
 
 Students will:
 - Build the project using Gradle
-- Use the MCP Inspector (v2.5.0) in **modern** mode to test their implementation
+- Use the MCP Inspector (v2.5.0) with the workshop's `auto` era, which probes `server/discover` before it would fall back to `initialize`
 - Intentionally trigger errors by clicking "List Resources" to understand capability advertising vs. implementation
+- Send malformed requests on purpose with `inspector/modern-probe.sh`
 
 ## Architecture Understanding
 
 The **class diagram** reveals the overall architecture:
 - **JSON-RPC Message Types**: `JsonRpcRequest`, `JsonRpcResponse`, `JsonRpcNotification`, `JsonRpcErrorResponse`
 - **Protocol Classes**: `DiscoverResult`, `RequestEnvelope`, `NotificationCancelledParams`
-- **Identity**: `RequestId` plus its Gson `TypeAdapter` (already on the branch from the Chapter 2 types and the shared `McpGson` factory)
+- **Subscriptions**: `SubscriptionsListenParams`, `SubscriptionFilter`, `SubscriptionsAcknowledgedParams`, `SubscriptionsListenResult`
+- **Identity**: `RequestId` plus its Gson `TypeAdapter`, from Chapter 2 with the shared `McpGson` factory, and `ProgressToken`, new here, which is a string or an integer the same way
 - **Capability System**: how server and client capabilities are structured and communicated
 - **Builder Pattern**: `DiscoverResultBuilder` for constructing complex responses
 
 ## Important Learning Points
 
-1. **STDIO Discipline**: never write to standard output — it is reserved for protocol communication. All logging goes to files (`inspector/logs/`).
+1. **STDIO Discipline**: never write to standard output — it is reserved for protocol communication. All logging goes to files under `logs/` in the server's working directory, which is `inspector/logs/` when the Inspector starts it.
 
 2. **Ids Are Not Numbers**: the very first message of this revision arrives with a string id. Typing `id` as a `Long` crashes the server with `NumberFormatException: For input string: "server-discover-probe-1"` before anything else can happen. A server must echo an id back in exactly the form it arrived.
 
 3. **Capability Advertisement**: the server advertises Resources, Prompts, and Tools in its discovery result but hasn't implemented them yet — demonstrating the importance of implementing everything you advertise.
 
-4. **Error Handling Philosophy**: the workshop keeps protocol-level errors narrow and deliberate. `-32601`, `-32602`, and `-32022` each mean one specific thing, and a client can diagnose all three from the error alone.
+4. **Error Handling Philosophy**: the workshop keeps protocol-level errors narrow and deliberate. `-32700`, `-32600`, `-32601`, `-32602`, `-32603` and `-32022` each mean one specific thing, and a client can diagnose every one of them from the error alone.
 
 5. **Message Routing Pattern**: `IORouter` uses pattern matching with switch expressions to route message types (`JsonRpcRequest`, `JsonRpcNotification`, and so on) to the right handlers.
 
@@ -97,6 +108,7 @@ The **class diagram** reveals the overall architecture:
 By the end of this lesson, students will have:
 - ✅ A working `server/discover` response
 - ✅ Envelope validation with the three distinct rejection codes
+- ✅ A subscription stream that is acknowledged and closed
 - ✅ Polymorphic request-id handling
 - ✅ Type-safe notification handling infrastructure
 - ✅ Understanding of why a stateless protocol pushes state onto every message

@@ -283,9 +283,11 @@ the order they are declared.</div>
  <p>
  Introduced in <code>2026-07-28</code> as the sessionless replacement for the
  <code>initialize</code> handshake. Servers MUST implement it. On stdio a
- client sends it first as a backward-compatibility probe: an answer means
- the server speaks the stateless lifecycle, and silence or an error means
- it should fall back to the legacy handshake.
+ client sends it first as a backward-compatibility probe: an answer, or a
+ recognised modern error such as
+ <a href="ErrorCodes.html#UNSUPPORTED_PROTOCOL_VERSION"><code>ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION</code></a>, means the server speaks
+ the stateless lifecycle, while silence or any other error means the
+ client should fall back to the legacy handshake.
  </p></div>
 </section>
 </li>
@@ -384,10 +386,10 @@ the order they are declared.</div>
 <div class="block">Method for opening a long-lived notification stream.
  <p>
  Introduced in <code>2026-07-28</code> to replace the HTTP GET endpoint and
- the <code>resources/subscribe</code> family. On stdio the request is left
- unanswered for the life of the subscription; notifications are
- interleaved on stdout and demultiplexed by
- <a href="MetaKeys.html#SUBSCRIPTION_ID"><code>MetaKeys.SUBSCRIPTION_ID</code></a>.
+ the <code>resources/subscribe</code> family. The stream lasts as long as the
+ request is unanswered: notifications are interleaved on stdout and
+ demultiplexed by <a href="MetaKeys.html#SUBSCRIPTION_ID"><code>MetaKeys.SUBSCRIPTION_ID</code></a>, and a server ends it
+ by answering the request with an ordinary <code>complete</code> result.
  </p></div>
 </section>
 </li>
@@ -520,8 +522,9 @@ not permitted.)</div>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">fromValue</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;value)</span></div>
 <div class="block">Returns the enum constant for the given string value.
  <p>
- This method performs a case-insensitive lookup and returns
- <a href="#NOT_FOUND"><code>NOT_FOUND</code></a> if no matching constant is found.
+ Method names are case-sensitive, so this method matches exactly:
+ <code>SERVER/DISCOVER</code> is not <code>server/discover</code>, and resolves to
+ <a href="#NOT_FOUND"><code>NOT_FOUND</code></a> like any other method this server does not have.
  </p></div>
 <dl class="notes">
 <dt>Parameters:</dt>

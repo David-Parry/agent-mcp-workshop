@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.workshop.mcp.io.IOHandler;
+import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.spec.CacheScope;
 import com.workshop.mcp.spec.ErrorCodes;
 import com.workshop.mcp.spec.McpGson;
@@ -102,9 +103,25 @@ class IORouterTest {
         // server speaks, so rejecting it for guessing wrong would be circular.
         router.route("""
                 {"jsonrpc":"2.0","id":"probe","method":"server/discover",
-                 "params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2025-11-25"}}}""");
+                 "params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2025-11-25",
+                                    "io.modelcontextprotocol/clientCapabilities":{}}}}""");
 
         assertTrue(io.only().has("result"));
+    }
+
+    @Test
+    @Tag("chapter03")
+    void discoverWithoutTheRequiredEnvelopeIsInvalidParams() {
+        // Any version will do, but discover is still a request, and a request
+        // missing a required envelope member is malformed.
+        for (String params : List.of("{}", """
+                {"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}""")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":%s}""".formatted(params));
+
+            assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(), params);
+        }
     }
 
     @Test
@@ -186,6 +203,31 @@ class IORouterTest {
 
     @Test
     @Tag("chapter03")
+    void initializeIsToldWhichVersionsThisServerSupports() {
+        // A client still on the handshake cannot move forward on its own, so
+        // this error may be the only diagnostic its user ever sees.
+        router.route("""
+                {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}""");
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.METHOD_NOT_FOUND, error.get("code").getAsInt());
+        assertTrue(error.get("message").getAsString().contains(RequestEnvelope.SUPPORTED_VERSION),
+                   error.toString());
+        assertEquals(RequestEnvelope.SUPPORTED_VERSION,
+                     error.getAsJsonObject("data").getAsJsonArray("supported").get(0).getAsString());
+    }
+
+    @Test
+    @Tag("chapter03")
+    void methodNamesAreCaseSensitive() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"SERVER/DISCOVER","params":{%s}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.METHOD_NOT_FOUND, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter03")
     void theThreeEmbeddedRequestMethodsAreNotAcceptedAsInboundRequests() {
         // These are things the server asks for, never things it answers.
         for (String method : List.of("roots/list", "sampling/createMessage", "elicitation/create")) {
@@ -262,6 +304,21 @@ class IORouterTest {
                              .map(element -> element.getAsString()).toList(),
                      "the required keyword must still be advertised as required");
         assertTrue(properties.has("directory"), "the optional property must still be advertised");
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aStringProgressTokenDoesNotStopARequestBeingAnswered() {
+        // The token used to be read as an Integer, so a string one made the
+        // params unreadable and the request went unanswered.
+        router.route("""
+                {"jsonrpc":"2.0","id":"read-1","method":"resources/read","params":{"_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{},
+                  "progressToken":"read-1"},
+                 "uri":"javadoc/com/workshop/mcp/spec/Capability.html"}}""");
+
+        assertTrue(io.only().has("result"), io.only().toString());
     }
 
     // --- Multi Round-Trip Requests -------------------------------------
@@ -721,6 +778,21 @@ class IORouterTest {
                      "asking for nothing closes the stream rather than dangling");
     }
 
+    @Test
+    @Tag("chapter03")
+    void everyResultNamesTheServerInItsMeta() {
+        // With no connection state, the result itself is the only place a
+        // client can learn who answered.
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:3","method":"subscriptions/listen","params":{%s}}"""
+                             .formatted(FULL_META));
+
+        JsonObject meta = io.only().getAsJsonObject("result").getAsJsonObject("_meta");
+        assertEquals("agent-mcp-workshop", meta.getAsJsonObject(MetaKeys.SERVER_INFO).get("name").getAsString());
+        assertEquals("listen:3", meta.get(MetaKeys.SUBSCRIPTION_ID).getAsString(),
+                     "the identity joins the _meta a result already has rather than replacing it");
+    }
+
     // --- message dispatch ----------------------------------------------
 
     @Test
@@ -826,31 +898,83 @@ class IORouterTest {
 
     @Test
     @Tag("chapter03")
-    void aPayloadThatIsNeitherRequestNorReplyIsIgnored() {
+    void textThatIsNotJsonIsAParseErrorCarryingNoId() {
         router.route("""
-                {"jsonrpc":"2.0"}""");
+                {"jsonrpc":"2.0","id":1,"method":""");
 
-        assertTrue(io.responses().isEmpty());
+        JsonObject response = io.onlyMessage();
+        assertEquals(ErrorCodes.PARSE_ERROR, response.getAsJsonObject("error").get("code").getAsInt());
+        assertFalse(response.has("id"), "there is no id to quote back, and null is not a valid one");
+    }
+
+    @Test
+    @Tag("chapter03")
+    void wellFormedJsonThatIsNotAMessageIsAnInvalidRequestCarryingNoId() {
+        for (String json : List.of(
+                "{\"jsonrpc\":\"2.0\"}",
+                "[{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"server/discover\"}]",
+                "{\"id\":1,\"method\":\"server/discover\"}",
+                "{\"jsonrpc\":\"2.0\",\"id\":{\"n\":1},\"method\":\"server/discover\"}")) {
+            io.clear();
+            router.route(json);
+
+            JsonObject response = io.onlyMessage();
+            assertEquals(ErrorCodes.INVALID_REQUEST, response.getAsJsonObject("error").get("code").getAsInt(),
+                         json);
+            assertFalse(response.has("id"), json);
+        }
+    }
+
+    @Test
+    @Tag("chapter03")
+    void paramsThatDoNotFitTheMethodAreInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:2","method":"subscriptions/listen",
+                 "params":{%s,"notifications":"everything"}}""".formatted(FULL_META));
+
+        JsonObject response = io.only();
+        assertEquals("listen:2", response.get("id").getAsString());
+        assertEquals(ErrorCodes.INVALID_PARAMS, response.getAsJsonObject("error").get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter03")
+    void aRequestWhoseHandlingThrowsIsStillAnsweredWithItsId() {
+        // Whatever throws, the client must not be left waiting for a reply
+        // that never comes. Here the first attempt to write the answer fails.
+        io.failNextEmit();
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject response = io.only();
+        assertEquals("probe", response.get("id").getAsString());
+        assertEquals(ErrorCodes.INTERNAL_ERROR, response.getAsJsonObject("error").get("code").getAsInt());
     }
 
     @Test
     @Tag("chapter03")
     void aCancelledNotificationForSomeOtherRequestIsNoted() {
-        router.route("""
+        RecordingLog log = new RecordingLog();
+        new IORouter(io, log).route("""
                 {"jsonrpc":"2.0","method":"notifications/cancelled",
                  "params":{"requestId":"not-a-subscription","reason":"user pressed stop"}}""");
 
         assertTrue(io.responses().isEmpty(), "a notification is never answered");
+        assertTrue(log.logged("notifications/cancelled", "not-a-subscription", "user pressed stop"),
+                   "the cancellation should be logged with its request id and reason: " + log.lines);
     }
 
     @Test
     @Tag("chapter03")
     void anUnrecognisedNotificationIsIgnoredRatherThanRejected() {
         // Notifications carry no id, so there is nobody to send -32601 to.
-        router.route("""
+        RecordingLog log = new RecordingLog();
+        new IORouter(io, log).route("""
                 {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":1}}""");
 
         assertTrue(io.responses().isEmpty());
+        assertTrue(log.logged("notifications/progress"),
+                   "an unrecognised notification should still be logged: " + log.lines);
     }
 
     // --- prompts, resources, completion ---------------------------------
@@ -1362,10 +1486,30 @@ class IORouterTest {
         // Tasks emit their status changes from their own thread, so this is
         // written to concurrently with the assertions reading it.
         private final List<JsonObject> emitted = new CopyOnWriteArrayList<>();
+        private volatile boolean failNextEmit;
 
         @Override
         public void emit(Object message) {
+            if (failNextEmit) {
+                failNextEmit = false;
+                throw new IllegalStateException("the write failed");
+            }
             emitted.add(JsonParser.parseString(McpGson.create().toJson(message)).getAsJsonObject());
+        }
+
+        /** Makes the next emit throw, as a broken handler would. */
+        void failNextEmit() {
+            failNextEmit = true;
+        }
+
+        /**
+         * The single message of any kind, asserting there was exactly one. An
+         * error answering something with no usable id carries no id, so
+         * {@link #responses()} would not count it.
+         */
+        JsonObject onlyMessage() {
+            assertEquals(1, emitted.size(), "expected exactly one message, got " + emitted);
+            return emitted.get(0);
         }
 
         List<JsonObject> responses() {
@@ -1413,6 +1557,35 @@ class IORouterTest {
         @Override
         public boolean isRunning() {
             return false;
+        }
+    }
+
+    /** Keeps what the router logs, for the messages it notes rather than answers. */
+    private static final class RecordingLog implements LogFile {
+        private final List<String> lines = new CopyOnWriteArrayList<>();
+
+        /** Whether one logged line contains every one of the parts. */
+        boolean logged(String... parts) {
+            return lines.stream().anyMatch(line -> List.of(parts).stream().allMatch(line::contains));
+        }
+
+        @Override
+        public void log(String message) {
+            lines.add(message);
+        }
+
+        @Override
+        public void log(String message, Throwable exception) {
+            lines.add(message);
+        }
+
+        @Override
+        public void logRaw(String message) {
+            lines.add(message);
+        }
+
+        @Override
+        public void close() {
         }
     }
 }

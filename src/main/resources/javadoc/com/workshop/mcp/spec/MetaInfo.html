@@ -95,7 +95,7 @@ loadScripts(document, 'script');</script>
 <dd><code><span id="param-progressToken">progressToken</span></code> - a unique token used to track the progress of an operation</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">MetaInfo</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;progressToken)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">MetaInfo</span>(<a href="ProgressToken.html" title="class in com.workshop.mcp.spec">ProgressToken</a>&nbsp;progressToken)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">Represents metadata information for tracking progress in the MCP (Model Context Protocol) system.
  <p>
@@ -108,8 +108,8 @@ loadScripts(document, 'script');</script>
  stateless lifecycle envelope. Those keys are namespaced identifiers that
  cannot be record component names, so they are read separately by
  <a href="JsonRpcMessageDeserializer.html#deserializeEnvelope(com.workshop.mcp.spec.JsonRpcRequest)"><code>JsonRpcMessageDeserializer.deserializeEnvelope(JsonRpcRequest)</code></a>.
- <code>progressToken</code> is boxed so its absence reads as null rather than
- zero, which is a real token value.
+ <code>progressToken</code> reads as null when it is absent, and as a string or
+ an integer when it is present, kept in whichever form the client sent.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -118,6 +118,7 @@ loadScripts(document, 'script');</script>
 <dd>
 <ul class="tag-list">
 <li><a href="RequestEnvelope.html" title="class in com.workshop.mcp.spec"><code>RequestEnvelope</code></a></li>
+<li><a href="ProgressToken.html" title="class in com.workshop.mcp.spec"><code>ProgressToken</code></a></li>
 </ul>
 </dd>
 </dl>
@@ -132,7 +133,7 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.lang.Integer)" class="member-name-link">MetaInfo</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;progressToken)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.ProgressToken)" class="member-name-link">MetaInfo</a><wbr>(<a href="ProgressToken.html" title="class in com.workshop.mcp.spec">ProgressToken</a>&nbsp;progressToken)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates an instance of a <code>MetaInfo</code> record class.</div>
 </div>
@@ -160,7 +161,7 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="ProgressToken.html" title="class in com.workshop.mcp.spec">ProgressToken</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#progressToken()" class="member-name-link">progressToken</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-progressToken"><code>progressToken</code></a> record component.</div>
@@ -188,9 +189,9 @@ loadScripts(document, 'script');</script>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(java.lang.Integer)">
+<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.ProgressToken)">
 <h3>MetaInfo</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">MetaInfo</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;progressToken)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">MetaInfo</span><wbr><span class="parameters">(<a href="ProgressToken.html" title="class in com.workshop.mcp.spec">ProgressToken</a>&nbsp;progressToken)</span></div>
 <div class="block">Creates an instance of a <code>MetaInfo</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -250,7 +251,7 @@ loadScripts(document, 'script');</script>
 <li>
 <section class="detail" id="progressToken()">
 <h3>progressToken</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></span>&nbsp;<span class="element-name">progressToken</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="ProgressToken.html" title="class in com.workshop.mcp.spec">ProgressToken</a></span>&nbsp;<span class="element-name">progressToken</span>()</div>
 <div class="block">Returns the value of the <a href="#param-progressToken"><code>progressToken</code></a> record component.</div>
 <dl class="notes">
 <dt>Returns:</dt>
