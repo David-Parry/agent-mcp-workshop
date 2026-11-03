@@ -240,7 +240,7 @@ Implement the **`io.modelcontextprotocol/tasks` extension**, Stable in its `2026
 - `TaskStore` — a framework-free, in-memory store: `create`, `complete`, `fail`, `requireInput`, `applyInput`, `awaitInput` and `cancel`
 - `runSearchAsTaskThatAsks` — a search that asks for its directory as the task's `input_required` status
 - The `tasks/get`, `tasks/update` and `tasks/cancel` cases
-- Given, and read first: the records `Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams` and `TasksCancelParams`; the extension declared under `capabilities.extensions` in the `server/discover` result; the `tools/call` branch that returns an **unsolicited** `resultType: "task"` handle to a client that declared the extension; and the `-32021` refusal of every task method to a client that did not
+- Given, and read first: the records `Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams` and `TasksCancelParams`; the extension declared under `capabilities.extensions` in the `server/discover` result; the `tools/call` branch that returns an **unsolicited** `resultType: "task"` handle to a client that declared the extension; and the `-32021` refusal of every task method, and of a listen for task status, to a client that did not
 
 ### Key Concepts
 - **The server decides, not the client.** There is no `task: { ttl }` opt-in any more — a server may answer any call with a handle, provided the client declared the extension *on that request*
@@ -259,7 +259,7 @@ Implement the **`io.modelcontextprotocol/tasks` extension**, Stable in its `2026
 - `tasks/get` reports `working` then `completed`, carrying the result
 - A call with no directory reaches `input_required`, and `tasks/update` resumes it
 - `tasks/update` and `tasks/cancel` answer with an empty acknowledgement, and a finished task that is cancelled stays `completed`
-- A task method from a client that did not declare the extension gets `-32021`
+- A task method, or a listen for task status, from a client that did not declare the extension gets `-32021`
 - No `notifications/tasks` arrives for a client that did not subscribe
 
 ### Outcome

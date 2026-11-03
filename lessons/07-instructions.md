@@ -96,9 +96,9 @@ if (answersWithTask(envelope)) {
 
 The question moves onto the task. `runSearchAsTaskThatAsks`, which you write in Part 3, puts the task in `input_required` with the same `elicitation/create` Chapter 5 embedded. The client sees it when it polls `tasks/get`, and answers with `tasks/update`. The task has an id of its own, so no `requestState` is needed to tie the answer to the question.
 
-### Step 4: Read the check on the task methods
+### Step 4: Read what a client without the extension is refused
 
-In `process`, before the switch, every `tasks/` method is refused to a client that did not declare the extension:
+In `process`, before the switch, a client that did not declare the extension is refused every `tasks/` method, and a listen stream for task status:
 
 ```java
 // The tasks/ prefix belongs to the extension. Capabilities are declared
@@ -106,13 +106,29 @@ In `process`, before the switch, every `tasks/` method is refused to a client th
 // extension on every task method it calls.
 if (uniqueKey.getValue().startsWith("tasks/") && !envelope.supportsTasks()) {
     logger.log("[API][SENT] " + message.method() + " — the tasks extension was not declared (returning -32021)");
-    error(message.id(), ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, "Missing required client capability",
-          Map.of("requiredCapabilities", Map.of("extensions", Map.of(MetaKeys.TASKS_EXTENSION, Map.of()))));
+    refuseWithoutTasksExtension(message.id());
+    return;
+}
+// Task status on a listen stream belongs to it too: taskIds is the
+// extension's filter, so only a client that declared it may ask.
+if (uniqueKey == UniqueKeys.SUBSCRIPTIONS_LISTEN && !envelope.supportsTasks()
+    && deserializer.deserializeParams(message, TaskStatusFilter.class).asksForTaskStatus()) {
+    logger.log("[API][SENT] subscriptions/listen — taskIds without the tasks extension (returning -32021)");
+    refuseWithoutTasksExtension(message.id());
     return;
 }
 ```
 
-The extension requires `-32021` here, with what the client is missing in `data`. Capabilities travel with each request, so even a client holding a task id has to declare the extension on every `tasks/get`, `tasks/update` and `tasks/cancel` it sends.
+The extension requires `-32021` for both, with what the client is missing in `data`:
+
+```java
+private void refuseWithoutTasksExtension(RequestId id) {
+    error(id, ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, "Missing required client capability",
+          Map.of("requiredCapabilities", Map.of("extensions", Map.of(MetaKeys.TASKS_EXTENSION, Map.of()))));
+}
+```
+
+Capabilities travel with each request, so even a client holding a task id has to declare the extension on every `tasks/get`, `tasks/update` and `tasks/cancel` it sends. `taskIds` is the filter the extension adds to `subscriptions/listen`, and asking for it takes the same declaration. This server pushes no task status, so a client that did declare the extension is agreed no task ids, and its stream closes like any other that was agreed nothing.
 
 ---
 
@@ -317,7 +333,7 @@ Cancelling only asks. A task that has already finished keeps its status, and `ca
 
 ## Part 3: Write the Task That Asks
 
-**Action Required**: fill `runSearchAsTaskThatAsks` at **line 756** of `src/main/java/com/workshop/mcp/IORouter.java`:
+**Action Required**: fill `runSearchAsTaskThatAsks` at **line 793** of `src/main/java/com/workshop/mcp/IORouter.java`:
 
 ```java
 private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
@@ -368,7 +384,7 @@ private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, Reque
 
 ## Part 4: Answer the Three Methods
 
-**Action Required**: paste these cases over the empty ones: `TASKS_GET` at **line 307**, `TASKS_UPDATE` at **line 310** and `TASKS_CANCEL` at **line 313** of `IORouter.java`:
+**Action Required**: paste these cases over the empty ones: `TASKS_GET` at **line 314**, `TASKS_UPDATE` at **line 317** and `TASKS_CANCEL` at **line 320** of `IORouter.java`:
 
 ```java
 case TASKS_GET -> {
@@ -430,7 +446,7 @@ case TASKS_CANCEL -> {
 ./gradlew chapterTest -Pchapter=07
 ```
 
-The run reports 71 tests, and 58 of them fail before you start: 23 in `IORouterTest` and 35 in `TaskStoreTest`. The other 13 pass already. Four are the given parts of the router: the extension is declared, a client without it never gets a handle and is refused the task methods, and the test hook that interrupts a task's thread behaves. Four check what the store does with an id it does not know, which an empty method already gets right, and five check the task types in `spec`. Failures worth recognising:
+The run reports 74 tests, and 58 of them fail before you start: 23 in `IORouterTest` and 35 in `TaskStoreTest`. The other 16 pass already. Seven are the given parts of the router: the extension is declared, the test hook that interrupts a task's thread behaves, and a client without the extension never gets a handle and is refused the task methods and a listen for task status. Any other listen is acknowledged, with no task ids agreed to. Four check what the store does with an id it does not know, which an empty method already gets right, and five check the task types in `spec`. Failures worth recognising:
 
 - `createStartsATaskInWorkingStatus` or `createGeneratesAnUnguessableIdPerTask` — `create` still throws, or builds its task some other way. Almost every router test fails with it, because no task can be created.
 - `completeIsIgnoredOnceTheTaskIsTerminal` or `failIsIgnoredOnceTheTaskIsTerminal` — the terminal check is missing, so a finished task changed its status.
@@ -481,6 +497,8 @@ cd inspector
 
 Turn on the switch on the `workshop` card to connect. The Inspector declares `io.modelcontextprotocol/tasks` on every request, so every call to `key_word_search` comes back as a task. Open **Tasks**, beside **Protocol** in the panel on the right.
 
+If you open the Inspector before the tests pass, what goes wrong tells you what is still missing. A call that fails at once with `Internal error while handling tools/call` reached a `TaskStore` method that still throws, and the server's log in `inspector/logs/` names it. A call that fails after 30 seconds with `Raw request "tasks/get" timed out after 30000 ms` reached the `TASKS_GET` case while it was still empty, and the task stays under **Active** in **Tasks**. An empty case answers nothing, and a `tasks/update` or `tasks/cancel` sent to one times out the same way.
+
 ### A task that runs
 - In the **Tools** tab, select `key_word_search`, give it a `keyword` and a `directory`, and click **Execute Tool**.
 - The **Protocol** panel shows the `tools/call` answered at once with `resultType: "task"`. A `tasks/get` follows about once a second, the `pollIntervalMs` the handle asked for, and after 4 seconds one answers `completed`. The search result appears under **Results**.
@@ -504,7 +522,7 @@ Cancelling marks the task, but the search runs on. The router already keeps ever
 
 ## Stretch: Push status to a client that subscribes
 
-This server never pushes task status, which the extension allows: polling is the default. A client asks for pushes with `subscriptions/listen`, naming the tasks in `notifications.taskIds`. Add `taskIds` to `SubscriptionFilter`, and refuse it with `-32021` to a client that did not declare the extension. List the ids you agree to in the acknowledgement, and keep the stream open: `acknowledgeSubscription` answers the request at once, and that answer is what closes it. Then send a `notifications/tasks` on every change to a subscribed task, carrying what `tasks/get` would answer at that moment and the subscription's id in `_meta`. The extension forbids `notifications/progress` and `notifications/message` on a task's stream.
+This server never pushes task status, which the extension allows: polling is the default. A client asks for pushes with `subscriptions/listen`, naming the tasks in `notifications.taskIds`. Add `taskIds` to `SubscriptionFilter`, which `process` already refuses to a client that did not declare the extension. List the ids you agree to in the acknowledgement, and keep the stream open: `acknowledgeSubscription` answers the request at once, and that answer is what closes it. Then send a `notifications/tasks` on every change to a subscribed task, carrying what `tasks/get` would answer at that moment and the subscription's id in `_meta`. The extension forbids `notifications/progress` and `notifications/message` on a task's stream.
 
 ## Stretch: Report progress in the status message
 

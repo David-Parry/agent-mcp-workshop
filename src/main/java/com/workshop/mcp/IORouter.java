@@ -248,8 +248,15 @@ public class IORouter implements Router {
         // extension on every task method it calls.
         if (uniqueKey.getValue().startsWith("tasks/") && !envelope.supportsTasks()) {
             logger.log("[API][SENT] " + message.method() + " — the tasks extension was not declared (returning -32021)");
-            error(message.id(), ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, "Missing required client capability",
-                  Map.of("requiredCapabilities", Map.of("extensions", Map.of(MetaKeys.TASKS_EXTENSION, Map.of()))));
+            refuseWithoutTasksExtension(message.id());
+            return;
+        }
+        // Task status on a listen stream belongs to it too: taskIds is the
+        // extension's filter, so only a client that declared it may ask.
+        if (uniqueKey == UniqueKeys.SUBSCRIPTIONS_LISTEN && !envelope.supportsTasks()
+            && deserializer.deserializeParams(message, TaskStatusFilter.class).asksForTaskStatus()) {
+            logger.log("[API][SENT] subscriptions/listen — taskIds without the tasks extension (returning -32021)");
+            refuseWithoutTasksExtension(message.id());
             return;
         }
 
@@ -603,6 +610,36 @@ public class IORouter implements Router {
      */
     private boolean answersWithTask(RequestEnvelope envelope) {
         return TASK_HANDLES_ENABLED && envelope.supportsTasks();
+    }
+
+    /**
+     * Refuses a request that needs the tasks extension from a client that
+     * did not declare it, naming the extension so the client knows what to
+     * declare.
+     *
+     * @param id the id of the request being refused
+     */
+    private void refuseWithoutTasksExtension(RequestId id) {
+        error(id, ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, "Missing required client capability",
+              Map.of("requiredCapabilities", Map.of("extensions", Map.of(MetaKeys.TASKS_EXTENSION, Map.of()))));
+    }
+
+    /**
+     * The filter the tasks extension adds to {@code subscriptions/listen}.
+     * <p>
+     * {@link SubscriptionFilter} reads the core protocol's four filters. This
+     * one is read only to refuse it: this server pushes no task status, so it
+     * agrees to no task ids even for a client that declared the extension.
+     * </p>
+     *
+     * @param notifications the requested filters, of which only {@code taskIds} is read
+     */
+    private record TaskStatusFilter(TaskIds notifications) {
+        private record TaskIds(List<String> taskIds) {}
+
+        boolean asksForTaskStatus() {
+            return notifications != null && notifications.taskIds() != null && !notifications.taskIds().isEmpty();
+        }
     }
 
     /**

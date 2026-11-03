@@ -77,7 +77,7 @@ stateDiagram-v2
     cancelled --> [*]
 ```
 
-Three terminal states, `completed`, `failed` and `cancelled`, and once there a task never moves again. Once a task's TTL has run out, counted from its `createdAt`, the server may mark it `failed` and delete it after that.
+Three terminal states, `completed`, `failed` and `cancelled`, and once there a task never moves again. Once a task's TTL has run out, counted from its `createdAt`, the server may mark it `failed` and delete it after that. This server does neither, and keeps every task until it stops.
 
 ## Capability Negotiation
 
@@ -130,7 +130,7 @@ A task handed to a client that will not poll is a result nobody collects, which 
 | `tasks/cancel` | client → server | Asks the server to cancel. Acknowledged with an empty result, even for a task that has finished, which keeps its status. The server need not stop the work. |
 | `notifications/tasks` | server → client | Optional push of a task's state, sent only to a client that subscribed to that task with `subscriptions/listen`. Polling is the default, and this server sends none. |
 
-`tasks/result` and `tasks/list` are **removed**, and removal in this revision is physical: sending either one gets `-32601`, not a polite refusal. Every task method also requires the extension: a client that did not declare it on the request gets `-32021`.
+`tasks/result` and `tasks/list` are **removed**, and removal in this revision is physical: sending either one gets `-32601`, not a polite refusal. Every task method also requires the extension: a client that did not declare it on the request gets `-32021`. So does a `subscriptions/listen` from that client that asks for task status by naming `taskIds`.
 
 ## A Handle or a Question — Never Both
 
@@ -167,7 +167,7 @@ Same MRTR vocabulary as Chapter 5: `inputRequests` and `inputResponses`, keyed b
 |---|---|
 | `-32601` Method not found | `tasks/result` or `tasks/list`, both removed. |
 | `-32602` Invalid params | An unknown or missing `taskId`. |
-| `-32021` Missing required client capability | A task method from a client that did not declare the extension on that request. |
+| `-32021` Missing required client capability | A task method, or a `subscriptions/listen` naming `taskIds`, from a client that did not declare the extension on that request. |
 
 A task that fails carries its own JSON-RPC error, a `-32603` Internal error here, inside the `tasks/get` result. That result is still `resultType: "complete"`: the poll succeeded; the work did not. Keeping those distinct is what lets a client tell a broken task from a broken protocol. A tool result with `isError: true` is not a failure at all: the task completes, with that result in it.
 

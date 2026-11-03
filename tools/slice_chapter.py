@@ -678,10 +678,19 @@ def strip_tasks(text):
         "tasks extension check",
         flags=re.S,
     )
+    text = sub_once(
+        r"        // Task status on a listen stream belongs to it too:.*?"
+        r"            return;\n        }\n",
+        "",
+        text,
+        "listen task status check",
+        flags=re.S,
+    )
     for label in ("TASKS_GET", "TASKS_UPDATE", "TASKS_CANCEL"):
         text = remove_case(text, label)
     for name in (
-        "answersWithTask", "runToolAsTask", "runSearchAsTaskThatAsks",
+        "answersWithTask", "refuseWithoutTasksExtension", "TaskStatusFilter",
+        "runToolAsTask", "runSearchAsTaskThatAsks",
         "runOnVirtualThread", "interruptTaskWorker",
         "askOnTask", "isTerminal",
     ):

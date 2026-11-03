@@ -14,8 +14,9 @@ import java.util.List;
  * <p>
  * These are the core protocol's four filters. The tasks extension adds a
  * fifth, {@code taskIds}, for its {@code notifications/tasks}. This server
- * pushes no task status, so it does not read that filter: a client polls
- * {@code tasks/get} instead, which is what the MCP Inspector does.
+ * pushes no task status, so it agrees to no task ids, and reads that filter
+ * only to refuse it to a client that did not declare the extension. A client
+ * polls {@code tasks/get} instead, which is what the MCP Inspector does.
  * </p>
  *
  * @param toolsListChanged      deliver {@code notifications/tools/list_changed}

@@ -849,6 +849,24 @@ def s_tasks(c):
         if TASKS_EXTENSION not in required:
             raise Failure(f"-32021 should name the extension the client has to declare: {error}")
 
+    # So is a listen stream that asks for task status. A client that declared
+    # the extension is agreed no task ids, because this server pushes none,
+    # and with nothing agreed to its stream closes.
+    task_status = {"notifications": {"taskIds": [task_id]}}
+    c.request("listen-undeclared", "subscriptions/listen", task_status, capabilities=DEPRECATED_AND_FORMS)
+    error = c.expect_error("listen-undeclared", code=MISSING_REQUIRED_CLIENT_CAPABILITY)
+    required = ((error.get("data") or {}).get("requiredCapabilities") or {}).get("extensions") or {}
+    if TASKS_EXTENSION not in required:
+        raise Failure(f"-32021 should name the extension the client has to declare: {error}")
+    c.request("listen-declared", "subscriptions/listen", task_status, capabilities=TASK_CLIENT)
+    ack = c.expect_notification(
+        "notifications/subscriptions/acknowledged",
+        lambda n: ((n.get("params") or {}).get("_meta") or {}).get(META_SUBSCRIPTION_ID) == "listen-declared",
+    )
+    if "taskIds" in ((ack.get("params") or {}).get("notifications") or {}):
+        raise Failure(f"this server pushes no task status, so it agrees to no task ids: {ack}")
+    require_result_type(c.expect_result("listen-declared"), "complete", "the subscription close")
+
 
 def require_empty_acknowledgement(result, what):
     """tasks/update and tasks/cancel acknowledge with an empty result: no task fields."""

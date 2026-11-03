@@ -111,8 +111,9 @@ loadScripts(document, 'script');</script>
  <p>
  These are the core protocol's four filters. The tasks extension adds a
  fifth, <code>taskIds</code>, for its <code>notifications/tasks</code>. This server
- pushes no task status, so it does not read that filter: a client polls
- <code>tasks/get</code> instead, which is what the MCP Inspector does.
+ pushes no task status, so it agrees to no task ids, and reads that filter
+ only to refuse it to a client that did not declare the extension. A client
+ polls <code>tasks/get</code> instead, which is what the MCP Inspector does.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>

@@ -663,6 +663,52 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter07")
+    void aListenForTaskStatusIsRefusedToAClientThatDidNotDeclareTheExtension() {
+        // taskIds is the extension's filter, so asking a listen stream for
+        // task status takes the same declaration as calling a task method.
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:tasks","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":["no-such-task"]}}}""".formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, error.get("code").getAsInt());
+        assertTrue(error.getAsJsonObject("data").getAsJsonObject("requiredCapabilities")
+                           .getAsJsonObject("extensions").has(MetaKeys.TASKS_EXTENSION),
+                   "the error names what the client has to declare: " + error);
+        assertTrue(io.notifications().isEmpty(), "a refused listen is not acknowledged");
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aListenThatNamesNoTasksIsNotAskingForTaskStatus() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:none","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":[]}}}""".formatted(FULL_META));
+
+        assertEquals("notifications/subscriptions/acknowledged",
+                     io.notifications().get(0).get("method").getAsString());
+        assertEquals("listen:none", io.responses().get(0).get("id").getAsString());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aClientThatDeclaredTheExtensionIsAgreedNoTaskStatus() {
+        // A server may agree to fewer task ids than it was asked for, and
+        // this one pushes no task status at all, so it agrees to none.
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:declared","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":["no-such-task"]}}}""".formatted(TASKS_META));
+
+        JsonObject acknowledged = io.notifications().get(0);
+        assertEquals("notifications/subscriptions/acknowledged", acknowledged.get("method").getAsString());
+        assertFalse(acknowledged.getAsJsonObject("params").getAsJsonObject("notifications").has("taskIds"),
+                    "no task id is agreed to: " + acknowledged);
+        assertEquals("listen:declared", io.responses().get(0).get("id").getAsString(),
+                     "with nothing agreed to, the stream closes");
+    }
+
+    @Test
     @Timeout(10)
     @Tag("chapter07")
     void aTaskClientIsNeverAskedForInputOnTheCallItself() {
