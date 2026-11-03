@@ -11,12 +11,15 @@ Install the Git command line tool from the [Git official website](https://git-sc
 ### 2. Clone the Repository
 
 ```bash
-git clone git@github.com:David-Parry/agent-mcp-workshop.git
+git clone https://github.com/David-Parry/agent-mcp-workshop.git
+cd agent-mcp-workshop
 ```
+
+The clone starts on `trunk`. If you have an SSH key set up with GitHub, `git@github.com:David-Parry/agent-mcp-workshop.git` works as well.
 
 ### 3. JDK 21
 
-Install JDK 21.0.7 or later. You can download it from [Azul OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
+Install JDK 21 or later. Any of them works: the build compiles against the Java 21 API on whichever JDK you have. You can download one from [Azul OpenJDK](https://www.azul.com/downloads/?version=java-21-lts&package=jdk#zulu).
 
 ### 4. Node.js and NPM
 
