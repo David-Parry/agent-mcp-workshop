@@ -569,14 +569,29 @@ def remove_method(text, name):
     return text
 
 
-def replace_method(text, name, new_method):
+def replace_method(text, name, new_method, keep_javadoc=False):
     m = method_sig_pattern(name).search(text)
     if not m:
         raise SystemExit(f"  !! no method '{name}' to replace")
     open_brace = text.index("{", m.end() - 1)
     close = matching_brace(text, open_brace)
-    start = preceding_javadoc_start(text, m.start())
+    start = m.start() if keep_javadoc else preceding_javadoc_start(text, m.start())
     return text[:start] + new_method.strip("\n") + "\n" + text[close + 1:]
+
+
+def sub_once(pattern, repl, text, what, flags=0):
+    """These patterns track complete's source, so a miss means it moved on;
+    a silent no-op ships a branch that does not compile."""
+    text, count = re.subn(pattern, repl, text, count=1, flags=flags)
+    if count != 1:
+        raise SystemExit(f"  !! {what}: pattern no longer matches complete")
+    return text
+
+
+def java_prose(sentence):
+    """A pattern for prose inside a Java string literal, wherever the source
+    splits it into `"..." +` pieces."""
+    return r'(?:\s|"\s*\+\s*")+'.join(re.escape(word) for word in sentence.split())
 
 
 def replace_inbound(text, chapter):
@@ -608,8 +623,6 @@ def discover_method(chapter):
             '                .withExtension(MetaKeys.UI_EXTENSION,\n'
             '                               Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))'
         )
-    if chapter >= 7:
-        extras.append("                .withTasksExtension()")
     extra = ("\n" + "\n".join(extras) + "\n") if extras else "\n"
     return f'''
     private DiscoverResult discoverResult() {{
@@ -624,34 +637,36 @@ def discover_method(chapter):
 
 
 def strip_tasks(text):
-    text = re.sub(
+    text = sub_once(
         r"\n    /\*\*\n     \* Whether \{@code tools/call\}.*?"
         r"    private static final boolean TASK_HANDLES_ENABLED = true;\n",
         "\n",
         text,
-        count=1,
+        "TASK_HANDLES_ENABLED",
         flags=re.S,
     )
-    text = re.sub(
+    text = sub_once(
         r"\n    /\*\*\n     \* How long a task waiting.*?"
         r"    private static final long TASK_INPUT_TIMEOUT_MILLIS = 60_000L;\n",
         "\n",
         text,
-        count=1,
+        "TASK_INPUT_TIMEOUT_MILLIS",
         flags=re.S,
     )
-    text = re.sub(
-        r"    private final TaskStore taskStore = new TaskStore();\n"
+    text = sub_once(
+        r"    private final TaskStore taskStore = new TaskStore\(\);\n"
         r"    /\*\*\n     \* Live task workers.*?"
-        r"    private final ConcurrentHashMap<String, Thread> taskWorkers = new ConcurrentHashMap<>();\n",
+        r"    private final ConcurrentHashMap<String, Thread> taskWorkers = new ConcurrentHashMap<>\(\);\n",
         "",
         text,
-        count=1,
+        "taskStore and taskWorkers fields",
         flags=re.S,
     )
-    text = text.replace(
-        "        this.io = io;\n        this.taskStore.onStatusChange(this::sendTaskStatusNotification);\n",
+    text = sub_once(
+        r"        this\.io = io;\n        this\.taskStore\.onStatusChange\(this::sendTaskStatusNotification\);\n",
         "        this.io = io;\n",
+        text,
+        "task status listener",
     )
     for label in ("TASKS_GET", "TASKS_UPDATE", "TASKS_CANCEL"):
         text = remove_case(text, label)
@@ -669,11 +684,11 @@ def strip_tasks(text):
 
 
 def strip_apps(text):
-    text = re.sub(
-        r"    private static final String KEYWORD_APP_URI = \"ui://keyword-search/mcp-app.html\";\n",
+    text = sub_once(
+        r"    private static final String KEYWORD_APP_URI = \"ui://keyword-search/mcp-app\.html\";\n",
         "",
         text,
-        count=1,
+        "KEYWORD_APP_URI",
     )
     text = replace_case(text, "TOOLS_LIST", TOOLS_LIST_PLAIN)
     text = replace_case(text, "RESOURCES_LIST", RESOURCES_LIST_PLAIN)
@@ -724,9 +739,11 @@ def transform_iorouter(complete_text, chapter):
     if chapter < 4:
         text = strip_capabilities(text)
     text = replace_inbound(text, chapter)
-    text = replace_method(text, "discoverResult", discover_method(chapter))
-    if "InputRequiredResult" not in text and "{@link InputRequiredResult}" in text:
+    if chapter < 7:
+        text = replace_method(text, "discoverResult", discover_method(chapter), keep_javadoc=True)
+    if chapter < 5:
         text = text.replace("{@link InputRequiredResult}", "input_required result")
+        text = text.replace(" * @see InputRequiredResult\n", "")
     return text
 
 
@@ -775,22 +792,24 @@ def slice_io_handler(text, chapter):
 
 
 def keyword_search_ch4(text):
-    text = re.sub(
-        r"@see SearchContinuation\n \* @since 1.0",
-        "@since 1.0",
+    text = sub_once(r"@see SearchContinuation\n \* @since 1.0", "@since 1.0", text, "KeyWordSearch @see")
+    text = sub_once(
+        java_prose(
+            "Pass a directory to search it directly; omit it and the server asks for one over a "
+            "Multi Round-Trip Request, falling back to its own working directory if nothing is offered."
+        ),
+        "Pass the directory to search.",
         text,
+        "KeyWordSearch description",
     )
-    text = text.replace(
-        "Pass a directory to search it "
-        "directly; omit it and the server asks for one over a Multi Round-Trip Request, falling back to "
-        "its own working directory if nothing is offered.",
-        "The directory argument is required.",
-    )
-    text = text.replace(
-        "the absolute directory to search; omit it to have the "
-        "server ask for one over a Multi Round-Trip Request and "
-        "fall back to its working directory",
+    text = sub_once(
+        java_prose(
+            "the absolute directory to search; omit it to have the server ask for one over a "
+            "Multi Round-Trip Request and fall back to its working directory"
+        ),
         "the absolute directory to search",
+        text,
+        "KeyWordSearch directory property",
     )
     return text
 
@@ -907,9 +926,14 @@ def file_chapter(rel: str) -> int:
     return 8
 
 
+HARNESS = "lessons/presentation-3hr/verify/harness.py"
+
+
 def keep_for(chapter: int, rel: str) -> bool:
     if rel.startswith(".git/") or rel in {".git"}:
         return True
+    if rel == HARNESS:
+        return chapter >= 3
     if rel.startswith("lessons/"):
         m = re.match(r"lessons/0([1-7])-", rel)
         if m:
@@ -1016,6 +1040,8 @@ def filter_tagged_members(text, chapter):
 def strip_unused_helpers(text, chapter):
     if chapter < 6:
         text = remove_method(text, "appTool")
+    if chapter < 7:
+        text = remove_method(text, "interruptTaskThread")
     return text
 
 
@@ -1060,6 +1086,14 @@ def write_readme(chapter: str):
     nxt = f"{n + 1:02d}-chapter" if n < 7 else "complete"
     title = CHAPTER_TITLES[chapter]
     blurb = CHAPTER_BLURBS[chapter]
+    harness_section = "" if n < 3 else f'''
+Once the tests are green, drive the built server the way a client would. The harness starts the JAR, talks JSON-RPC to it over stdio, and checks the protocol behaviour every chapter up to this one has built:
+
+```bash
+./gradlew shadowJar
+python3 {HARNESS} --chapter {chapter}
+```
+'''
     if n < 7:
         next_section = f'''### Next chapter (`{nxt}`)
 
@@ -1108,7 +1142,7 @@ Grade **this** branch with `{chapter}` — not the next chapter's number:
 ```
 
 Red means keep going; green means this chapter is done. `./gradlew test` on this branch runs only the chapters you have reached.
-
+{harness_section}
 {next_section}
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
@@ -1134,6 +1168,77 @@ Issues and pull requests are welcome, and please tell your instructor directly d
 '''
 
 
+ANCHOR = re.compile(r"\*\*line (\d+)\*\*")
+TICKED = re.compile(r"`([^`\n]+)`")
+FILE_TOKEN = re.compile(r"[\w./-]+\.(?:java|html)")
+
+
+def anchor_symbol(token):
+    name = token.split("(", 1)[0].strip().rsplit(".", 1)[-1]
+    return name if re.fullmatch(r"[A-Za-z_]\w*", name) else None
+
+
+def handout_file(token):
+    if not token:
+        return None
+    if "/" in token:
+        path = ROOT / token
+        return path if path.exists() else None
+    found = sorted(ROOT.glob(f"src/main/**/{token}"))
+    return found[0] if len(found) == 1 else None
+
+
+def check_anchors(chapter):
+    """Every **line N** in a handout must land on the symbol it names, in the
+    file as the branch hands it out: a signature, a case label, or the
+    placeholder comment, which names its method too."""
+    handout = ROOT / f"lessons/{chapter}-instructions.md"
+    problems = []
+    context = None
+    in_fence = False
+    for number, line in enumerate(handout.read_text().splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        ticks = [(m.start(), m.group(1)) for m in TICKED.finditer(line)]
+        files = [(pos, tok) for pos, tok in ticks if FILE_TOKEN.fullmatch(tok)]
+        symbols = [(pos, tok) for pos, tok in ticks if not FILE_TOKEN.fullmatch(tok)]
+        for anchor in ANCHOR.finditer(line):
+            target = int(anchor.group(1))
+            sentence = max(line.rfind(". ", 0, anchor.start()), line.rfind("; ", 0, anchor.start()))
+            prior = [tok for pos, tok in symbols if sentence < pos < anchor.start()]
+            later = [tok for pos, tok in symbols if pos > anchor.start()]
+            token = (prior[-1:] or later[:1] or [""])[0]
+            symbol = anchor_symbol(token)
+            owner = re.match(r"([A-Z]\w*)\.\w+", token)
+            after = [tok for pos, tok in files if pos > anchor.start()]
+            before = [tok for pos, tok in files if pos < anchor.start()]
+            named = (after[:1] or before[-1:] or [owner.group(1) + ".java" if owner else context])[0]
+            path = handout_file(named)
+            where = f"{handout.name}:{number}"
+            if path is None:
+                problems.append(f"{where}: cannot tell which file **line {target}** is in (got {named!r})")
+                continue
+            lines = path.read_text().splitlines()
+            if target == 1:
+                continue
+            if not symbol:
+                problems.append(f"{where}: no `symbol` next to **line {target}** to check it against")
+                continue
+            if target <= len(lines) and re.search(rf"\b{re.escape(symbol)}\b", lines[target - 1]):
+                continue
+            seen = [str(i) for i, text in enumerate(lines, 1) if re.search(rf"\b{re.escape(symbol)}\b", text)]
+            problems.append(
+                f"{where}: line {target} of {path.relative_to(ROOT)} does not show `{symbol}`"
+                f" (it appears on {', '.join(seen[:4]) or 'no line'})"
+            )
+        if files:
+            context = files[-1][1]
+    return problems
+
+
 def tracked_files():
     import subprocess
     tracked = subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True)
@@ -1148,9 +1253,15 @@ def main():
     parser.add_argument("chapter", choices=["01", "02", "03", "04", "05", "06", "07"])
     parser.add_argument("--keep-filled", action="store_true",
                         help="Leave student methods implemented, for compile/test checks")
+    parser.add_argument("--check-anchors", action="store_true",
+                        help="Only check the handout's line anchors against an already sliced tree")
     args = parser.parse_args()
     chapter = args.chapter
     n = int(chapter)
+
+    if args.check_anchors:
+        report_anchors(chapter)
+        return
 
     complete_router = (SRC / "IORouter.java").read_text()
 
@@ -1240,8 +1351,18 @@ def main():
             router = SRC / "IORouter.java"
             router.write_text(hollow_prelude(router.read_text(), chapter))
             print("  hollowed request guards")
+        report_anchors(chapter)
 
     print(f"Sliced chapter {chapter}.")
+
+
+def report_anchors(chapter):
+    problems = check_anchors(chapter)
+    for problem in problems:
+        print(f"  !! {problem}")
+    if problems:
+        raise SystemExit(f"  !! {len(problems)} line anchor(s) in lessons/{chapter}-instructions.md are wrong")
+    print(f"  line anchors in lessons/{chapter}-instructions.md check out")
 
 
 if __name__ == "__main__":

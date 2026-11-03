@@ -9,6 +9,11 @@ removed the initialize handshake.
 Usage:
     python3 lessons/presentation-3hr/verify/harness.py <scenario> [<scenario> ...]
     python3 lessons/presentation-3hr/verify/harness.py all
+    python3 lessons/presentation-3hr/verify/harness.py --chapter 05
+
+--chapter runs only the scenarios a chapter branch's server can pass: each
+scenario names the chapter that builds what it checks. Chapter branches from
+03 on ship this file, so a student can run it against their own server.
 
 Exit code is the number of failed scenarios.
 """
@@ -41,7 +46,7 @@ APP_URI = "ui://keyword-search/mcp-app.html"
 APP_MIME_TYPE = "text/html;profile=mcp-app"
 
 # Error codes. -32020..-32099 is reserved for the specification on this
-# revision; -32000..-32019 stays implementation-defined.
+# revision; -32000..-32019 is legacy, and new implementations should not use it.
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 UNSUPPORTED_PROTOCOL_VERSION = -32022
@@ -296,16 +301,17 @@ def require_result_type(result, expected, label):
 SCENARIOS = []
 
 
-def scenario(name, topic):
+def scenario(name, topic, chapter):
+    """Register a check; chapter is the first branch whose server can pass it."""
     def wrap(fn):
-        SCENARIOS.append((name, topic, fn))
+        SCENARIOS.append((name, topic, chapter, fn))
         return fn
     return wrap
 
 
 # ------------------------------------------------- Discovery replaces the handshake
 
-@scenario("discover", "flow-diagram, capabilities")
+@scenario("discover", "flow-diagram, capabilities", chapter=3)
 def s_discover(c):
     # The Inspector probes with a string id, which is why RequestId exists.
     probe_id = "server-discover-probe-1"
@@ -344,7 +350,12 @@ def s_discover(c):
         raise Failure("server emitted notifications/message without a logLevel in the envelope")
 
 
-@scenario("capability_shape", "capabilities")
+def discovered_extensions(c, id_):
+    c.request(id_, "server/discover")
+    return c.expect_result(id_)["capabilities"].get("extensions") or {}
+
+
+@scenario("capability_shape", "capabilities", chapter=3)
 def s_capability_shape(c):
     c.request("probe", "server/discover")
     capabilities = c.expect_result("probe")["capabilities"]
@@ -354,11 +365,6 @@ def s_capability_shape(c):
         raise Failure(f"capabilities has slots outside the seven allowed: {sorted(unknown)}")
     if "tasks" in capabilities:
         raise Failure(f"the top-level tasks slot was removed; it lives under extensions: {capabilities}")
-
-    extensions = capabilities.get("extensions") or {}
-    for identifier in (TASKS_EXTENSION, UI_EXTENSION):
-        if identifier not in extensions:
-            raise Failure(f"{identifier} should be declared under capabilities.extensions: {extensions}")
 
     # subscribe survives even though resources/subscribe does not — it now
     # gates the resourceSubscriptions field of subscriptions/listen.
@@ -372,15 +378,19 @@ def s_capability_shape(c):
 
 # ------------------------------------------------- The per-request envelope
 
-@scenario("envelope_required", "protocol, capabilities")
+@scenario("envelope_required", "protocol, capabilities", chapter=3)
 def s_envelope_required(c):
+    # subscriptions/listen, because it is the one enveloped method chapter 3
+    # already answers; tools/list would be -32601 there, and method existence
+    # is settled before the envelope is read.
+    #
     # No _meta at all: the two required members are missing.
-    c.raw_request(1, "tools/list", {})
+    c.raw_request(1, "subscriptions/listen", {})
     c.expect_error(1, code=INVALID_PARAMS)
 
     # A revision this server does not speak. The error data is the only way a
     # client learns what to renegotiate to, so it is required.
-    c.raw_request(2, "tools/list", {"_meta": {
+    c.raw_request(2, "subscriptions/listen", {"_meta": {
         META_PROTOCOL_VERSION: LEGACY_VERSION,
         META_CLIENT_CAPABILITIES: {},
     }})
@@ -397,7 +407,7 @@ def s_envelope_required(c):
     c.expect_result(3)
 
 
-@scenario("removed_methods", "protocol, trace-log")
+@scenario("removed_methods", "protocol, trace-log", chapter=3)
 def s_removed_methods(c):
     # Deletion in this revision is physical: absence from the method registry.
     # Method existence is settled before the envelope is looked at, so a legacy
@@ -422,7 +432,7 @@ def s_removed_methods(c):
             )
 
 
-@scenario("embedded_only_methods", "extensions")
+@scenario("embedded_only_methods", "extensions", chapter=3)
 def s_embedded_only_methods(c):
     # These three are things a server asks for inside a result, never things it
     # answers, because a modern client discards inbound requests. All three are
@@ -436,7 +446,7 @@ def s_embedded_only_methods(c):
 
 # ------------------------------------------------- Cacheable vs. uncacheable results
 
-@scenario("cacheable_results", "capabilities, protocol")
+@scenario("cacheable_results", "capabilities, protocol", chapter=4)
 def s_cacheable_results(c):
     # resources/read needs a real uri, so list first and reuse one.
     c.request(1, "resources/list")
@@ -465,7 +475,7 @@ def s_cacheable_results(c):
         raise Failure(f"resources/templates/list should answer with an empty list: {templates}")
 
 
-@scenario("uncacheable_results", "capabilities")
+@scenario("uncacheable_results", "capabilities", chapter=4)
 def s_uncacheable_results(c):
     c.request(1, "prompts/get", {"name": "search_keyword", "arguments": {"keyword": "needle"}})
     prompts_get = c.expect_result(1)
@@ -488,7 +498,7 @@ def s_uncacheable_results(c):
 
 # ------------------------------------------------- Multi Round-Trip Requests
 
-@scenario("mrtr_elicitation", "extensions, flow-diagram")
+@scenario("mrtr_elicitation", "extensions, flow-diagram", chapter=5)
 def s_mrtr_elicitation(c):
     directory = make_keyword_dir()
 
@@ -569,7 +579,7 @@ def s_mrtr_elicitation(c):
         raise Failure(f"a roots-only client must not be asked anything: {roots_only}")
 
 
-@scenario("task_client_is_not_asked", "extensions, tasks")
+@scenario("task_client_is_not_asked", "extensions, tasks", chapter=7)
 def s_task_client_is_not_asked(c):
     """A request committed to a task handle must not answer input_required.
 
@@ -587,7 +597,7 @@ def s_task_client_is_not_asked(c):
         raise Failure(f"a task result must carry a taskId: {handle}")
 
 
-@scenario("directory_argument", "extensions")
+@scenario("directory_argument", "extensions", chapter=4)
 def s_directory_argument(c):
     """An explicit directory argument must complete without any round trip.
 
@@ -628,7 +638,7 @@ def s_directory_argument(c):
 
 # ------------------------------------------------- Subscriptions
 
-@scenario("subscriptions", "capabilities, flow-diagram")
+@scenario("subscriptions", "capabilities, flow-diagram", chapter=3)
 def s_subscriptions(c):
     listen_id = "listen:0"
     c.request(listen_id, "subscriptions/listen", {"notifications": {
@@ -664,9 +674,12 @@ def s_subscriptions(c):
 
 # ------------------------------------------------- Tasks extension
 
-@scenario("tasks", "tasks, flow-diagram")
+@scenario("tasks", "tasks, flow-diagram", chapter=7)
 def s_tasks(c):
     directory = make_keyword_dir()
+
+    if TASKS_EXTENSION not in discovered_extensions(c, "probe"):
+        raise Failure(f"{TASKS_EXTENSION} should be declared under capabilities.extensions")
 
     # Task creation is the server's decision now; params.task was removed and
     # a handle only ever goes to a client that declared the extension.
@@ -723,7 +736,7 @@ def s_tasks(c):
     c.expect_error("inspector-ext-99", code=INVALID_PARAMS)
 
 
-@scenario("tasks_input_required", "tasks, extensions")
+@scenario("tasks_input_required", "tasks, extensions", chapter=7)
 def s_tasks_input_required(c):
     """A task asks for input as a status, and tasks/update answers it.
 
@@ -784,7 +797,7 @@ def s_tasks_input_required(c):
     raise Failure(f"task {task_id} never resumed after tasks/update")
 
 
-@scenario("tasks_gated", "tasks")
+@scenario("tasks_gated", "tasks", chapter=7)
 def s_tasks_gated(c):
     directory = make_keyword_dir()
 
@@ -802,8 +815,11 @@ def s_tasks_gated(c):
 
 # ------------------------------------------------- MCP Apps
 
-@scenario("mcp_apps", "mcp-apps")
+@scenario("mcp_apps", "mcp-apps", chapter=6)
 def s_mcp_apps(c):
+    if UI_EXTENSION not in discovered_extensions(c, "probe"):
+        raise Failure(f"{UI_EXTENSION} should be declared under capabilities.extensions")
+
     c.request(1, "tools/list")
     tool = (c.expect_result(1).get("tools") or [{}])[0]
 
@@ -838,9 +854,9 @@ def s_mcp_apps(c):
 # ---------------------------------------------------------------- runner
 
 def run(names):
-    order = {name: (topic, fn) for name, topic, fn in SCENARIOS}
+    order = {name: (topic, fn) for name, topic, _, fn in SCENARIOS}
     if names == ["all"]:
-        names = [name for name, _, _ in SCENARIOS]
+        names = [name for name, _, _, _ in SCENARIOS]
     unknown = [n for n in names if n not in order]
     if unknown:
         print(f"unknown scenario(s): {unknown}; available: {list(order)}")
@@ -865,10 +881,21 @@ def run(names):
     return failures
 
 
+def reached(chapter_arg):
+    chapter = int(chapter_arg)
+    if not 3 <= chapter <= 7:
+        print(f"There is no harness for chapter {chapter_arg}: it starts at 03, the first "
+              "chapter whose server answers requests, and ends at 07.")
+        sys.exit(2)
+    return [name for name, _, first, _ in SCENARIOS if first <= chapter]
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if len(args) == 2 and args[0] == "--chapter":
+        sys.exit(run(reached(args[1])))
     if not args:
         print(__doc__)
-        print("scenarios:", " ".join(name for name, _, _ in SCENARIOS))
+        print("scenarios:", " ".join(name for name, _, _, _ in SCENARIOS))
         sys.exit(2)
     sys.exit(run(args))
