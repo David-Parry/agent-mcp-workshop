@@ -10,21 +10,15 @@ import java.util.List;
  * Builder for creating {@link ReadResourceResult} objects with a fluent API.
  * <p>
  * This builder simplifies the construction of ReadResourceResult objects that represent
- * the outcome of reading resources in the MCP system. It provides convenient methods
- * for adding resource contents and handling error states.
+ * the contents of resources read in the MCP system. A read that fails is not built
+ * here: it is answered with an error instead.
  * </p>
  * 
  * <p>Example usage:</p>
  * <pre>{@code
- * // Success result with multiple resources
  * ReadResourceResult result = ReadResourceResultBuilder.builder()
  *     .addTextContent("file:///doc1.txt", "text/plain", "Document content")
  *     .addTextContent("file:///doc2.json", "application/json", "{\"key\": \"value\"}")
- *     .build();
- * 
- * // Error result
- * ReadResourceResult error = ReadResourceResultBuilder.builder()
- *     .asError()
  *     .build();
  * }</pre>
  * 
@@ -34,7 +28,6 @@ import java.util.List;
  */
 public class ReadResourceResultBuilder {
     private List<TextReadResource> contents = new ArrayList<>();
-    private boolean isError = false;
 
     /**
      * Private constructor to enforce the use of the static builder method.
@@ -90,37 +83,11 @@ public class ReadResourceResultBuilder {
     }
 
     /**
-     * Sets whether this result represents an error.
-     * 
-     * @param isError true if this is an error result, false otherwise
-     * @return this builder instance for method chaining
-     */
-    public ReadResourceResultBuilder withError(boolean isError) {
-        this.isError = isError;
-        return this;
-    }
-
-    /**
-     * Marks this result as an error.
-     * <p>
-     * This is a convenience method equivalent to calling {@code withError(true)}.
-     * When a result is marked as an error, the contents list typically remains
-     * empty or contains error information.
-     * </p>
-     * 
-     * @return this builder instance for method chaining
-     */
-    public ReadResourceResultBuilder asError() {
-        this.isError = true;
-        return this;
-    }
-
-    /**
      * Builds and returns the final {@link ReadResourceResult} object.
      * 
-     * @return a new ReadResourceResult instance with the configured contents and error status
+     * @return a new ReadResourceResult instance with the configured contents
      */
     public ReadResourceResult build() {
-        return new ReadResourceResult(contents, isError);
+        return new ReadResourceResult(contents);
     }
 }

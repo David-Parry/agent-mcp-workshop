@@ -107,19 +107,17 @@ TOOLS_CALL_CH4 = '''
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
                 KeyWordSearch keyWordSearch = new KeyWordSearch();
-                if (toolCallParams.name() == null
-                    || !keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
-                    success(message.id(), ToolCallResultBuilder
-                            .builder()
-                            .addTextContent("Tool not found: " + toolCallParams.name())
-                            .asError()
-                            .build());
+                if (!keyWordSearch.name().equals(toolCallParams.name())) {
+                    logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
+                               + " (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
                 } else {
                     String directory = directoryArgument(toolCallParams);
                     if (directory == null) {
                         success(message.id(), ToolCallResultBuilder
                                 .builder()
-                                .addTextContent("The directory argument is required.")
+                                .addTextContent("No directory was given. Call key_word_search again with "
+                                                + "the directory to search.")
                                 .asError()
                                 .build());
                     } else {
@@ -133,8 +131,7 @@ RESOURCES_LIST_PLAIN = '''
             case RESOURCES_LIST -> {
                 ResourcesListResultBuilder builder = ResourcesListResultBuilder
                         .builder()
-                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
-                        .withNextCursor("pageNext");
+                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"));
                 ResourcesListResult result = builder.build();
                 success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
                                                               LIST_TTL_MILLIS, CacheScope.PUBLIC));
@@ -145,23 +142,23 @@ RESOURCES_READ_PLAIN = '''
             case RESOURCES_READ -> {
                 ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
                 String resourceUri = param.uri();
-                ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
                 if (resourceUri == null || resourceUri.isEmpty()) {
-                    builder
-                            .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
-                            .asError();
+                    logger.log("[API][SENT] resources/read — no uri (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "resources/read requires a uri");
                 } else {
                     try {
                         String content = JavadocResources.readResourceContent(resourceUri);
-                        builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, content);
-                    } catch (Exception e) {
-                        logger.log("[API][SENT] resources/read — error reading resource: " + resourceUri);
-                        builder.addTextContent(resourceUri, DEFAULT_MIME_TYPE, e.getMessage()).asError();
+                        ReadResourceResult result = ReadResourceResultBuilder.builder()
+                                .addTextContent(resourceUri, DEFAULT_MIME_TYPE, content)
+                                .build();
+                        success(message.id(), new ReadResourceResult(result.contents(),
+                                                                     LIST_TTL_MILLIS, CacheScope.PUBLIC));
+                    } catch (IOException e) {
+                        logger.log("[API][SENT] resources/read — " + e.getMessage() + " (returning -32602)");
+                        error(message.id(), ErrorCodes.INVALID_PARAMS, "Resource not found",
+                              Map.of("uri", resourceUri));
                     }
                 }
-                ReadResourceResult result = builder.build();
-                success(message.id(), new ReadResourceResult(result.contents(), result.isError(),
-                                                             LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
 '''
 
@@ -215,7 +212,6 @@ HANDLE_KEYWORD_SEARCH_CH5 = '''
 '''
 
 PASTE_FILES = {
-    4: {"lessons/JavadocResources.java", "lessons/KeyWordSearch.java"},
     5: {"lessons/SearchContinuation.java"},
     6: {"lessons/AppToolBuilder.java", "lessons/mcp-app.html"},
 }
@@ -510,7 +506,8 @@ def replace_case(text, label, new_block):
     start = m.start()
     open_brace = text.index("{", m.end() - 1)
     close = matching_brace(text, open_brace)
-    block = new_block.strip("\n") + "\n"
+    # The newline after the old closing brace stays, so the block brings none.
+    block = new_block.strip("\n")
     return text[:start] + block + text[close + 1:]
 
 
@@ -716,6 +713,7 @@ def strip_capabilities(text):
     ):
         text = remove_case(text, label)
     text = remove_method(text, "directoryArgument")
+    text = text.replace("import java.io.IOException;\n", "")
     text = text.replace("import com.workshop.mcp.resources.JavadocResources;\n", "")
     text = text.replace("import com.workshop.mcp.tools.KeyWordSearch;\n", "")
     text = text.replace("import java.util.List;\n", "")
@@ -933,8 +931,6 @@ def file_chapter(rel: str) -> int:
     m = re.match(r"lessons/0([1-7])-", rel)
     if m:
         return int(m.group(1))
-    if rel == "lessons/JavadocResources.java" or rel == "lessons/KeyWordSearch.java":
-        return 4
     if rel == "lessons/SearchContinuation.java":
         return 5
     if rel in {"lessons/AppToolBuilder.java", "lessons/mcp-app.html"}:
@@ -1010,12 +1006,29 @@ def strip_router_test_imports(text: str, chapter: int) -> str:
     return text
 
 
+def member_tags(text, pos):
+    """The chapters tagged on the run of annotation lines around pos."""
+    start = text.rfind("\n", 0, pos) + 1
+    while start > 0:
+        above = text.rfind("\n", 0, start - 1) + 1
+        if not text[above:start].strip().startswith("@"):
+            break
+        start = above
+    end = text.find("\n", pos) + 1
+    while end and text[end:text.find("\n", end) + 1].strip().startswith("@"):
+        end = text.find("\n", end) + 1
+    return [int(n) for n in re.findall(r'@Tag\("chapter(\d+)"\)', text[start:end])]
+
+
 def filter_tagged_members(text, chapter):
-    """Drop @Test methods and @Nested classes tagged for a later chapter."""
+    """Drop @Test methods and @Nested classes tagged for a later chapter.
+    A member tagged for several chapters ships from the first of them."""
     tag_re = re.compile(r'@Tag\("chapter(\d+)"\)')
+    dropped_from = len(text) + 1
     for m in reversed(list(tag_re.finditer(text))):
-        n = int(m.group(1))
-        if n <= chapter:
+        if m.start() >= dropped_from:
+            continue
+        if min(member_tags(text, m.start())) <= chapter:
             continue
         after = text[m.end():]
         look = re.match(r"(?:\s*@\w+(?:\([^;]*?\))?)*\s*(class|void|[\w.<>,\[\]]+\s+\w+\s*\()", after, re.S)
@@ -1050,6 +1063,7 @@ def filter_tagged_members(text, chapter):
         if end < len(text) and text[end] == "\n":
             end += 1
         text = text[:block_start] + text[end:]
+        dropped_from = block_start
     return text
 
 
@@ -1339,9 +1353,6 @@ def main():
     kws = SRC / "tools/KeyWordSearch.java"
     if kws.exists() and n < 5:
         kws.write_text(keyword_search_ch4(kws.read_text()))
-    lesson_kws = ROOT / "lessons/KeyWordSearch.java"
-    if lesson_kws.exists() and n < 5:
-        lesson_kws.write_text(keyword_search_ch4(lesson_kws.read_text()))
 
     # Chapter 07 finishes on complete's code, so it keeps complete's build:
     # every test, and the coverage gate the finished server has to meet.

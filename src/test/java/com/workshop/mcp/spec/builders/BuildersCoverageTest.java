@@ -175,8 +175,8 @@ class BuildersCoverageTest {
             CompletionCompleteResponse response = new CompletionCompleteBuilder().build();
 
             assertEquals(List.of(), response.completion().values());
-            assertEquals(1, response.total());
-            assertFalse(response.hasMore());
+            assertEquals(1, response.completion().total());
+            assertFalse(response.completion().hasMore());
         }
 
         @Test
@@ -196,8 +196,8 @@ class BuildersCoverageTest {
                     .build();
 
             assertEquals(List.of("alpha", "beta", "gamma", "delta"), response.completion().values());
-            assertEquals(42, response.total());
-            assertTrue(response.hasMore());
+            assertEquals(42, response.completion().total());
+            assertTrue(response.completion().hasMore());
         }
     }
 
@@ -696,7 +696,6 @@ class BuildersCoverageTest {
             assertEquals(new TextReadResource("ui://app/mcp-app.html", "text/html", "<html></html>"),
                          result.contents().get(0));
             assertEquals("notes", result.contents().get(1).text());
-            assertFalse(result.isError());
         }
 
         @Test
@@ -709,13 +708,6 @@ class BuildersCoverageTest {
 
             assertEquals(1, result.contents().size());
             assertEquals("kept", result.contents().get(0).text());
-        }
-
-        @Test
-        void asErrorAndWithErrorBothSetTheErrorFlag() {
-            assertTrue(ReadResourceResultBuilder.builder().asError().build().isError());
-            assertTrue(ReadResourceResultBuilder.builder().withError(true).build().isError());
-            assertFalse(ReadResourceResultBuilder.builder().asError().withError(false).build().isError());
         }
     }
 

@@ -101,7 +101,6 @@ public class CompletionCompleteBuilder {
      * @return a new CompletionCompleteResponse with the configured values
      */
     public CompletionCompleteResponse build() {
-        Completion completion = new Completion(values);
-        return new CompletionCompleteResponse(completion, total, hasMore);
+        return new CompletionCompleteResponse(new Completion(values, total, hasMore));
     }
 }

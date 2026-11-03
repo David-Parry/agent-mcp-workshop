@@ -538,14 +538,11 @@ class SpecTypesCoverageTest {
         void aResourceReadIsCompleteAndUnshareableUnlessToldOtherwise() {
             ReadResourceResult defaults = new ReadResourceResult(List.of(textResource()));
             assertEquals(ResultType.COMPLETE, defaults.resultType());
-            assertFalse(defaults.isError());
             assertEquals(CacheScope.DEFAULT_TTL_MS, defaults.ttlMs());
             assertEquals(CacheScope.PRIVATE, defaults.cacheScope());
 
-            assertTrue(new ReadResourceResult(List.of(), true).isError());
-
             ReadResourceResult cacheable =
-                    new ReadResourceResult(List.of(textResource()), false, 60_000L, CacheScope.PUBLIC);
+                    new ReadResourceResult(List.of(textResource()), 60_000L, CacheScope.PUBLIC);
             assertEquals(60_000L, cacheable.ttlMs());
             assertEquals(CacheScope.PUBLIC, cacheable.cacheScope());
         }
@@ -566,16 +563,18 @@ class SpecTypesCoverageTest {
         @Tag("chapter04")
         void aCompletionResponseCarriesNoFreshnessHintsBecauseItIsNotCacheable() {
             CompletionCompleteResponse response =
-                    new CompletionCompleteResponse(new Completion(List.of("search_keyword")), 1, false);
+                    new CompletionCompleteResponse(new Completion(List.of("search_keyword"), 1, false));
 
             assertEquals(ResultType.COMPLETE, response.resultType());
             assertEquals(List.of("search_keyword"), response.completion().values());
-            assertEquals(1, response.total());
-            assertEquals(Boolean.FALSE, response.hasMore());
+            assertEquals(1, response.completion().total());
+            assertEquals(Boolean.FALSE, response.completion().hasMore());
 
             String json = McpGson.create().toJson(response);
             assertFalse(json.contains("ttlMs"), json);
             assertFalse(json.contains("cacheScope"), json);
+            assertTrue(json.contains("\"completion\":{\"values\":[\"search_keyword\"],\"total\":1,\"hasMore\":false}"),
+                       "total and hasMore travel inside completion: " + json);
         }
     }
 

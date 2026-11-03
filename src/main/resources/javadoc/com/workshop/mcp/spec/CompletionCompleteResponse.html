@@ -93,12 +93,10 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Record Components:</dt>
 <dd><code><span id="param-resultType">resultType</span></code> - always <a href="ResultType.html#COMPLETE"><code>ResultType.COMPLETE</code></a></dd>
-<dd><code><span id="param-completion">completion</span></code> - the suggested completion values</dd>
-<dd><code><span id="param-total">total</span></code> - the total number of matches available, or null if unknown</dd>
-<dd><code><span id="param-hasMore">hasMore</span></code> - true when more values exist beyond those returned</dd>
+<dd><code><span id="param-completion">completion</span></code> - the suggested values, with their total and whether there are more</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">CompletionCompleteResponse</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType, <a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;total, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;hasMore)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">CompletionCompleteResponse</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType, <a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">The result of <code>completion/complete</code>.
  <p>
@@ -126,16 +124,12 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.Completion,java.lang.Integer,java.lang.Boolean)" class="member-name-link">CompletionCompleteResponse</a><wbr>(<a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;total,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;hasMore)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.Completion)" class="member-name-link">CompletionCompleteResponse</a><wbr>(<a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates a complete completion response.</div>
 </div>
-<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.lang.String,com.workshop.mcp.spec.Completion,java.lang.Integer,java.lang.Boolean)" class="member-name-link">CompletionCompleteResponse</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType,
- <a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;total,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;hasMore)</code></div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.lang.String,com.workshop.mcp.spec.Completion)" class="member-name-link">CompletionCompleteResponse</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType,
+ <a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion)</code></div>
 <div class="col-last odd-row-color">
 <div class="block">Creates an instance of a <code>CompletionCompleteResponse</code> record class.</div>
 </div>
@@ -168,25 +162,15 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hasMore()" class="member-name-link">hasMore</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resultType()" class="member-name-link">resultType</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Returns the value of the <a href="#param-hasMore"><code>hasMore</code></a> record component.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resultType()" class="member-name-link">resultType</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-resultType"><code>resultType</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Returns a string representation of this record class.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#total()" class="member-name-link">total</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Returns the value of the <a href="#param-total"><code>total</code></a> record component.</div>
+<div class="block">Returns a string representation of this record class.</div>
 </div>
 </div>
 </div>
@@ -206,34 +190,26 @@ loadScripts(document, 'script');</script>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.Completion,java.lang.Integer,java.lang.Boolean)">
+<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.Completion)">
 <h3>CompletionCompleteResponse</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CompletionCompleteResponse</span><wbr><span class="parameters">(<a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;total,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;hasMore)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CompletionCompleteResponse</span><wbr><span class="parameters">(<a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion)</span></div>
 <div class="block">Creates a complete completion response.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
-<dd><code>completion</code> - the suggested completion values</dd>
-<dd><code>total</code> - the total number of matches available, or null</dd>
-<dd><code>hasMore</code> - true when more values exist beyond those returned</dd>
+<dd><code>completion</code> - the suggested values, with their total and whether there are more</dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="&lt;init&gt;(java.lang.String,com.workshop.mcp.spec.Completion,java.lang.Integer,java.lang.Boolean)">
+<section class="detail" id="&lt;init&gt;(java.lang.String,com.workshop.mcp.spec.Completion)">
 <h3>CompletionCompleteResponse</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CompletionCompleteResponse</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resultType,
- <a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;total,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;hasMore)</span></div>
+ <a href="Completion.html" title="class in com.workshop.mcp.spec">Completion</a>&nbsp;completion)</span></div>
 <div class="block">Creates an instance of a <code>CompletionCompleteResponse</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>resultType</code> - the value for the <a href="#param-resultType"><code>resultType</code></a> record component</dd>
 <dd><code>completion</code> - the value for the <a href="#param-completion"><code>completion</code></a> record component</dd>
-<dd><code>total</code> - the value for the <a href="#param-total"><code>total</code></a> record component</dd>
-<dd><code>hasMore</code> - the value for the <a href="#param-hasMore"><code>hasMore</code></a> record component</dd>
 </dl>
 </section>
 </li>
@@ -305,28 +281,6 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <a href="#param-completion"><code>completion</code></a> record component</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="total()">
-<h3>total</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></span>&nbsp;<span class="element-name">total</span>()</div>
-<div class="block">Returns the value of the <a href="#param-total"><code>total</code></a> record component.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>the value of the <a href="#param-total"><code>total</code></a> record component</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="hasMore()">
-<h3>hasMore</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></span>&nbsp;<span class="element-name">hasMore</span>()</div>
-<div class="block">Returns the value of the <a href="#param-hasMore"><code>hasMore</code></a> record component.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>the value of the <a href="#param-hasMore"><code>hasMore</code></a> record component</dd>
 </dl>
 </section>
 </li>

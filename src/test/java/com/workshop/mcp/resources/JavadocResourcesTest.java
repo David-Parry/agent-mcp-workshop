@@ -57,6 +57,17 @@ class JavadocResourcesTest {
         assertEquals("Resource not found: no/such/page.html", failure.getMessage());
     }
 
+    @Test
+    void onlyHtmlPagesCanBeReadSoAClientCannotFetchTheServersOwnClasses() {
+        // Both are on the classpath: the class file outright, and the page
+        // once the class loader has resolved the "..".
+        for (String path : List.of("com/workshop/mcp/resources/JavadocResources.class",
+                                   "javadoc/com/workshop/mcp/../mcp/spec/Unknown.html")) {
+            IOException failure = assertThrows(IOException.class, () -> JavadocResources.readResourceContent(path));
+            assertEquals("Resource not found: " + path, failure.getMessage());
+        }
+    }
+
     // --- description extraction ----------------------------------------
 
     @Test

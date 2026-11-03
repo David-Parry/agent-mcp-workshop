@@ -8,22 +8,18 @@ package com.workshop.mcp.spec;
  * </p>
  *
  * @param resultType always {@link ResultType#COMPLETE}
- * @param completion the suggested completion values
- * @param total      the total number of matches available, or null if unknown
- * @param hasMore    true when more values exist beyond those returned
+ * @param completion the suggested values, with their total and whether there are more
  *
  * @see Completion
  * @since 1.0
  */
-public record CompletionCompleteResponse(String resultType, Completion completion, Integer total, Boolean hasMore) {
+public record CompletionCompleteResponse(String resultType, Completion completion) {
     /**
      * Creates a complete completion response.
      *
-     * @param completion the suggested completion values
-     * @param total      the total number of matches available, or null
-     * @param hasMore    true when more values exist beyond those returned
+     * @param completion the suggested values, with their total and whether there are more
      */
-    public CompletionCompleteResponse(Completion completion, Integer total, Boolean hasMore) {
-        this(ResultType.COMPLETE, completion, total, hasMore);
+    public CompletionCompleteResponse(Completion completion) {
+        this(ResultType.COMPLETE, completion);
     }
 }

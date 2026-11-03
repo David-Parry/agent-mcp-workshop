@@ -14,25 +14,27 @@ The Resources feature allows servers to expose various types of content that cli
   - Loads HTML Javadoc files from the JAR's classpath
   - Converts file paths into MCP Resource objects with meaningful names and descriptions
   - Uses JSoup to parse HTML and extract documentation summaries
-  - Handles resource reading with proper error management
+  - Reads only `.html` pages, and nothing whose path climbs with `..`, because the path arrives from the client
 
 - **RESOURCES_LIST Handler**: Implements the discovery mechanism:
   - Returns all available Javadoc HTML files from the MCP specification classes
   - Uses `ResourcesListResultBuilder` to construct the response
-  - Emits a `nextCursor` and the `ttlMs` / `cacheScope` hints every cacheable result must carry — see **Caching and Pagination** below, including why this server's placeholder cursor is not something to copy
+  - Carries the `ttlMs` / `cacheScope` hints every cacheable result must carry, and no `nextCursor`, because everything fits on one page — see **Caching and Pagination** below
+
+- **RESOURCES_TEMPLATES_LIST Handler**: Answers with an empty list. Clients ask for templates whenever a server declares the resources capability, so the method has to be answered even though this server has none
 
 - **RESOURCES_READ Handler**: Enables content retrieval:
   - Deserializes `ReadResourceParam` to get the requested resource URI
   - Reads HTML content from the classpath using `JavadocResources.readResourceContent()`
   - Returns the content with appropriate MIME type (`text/html`)
-  - Includes comprehensive error handling for missing or invalid resources
+  - Answers an empty uri, or one it cannot read, with `-32602` and the uri in `data`, never with empty `contents`
 
 ### 2. **Tools Capability Implementation**
 Tools provide executable functionality that clients can discover and invoke:
 
 - **KeyWordSearch Tool**: A practical example tool that:
-  - Searches for the supplied keyword across every file under the directories it is given
-  - Accepts two parameters defined by JSON Schema: `keyword` and `directory`, both required. A call without a directory is a tool-level error in this chapter; Chapter 5 turns that gap into a round-trip question
+  - Searches for the supplied keyword across every file under the directories it is given, skipping `logs/`, `build/`, `.git/` and `.gradle/`. The server's own log records every keyword it is asked for, so a search of its own project would otherwise find itself
+  - Accepts two parameters defined by JSON Schema: `keyword`, which is required, and `directory`, which is optional. In this chapter a call without a directory is a tool-level error; Chapter 5 turns that gap into a round-trip question
   - Returns structured results with file paths and occurrence counts
   - Demonstrates proper tool implementation patterns, and why a tool holds no state now that there is no session to hold its context in: the directories are a parameter of `call`, not a field, so a directory resolved for one call is unreachable from the next
 
@@ -43,9 +45,9 @@ Tools provide executable functionality that clients can discover and invoke:
 
 - **TOOLS_CALL Handler**: Executes tool invocations:
   - Deserializes `ToolCallParams` to identify which tool to execute
-  - Validates the tool name (case-insensitive for better UX)
+  - Matches the tool name exactly, because tool names are case-sensitive
   - Delegates to the tool's `call()` method for actual execution
-  - Returns clear error messages for unknown tools
+  - Answers an unknown tool with `-32602`, a protocol error, and a missing directory with `isError: true`, a tool error the model can read and act on
 
 ### 3. **Prompts Capability Implementation**
 Prompts create user-friendly templates that guide clients in using tools effectively:
@@ -54,13 +56,14 @@ Prompts create user-friendly templates that guide clients in using tools effecti
   - Creates a "search_keyword" prompt linked to the KeyWordSearch tool
   - Specifies required arguments with descriptions
   - Uses `PromptsListResultBuilder` to construct the response
-  - Enables intelligent client-side autocomplete and suggestions
 
-- **PROMPTS_GET Handler**: Generates interactive guidance:
-  - Returns contextual messages based on provided arguments
-  - Creates a conversation-like flow showing what will happen
-  - Adapts responses based on whether arguments are provided
-  - Bridges the gap between user intent and tool execution
+- **PROMPTS_GET Handler**: Expands the prompt:
+  - Returns one `user` message asking the model to run `key_word_search` for the keyword
+  - Answers an unknown prompt name, or a request without the required `keyword`, with `-32602`
+
+- **COMPLETION_COMPLETE Handler**: Suggests values for the `keyword` argument while the user types it:
+  - Returns the values with their `total` and `hasMore`, all three inside `completion`
+  - Answers a request with no argument to complete with `-32602`
 
 ### 4. **Caching and Pagination**
 
@@ -90,23 +93,16 @@ Three rules follow:
 2. **`cacheScope` MUST be uniform across all pages** of a given list request. If page one is `"private"`, every later page must be `"private"` too. This is the one place where the two fields behave differently, and it is the detail most worth remembering.
 3. **An invalid cursor invalidates everything.** If a previously good cursor starts erroring, the client SHOULD throw away *all* cached pages and re-fetch from the beginning. There is no cross-page consistency guarantee otherwise: if the underlying data shifts between fetches, a client can legitimately observe duplicates or gaps. Anyone needing a true snapshot re-fetches from the start, without a cursor.
 
-#### What this server does — and why not to copy it
+#### What this server does
 
-Look closely at the handler and you will find something the specification does not endorse:
+Both lists fit on one page, so neither carries a `nextCursor`. That absence is meaningful: `nextCursor` is present **only when more results exist**, and its absence is precisely how a client learns it has reached the end.
 
-```java
-.withNextCursor("pageNext");   // RESOURCES_LIST
-.withNextCursor("nextPage");   // PROMPTS_LIST
-```
-
-`nextCursor` is supposed to be present **only when more results exist**; its absence is precisely how a client learns it has reached the end. This server emits a hardcoded placeholder on every call and never reads an incoming `cursor` parameter back. A client that dutifully follows the cursor would be handed page one again, complete with the same cursor, forever.
-
-It is harmless in the workshop because the Inspector shows one page and stops. It is worth pointing at anyway, because it is a tidy illustration of two rules at once:
+An earlier version of this server sent a fixed placeholder cursor on every call and never read an incoming `cursor` back. A client that dutifully followed it was handed page one again, complete with the same cursor, forever. The Inspector hid that, because it shows one page and stops. Two rules come out of it:
 
 - **Emit `nextCursor` only when there is genuinely a next page.** Returning `null` — omitting it — is how you say "that was all."
 - **An empty string is a valid cursor.** Clients MUST NOT read `""` as the end of results; only an absent or null `nextCursor` means that. So "is the cursor falsy?" is the wrong test, in any language where the empty string is falsy.
 
-A server that paginates for real reads `params.cursor`, returns the matching slice, and answers an unrecognised cursor with `-32602` (Invalid params) rather than silently restarting.
+A server that paginates for real reads `params.cursor`, returns the matching slice, and answers an unrecognised cursor with `-32602` (Invalid params) rather than silently restarting. The chapter's first stretch builds exactly that.
 
 ## Architecture Integration
 
@@ -118,7 +114,7 @@ This lesson demonstrates how the three capabilities work together:
 
 The implementation shows important patterns:
 - **Builder Pattern**: All responses use builders for type-safe construction
-- **Error Handling**: Every handler includes proper error management
+- **Errors Versus Results**: A request naming something the server does not have gets `-32602`; a tool that ran and failed returns a result with `isError: true`
 - **Stateless Design**: Each request is independent with no session state
 - **Schema-Driven Interface**: Tools use JSON Schema for parameter definition
 - **Content Negotiation**: Resources include MIME types for proper handling
@@ -138,7 +134,7 @@ The implementation shows important patterns:
 Students will validate their implementation by:
 - **Resources**: Listing and reading Javadoc HTML files
 - **Tools**: Discovering and executing the keyword search tool
-- **Prompts**: Viewing available prompts and their argument requirements
+- **Prompts**: Viewing available prompts and their argument requirements, with completion suggestions while typing the keyword
 
 The Inspector will no longer show errors when clicking "List Resources", "List Tools", or "List Prompts" - all features are now fully functional.
 

@@ -123,6 +123,30 @@ class KeyWordSearchTest {
         assertEquals(1, tool.searchKeywordInDirectories(Set.of(root.toString()), KEYWORD).size());
     }
 
+    @Test
+    void logsBuildOutputAndVersionControlAreNotSearched() throws IOException {
+        // The server logs every request it receives, keyword included, so a
+        // search of its own project would otherwise find itself.
+        for (String skipped : List.of("logs", "build", ".git", ".gradle")) {
+            Files.createDirectories(root.resolve(skipped));
+            write(skipped + "/match.txt", KEYWORD);
+        }
+        write("source.txt", KEYWORD);
+
+        List<ContentItem> results = tool.searchKeywordInDirectories(Set.of(root.toString()), KEYWORD);
+
+        assertEquals(1, results.size(), results.toString());
+        assertTrue(results.get(0).text().contains("source.txt"), results.toString());
+    }
+
+    @Test
+    void aRootNamedLikeASkippedDirectoryIsStillSearched() throws IOException {
+        Path logs = Files.createDirectories(root.resolve("logs"));
+        write("logs/match.txt", KEYWORD);
+
+        assertEquals(1, tool.searchKeywordInDirectories(Set.of(logs.toString()), KEYWORD).size());
+    }
+
     // --- the directory argument -------------------------------------------
 
     @Test

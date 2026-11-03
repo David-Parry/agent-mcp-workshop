@@ -797,6 +797,10 @@ class IORouterTest {
 
     @Test
     @Tag("chapter03")
+    @Tag("chapter04")
+    @Tag("chapter05")
+    @Tag("chapter06")
+    @Tag("chapter07")
     void everyMethodTheServerAcceptsIsActuallyAnswered() throws Exception {
         // The registry that decides what is not -32601 and the switch that
         // handles what got past it are two lists that have to agree. There is
@@ -804,6 +808,8 @@ class IORouterTest {
         // that can cause it is an edit to IORouter — so it is checked here.
         // Without this, adding a method to the registry and forgetting the
         // switch arm would accept the request and answer nothing at all.
+        // Each chapter from 03 on adds to what the switch answers, so the
+        // check belongs to all of them.
         Field field = IORouter.class.getDeclaredField("INBOUND_METHODS");
         field.setAccessible(true);
         @SuppressWarnings("unchecked")
@@ -828,16 +834,31 @@ class IORouterTest {
 
     @Test
     @Tag("chapter04")
-    void aPromptWithArgumentsThatNameNoKeywordDoesNotSendTheModelAfterTheWordNull() {
-        router.route("""
-                {"jsonrpc":"2.0","id":59,"method":"prompts/get",
-                 "params":{%s,"name":"search_keyword","arguments":{"unexpected":"value"}}}"""
-                             .formatted(FULL_META));
+    void aPromptWithoutItsRequiredKeywordIsInvalidParams() {
+        // Answering anyway would send the model off to search for nothing,
+        // or for the word null.
+        for (String arguments : List.of("{\"unexpected\":\"value\"}", "{\"keyword\":\"   \"}")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":59,"method":"prompts/get",
+                     "params":{%s,"name":"search_keyword","arguments":%s}}""".formatted(FULL_META, arguments));
 
-        String text = io.only().getAsJsonObject("result").getAsJsonArray("messages").get(0).getAsJsonObject()
-                .getAsJsonObject("content").get("text").getAsString();
-        assertFalse(text.contains("'null'"), "the prompt told the model to search for the word null: " + text);
-        assertTrue(text.endsWith("keyword:"), "" + text);
+            JsonObject error = io.onlyError();
+            assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt(), arguments);
+            assertTrue(error.get("message").getAsString().contains("keyword"), error.toString());
+        }
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aPromptThisServerDoesNotHaveIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":62,"method":"prompts/get",
+                 "params":{%s,"name":"no_such_prompt","arguments":{"keyword":"x"}}}""".formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("Unknown prompt: no_such_prompt", error.get("message").getAsString());
     }
 
     @Test
@@ -996,6 +1017,20 @@ class IORouterTest {
 
     @Test
     @Tag("chapter04")
+    void aListThatFitsOnOnePageOffersNoCursorToANextOne() {
+        // A client follows nextCursor until it is absent. This server ignores
+        // the cursor it is sent, so offering one would page it in a loop.
+        for (String method : List.of("prompts/list", "resources/list")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":23,"method":"%s","params":{%s}}""".formatted(method, FULL_META));
+
+            assertNull(io.only().getAsJsonObject("result").get("nextCursor"), method + " offered a second page");
+        }
+    }
+
+    @Test
+    @Tag("chapter04")
     void resourcesListServesTheJavadocPages() {
         router.route("""
                 {"jsonrpc":"2.0","id":21,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
@@ -1050,35 +1085,46 @@ class IORouterTest {
     void readingAJavadocPageReturnsItsMarkup() {
         router.route(read(24, "javadoc/com/workshop/mcp/spec/RequestId.html"));
 
-        assertFalse(io.only().getAsJsonObject("result").get("isError").getAsBoolean());
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertNull(result.get("isError"), "isError belongs to tool results, not to resources/read");
         assertTrue(firstContent().get("text").getAsString().contains("RequestId"));
     }
 
     @Test
     @Tag("chapter04")
-    void readingAResourceThatIsNotThereIsAnErrorResultRatherThanAProtocolError() {
+    void readingAResourceThatIsNotThereIsInvalidParamsNamingTheUri() {
         router.route(read(25, "javadoc/com/workshop/mcp/spec/NoSuchPage.html"));
 
-        JsonObject result = io.only().getAsJsonObject("result");
-        assertNull(io.only().get("error"), "a missing resource is a tool-level failure, not -32602");
-        assertTrue(result.get("isError").getAsBoolean());
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt(),
+                     "-32602, the code that replaced the retired -32002");
+        assertEquals("javadoc/com/workshop/mcp/spec/NoSuchPage.html",
+                     error.getAsJsonObject("data").get("uri").getAsString());
     }
 
     @Test
     @Tag("chapter04")
-    void readingWithAnEmptyUriIsRejectedAsAnErrorResult() {
+    void readingSomethingOnTheClasspathThatIsNotAPageIsNotFound() {
+        router.route(read(26, "com/workshop/mcp/IORouter.class"));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void readingWithAnEmptyUriIsInvalidParams() {
         router.route(read(26, ""));
 
-        assertTrue(io.only().getAsJsonObject("result").get("isError").getAsBoolean());
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
 
     @Test
     @Tag("chapter04")
-    void readingWithNoUriAtAllIsRejectedAsAnErrorResult() {
+    void readingWithNoUriAtAllIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":27,"method":"resources/read","params":{%s}}""".formatted(FULL_META));
 
-        assertTrue(io.only().getAsJsonObject("result").get("isError").getAsBoolean());
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
 
     @Test
@@ -1087,34 +1133,46 @@ class IORouterTest {
         router.route(complete(28, "keyword"));
 
         JsonObject result = io.only().getAsJsonObject("result");
-        assertEquals(3, result.get("total").getAsInt());
-        assertTrue(result.get("hasMore").getAsBoolean());
-        assertEquals(3, result.getAsJsonObject("completion").getAsJsonArray("values").size());
+        JsonObject completion = result.getAsJsonObject("completion");
+        assertEquals(3, completion.getAsJsonArray("values").size());
+        assertEquals(3, completion.get("total").getAsInt());
+        assertFalse(completion.get("hasMore").getAsBoolean(), "all three were sent, so there are no more");
+        assertNull(result.get("total"), "total belongs inside completion");
+        assertNull(result.get("hasMore"), "hasMore belongs inside completion");
     }
 
     @Test
     @Tag("chapter04")
-    void completingAnyOtherArgumentOffersTheSingleFallback() {
+    void completingAnyOtherArgumentOffersNothing() {
         router.route(complete(29, "something-else"));
 
-        JsonObject result = io.only().getAsJsonObject("result");
-        assertEquals(1, result.get("total").getAsInt());
-        assertFalse(result.get("hasMore").getAsBoolean());
+        JsonObject completion = io.only().getAsJsonObject("result").getAsJsonObject("completion");
+        assertTrue(completion.getAsJsonArray("values").isEmpty());
+        assertEquals(0, completion.get("total").getAsInt());
     }
 
     // --- tools/call argument handling ------------------------------------
 
     @Test
     @Tag("chapter04")
-    void callingAToolThisServerDoesNotHaveIsAnErrorResult() {
+    void callingAToolThisServerDoesNotHaveIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":30,"method":"tools/call",
                  "params":{%s,"name":"nope","arguments":{}}}""".formatted(FULL_META));
 
-        JsonObject result = io.only().getAsJsonObject("result");
-        assertTrue(result.get("isError").getAsBoolean());
-        assertTrue(result.getAsJsonArray("content").get(0).getAsJsonObject()
-                           .get("text").getAsString().contains("nope"));
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("Unknown tool: nope", error.get("message").getAsString());
+    }
+
+    @Test
+    @Tag("chapter04")
+    void toolNamesAreMatchedCaseSensitively() {
+        router.route("""
+                {"jsonrpc":"2.0","id":30,"method":"tools/call",
+                 "params":{%s,"name":"Key_Word_Search","arguments":{"keyword":"x"}}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
 
     @Test

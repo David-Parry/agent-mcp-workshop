@@ -168,7 +168,7 @@ jacocoTestCoverageVerification {
             }
         }
 
-        // IORouter is fully covered on instructions, and on 129 of its 130
+        // IORouter is fully covered on instructions, and on 137 of its 138
         // branches. The odd one out is not code anyone wrote: javac emits a
         // default target for a switch over an enum even when every value that
         // can reach it is handled, and JaCoCo counts that synthetic target as
@@ -176,9 +176,8 @@ jacocoTestCoverageVerification {
         // arrive at it.
         //
         // Keep the floor loose enough for that one branch but tight enough to
-        // catch a second: 0.99 of 130 admits exactly one miss, and the branch
-        // count shrinks whenever code leaves this class, so a stale floor
-        // silently buys slack. It was 135 branches before the roots removal.
+        // catch a second: 0.99 admits exactly one miss while the class has
+        // between 100 and 199 branches.
         rule {
             element = 'CLASS'
             includes = ['com.workshop.mcp.IORouter']

@@ -94,21 +94,15 @@ loadScripts(document, 'script');</script>
 <div class="block">Builder for creating <a href="../ReadResourceResult.html" title="class in com.workshop.mcp.spec"><code>ReadResourceResult</code></a> objects with a fluent API.
  <p>
  This builder simplifies the construction of ReadResourceResult objects that represent
- the outcome of reading resources in the MCP system. It provides convenient methods
- for adding resource contents and handling error states.
+ the contents of resources read in the MCP system. A read that fails is not built
+ here: it is answered with an error instead.
  </p>
  
  <p>Example usage:</p>
  <pre><code>
- // Success result with multiple resources
  ReadResourceResult result = ReadResourceResultBuilder.builder()
      .addTextContent("file:///doc1.txt", "text/plain", "Document content")
      .addTextContent("file:///doc2.json", "application/json", "{\"key\": \"value\"}")
-     .build();
- 
- // Error result
- ReadResourceResult error = ReadResourceResultBuilder.builder()
-     .asError()
      .build();
  </code></pre></div>
 <dl class="notes">
@@ -148,30 +142,20 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Adds a text resource with the specified properties.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#asError()" class="member-name-link">asError</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../ReadResourceResult.html" title="class in com.workshop.mcp.spec">ReadResourceResult</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#build()" class="member-name-link">build</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Marks this result as an error.</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="../ReadResourceResult.html" title="class in com.workshop.mcp.spec">ReadResourceResult</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#build()" class="member-name-link">build</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Builds and returns the final <a href="../ReadResourceResult.html" title="class in com.workshop.mcp.spec"><code>ReadResourceResult</code></a> object.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#builder()" class="member-name-link">builder</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#builder()" class="member-name-link">builder</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
 <div class="block">Creates a new ReadResourceResultBuilder instance.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withContents(java.util.List)" class="member-name-link">withContents</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Sets the complete list of resource contents, replacing any existing contents.</div>
-</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withError(boolean)" class="member-name-link">withError</a><wbr>(boolean&nbsp;isError)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withContents(java.util.List)" class="member-name-link">withContents</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="../TextReadResource.html" title="class in com.workshop.mcp.spec">TextReadResource</a>&gt;&nbsp;contents)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Sets whether this result represents an error.</div>
+<div class="block">Sets the complete list of resource contents, replacing any existing contents.</div>
 </div>
 </div>
 </div>
@@ -248,42 +232,13 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
-<section class="detail" id="withError(boolean)">
-<h3>withError</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></span>&nbsp;<span class="element-name">withError</span><wbr><span class="parameters">(boolean&nbsp;isError)</span></div>
-<div class="block">Sets whether this result represents an error.</div>
-<dl class="notes">
-<dt>Parameters:</dt>
-<dd><code>isError</code> - true if this is an error result, false otherwise</dd>
-<dt>Returns:</dt>
-<dd>this builder instance for method chaining</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="asError()">
-<h3>asError</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="ReadResourceResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ReadResourceResultBuilder</a></span>&nbsp;<span class="element-name">asError</span>()</div>
-<div class="block">Marks this result as an error.
- <p>
- This is a convenience method equivalent to calling <code>withError(true)</code>.
- When a result is marked as an error, the contents list typically remains
- empty or contains error information.
- </p></div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>this builder instance for method chaining</dd>
-</dl>
-</section>
-</li>
-<li>
 <section class="detail" id="build()">
 <h3>build</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../ReadResourceResult.html" title="class in com.workshop.mcp.spec">ReadResourceResult</a></span>&nbsp;<span class="element-name">build</span>()</div>
 <div class="block">Builds and returns the final <a href="../ReadResourceResult.html" title="class in com.workshop.mcp.spec"><code>ReadResourceResult</code></a> object.</div>
 <dl class="notes">
 <dt>Returns:</dt>
-<dd>a new ReadResourceResult instance with the configured contents and error status</dd>
+<dd>a new ReadResourceResult instance with the configured contents</dd>
 </dl>
 </section>
 </li>

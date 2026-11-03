@@ -540,6 +540,35 @@ def s_uncacheable_results(c):
 
     if "java" not in ((completion.get("completion") or {}).get("values") or []):
         raise Failure(f"completion/complete should still offer 'java': {completion}")
+    for field in ("total", "hasMore"):
+        if field in completion:
+            raise Failure(f"{field} belongs inside completion, not beside it: {completion}")
+
+
+@scenario("unknown_names", "capabilities, protocol", chapter=4)
+def s_unknown_names(c):
+    # Naming a tool, prompt or resource the server does not have is a bad
+    # parameter, not a result that reports failure. Resource-not-found used to
+    # be -32002, which this revision retired in favour of -32602.
+    unknown = [
+        ("tools/call", {"name": "no_such_tool", "arguments": {}}),
+        ("tools/call", {"name": "KEY_WORD_SEARCH", "arguments": {"keyword": "x"}}),
+        ("prompts/get", {"name": "no_such_prompt", "arguments": {"keyword": "x"}}),
+        ("prompts/get", {"name": "search_keyword", "arguments": {}}),
+        ("resources/read", {"uri": "javadoc/com/workshop/mcp/spec/NoSuchPage.html"}),
+        ("resources/read", {"uri": ""}),
+    ]
+    for i, (method, params) in enumerate(unknown):
+        c.request(40 + i, method, params)
+        c.expect_error(40 + i, code=INVALID_PARAMS)
+
+    # A client pages until nextCursor is absent. This server has one page and
+    # ignores the cursor it is sent, so offering one would loop the client.
+    for i, method in enumerate(("prompts/list", "resources/list")):
+        c.request(50 + i, method)
+        result = c.expect_result(50 + i)
+        if "nextCursor" in result:
+            raise Failure(f"{method} has one page and must not offer a nextCursor: {result.get('nextCursor')}")
 
 
 # ------------------------------------------------- Multi Round-Trip Requests

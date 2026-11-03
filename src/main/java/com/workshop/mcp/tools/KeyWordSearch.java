@@ -48,6 +48,12 @@ import java.util.stream.Stream;
 public class KeyWordSearch implements Tool {
     private static final LogFile logger = LogFileWriter.getInstance();
     private static final String FILE_PREFIX = "file://";
+    /**
+     * Directories the search never descends into below its root: build output,
+     * version-control metadata, and the server's own logs, which record every
+     * keyword it is asked for and would otherwise match each search.
+     */
+    private static final Set<String> SKIPPED_DIRECTORIES = Set.of("logs", "build", ".git", ".gradle");
 
     @Override
     public String name() {
@@ -144,6 +150,13 @@ public class KeyWordSearch implements Tool {
                 // is never descended into — yielding zero matches. Resolve the link first.
                 Path realRoot = rootPath.toRealPath();
                 Files.walkFileTree(realRoot, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                        boolean skipped = !dir.equals(realRoot)
+                                          && SKIPPED_DIRECTORIES.contains(dir.getFileName().toString());
+                        return skipped ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
+                    }
+
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                         // Skip binary files, hidden files, and archive files

@@ -14,6 +14,7 @@ import com.workshop.mcp.tasks.TaskStore;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.SearchContinuation;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -250,21 +251,29 @@ public class IORouter implements Router {
                         .builder()
                         .withPrompt("search_keyword",
                                     "Creates a prompt, to search for a word using the key_word_search tool.")
-                        .withPromptArgument("keyword", "The word to search for", true)
-                        .withNextCursor("nextPage");
+                        .withPromptArgument("keyword", "The word to search for", true);
                 PromptsListResult result = builder.build();
                 success(message.id(), new PromptsListResult(result.prompts(), result.nextCursor(),
                                                             LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case PROMPTS_GET -> {
-                // For the sake of the lesson we are dealing with a single prompt if we had more than one we would
-                // need to look it up
+                // There is a single prompt, so any other name is unknown. With
+                // more than one, the name would be looked up instead.
                 PromptsGetParams params = deserializer.deserializeParams(message, PromptsGetParams.class);
-                PromptsGetResultBuilder builder = PromptsGetResultBuilder
-                        .builder()
-                        .withDescription("keyword")
-                        .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
-                success(message.id(), builder.build());
+                String keyword = params.arguments() == null ? null : params.arguments().get("keyword");
+                if (!"search_keyword".equals(params.name())) {
+                    logger.log("[API][SENT] prompts/get — unknown prompt " + params.name() + " (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown prompt: " + params.name());
+                } else if (keyword == null || keyword.isBlank()) {
+                    logger.log("[API][SENT] prompts/get — no keyword argument (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Missing required argument: keyword");
+                } else {
+                    PromptsGetResultBuilder builder = PromptsGetResultBuilder
+                            .builder()
+                            .withDescription("keyword")
+                            .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
+                    success(message.id(), builder.build());
+                }
             }
             case TOOLS_LIST -> {
                 KeyWordSearch keyWordSearch = new KeyWordSearch();
@@ -279,12 +288,10 @@ public class IORouter implements Router {
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
                 KeyWordSearch keyWordSearch = new KeyWordSearch();
-                if (!keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
-                    success(message.id(), ToolCallResultBuilder
-                            .builder()
-                            .addTextContent("Tool not found: " + toolCallParams.name())
-                            .asError()
-                            .build());
+                if (!keyWordSearch.name().equals(toolCallParams.name())) {
+                    logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
+                               + " (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
                 } else {
                     handleKeywordSearch(message.id(), toolCallParams, envelope);
                 }
@@ -346,8 +353,7 @@ public class IORouter implements Router {
                                 .withName("Keyword Search App")
                                 .withDescription("Interactive keyword search results dashboard")
                                 .withMimeType(Resource.MIME_TYPE_UI_APP)
-                                .build())
-                        .withNextCursor("pageNext");
+                                .build());
                 ResourcesListResult result = builder.build();
                 success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
                                                               LIST_TTL_MILLIS, CacheScope.PUBLIC));
@@ -361,11 +367,9 @@ public class IORouter implements Router {
             case RESOURCES_READ -> {
                 ReadResourceParam param = deserializer.deserializeParams(message, ReadResourceParam.class);
                 String resourceUri = param.uri();
-                ReadResourceResultBuilder builder = ReadResourceResultBuilder.builder();
                 if (resourceUri == null || resourceUri.isEmpty()) {
-                    builder
-                            .addTextContent("", DEFAULT_MIME_TYPE, "Resource URI is null or empty, returning error.")
-                            .asError();
+                    logger.log("[API][SENT] resources/read — no uri (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "resources/read requires a uri");
                 } else {
                     // The app is the one resource whose uri is not also its
                     // classpath path, but it is read and reported like any
@@ -375,15 +379,17 @@ public class IORouter implements Router {
                     try {
                         String content = JavadocResources.readResourceContent(
                                 isApp ? "lesson/mcp-app.html" : resourceUri);
-                        builder.addTextContent(resourceUri, mimeType, content);
-                    } catch (Exception e) {
-                        logger.log("[API][SENT] resources/read — error reading resource: " + resourceUri);
-                        builder.addTextContent(resourceUri, mimeType, e.getMessage()).asError();
+                        ReadResourceResult result = ReadResourceResultBuilder.builder()
+                                .addTextContent(resourceUri, mimeType, content)
+                                .build();
+                        success(message.id(), new ReadResourceResult(result.contents(),
+                                                                     LIST_TTL_MILLIS, CacheScope.PUBLIC));
+                    } catch (IOException e) {
+                        logger.log("[API][SENT] resources/read — " + e.getMessage() + " (returning -32602)");
+                        error(message.id(), ErrorCodes.INVALID_PARAMS, "Resource not found",
+                              Map.of("uri", resourceUri));
                     }
                 }
-                ReadResourceResult result = builder.build();
-                success(message.id(), new ReadResourceResult(result.contents(), result.isError(),
-                                                             LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case COMPLETION_COMPLETE -> {
                 CompletionCompleteParams params = deserializer.deserializeParams(message,
@@ -392,13 +398,13 @@ public class IORouter implements Router {
                 if (argument == null) {
                     logger.log("[API][SENT] completion/complete — no argument to complete (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "completion/complete requires an argument");
-                } else if ("keyword".equalsIgnoreCase(argument.name())) {
+                } else if ("keyword".equals(argument.name())) {
                     // Simulating a keyword search completion
                     CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
-                    response.value("the").value("and").total(3).hasMore(true);
+                    response.value("the").value("and").total(3).hasMore(false);
                     success(message.id(), response.build());
                 } else {
-                    success(message.id(), CompletionCompleteBuilder.withValue("java").total(1).hasMore(false).build());
+                    success(message.id(), new CompletionCompleteBuilder().total(0).hasMore(false).build());
                 }
             }
             case SUBSCRIPTIONS_LISTEN -> acknowledgeSubscription(message);
@@ -644,11 +650,6 @@ public class IORouter implements Router {
                                   null, null);
     }
 
-    private String directoryArgument(ToolCallParams params) {
-        String directory = params.arguments() == null ? null : params.arguments().get("directory");
-        return directory == null || directory.isBlank() ? null : directory;
-    }
-
     private String keywordArgument(ToolCallParams params) {
         return params.arguments() == null ? null : params.arguments().get("keyword");
     }
@@ -689,6 +690,11 @@ public class IORouter implements Router {
 
     private void process(JsonRpcErrorResponse message) {
         logger.log("[API][RECEIVED] error from client: " + message);
+    }
+
+    private String directoryArgument(ToolCallParams params) {
+        String directory = params.arguments() == null ? null : params.arguments().get("directory");
+        return directory == null || directory.isBlank() ? null : directory;
     }
 
     /**

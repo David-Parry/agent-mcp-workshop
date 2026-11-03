@@ -61,12 +61,21 @@ public class JavadocResources {
     /**
      * Reads the content of an HTML resource from the classpath.
      * This uses the standard Java way to read resources from the same JAR.
+     * <p>
+     * The path usually comes straight from a client's {@code resources/read},
+     * so anything that is not an HTML page, or that climbs with {@code ..}, is
+     * reported as not found rather than read: the classpath also holds the
+     * server's classes and configuration.
+     * </p>
      * 
      * @param resourcePath the path to the resource (e.g., "javadoc/index.html")
      * @return the content of the HTML file as a String
      * @throws IOException if the resource cannot be read
      */
     public static String readResourceContent(String resourcePath) throws IOException {
+        if (!resourcePath.endsWith(".html") || resourcePath.contains("..")) {
+            throw new IOException("Resource not found: " + resourcePath);
+        }
         // Use getResourceAsStream to read from classpath (works in JAR)
         try (InputStream inputStream = JavadocResources.class.getClassLoader()
                                                              .getResourceAsStream(resourcePath)) {
