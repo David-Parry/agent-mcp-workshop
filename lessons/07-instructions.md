@@ -4,7 +4,7 @@
 
 In this lesson a search can run as a **task**. The server answers `tools/call` at once with a handle instead of holding the request open, runs the search in the background, and the client polls for the outcome with `tasks/get`. A task that still needs to know where to search asks for it as its status, and the client answers with `tasks/update`.
 
-Tasks are an official extension, `io.modelcontextprotocol/tasks`, and its `2026-07-28` version is **Stable**. They began as an experimental feature of the `2025-11-25` specification, and SEP-2663 moved them out of the core protocol and reshaped them on the way; `lessons/07-overview.md` lists what changed. The extension adds three methods: `tasks/get`, `tasks/update` and `tasks/cancel`.
+Tasks are an official extension, `io.modelcontextprotocol/tasks`, at the **Beta** stage and headed for core. They began as an experimental feature of the `2025-11-25` specification, and SEP-2663 moved them out of the core protocol and reshaped them on the way; `lessons/07-overview.md` lists what changed. The extension adds three methods: `tasks/get`, `tasks/update` and `tasks/cancel`.
 
 The records, the extension's declaration, the decision to answer with a handle and the threads the work runs on are already on this branch. You write:
 

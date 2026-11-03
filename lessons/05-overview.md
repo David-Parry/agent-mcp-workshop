@@ -79,7 +79,7 @@ Official extensions live in the MCP GitHub organization in repositories prefixed
 | Extension | Identifier | Stage | What it does |
 |-----------|-----------|-------|--------------|
 | OAuth Client Credentials | `io.modelcontextprotocol/oauth-client-credentials` | Stable | Machine-to-machine auth for servers calling protected APIs on their own behalf |
-| Enterprise-Managed Authorization | *(see ext-auth)* | Stable | Centralized, auditable access control through corporate identity providers |
+| Enterprise-Managed Authorization | `io.modelcontextprotocol/enterprise-managed-authorization` | Stable | Centralized, auditable access control through corporate identity providers |
 | MCP Apps | `io.modelcontextprotocol/ui` | **Stable** | Interactive UI inline in conversations — charts, forms, media players. **Chapter 6's subject.** |
 | MCP Tasks | `io.modelcontextprotocol/tasks` | **Beta, to Core** | Async execution for long-running work: polling, mid-flight input, durable handles. **Chapter 7's subject.** |
 | Skills over MCP | `io.modelcontextprotocol/skills` | Beta | Serve Agent Skills — workflow instructions and supporting files — through Resources |

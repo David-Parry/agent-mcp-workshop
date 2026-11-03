@@ -4,7 +4,7 @@
 
 Make the workshop server speak the **`io.modelcontextprotocol/tasks` extension**, which turns a long-running call into one the client polls. Instead of holding a request open for minutes, your server hands back a **task handle** at once, runs the work in the background, and lets the client poll or cancel on its own schedule.
 
-> **Spec reference:** tasks began as [SEP-1686](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1686), an **experimental** feature of the `2025-11-25` specification. [SEP-2663](https://github.com/modelcontextprotocol/ext-tasks/blob/main/seps/2663-tasks-extension.md) moved them **out of the core protocol** into an official extension and reshaped them on the way. The extension's `2026-07-28` version is **Stable**: [https://modelcontextprotocol.io/extensions/tasks/overview](https://modelcontextprotocol.io/extensions/tasks/overview)
+> **Spec reference:** tasks began as [SEP-1686](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1686), an **experimental** feature of the `2025-11-25` specification. [SEP-2663](https://github.com/modelcontextprotocol/ext-tasks/blob/main/seps/2663-tasks-extension.md) moved them **out of the core protocol** into an official extension and reshaped them on the way. The extension is at the **Beta** stage, headed for core, as the [extensions overview](https://modelcontextprotocol.io/extensions/overview) lists it: [https://modelcontextprotocol.io/extensions/tasks/overview](https://modelcontextprotocol.io/extensions/tasks/overview)
 
 ## What Changed on 2026-07-28
 
