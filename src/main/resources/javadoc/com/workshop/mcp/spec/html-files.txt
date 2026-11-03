@@ -15,9 +15,6 @@ javadoc/com/workshop/mcp/spec/DiscoverResult.html
 javadoc/com/workshop/mcp/spec/Elicitation.html
 javadoc/com/workshop/mcp/spec/ElicitationCreateParams.html
 javadoc/com/workshop/mcp/spec/ElicitationCreateResult.html
-javadoc/com/workshop/mcp/spec/ElicitationMessage.html
-javadoc/com/workshop/mcp/spec/ElicitationQuestion.html
-javadoc/com/workshop/mcp/spec/ElicitationResult.html
 javadoc/com/workshop/mcp/spec/ErrorCodes.html
 javadoc/com/workshop/mcp/spec/InputRequest.html
 javadoc/com/workshop/mcp/spec/InputRequiredResult.html

@@ -183,6 +183,10 @@ loadScripts(document, 'script');</script>
  <code>InputRequiredResult</code> rather than sent as a request, the answer
  arrives on the client's retry of the original <code>tools/call</code> — the
  server does not store it, since there is no session to store it in.
+ </p>
+ <p>
+ The schema's maps keep the order their fields are put in, so every run
+ of the server sends the same bytes.
  </p></div>
 <dl class="notes">
 <dt>Returns:</dt>

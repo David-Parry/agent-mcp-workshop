@@ -21,8 +21,10 @@ import org.junit.jupiter.api.Timeout;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -452,11 +454,28 @@ class IORouterTest {
         assertNull(embedded.get("id"), "an embedded request carries no JSON-RPC id");
         assertNull(embedded.get("jsonrpc"), "an embedded request carries no JSON-RPC version");
 
-        // The keyword survives in the continuation state, since there is no
-        // session to hold it in.
+        // The state records only that the question was asked. The keyword
+        // comes back with the retried call's own arguments.
         SearchContinuation state = SearchContinuation.decode(result.get("requestState").getAsString());
-        assertEquals("record", state.keyword());
-        assertEquals(SearchContinuation.STAGE_DIRECTORY, state.stage());
+        assertEquals(SearchContinuation.awaitingDirectory(), state);
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aRetrySearchesForItsOwnKeywordArgumentAndNotOneInTheState(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        // A client can send any requestState it likes. This one names a
+        // keyword the retried call's arguments do not.
+        String planted = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "{\"keyword\":\"absent\",\"stage\":\"directory\"}".getBytes(StandardCharsets.UTF_8));
+        router.route(toolCall(6, planted, """
+                "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
+
+        JsonArray content = io.only().getAsJsonObject("result").getAsJsonArray("content");
+        assertEquals(1, content.size(), "the search must look for the argument's keyword, record");
+        assertTrue(content.get(0).getAsJsonObject().get("text").getAsString().endsWith("keyword_count=1"));
     }
 
     @Test
@@ -465,7 +484,7 @@ class IORouterTest {
         // The stage on the continuation is what stops the server asking the
         // same thing again when the answer was unusable. Without it a client
         // that declined the form would be handed the same form forever.
-        String state = SearchContinuation.awaitingDirectory("record").encode();
+        String state = SearchContinuation.awaitingDirectory().encode();
         router.route(toolCall(3, state, """
                 "search_directory":{"action":"decline"}"""));
 
@@ -479,7 +498,7 @@ class IORouterTest {
     void anElicitedDirectoryRunsTheSearch(@org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
 
-        String state = SearchContinuation.awaitingDirectory("record").encode();
+        String state = SearchContinuation.awaitingDirectory().encode();
         router.route(toolCall(4, state, """
                 "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
 
@@ -491,7 +510,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void aDeclinedElicitationFallsBackToTheWorkingDirectory() {
-        String state = SearchContinuation.awaitingDirectory("record").encode();
+        String state = SearchContinuation.awaitingDirectory().encode();
         router.route(toolCall(5, state, """
                 "search_directory":{"action":"decline"}"""));
 
@@ -514,6 +533,21 @@ class IORouterTest {
         assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
         assertFalse(result.get("isError").getAsBoolean(),
                     "a client that cannot be asked still gets a search, rooted at the working directory");
+    }
+
+    @Test
+    @Tag("chapter05")
+    void anElicitationDeclarationThatNamesNoModeIsShownTheForm() {
+        // An empty elicitation object is how a client declared support before
+        // there were modes to name, and it still means form.
+        router.route("""
+                {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                           "io.modelcontextprotocol/clientCapabilities":{"elicitation":{}}},
+                  "name":"key_word_search","arguments":{"keyword":"record"}}}""");
+
+        assertEquals(ResultType.INPUT_REQUIRED,
+                     io.only().getAsJsonObject("result").get("resultType").getAsString());
     }
 
     @Test
@@ -568,7 +602,7 @@ class IORouterTest {
                   "requestState":"%s",
                   "inputResponses":{"search_directory":{"action":"accept",
                                      "content":{"directory":"%s"}}}}}"""
-                             .formatted(SearchContinuation.awaitingDirectory("record").encode(), directory));
+                             .formatted(SearchContinuation.awaitingDirectory().encode(), directory));
 
         JsonObject handle = io.responses().get(0).getAsJsonObject("result");
         assertEquals(ResultType.TASK, handle.get("resultType").getAsString());
@@ -721,7 +755,7 @@ class IORouterTest {
             @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
 
-        router.route(toolCall(9, SearchContinuation.awaitingDirectory("record").encode(), """
+        router.route(toolCall(9, SearchContinuation.awaitingDirectory().encode(), """
                 "search_directory":{"action":"accept","content":{"directory":"%s"}}"""
                                      .formatted(directory)));
 
@@ -1178,14 +1212,33 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void aCallWithNoArgumentsAtAllStillAsksForSomewhereToSearch() {
-        // Both the keyword and the directory are read off a params.arguments
-        // that is simply absent here.
+        // The directory is read off a params.arguments that is simply absent
+        // here.
         router.route("""
                 {"jsonrpc":"2.0","id":31,"method":"tools/call",
                  "params":{%s,"name":"key_word_search"}}""".formatted(FULL_META));
 
         assertEquals(ResultType.INPUT_REQUIRED,
                      io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    void aRetryWithNoArgumentsAtAllSearchesForNothingRatherThanFailing(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        // The keyword comes off the retried call's arguments, which are absent.
+        router.route("""
+                {"jsonrpc":"2.0","id":33,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","requestState":"%s",
+                           "inputResponses":{"search_directory":{"action":"accept",
+                                                                 "content":{"directory":"%s"}}}}}"""
+                             .formatted(FULL_META, SearchContinuation.awaitingDirectory().encode(), directory));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertFalse(result.get("isError").getAsBoolean());
+        assertEquals(0, result.getAsJsonArray("content").size());
     }
 
     @Test
@@ -1206,7 +1259,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void aFormAnswerThatIsNotEvenAnObjectIsTreatedAsNoAnswer() {
-        router.route(toolCall(34, SearchContinuation.awaitingDirectory("record").encode(),
+        router.route(toolCall(34, SearchContinuation.awaitingDirectory().encode(),
                               "\"search_directory\":null"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1217,7 +1270,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere() {
-        router.route(toolCall(36, SearchContinuation.awaitingDirectory("record").encode(),
+        router.route(toolCall(36, SearchContinuation.awaitingDirectory().encode(),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":{}}"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1227,7 +1280,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void anAcceptedFormWhoseDirectoryIsBlankFallsBackToo() {
-        router.route(toolCall(37, SearchContinuation.awaitingDirectory("record").encode(),
+        router.route(toolCall(37, SearchContinuation.awaitingDirectory().encode(),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":{\"directory\":\"  \"}}"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1237,7 +1290,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void anAcceptedFormWhoseContentIsNotAnObjectFallsBackToo() {
-        router.route(toolCall(38, SearchContinuation.awaitingDirectory("record").encode(),
+        router.route(toolCall(38, SearchContinuation.awaitingDirectory().encode(),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":\"/tmp\"}"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1247,7 +1300,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void aMissingFormAnswerFallsBackToTheWorkingDirectory() {
-        router.route(toolCall(39, SearchContinuation.awaitingDirectory("record").encode(),
+        router.route(toolCall(39, SearchContinuation.awaitingDirectory().encode(),
                               "\"search_directory\":null"));
 
         assertEquals(ResultType.COMPLETE,

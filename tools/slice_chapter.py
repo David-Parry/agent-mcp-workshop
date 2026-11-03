@@ -163,20 +163,21 @@ RESOURCES_READ_PLAIN = '''
 '''
 
 EXECUTE_INLINE = '''
-    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
+    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params,
                                           Set<String> directories, RequestEnvelope envelope) {
-        success(requestId, new KeyWordSearch().call(resolvedCall(params, keyword), directories));
+        success(requestId, new KeyWordSearch().call(resolvedCall(params), directories));
     }
 '''
 
 HANDLE_KEYWORD_SEARCH_CH5 = '''
     private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
         SearchContinuation continuation = SearchContinuation.decode(params.requestState());
-        String keyword = continuation != null ? continuation.keyword() : keywordArgument(params);
         String stage = continuation != null ? continuation.stage() : null;
 
         Set<String> directories = new LinkedHashSet<>();
 
+        // A directory argument settles the question outright, so a client that
+        // cannot answer an input_required can still call the tool in one hop.
         String argument = directoryArgument(params);
         if (argument != null) {
             directories.add(argument);
@@ -191,28 +192,35 @@ HANDLE_KEYWORD_SEARCH_CH5 = '''
         }
 
         if (!directories.isEmpty()) {
-            executeKeyWordSearchCall(requestId, params, keyword, directories, envelope);
+            executeKeyWordSearchCall(requestId, params, directories, envelope);
             return;
         }
 
+        // Asking the user for a directory is the only question this tool has
+        // left. It used to embed a roots/list first, since a client answers
+        // that from configuration without troubling anyone, but roots is
+        // deprecated under SEP-2577 and the directory argument above is the
+        // migration the spec names in its place.
         if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
             logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
             success(requestId, InputRequiredResult.of(
                     SearchContinuation.KEY_DIRECTORY,
                     InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
-                    SearchContinuation.awaitingDirectory(keyword).encode()));
+                    SearchContinuation.awaitingDirectory().encode()));
             return;
         }
 
+        // There is nothing left to ask, or nothing that may be asked. Rather
+        // than fail, search from wherever the server was started — the same
+        // place a shell command with no path argument would look.
         String workingDirectory = workingDirectory();
         logger.log("[API][SENT] tools/call — no directory to search, using the working directory "
                    + workingDirectory);
-        executeKeyWordSearchCall(requestId, params, keyword, Set.of(workingDirectory), envelope);
+        executeKeyWordSearchCall(requestId, params, Set.of(workingDirectory), envelope);
     }
 '''
 
 PASTE_FILES = {
-    5: {"lessons/SearchContinuation.java"},
     6: {"lessons/AppToolBuilder.java", "lessons/mcp-app.html"},
 }
 
@@ -289,8 +297,7 @@ SPEC_CH4 = SPEC_CH3 | {
     "ToolsListParams.java", "ToolsListResult.java",
 }
 SPEC_CH5 = SPEC_CH4 | {
-    "ElicitationCreateParams.java", "ElicitationCreateResult.java", "ElicitationMessage.java",
-    "ElicitationQuestion.java", "ElicitationResult.java", "InputRequest.java",
+    "ElicitationCreateParams.java", "ElicitationCreateResult.java", "InputRequest.java",
     "InputRequiredResult.java",
 }
 SPEC_CH6 = SPEC_CH5 | {"AppMeta.java", "AppTool.java", "AppToolsListResult.java", "UiMeta.java"}
@@ -371,6 +378,11 @@ HOLLOW = {
             (SRC / "IORouter.java", "handleKeywordSearch"),
             (SRC / "IORouter.java", "elicitedDirectory"),
         ],
+        # Arms the student wrote in an earlier chapter and rewrites in this
+        # one. They are handed out as the chapter before left them: emptied
+        # or already rewritten, they would conflict with the student's own
+        # version when the student merges this chapter in.
+        "revised_cases": ["TOOLS_CALL"],
     },
     "06": {
         "methods": [
@@ -511,6 +523,13 @@ def replace_case(text, label, new_block):
     return text[:start] + block + text[close + 1:]
 
 
+def case_block(text, label):
+    m = re.search(r"^([ \t]*)case " + re.escape(label) + r" -> \{", text, re.M)
+    if not m:
+        raise SystemExit(f"  !! no case '{label}'")
+    return text[m.start():matching_brace(text, text.index("{", m.end() - 1)) + 1]
+
+
 def remove_case(text, label):
     m = re.search(r"^([ \t]*)case " + re.escape(label) + r" -> \{", text, re.M)
     if not m:
@@ -610,9 +629,9 @@ def discover_method(chapter):
     extras = []
     if chapter >= 5:
         instructions = (
-            "Searches a project for a keyword. If no directory is supplied, the tool asks "
-            "for one over a Multi Round-Trip Request, and searches its own working "
-            "directory if the client offers nothing."
+            'Searches a project for a keyword. If no directory is supplied, the tool asks "\n'
+            '                                  + "for one over a Multi Round-Trip Request, and searches its own working "\n'
+            '                                  + "directory if the client offers nothing.'
         )
     if chapter >= 6:
         extras.append(
@@ -673,7 +692,7 @@ def strip_tasks(text):
     ):
         text = remove_method(text, name)
     text = replace_method(text, "executeKeyWordSearchCall", EXECUTE_INLINE)
-    text = replace_method(text, "handleKeywordSearch", HANDLE_KEYWORD_SEARCH_CH5)
+    text = replace_method(text, "handleKeywordSearch", HANDLE_KEYWORD_SEARCH_CH5, keep_javadoc=True)
     text = text.replace("import com.workshop.mcp.tasks.TaskStore;\n\n", "")
     text = text.replace("import java.util.concurrent.ConcurrentHashMap;\n", "")
     return text
@@ -931,8 +950,6 @@ def file_chapter(rel: str) -> int:
     m = re.match(r"lessons/0([1-7])-", rel)
     if m:
         return int(m.group(1))
-    if rel == "lessons/SearchContinuation.java":
-        return 5
     if rel in {"lessons/AppToolBuilder.java", "lessons/mcp-app.html"}:
         return 6
     return 8
@@ -1391,6 +1408,14 @@ def main():
             router = SRC / "IORouter.java"
             router.write_text(hollow_case(router.read_text(), label, chapter))
             print(f"  hollowed case {label}")
+        if spec.get("revised_cases"):
+            router = SRC / "IORouter.java"
+            before = transform_iorouter(complete_router, n - 1)
+            text = router.read_text()
+            for label in spec["revised_cases"]:
+                text = replace_case(text, label, case_block(before, label))
+                print(f"  handed out case {label} as chapter {n - 1:02d} leaves it")
+            router.write_text(text)
         if spec.get("notification_switch"):
             router = SRC / "IORouter.java"
             router.write_text(hollow_notification_switch(router.read_text(), chapter))

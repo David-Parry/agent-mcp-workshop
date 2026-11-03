@@ -116,14 +116,15 @@ def envelope(capabilities):
     }
 
 
-def encode_state(keyword, stage):
+def encode_state(stage, **planted):
     """Mint a requestState the way SearchContinuation does.
 
     Url-safe base64 of the continuation JSON, padding stripped. Real clients
     treat the value as opaque and echo back whatever the server sent; this is
-    only for entering the exchange partway through.
+    only for entering the exchange partway through, or for forging a value
+    the server never sent.
     """
-    raw = json.dumps({"keyword": keyword, "stage": stage}, separators=(",", ":"))
+    raw = json.dumps({**planted, "stage": stage}, separators=(",", ":"))
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
@@ -609,8 +610,8 @@ def s_mrtr_elicitation(c):
     directory_state = asked.get("requestState")
     if not isinstance(directory_state, str) or not directory_state:
         raise Failure(f"input_required must carry an opaque requestState: {asked}")
-    if decode_state(directory_state) != {"keyword": "needleword", "stage": "directory"}:
-        raise Failure(f"requestState did not preserve the keyword and stage: {directory_state}")
+    if decode_state(directory_state) != {"stage": "directory"}:
+        raise Failure(f"requestState should hold the stage and nothing the retry repeats: {directory_state}")
 
     # The retry is a brand new request with a brand new id, carrying the
     # answers plus the state echoed back byte-exact.
@@ -624,6 +625,16 @@ def s_mrtr_elicitation(c):
         raise Failure(f"the answered retry should have run the search: {done}")
     if "keyword_count=3" not in json.dumps(done.get("content") or []):
         raise Failure(f"the elicited directory should have been searched: {done}")
+
+    # A client can send any requestState it likes. A keyword planted in one
+    # must not replace the one the retried call's arguments name.
+    c.request(6, "tools/call", search_call(
+        request_state=encode_state("directory", keyword="absentword"),
+        input_responses={KEY_DIRECTORY: form_answer(directory)},
+    ))
+    forged = c.expect_result(6)
+    if "keyword_count=3" not in json.dumps(forged.get("content") or []):
+        raise Failure(f"the search must look for the argument's keyword, not the state's: {forged}")
 
     # Declining exhausts the asking, so the server searches its own working
     # directory rather than failing.
@@ -652,6 +663,11 @@ def s_mrtr_elicitation(c):
     require_result_type(roots_only, "complete", "a call from a roots-only client")
     if roots_only.get("inputRequests"):
         raise Failure(f"a roots-only client must not be asked anything: {roots_only}")
+
+    # An elicitation object that names no mode is how a client declared form
+    # before there were modes to name, so it is asked like one.
+    c.request(7, "tools/call", search_call(), capabilities={"elicitation": {}})
+    require_result_type(c.expect_result(7), "input_required", "a call from a client declaring elicitation: {}")
 
 
 @scenario("task_client_is_not_asked", "extensions, tasks", chapter=7)
@@ -762,7 +778,7 @@ def s_tasks(c):
     # Task creation is the server's decision now; params.task was removed and
     # a handle only ever goes to a client that declared the extension.
     c.request(1, "tools/call", search_call(
-        request_state=encode_state("needleword", "directory"),
+        request_state=encode_state("directory"),
         input_responses={KEY_DIRECTORY: form_answer(directory)},
     ), capabilities=TASK_CLIENT)
     handle = c.expect_result(1)
@@ -882,7 +898,7 @@ def s_tasks_gated(c):
     # The same call from a client that did not declare the extension runs
     # inline: handing a task to a client that cannot poll would strand it.
     c.request(1, "tools/call", search_call(
-        request_state=encode_state("needleword", "directory"),
+        request_state=encode_state("directory"),
         input_responses={KEY_DIRECTORY: form_answer(directory)},
     ), capabilities=DEPRECATED_AND_FORMS)
     result = c.expect_result(1)

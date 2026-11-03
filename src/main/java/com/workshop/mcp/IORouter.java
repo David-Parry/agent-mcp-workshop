@@ -507,9 +507,9 @@ public class IORouter implements Router {
      * This is the Multi Round-Trip Requests loop, and it exists in this shape
      * because there is no session to hold the answer in. Each stage returns an
      * {@link InputRequiredResult} carrying both the question and a
-     * {@link SearchContinuation} that records the keyword and how far the
-     * exchange has got; the client answers by re-sending the whole
-     * {@code tools/call} with a new id.
+     * {@link SearchContinuation} that records how far the exchange has got;
+     * the client answers by re-sending the whole {@code tools/call}, arguments
+     * and all, with a new id.
      * </p>
      *
      * @param requestId the id to answer
@@ -518,7 +518,6 @@ public class IORouter implements Router {
      */
     private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
         SearchContinuation continuation = SearchContinuation.decode(params.requestState());
-        String keyword = continuation != null ? continuation.keyword() : keywordArgument(params);
         String stage = continuation != null ? continuation.stage() : null;
 
         Set<String> directories = new LinkedHashSet<>();
@@ -540,7 +539,7 @@ public class IORouter implements Router {
         }
 
         if (!directories.isEmpty()) {
-            executeKeyWordSearchCall(requestId, params, keyword, directories, envelope);
+            executeKeyWordSearchCall(requestId, params, directories, envelope);
             return;
         }
 
@@ -559,7 +558,7 @@ public class IORouter implements Router {
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId()
                        + " with no directory; the task will ask for one");
             success(requestId, TaskResult.handle(task));
-            runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params, keyword), envelope);
+            runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params), envelope);
             return;
         }
 
@@ -573,7 +572,7 @@ public class IORouter implements Router {
             success(requestId, InputRequiredResult.of(
                     SearchContinuation.KEY_DIRECTORY,
                     InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
-                    SearchContinuation.awaitingDirectory(keyword).encode()));
+                    SearchContinuation.awaitingDirectory().encode()));
             return;
         }
 
@@ -583,7 +582,7 @@ public class IORouter implements Router {
         String workingDirectory = workingDirectory();
         logger.log("[API][SENT] tools/call — no directory to search, using the working directory "
                    + workingDirectory);
-        executeKeyWordSearchCall(requestId, params, keyword, Set.of(workingDirectory), envelope);
+        executeKeyWordSearchCall(requestId, params, Set.of(workingDirectory), envelope);
     }
 
     /**
@@ -626,9 +625,9 @@ public class IORouter implements Router {
      * tasks extension on the very request being answered.
      * </p>
      */
-    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
+    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params,
                                           Set<String> directories, RequestEnvelope envelope) {
-        ToolCallParams resolved = resolvedCall(params, keyword);
+        ToolCallParams resolved = resolvedCall(params);
         if (answersWithTask(envelope)) {
             Task task = taskStore.create(null);
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId() + " status=" + task.status());
@@ -641,10 +640,10 @@ public class IORouter implements Router {
 
     /**
      * Strips a call down to the arguments the tool itself needs, dropping the
-     * round-trip bookkeeping. The keyword may have arrived either as an
-     * argument or on a {@link SearchContinuation}, so it is passed explicitly.
+     * round-trip bookkeeping.
      */
-    private ToolCallParams resolvedCall(ToolCallParams params, String keyword) {
+    private ToolCallParams resolvedCall(ToolCallParams params) {
+        String keyword = keywordArgument(params);
         return new ToolCallParams(params._meta(), params.name(),
                                   Map.of("keyword", keyword == null ? "" : keyword),
                                   null, null);

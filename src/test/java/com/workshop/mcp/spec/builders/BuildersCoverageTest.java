@@ -9,6 +9,7 @@ import com.workshop.mcp.spec.ContentItem;
 import com.workshop.mcp.spec.DiscoverResult;
 import com.workshop.mcp.spec.ElicitationCreateParams;
 import com.workshop.mcp.spec.InputSchema;
+import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.Message;
 import com.workshop.mcp.spec.MessageContent;
 import com.workshop.mcp.spec.MetaKeys;
@@ -325,6 +326,15 @@ class BuildersCoverageTest {
             Map<String, Object> directory = (Map<String, Object>) properties.get("directory");
             assertEquals("string", directory.get("type"));
             assertEquals("Search Directory", directory.get("title"));
+        }
+
+        @Test
+        void theDirectoryFormGoesOnTheWireInTheSameOrderEveryRun() {
+            assertEquals("{\"type\":\"object\",\"properties\":{\"directory\":{\"type\":\"string\","
+                         + "\"title\":\"Search Directory\",\"description\":\"Absolute path to the directory "
+                         + "the keyword search should look in\"}},\"required\":[\"directory\"]}",
+                         McpGson.create().toJson(ElicitationBuilder.buildSearchDirectoryElicitation()
+                                                         .requestedSchema()));
         }
 
         @Test

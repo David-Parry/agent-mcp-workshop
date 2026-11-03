@@ -13,10 +13,16 @@ import java.util.Base64;
  * <p>
  * This exists because revision {@code 2026-07-28} removed protocol sessions.
  * When the server answers a {@code tools/call} with an
- * {@code InputRequiredResult}, it has nowhere to remember which keyword the
- * user was searching for or how far through the exchange it had got. So it
- * encodes both here, hands them to the client as an opaque
- * {@code requestState} string, and reads them back off the retry.
+ * {@code InputRequiredResult}, it has nowhere to remember how far through the
+ * exchange it had got. So it encodes that here, hands it to the client as an
+ * opaque {@code requestState} string, and reads it back off the retry.
+ * </p>
+ * <p>
+ * The keyword is not part of it. The retry repeats the original call, so the
+ * arguments come back on their own, and a client can send any
+ * {@code requestState} it likes. A keyword read from here could be swapped for
+ * one the arguments never asked for. A forged stage can only skip the
+ * question, which declining it does anyway.
  * </p>
  * <p>
  * The protocol treats {@code requestState} as opaque bytes and guarantees only
@@ -24,13 +30,12 @@ import java.util.Base64;
  * convention the specification's own examples use.
  * </p>
  *
- * @param keyword the keyword the caller originally asked to search for
- * @param stage   which question the server has already asked
+ * @param stage which question the server has already asked
  *
  * @see com.workshop.mcp.spec.InputRequiredResult
  * @since 1.0
  */
-public record SearchContinuation(String keyword, String stage) {
+public record SearchContinuation(String stage) {
 
     /** The server has asked the user for a directory and is awaiting the answer. */
     public static final String STAGE_DIRECTORY = "directory";
@@ -43,11 +48,10 @@ public record SearchContinuation(String keyword, String stage) {
     /**
      * Creates the state for a pending directory question.
      *
-     * @param keyword the keyword being searched for
      * @return the continuation state
      */
-    public static SearchContinuation awaitingDirectory(String keyword) {
-        return new SearchContinuation(keyword, STAGE_DIRECTORY);
+    public static SearchContinuation awaitingDirectory() {
+        return new SearchContinuation(STAGE_DIRECTORY);
     }
 
     /**

@@ -168,7 +168,7 @@ jacocoTestCoverageVerification {
             }
         }
 
-        // IORouter is fully covered on instructions, and on 137 of its 138
+        // IORouter is fully covered on instructions, and on 135 of its 136
         // branches. The odd one out is not code anyone wrote: javac emits a
         // default target for a switch over an enum even when every value that
         // can reach it is handled, and JaCoCo counts that synthetic target as

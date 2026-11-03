@@ -208,7 +208,7 @@ Only one of those three is worth building on today. Roots and sampling are both 
 success(requestId, InputRequiredResult.of(
         SearchContinuation.KEY_DIRECTORY,
         InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
-        SearchContinuation.awaitingDirectory(keyword).encode()));
+        SearchContinuation.awaitingDirectory().encode()));
 ```
 
 The client sees `resultType: "input_required"`, resolves the embedded request — here by rendering the form and letting the user answer it — and re-sends the **original** call as a brand new request with a brand new id, carrying the answers under `inputResponses` and the server's `requestState` echoed back byte-exact.
@@ -217,11 +217,10 @@ The `requestState` is the whole trick. The server has nowhere to remember what i
 
 ```java
 SearchContinuation continuation = SearchContinuation.decode(params.requestState());
-String keyword = continuation != null ? continuation.keyword() : keywordArgument(params);
 String stage = continuation != null ? continuation.stage() : null;
 ```
 
-To the client it is an opaque string; this implementation happens to base64 a small JSON object into it. The protocol guarantees only that the exact bytes come back.
+To the client it is an opaque string; this implementation happens to base64 a small JSON object into it. The protocol guarantees only that the exact bytes come back. It does not guarantee they are the bytes the server sent: a client can put anything there. So the state holds only the stage, how far the exchange has got. The keyword comes back with the retried call's own arguments, and a forged stage can do no more than skip the question.
 
 One design note worth internalising: MRTR is optional for clients, and not every one implements it. The Inspector's own task-augmented `tools/call` path rejects an `input_required` outright. So the keyword-search tool also accepts `directory` as an optional argument, completing in a single hop when one is supplied — and if the asking runs out entirely, it searches its own working directory rather than failing. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all.
 

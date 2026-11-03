@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -18,19 +17,19 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 @Tag("chapter05")
 class SearchContinuationTest {
 
-    private static final String KEYWORD = "needle";
-
     @Test
-    void awaitingDirectoryCarriesTheKeywordAndTheDirectoryStage() {
-        SearchContinuation state = SearchContinuation.awaitingDirectory(KEYWORD);
+    void awaitingDirectoryCarriesOnlyTheDirectoryStage() {
+        SearchContinuation state = SearchContinuation.awaitingDirectory();
 
-        assertEquals(KEYWORD, state.keyword());
         assertEquals(SearchContinuation.STAGE_DIRECTORY, state.stage());
+        assertEquals("{\"stage\":\"directory\"}",
+                     new String(Base64.getUrlDecoder().decode(state.encode()), StandardCharsets.UTF_8),
+                     "the retry repeats the call's arguments, so the state carries none of them");
     }
 
     @Test
     void anEncodedContinuationDecodesBackToTheSameState() {
-        SearchContinuation state = SearchContinuation.awaitingDirectory(KEYWORD);
+        SearchContinuation state = SearchContinuation.awaitingDirectory();
 
         SearchContinuation decoded = SearchContinuation.decode(state.encode());
 
@@ -39,10 +38,11 @@ class SearchContinuationTest {
 
     @Test
     void anEncodedContinuationIsUnpaddedUrlSafeBase64() {
-        String encoded = SearchContinuation.awaitingDirectory(KEYWORD).encode();
+        // Standard base64 writes this state as eyJzdGFnZSI6Ij8/In0=.
+        String encoded = new SearchContinuation("??").encode();
 
-        assertFalse(encoded.contains("="), "requestState travels in JSON, so padding buys nothing");
-        assertFalse(encoded.contains("+") || encoded.contains("/"));
+        assertEquals("eyJzdGFnZSI6Ij8_In0", encoded,
+                     "requestState travels in JSON, so padding buys nothing");
         assertNotNull(SearchContinuation.decode(encoded));
     }
 
@@ -73,7 +73,7 @@ class SearchContinuationTest {
 
     @Test
     void decodeReturnsNullWhenTheStateNamesNoStage() {
-        assertNull(SearchContinuation.decode(base64("{\"keyword\":\"" + KEYWORD + "\"}")),
+        assertNull(SearchContinuation.decode(base64("{\"keyword\":\"needle\"}")),
                    "a state that does not say which question was asked is not usable");
     }
 

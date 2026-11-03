@@ -368,9 +368,12 @@ class SpecTypesCoverageTest {
 
         @Test
         @Tag("chapter02")
-        void formElicitationNeedsTheFormModeAndNotMerelyAnElicitationDeclaration() {
+        void anElicitationThatNamesNoModeMeansFormButAUrlOnlyOneDoesNot() {
             assertTrue(envelope(null, new ClientCapabilities(new Elicitation(new Capability(), null), null))
                                .supportsElicitationForm());
+            ClientCapabilities empty = McpGson.create().fromJson("{\"elicitation\":{}}", ClientCapabilities.class);
+            assertTrue(envelope(null, empty).supportsElicitationForm(),
+                       "an empty elicitation object is how clients declared form before modes existed");
             assertFalse(envelope(null, new ClientCapabilities(new Elicitation(null, new Capability()), null))
                                 .supportsElicitationForm(),
                         "a url-only client cannot be shown an in-conversation form");
@@ -650,27 +653,6 @@ class SpecTypesCoverageTest {
             assertEquals("rec", params.argument().value());
             assertEquals("ref/prompt", params.ref().type());
             assertEquals("search_keyword", params.ref().name());
-        }
-
-        @Test
-        @Tag("chapter05")
-        void anElicitationMessageWrapsItsQuestionsInAJsonRpcResult() {
-            ElicitationQuestion question =
-                    new ElicitationQuestion("directory", "Which directory should be searched?", List.of("."));
-            ElicitationMessage message =
-                    new ElicitationMessage("2.0", "elicit-001", new ElicitationResult("questions", List.of(question)));
-
-            assertEquals("2.0", message.jsonrpc());
-            assertEquals("elicit-001", message.id());
-            assertEquals("questions", message.result().type());
-            assertEquals("directory", message.result().questions().get(0).id());
-            assertEquals(List.of("."), message.result().questions().get(0).options());
-        }
-
-        @Test
-        @Tag("chapter05")
-        void anOpenEndedQuestionOffersNoOptions() {
-            assertNull(new ElicitationQuestion("directory", "Which directory?", null).options());
         }
 
         @Test

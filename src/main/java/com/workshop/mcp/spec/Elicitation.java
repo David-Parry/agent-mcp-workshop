@@ -5,7 +5,9 @@ package com.workshop.mcp.spec;
  * <p>
  * A client that can show an in-conversation form declares {@code form}; one
  * that can open an out-of-band page declares {@code url}. Both arrive as empty
- * JSON objects, so presence is the whole signal.
+ * JSON objects, so presence is the whole signal. An empty
+ * {@code "elicitation": {}} names neither, and means form: that is how a
+ * client declared elicitation before there were modes to name.
  * </p>
  * <p>
  * In revision {@code 2026-07-28} a server no longer sends
@@ -24,9 +26,9 @@ public record Elicitation(Capability form, Capability url) {
      * Reports whether the client can render an in-conversation form, which is
      * the mode this workshop uses to ask for a search directory.
      *
-     * @return true when form mode is available
+     * @return true when form is declared, or when no mode is named at all
      */
     public boolean supportsForm() {
-        return form != null;
+        return form != null || url == null;
     }
 }

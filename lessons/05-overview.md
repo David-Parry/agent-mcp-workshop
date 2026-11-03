@@ -6,7 +6,7 @@ Based on the foundation built in lesson 4, here's what will take place in this l
 
 This lesson introduces two mechanisms that look separate but are not: the **extensions** system, which is how MCP evolves beyond its core specification, and **Multi Round-Trip Requests**, which is how a server asks for information now that it is forbidden from sending the client a request.
 
-Students will declare an extension under `capabilities.extensions` in the `server/discover` response, then rewrite the elicitation flow so the server asks for a search directory *by answering* rather than by asking.
+Students will see where `server/discover` declares extensions, though this chapter declares none yet, then build the elicitation flow so the server asks for a search directory *by answering* rather than by asking.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/overview](https://modelcontextprotocol.io/extensions/overview)
 
@@ -148,38 +148,34 @@ Three details worth pausing on:
 
 ## Key Implementation Tasks
 
-### 1. Declare an extension in `server/discover`
+### 1. Read discovery: no extension yet
 
-Add a `withExtension()` call to the `DiscoverResultBuilder` chain. Unlike the old builder, ordering does not matter — `build()` folds the accumulated maps in at the end:
+`discoverResult()` is given. Only its instructions change, to tell the model about the round trip. `withExtension()` is how a server adds to the `extensions` map, and ordering does not matter, because `build()` folds the accumulated maps in at the end. The first call to it is Chapter 6's.
 
-```java
-builder.withDefaultCapabilities()
-       .withExtension(MetaKeys.UI_EXTENSION,
-                      Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
-```
+### 2. Read how a request states its client's capabilities
 
-### 2. Delete the capability flags
+`hasElicitation`, `hasSampling`, and the `roots` set were the session, and there is no session. Nor are there negative request-id constants (`ELICITATION_REQUEST_ID = -4000L`), which existed to match responses to requests the server had sent.
 
-`hasElicitation`, `hasSampling`, and the `roots` set were the session. They must go, along with the negative request-id constants (`ELICITATION_REQUEST_ID = -4000L`) that existed to correlate responses to requests the server had sent.
-
-Capability questions are answered per request instead. Note that only one of the flags becomes a predicate: the server never asks for roots or sampling, so there is no question left for those two to answer, and they become nothing at all.
+Capability questions are answered per request instead. Only one of the old flags becomes a predicate: the server never asks for roots or sampling, so those two have no question left to answer.
 
 | Question | Old | New |
 |----------|-----|-----|
 | Can the client show a form? | `hasElicitation` | `envelope.supportsElicitationForm()` |
 | Can the client poll a task? | `hasTasks` | `envelope.supportsTasks()` |
 
-### 3. Add `SearchContinuation`
+A client that declares an empty `"elicitation":{}` names no mode, and that means form: it is how clients declared elicitation before there were modes to name.
 
-The server asks its question in one request and reads the answer off another, with nowhere to remember in between what it was searching for or that it had already asked. `SearchContinuation` holds the keyword and the stage, base64-encoded into the opaque `requestState` string that travels to the client and back.
+### 3. Fill `SearchContinuation`
 
-### 4. Rewrite the tool call as a resolver
+The server asks its question in one request and reads the answer off another, with nowhere to remember in between that it already asked. `SearchContinuation` holds the stage, base64-encoded into the opaque `requestState` string that travels to the client and back. It does not hold the keyword: the retry repeats the whole call, arguments included, and `requestState` is a value the client can rewrite.
 
-`handleKeywordSearch` runs in a single pass: read what arrived, decide, answer. There is no "send, wait, resume" — the exchange advances because the *client* calls again.
+### 4. Hand the tool call to a resolver
+
+The `TOOLS_CALL` case from Chapter 4 ends a call without a directory in a tool error. Its last branch now calls `handleKeywordSearch`, which runs in a single pass: read what arrived, decide, answer. There is no "send, wait, resume". The exchange advances because the *client* calls again.
 
 Its ordering matters:
 1. An explicit `directory` argument settles it outright — the **one-hop path**
-2. Otherwise read whatever the round trip answered
+2. Otherwise read whatever the round trip answered, with `elicitedDirectory`
 3. Otherwise ask the user with a form — once, which is what the stage is for
 4. Otherwise search the server's own working directory
 
@@ -191,13 +187,15 @@ Its ordering matters:
 
 3. **An input response is a bare result, not a JSON-RPC response.** There is no envelope to unwrap — which is why the deserializer no longer has a method for unwrapping one.
 
-4. **`requestState` is opaque bytes.** The protocol guarantees only that the client returns them unchanged. It came from your server, but it travelled through a client, so validate it like any other input.
+4. **`requestState` is opaque bytes.** The protocol guarantees only that the client returns them unchanged. It came from your server, but it travelled through a client, so validate it like any other input. And keep in it nothing a forged value could abuse: if the state decided what to search, the specification would require its integrity to be protected, for example by signing it.
 
 5. **Always leave a one-hop path.** MRTR is **optional** for clients, and not every client implements it — the Inspector's own task-augmented `tools/call` path rejects `input_required` outright. A tool whose only route to an answer is a round trip is unusable by those callers. Take the input as an optional argument and treat asking as the fallback.
 
 6. **A decline is not an error.** `decline` and `cancel` just mean no directory, which sends the resolver to its fallback. Note the difference between `isError: true` inside a *successful* result and a JSON-RPC error object: the first says the tool could not do its job, the second says the protocol failed.
 
-7. **Same pattern, every extension** — declare the identifier under `capabilities.extensions`, read the client's side off each request's envelope, and exchange extension-specific messages.
+7. **Same pattern, every extension** — declare the identifier under `capabilities.extensions`, read the client's side off each request's envelope, and exchange extension-specific messages. Chapters 6 and 7 declare the two this server uses.
+
+8. **Removed is not deprecated.** A removed method is gone and answers `-32601`. A deprecated feature still works until at least the first revision published on or after 2027-07-28, and new code should not adopt it. The specification keeps every deprecated feature in one list, its Deprecated Features registry, with what replaces each. The handout lists both kinds.
 
 ## What Students Will Achieve
 
@@ -205,9 +203,8 @@ By the end of this lesson, students will have:
 
 - ✅ Understanding of the extensions system, and how `extensions` differs from `experimental`
 - ✅ Knowledge of the namespaced extension identifier format
-- ✅ An extension declared in every `server/discover` response
-- ✅ No session state left in `IORouter` — capabilities read per request from `_meta`
+- ✅ No session state in `IORouter` — capabilities read per request from `_meta`
 - ✅ Elicitation implemented as a Multi Round-Trip Request, with no server-initiated messages
-- ✅ `SearchContinuation` carrying continuation state through an opaque `requestState`
+- ✅ `SearchContinuation` carrying the exchange's stage, and nothing else, through an opaque `requestState`
 - ✅ A tool that stays usable by clients that never implement MRTR at all
 - ✅ The mental model to implement any future MCP extension using the same pattern

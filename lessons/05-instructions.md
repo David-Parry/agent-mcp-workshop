@@ -1,54 +1,31 @@
-# Chapter 05: MCP Extensions — Elicitation as a Multi Round-Trip Request
+# Chapter 05: Elicitation as a Multi Round-Trip Request
 
 ## Overview
 
-In this lesson we implement two related things:
+In Chapter 4 a call without a `directory` ended in a tool error. In this lesson the server asks the user for one instead, **without ever sending the client a request**.
 
-1. **Extension declaration** — the server announces what it supports by adding to the `extensions` capability map in the `server/discover` response
-2. **Elicitation** — the server asks for structured user input, and receives it, **without ever sending the client a request**
+In earlier revisions of MCP a server asked for input by sending the client a JSON-RPC request, `elicitation/create`, with an id, which the client answered like a server. Revision `2026-07-28` removed that direction of travel entirely. **Modern clients silently discard inbound requests.** A server that tries to ask the old way is not rejected; it is ignored, and it waits forever.
 
-That second point is the whole chapter. In earlier revisions of MCP a server asked for input by sending the client a JSON-RPC request — `elicitation/create`, with an id, which the client answered like a server. Revision `2026-07-28` removed that direction of travel entirely. **Modern clients silently discard inbound requests.** A server that tries to ask the old way is not rejected; it is ignored, and it waits forever.
+What replaced it is **Multi Round-Trip Requests (MRTR)**: the server answers with `resultType: "input_required"`, *embedding* the request it would have sent. The client resolves it and re-sends the **original** request, under a brand new id, carrying the answers. The question travels inside an answer.
 
-What replaced it is **Multi Round-Trip Requests (MRTR)**: the server answers with `resultType: "input_required"`, *embedding* the request it would have sent. The client resolves it and re-sends the **original** request — brand new id — carrying the answers. The question travels inside an answer.
+You write four things:
+
+1. `SearchContinuation`'s three methods, which carry the exchange's state through the client and back
+2. A `TOOLS_CALL` case that hands the search to a method that owns the round trip
+3. `handleKeywordSearch`, that method
+4. `elicitedDirectory`, which reads the user's answer back
+
+The line numbers below are where each method and case sits in the file as you checked it out. Every paste pushes what is below it further down, so after your first paste in a file, find each one by its name rather than its number.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/overview](https://modelcontextprotocol.io/extensions/overview)
 
 ---
 
-## Part 1: The `extensions` Map in `ServerCapabilities`
+## Part 1: What Discovery Says, and What It Does Not
 
-### Understanding `extensions` vs `experimental`
+### Step 1: Read `discoverResult`
 
-Revision `2026-07-28` fixes `ServerCapabilities` at exactly seven optional slots, and gives extensions a slot of their own:
-
-```java
-public record ServerCapabilities(
-    Map<String, Object> experimental,
-    Capability logging,
-    Capability completions,
-    Capability prompts,
-    Capability resources,
-    Capability tools,
-    Map<String, Object> extensions
-) {}
-```
-
-Both maps still exist, and they are not interchangeable:
-
-- **`extensions`** — declares support for a *specified* extension, keyed by identifier. Official ones use the `io.modelcontextprotocol` prefix, e.g. `io.modelcontextprotocol/tasks`. This is where anything outside the core protocol now lives.
-- **`experimental`** — for genuinely non-standard, in-house capabilities that no specification describes.
-
-Note what is *absent* from that record: there is no top-level `tasks` slot any more. It became `extensions["io.modelcontextprotocol/tasks"]`, which you will use in Chapter 7.
-
-An empty configuration object — `{}` — is the conventional way to say "supported, no settings".
-
-### Step 1: Look at discovery — elicitation is not a server extension
-
-`server/discover` already advertises **core capabilities only** on this branch — tools, resources, prompts, completions — plus instructions that mention the round trip you are about to add. You do not add `withExtension(...)` here.
-
-**Do not** declare `io.modelcontextprotocol/ui` or `io.modelcontextprotocol/tasks`. Those arrive in Chapters 6 and 7. Elicitation is not a server extension at all: it is a thing the *client* can do, read per request from `envelope.supportsElicitationForm()`.
-
-Confirm `discoverResult()` looks like this (it is already filled):
+**Action Required**: open `src/main/java/com/workshop/mcp/IORouter.java` and read `discoverResult()`. It is already written:
 
 ```java
 private DiscoverResult discoverResult() {
@@ -64,48 +41,45 @@ private DiscoverResult discoverResult() {
 }
 ```
 
-#### What to notice
+Only the instructions changed, to tell the model about the round trip. **This chapter declares no extension.** `ServerCapabilities` has an `extensions` map, keyed by identifier, and `withExtension()` adds to it, but the first entry arrives in Chapter 6 (`io.modelcontextprotocol/ui`) and the second in Chapter 7 (`io.modelcontextprotocol/tasks`).
 
-1. **Declaration order does not matter.** `build()` folds the accumulated `extensions` and `experimental` maps into the final `ServerCapabilities`, so `withExtension()` may come before or after `withDefaultCapabilities()`. That is a deliberate improvement on the old builder, where getting the order wrong silently dropped your declaration.
-
-2. **There is no `withProtocolVersion()`.** A single negotiated version was a property of a session, and there are no sessions. Discovery advertises `supportedVersions` — a list — and every subsequent request states which one it is using in its own `_meta`.
-
-3. **Elicitation is not declared here.** This is worth dwelling on, because it is the opposite of the old model. Elicitation is no longer a thing the *server* offers; it is a thing the *client* can do. The server reads `elicitation` off the client's capabilities on each request and decides whether it may ask.
+Elicitation is not declared here at all, and this is the opposite of the old model. Elicitation is no longer something the *server* offers; it is something the *client* can do. The client says so in every request, and the server reads it off that request before it asks.
 
 ---
 
 ## Part 2: There Is No `hasElicitation` Field
 
-### Why the flags are gone
+### Step 1: Read how a request says what its client can do
 
 In the old handshake model, a server learned the client's capabilities once, at `initialize`, and stored them:
 
 ```java
-// The old way — do not write this any more.
+// The old way. Do not write this any more.
 private boolean hasElicitation = false;
 private boolean hasSampling = false;
 private Set<String> roots = new HashSet<>();
 ```
 
-Those fields *were* the session. With sessions removed, they are not just unnecessary — they are wrong. Any server that keeps them is asserting that the client which sent request #2 is the same one, with the same capabilities, that sent request #1. Nothing in the protocol guarantees that any more.
+Those fields *were* the session. With sessions removed they are not just unnecessary, they are wrong: a server that keeps them assumes the client that sent request #2 is the one, with the same capabilities, that sent request #1. Nothing in the protocol promises that any more.
 
-Instead, every request re-states the client's capabilities in its `_meta` envelope, and Chapter 3's `envelopeFor()` validated it. The envelope answers capability questions per request:
-
-```java
-RequestEnvelope envelope = envelopeFor(message);
-if (envelope == null) {
-    return;
-}
-```
-
-**Action Required**: Make sure your `IORouter` has no capability fields left. The predicates you need instead are on `RequestEnvelope`:
+Instead every request restates the client's capabilities in its `_meta` envelope, and `envelopeFor()` from Chapter 3 hands you that envelope. `IORouter` has no capability fields to remove. The questions are answered by `RequestEnvelope`:
 
 | Question | Old | New |
 |----------|-----|-----|
 | Can the client show a form? | `hasElicitation` | `envelope.supportsElicitationForm()` |
-| Can the client poll a task? | `hasTasks` | `envelope.supportsTasks()` |
+| Can the client poll a task? | `hasTasks` | `envelope.supportsTasks()` (Chapter 7) |
 
-Two of the old flags become no predicate at all. There is no `supportsRoots()` and no `supportsSampling()`: roots and sampling are both deprecated (see below), this server asks for neither, and a predicate nothing calls is a predicate that rots — so those flags are deleted rather than ported. Clients that still declare `"roots":{"listChanged":true}` or `"sampling":{}` are unaffected. `ClientCapabilities` is now just the two fields the server reads, and Gson quietly drops anything it does not name:
+**Action Required**: open `src/main/java/com/workshop/mcp/spec/Elicitation.java` and read `supportsForm()`, which `supportsElicitationForm()` asks:
+
+```java
+public boolean supportsForm() {
+    return form != null || url == null;
+}
+```
+
+A client declares `"elicitation":{"form":{}}` for forms, `"url":{}` for out-of-band pages, or both. An empty `"elicitation":{}` names neither, and means form: that is how a client declared elicitation before there were modes to name. Only a client that names `url` alone cannot be shown a form.
+
+Two of the old flags have no replacement at all. There is no `supportsRoots()` and no `supportsSampling()`: both features are deprecated (see the end of Part 4), this server asks for neither, and a predicate nothing calls only goes stale. Clients that still declare `"roots":{"listChanged":true}` or `"sampling":{}` are unaffected. `ClientCapabilities` names only the two fields the server reads, and Gson drops anything it does not name:
 
 ```java
 public record ClientCapabilities(
@@ -114,52 +88,39 @@ public record ClientCapabilities(
 ) {}
 ```
 
-And there are no negative request-id constants — no `ELICITATION_REQUEST_ID = -4000L`, no `ROOTS_REQUEST_ID`. Those existed to correlate a response to a request *the server had sent*. The server sends no requests, so there is nothing to correlate.
+There are no negative request-id constants either, no `ELICITATION_REQUEST_ID = -4000L`. They existed to match a response to a request *the server had sent*, and this server sends none.
 
 ---
 
 ## Part 3: Carrying State Across a Round Trip
 
-The server asks its question in one request and reads the answer off a *different* one, and it has nowhere to remember, in between, what it was searching for or that it had already asked. So the state travels to the client and back, as an opaque `requestState` string.
+The server asks its question in one request and reads the answer off a *different* one, and it has nowhere to remember, in between, that it already asked. So that fact travels to the client and back, as an opaque `requestState` string. `SearchContinuation` is what goes in it.
 
-### Step 1: Copy the `SearchContinuation` record
+### Step 1: Fill `SearchContinuation`
 
-**Action Required**:
-1. Copy the file `SearchContinuation.java` from the `lessons` folder
-2. Paste it into `src/main/java/com/workshop/mcp/tools/SearchContinuation.java` (the file already exists). You can replace from **line 1**, or fill the hollowed methods: `awaitingDirectory` at **line 49**, `encode` at **line 60**, `decode` at **line 77**.
+Open `src/main/java/com/workshop/mcp/tools/SearchContinuation.java`. The record has one field, `stage`, and its two constants are already there:
 
-The handout is the complete record with its Javadoc. Abbreviated, it is this:
+- **`STAGE_DIRECTORY`**: the server has asked for a directory and is waiting for the answer.
+- **`KEY_DIRECTORY`**: the key the question is filed under in `inputRequests`. The answer comes back under the same key in `inputResponses`.
+
+**Action Required**: fill `awaitingDirectory` at **line 53** of `src/main/java/com/workshop/mcp/tools/SearchContinuation.java`:
 
 ```java
-public record SearchContinuation(String keyword, String stage) {
-
-    public static final String STAGE_DIRECTORY = "directory";
-
-    public static final String KEY_DIRECTORY = "search_directory";
-
-    public static SearchContinuation awaitingDirectory(String keyword) {
-        return new SearchContinuation(keyword, STAGE_DIRECTORY);
-    }
-
-    public String encode() {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(
-                GSON.toJson(this).getBytes(StandardCharsets.UTF_8));
-    }
-
-    public static SearchContinuation decode(String requestState) { /* … */ }
+public static SearchContinuation awaitingDirectory() {
+    return new SearchContinuation(STAGE_DIRECTORY);
 }
 ```
 
-**Key components:**
+Fill `encode` at **line 64**:
 
-- **`keyword`** — the tool argument from the original call. The client re-sends the whole call, but the server should not depend on the argument surviving intact, so on the retry it reads the keyword from here.
-- **`stage`** — how far the exchange has got. This is what stops the server asking the same question forever. There is only one stage today, and it is tempting to reduce it to a boolean; leaving it as a named stage is what makes a second question cheap to add later.
-- **`KEY_DIRECTORY`** — the identifier the server files its question under. The answer comes back under the same key.
-- **`encode()` / `decode()`** — base64-encoded JSON. The protocol treats `requestState` as opaque bytes and guarantees only that the client returns them **unchanged**; base64 JSON is the convention the specification's own examples use.
+```java
+public String encode() {
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(
+            GSON.toJson(this).getBytes(StandardCharsets.UTF_8));
+}
+```
 
-### A note on trust
-
-`decode()` returns `null` for anything malformed, and the caller treats that as a first attempt rather than an error:
+Fill `decode` at **line 81**:
 
 ```java
 public static SearchContinuation decode(String requestState) {
@@ -176,95 +137,114 @@ public static SearchContinuation decode(String requestState) {
 }
 ```
 
-The state originated on this server, but it made a round trip through a client. It is input, and it gets validated like input.
+#### What to notice
+
+1. **The encoding is a convention, not a rule.** The protocol treats `requestState` as opaque bytes and promises only that the client returns them unchanged. Base64-encoded JSON is what the specification's own examples use. The URL-safe alphabet without padding keeps the value free of `+`, `/` and `=`, none of which it needs.
+
+2. **`stage` is what stops the server asking forever.** A declined form and a first attempt look almost the same: both are a `tools/call` with no directory in them. The stage tells them apart. There is only one stage today, and it is tempting to make it a boolean; a named stage is what makes a second question cheap to add.
+
+3. **The keyword is not in the state.** The client retries the *whole* original call, so the `keyword` argument comes back on its own. And `requestState` comes back from the client, which can send any value it likes. The specification says that when this state drives authorization, resource access or business logic, its integrity MUST be protected, for example by signing it. A keyword read from here could be swapped for one the arguments never asked for. A stage cannot do that kind of harm: a forged one only skips the question, which declining does anyway.
+
+4. **`decode` returns null for anything it cannot read**, and the caller treats that as a first attempt rather than an error. The state came from this server, but it travelled through a client, so it is input and gets checked like input.
 
 ---
 
 ## Part 4: Implementing the Round Trip
 
-### Step 1: Route `tools/call` through a resolver
+### Step 1: Hand `tools/call` to a resolver
 
-**Action Required**: In the `TOOLS_CALL` case at **line 169** of `src/main/java/com/workshop/mcp/IORouter.java`, hand the keyword search off to a method that owns the round trip:
+The `TOOLS_CALL` case is the one you wrote in Chapter 4: an unknown tool is `-32602`, and a call without a directory is a tool error. The error is what this chapter replaces.
+
+**Action Required**: replace the `TOOLS_CALL` case at **line 242** of `src/main/java/com/workshop/mcp/IORouter.java`. Paste this over the whole case:
 
 ```java
 case TOOLS_CALL -> {
     ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
     KeyWordSearch keyWordSearch = new KeyWordSearch();
-    if (!keyWordSearch.name().equalsIgnoreCase(toolCallParams.name())) {
-        success(message.id(), ToolCallResultBuilder
-                .builder()
-                .addTextContent("Tool not found: " + toolCallParams.name())
-                .asError()
-                .build());
+    if (!keyWordSearch.name().equals(toolCallParams.name())) {
+        logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
+                   + " (returning -32602)");
+        error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
     } else {
         handleKeywordSearch(message.id(), toolCallParams, envelope);
     }
 }
 ```
 
-Note that `envelope` is passed down. Capabilities are a property of *this request*, so they travel with it rather than being read off a field.
+`envelope` is passed down because capabilities belong to *this request*, so they travel with it rather than sitting in a field.
 
 ### Step 2: Resolve the directory, asking if necessary
 
-**Action Required**: Fill `handleKeywordSearch` at **line 284** of `IORouter.java`:
+**Action Required**: fill `handleKeywordSearch` at **line 416** of `IORouter.java`:
 
 ```java
 private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
     SearchContinuation continuation = SearchContinuation.decode(params.requestState());
-    String keyword = continuation != null ? continuation.keyword() : keywordArgument(params);
     String stage = continuation != null ? continuation.stage() : null;
 
     Set<String> directories = new LinkedHashSet<>();
 
-    // A directory argument settles the question outright.
+    // A directory argument settles the question outright, so a client that
+    // cannot answer an input_required can still call the tool in one hop.
     String argument = directoryArgument(params);
     if (argument != null) {
         directories.add(argument);
     }
 
-    // Otherwise, read whatever the round trip answered.
     if (SearchContinuation.STAGE_DIRECTORY.equals(stage)) {
         String directory = elicitedDirectory(params.inputResponse(SearchContinuation.KEY_DIRECTORY));
         if (directory != null) {
             directories.add(directory);
         }
+        logger.log("[API][RECEIVED] tools/call retry — elicited directory=" + directory);
     }
 
     if (!directories.isEmpty()) {
-        executeKeyWordSearchCall(requestId, params, keyword, directories, envelope);
+        executeKeyWordSearchCall(requestId, params, directories, envelope);
         return;
     }
 
-    // Nothing to search yet, so ask the user — once.
+    // Asking the user for a directory is the only question this tool has
+    // left. It used to embed a roots/list first, since a client answers
+    // that from configuration without troubling anyone, but roots is
+    // deprecated under SEP-2577 and the directory argument above is the
+    // migration the spec names in its place.
     if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
+        logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
         success(requestId, InputRequiredResult.of(
                 SearchContinuation.KEY_DIRECTORY,
                 InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
-                SearchContinuation.awaitingDirectory(keyword).encode()));
+                SearchContinuation.awaitingDirectory().encode()));
         return;
     }
 
-    // Nothing left to ask, or nothing that may be asked. Rather than fail,
-    // search from wherever the server was started.
-    executeKeyWordSearchCall(requestId, params, keyword, Set.of(workingDirectory()), envelope);
+    // There is nothing left to ask, or nothing that may be asked. Rather
+    // than fail, search from wherever the server was started — the same
+    // place a shell command with no path argument would look.
+    String workingDirectory = workingDirectory();
+    logger.log("[API][SENT] tools/call — no directory to search, using the working directory "
+               + workingDirectory);
+    executeKeyWordSearchCall(requestId, params, Set.of(workingDirectory), envelope);
 }
 ```
+
+`executeKeyWordSearchCall` and `workingDirectory` are already in the file. The search reads its keyword from the call's own arguments, retry or not.
 
 #### Reading the shape of this method
 
 Everything about it follows from having no session:
 
-1. **It is one pass, not a callback.** There is no "send the request, wait, resume when the response arrives". Each invocation reads what it was given, decides, and answers. The exchange advances because the *client* calls again.
+1. **It is one pass, not a callback.** There is no "send the request, wait, resume when the response arrives". Each call reads what it was given, decides, and answers. The exchange moves on because the *client* calls again.
 
-2. **`success(...)` sends an `InputRequiredResult`.** Look carefully at what that is: a perfectly ordinary JSON-RPC **result**, to the id the client sent. The server has now finished with this request completely and remembers nothing about it.
+2. **`success(...)` sends an `InputRequiredResult`.** That is an ordinary JSON-RPC **result**, to the id the client sent. The server is finished with this request and remembers nothing about it.
 
-3. **`stage` is the only thing preventing a loop.** A declined form and a first attempt arrive looking almost identical — both are a `tools/call` with no directory anywhere in them. The stage is what tells them apart. Without it, declining once would land the user right back in the same form, forever.
+3. **The stage is checked before asking.** Without that check, declining once would put the user straight back in the same form, forever.
 
-4. **There is always a way out.** The last line is a fallback, not an error. A tool that can only answer after a successful round trip is unusable by any client that does not implement MRTR — and MRTR is optional for clients.
+4. **There is always a way out.** The last lines are a fallback, not an error. MRTR is optional for clients, and a tool that can only answer after a round trip is unusable by a client that does not implement it.
 
 ### Step 3: Read the answer back
 
-**Action Required**: Fill `elicitedDirectory` at **line 334** of `IORouter.java`:
+**Action Required**: fill `elicitedDirectory` at **line 458** of `IORouter.java`:
 
 ```java
 private String elicitedDirectory(Object inputResponse) {
@@ -280,14 +260,12 @@ private String elicitedDirectory(Object inputResponse) {
 }
 ```
 
-**Key components:**
-
-- **`deserializer.convert(...)`, not `deserializeResult(...)`.** An input response is the **bare result the method would have returned** — `{"action":"accept","content":{…}}` — not a JSON-RPC response object. There is no `jsonrpc`, no `id`, no `result` wrapper to unwrap. The method that used to unwrap one has been deleted from the deserializer, because a server that sends no requests receives no responses.
-- **`"accept"`** — a form can also come back `decline` or `cancel`. Neither is an error; they just mean no directory, which sends the resolver on to its fallback.
+- **`deserializer.convert(...)`, not `deserializeResult(...)`.** An input response is the **bare result the method would have returned**, `{"action":"accept","content":{…}}`, not a JSON-RPC response. There is no `jsonrpc`, no `id`, and no `result` wrapper to unwrap. A server that sends no requests receives no responses, so the deserializer has no method for one.
+- **`"accept"`**: a form can also come back `decline` or `cancel`. Neither is an error. Both mean no directory, which sends the resolver on to its fallback.
 
 ### What the wire looks like
 
-The interim result — the server asking:
+The interim result, with the server asking:
 
 ```json
 {"jsonrpc":"2.0","id":7,
@@ -299,12 +277,12 @@ The interim result — the server asking:
        "params":{"mode":"form","message":"…","requestedSchema":{ … }}
      }
    },
-   "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}
+   "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"}}
 ```
 
-Note what is missing from that embedded request: **no `jsonrpc`, and no `id`.** It has been de-JSON-RPC'd. It is data describing a question, identified by its `method` and correlated by the key it sits under.
+The embedded request has **no `jsonrpc` and no `id`**. It is data describing a question, named by its `method` and matched up by the key it sits under. The `requestState` decodes to `{"stage":"directory"}`, and that is all of it.
 
-The client's retry — a brand new request:
+The client's retry is a brand new request:
 
 ```json
 {"jsonrpc":"2.0","id":8,"method":"tools/call",
@@ -314,21 +292,22 @@ The client's retry — a brand new request:
    "arguments":{"keyword":"record"},
    "inputResponses":{
      "search_directory":{"action":"accept","content":{"directory":"/Users/you/code/repo"}}},
-   "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}
+   "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"}}
 ```
 
-New id. Full envelope again. The `requestState` echoed back byte-exact.
+It has a new id, the full envelope again, the original arguments, and the `requestState` echoed back exactly.
 
-### Only three methods may be embedded — and we build one
+### Only three methods may be embedded, and we build one
 
-The revision permits exactly three: `roots/list`, `sampling/createMessage`, and `elicitation/create`. All three are also **absent from the inbound registry**, so a client that sends one *to* the server gets `-32601`:
+The revision permits exactly three: `roots/list`, `sampling/createMessage` and `elicitation/create`. None of them is in the inbound list, so a client that sends one *to* the server gets `-32601`:
 
 ```java
 private static final Set<UniqueKeys> INBOUND_METHODS = EnumSet.of(
         UniqueKeys.SERVER_DISCOVER,
         UniqueKeys.PROMPTS_LIST,
-        // … no ELICITATION_CREATE; the other two have no constant at all
-        UniqueKeys.TASKS_CANCEL);
+        // … the rest of Chapter 4's methods, and no ELICITATION_CREATE;
+        // the other two have no constant at all
+        UniqueKeys.SUBSCRIPTIONS_LISTEN);
 ```
 
 They exist in exactly one place now: inside an `input_required` result.
@@ -344,105 +323,115 @@ public record InputRequest(String method, Object params) {
 }
 ```
 
-There is no `rootsList()` and no sampling factory, because both of those features are deprecated (see below) and the guidance is to take a tool parameter instead of Roots and to call a provider API directly instead of Sampling. Both still answer `-32601` inbound — that rule comes from the revision, not from whether any given server chooses to embed one.
+There is no `rootsList()` and no sampling factory, because both features are deprecated. The specification's advice is to take a tool parameter instead of Roots, and to call a model provider's API directly instead of Sampling. The `-32601` for all three inbound comes from the revision, not from which of them a server chooses to embed.
 
-This is worth pausing on, because it is the difference between modelling a protocol and modelling *your* use of it. The spec's three-method rule is a constraint on what is legal to embed. What you actually embed is a design decision, and carrying a factory, a capability record, and a predicate for a method you never send is how a codebase accumulates the kind of dead surface this chapter is about deleting.
+That is the difference between modelling a protocol and modelling *your use* of it. The three-method rule limits what is legal to embed; what you embed is a design decision. A factory, a capability record and a predicate for a method you never send are dead code that someone has to keep in step with the spec.
 
 ### Removed and deprecated are different things
 
-`2026-07-28` does both, and it is worth keeping them apart because the codebase treats them differently.
+`2026-07-28` does both, and the code treats them differently.
 
-**Removed** means physically absent, answering `-32601`: `initialize`, `notifications/initialized`, `ping`, `logging/setLevel`, `resources/subscribe`, `resources/unsubscribe`, `tasks/result`, `tasks/list`, and `notifications/roots/list_changed` (SEP-2575).
+**Removed** means gone, answering `-32601` (SEP-2575): `initialize`, `notifications/initialized`, `ping`, `logging/setLevel`, `resources/subscribe`, `resources/unsubscribe`, `notifications/roots/list_changed`, `notifications/elicitation/complete`, `tasks/result` and `tasks/list`. On HTTP the session headers, `Mcp-Session-Id` and `Last-Event-ID`, went with them. Tasks moved to the `io.modelcontextprotocol/tasks` extension, which is Chapter 7.
 
-**Deprecated** means annotated but fully functional. Roots, Sampling, and Logging are deprecated under the feature lifecycle policy (SEP-2577): new servers should not adopt them, but they keep working in this revision and in every revision published within a year of it, and actually removing them needs a separate proposal. The suggested migrations are to take directories as tool parameters instead of Roots, integrate an LLM provider API directly instead of Sampling, and write to `stderr` or OpenTelemetry instead of Logging.
+**Deprecated** means marked, but still working. New code should not adopt a deprecated feature. It keeps working until at least the first revision published on or after 2027-07-28, and removing it takes a proposal of its own:
 
-That is why `key_word_search` takes a `directory` argument at all — it is the migration the specification names in place of Roots, and it is the reason the one-hop path is the one to reach for first.
+- **Roots** (SEP-2577). Take directories as tool parameters instead, which is why `key_word_search` has a `directory` argument at all.
+- **Sampling** (SEP-2577), with the `thisServer` and `allServers` values of `includeContext`, which go no later than Sampling does. Call a model provider's API directly instead.
+- **Logging** (SEP-2577). The log level is now each request's `logLevel`, and a server must not send `notifications/message` to a request that did not set one. Write to `stderr` or OpenTelemetry instead. This server writes to a file.
+- **Dynamic Client Registration**, replaced by Client ID Metadata Documents. It belongs to HTTP authorization, which a stdio server does not use.
+- **The HTTP+SSE transport** (SEP-2596), which can be removed three months after SEP-2596 reaches Final. Streamable HTTP replaces it.
 
-Roots is also why this chapter reads the way it does. An embedded `roots/list` used to be the worked example above: the server asked the client where to look, the client answered from its own configuration without troubling anybody, and only an empty answer escalated to a form. Two questions and an escalation — a genuinely nice demonstration of a round trip, built on a feature that the same specification tells you, a few pages later, not to build on. Reading a spec's lifecycle policy before choosing an example is cheaper than reading it afterwards. Nothing about MRTR was lost in the move: the exchange you just wrote is the same exchange, with the user answering instead of the client.
+Roots is also why this chapter reads the way it does. An embedded `roots/list` used to be the worked example: the server asked the client where to look, the client answered from its own configuration without troubling anybody, and only an empty answer escalated to a form. That made a good round-trip demonstration, built on a feature that the same specification tells you, a few pages later, not to build on. Nothing about MRTR was lost in the move: the exchange you just wrote is the same exchange, with the user answering instead of the client.
 
-Watch the two policies land differently on the same feature. `notifications/roots/list_changed` was *removed*, so it is gone from the method registry entirely. The `roots` capability was only *deprecated*, so clients keep declaring it — SEP-2577 says they should, for the whole transition — and the Inspector will still put `"roots":{"listChanged":true}` in every envelope it sends you. That is correct client behaviour, not a bug to chase. `ClientCapabilities` no longer names the field, so Gson drops it and the server carries on. It has nothing to do with `"protocolEra": "auto"` either: the era selects the sessionless behaviour family, it does not suppress a capability that is merely deprecated.
+The two policies land differently on the same feature. `notifications/roots/list_changed` was *removed*, so it is gone from the method registry. The `roots` capability was only *deprecated*, so clients keep declaring it, as SEP-2577 asks them to for the whole transition, and the Inspector puts `"roots":{"listChanged":true}` in every envelope it sends you. That is correct client behaviour, not a bug to chase. `ClientCapabilities` does not name the field, so Gson drops it and the server carries on.
 
 ---
 
-## Testing Your Implementation
+## You are done when the tests pass
 
-### 1. Build the project
+```bash
+./gradlew chapterTest -Pchapter=05
+```
+
+The run reports 36 tests, and 27 of them fail before you start: 9 in `SearchContinuationTest` and 18 in `IORouterTest`. The other 9 pass already. 4 cover given code, the form `ElicitationBuilder` builds and how `InputRequiredResult` files its question, and 5 pass because Chapter 4's `TOOLS_CALL` case already answers them. Keep those 5 passing when you replace that case. Failures worth recognising:
+
+- `awaitingDirectoryCarriesOnlyTheDirectoryStage` — the state carries more than the stage, such as the keyword.
+- `anEncodedContinuationIsUnpaddedUrlSafeBase64` — `encode` uses `getEncoder()`, or keeps the padding.
+- `aCorruptRequestStateIsTreatedAsAFirstAttemptRatherThanAnError` — `decode` throws on a value it cannot read instead of returning null.
+- `aRetrySearchesForItsOwnKeywordArgumentAndNotOneInTheState` — the keyword was read out of `requestState` instead of the call's arguments.
+- `theQuestionIsAskedOnceAndOnlyOnce` — a declined form is asked again, because the stage is not checked before asking.
+- `aClientThatCannotShowAFormIsNotAsked` or `anElicitationDeclarationThatNamesNoModeIsShownTheForm` — the server asks without `envelope.supportsElicitationForm()`, or reads `elicitation` itself and misses that `{}` means form.
+- `aDirectoryArgumentSkipsTheRoundTripEntirely` — this one passed before you started, so a directory argument is no longer searched straight away.
+- `anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere` — `elicitedDirectory` returned something other than a usable directory.
+- A test that expects one response and finds a `-32603` — something you wrote threw. The log file says what.
+
+Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
 ```bash
 ./gradlew clean build
+python3 lessons/presentation-3hr/verify/harness.py --chapter 05
 ```
 
-### 2. Start the MCP Inspector
+The probe sends the round trip by hand: a bare call, the retry with a directory, the retry with the form declined, and two clients that cannot be asked. Its first reply is the question, and the second is the search:
+
+```bash
+./inspector/modern-mrtr.sh
+```
+
+```text
+{"jsonrpc":"2.0","id":10,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form",…}}},"requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9",…}}
+{"jsonrpc":"2.0","id":11,"result":{"resultType":"complete","content":[…],"isError":false,…}}
+```
+
+The other three replies are searches of the probe's own directory, because none of those calls has a directory to search.
+
+Last, prove the old direction is gone. Send `elicitation/create` *to* the server:
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"elicitation/create","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}},"mode":"form","message":"Pick one","requestedSchema":{"type":"object","properties":{}}}}' | java -jar build/libs/agent-mcp-workshop-0.0.1.jar
+```
+
+```text
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found: elicitation/create"}}
+```
+
+The method is not in the inbound list. It only ever appears embedded in a result.
+
+## Try It in the MCP Inspector
 
 ```bash
 cd inspector
 ./run.sh
 ```
 
-Make sure `inspector/config.json` has `"protocolEra": "auto"` as a **direct sibling key** — nested anywhere else and the key is ignored, the CLI falls back to its `legacy` default, and it sends `initialize` instead of `server/discover`.
+`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
 
-### 3. Verify the discovery response
+### Discovery
+- Click **Connect** and find the `server/discover` result. There is no `initialize` anywhere in the log.
+- `capabilities` has no `extensions` map yet. The UI extension arrives in Chapter 6 and tasks in Chapter 7.
+- Look at what the *client* sent in `_meta.io.modelcontextprotocol/clientCapabilities`. The Inspector declares `"roots":{"listChanged":true}` there, and will keep doing so: deprecated is not removed. The server does not model the key, so it is dropped.
 
-- Click **Connect**
-- Find the `server/discover` result — note there is no `initialize` anywhere in the log
-- Expand `capabilities` and confirm there is **no** `extensions` map for UI or tasks yet — those are later chapters
-- Confirm `supportedVersions` is a **list**, and that `serverInfo` is under `_meta` rather than in the body
-- Look at what the *client* sent, in `_meta.io.modelcontextprotocol/clientCapabilities`. The Inspector declares `"roots":{"listChanged":true}` there, and will keep doing so — deprecated is not removed. The server does not model the key, so it never arrives anywhere
+### The round trip
+- Open **List Tools** and call `key_word_search` with a keyword and **no** `directory`.
+- The first answer is `resultType: "input_required"` carrying `inputRequests.search_directory`. The embedded request has no `id`: this is a result, not a request.
+- The Inspector shows the form. Paste an absolute path and submit; it re-sends `tools/call` under a **new id**, with `inputResponses` and the echoed `requestState`.
+- **Decline the form once.** The search still returns, now rooted at the server's working directory, and `isError` is `false`.
+- Call it once more **with** a `directory` argument. The round trip disappears entirely.
 
-### 4. Observe the round trip
+## Stretch: Ask with a URL
 
-- Open **List Tools** and call `key_word_search` with a keyword and **no** `directory`
-- The first answer is `resultType: "input_required"` carrying `inputRequests.search_directory`. **Point at the missing `id` inside the embedded request** — this is a result, not a request
-- The Inspector renders the form. Paste an absolute path and submit; it re-sends `tools/call` under a **new id**, with `inputResponses` and the echoed `requestState`
-- **Decline the form once.** The search still returns — now rooted at the server's working directory
-- Call it once more **with** a `directory` argument, and watch the round trip disappear entirely
+A client that declares only `"url":{}` cannot show a form, so today it is never asked. Embed an `elicitation/create` with `mode: "url"` for it instead: the user opens a page, and the client retries once the page reports back. Decide what the page does, and how its answer reaches the retry.
 
-### 5. Prove the old direction is gone
+## Stretch: Ask two questions in one round
 
-Send an `elicitation/create` *to* the server and watch it come back `-32601`. That method is not in the inbound registry; it only ever appears embedded in a result.
+`inputRequests` is a map, so one `input_required` can ask several things at once. Ask for the keyword as well as the directory when a call has neither, with one key for each, and read both answers off the same retry. The stage now has to say which questions were asked.
 
-## What You Should Observe
+## Stretch: Sign the state
 
-### In the discovery response
-- `extensions` appears in `capabilities`, keyed by namespaced identifier
-- `supportedVersions` is a list — no single negotiated version, because there is no session to negotiate for
-- `serverInfo` sits in `_meta`, not in the result body
+The stage is safe to trust, because a forged one can only skip the question. State that chose what to search would not be. Sign `requestState` with an HMAC and a time limit, and treat a value whose signature does not match, or that has expired, as a first attempt.
 
-### In the round trip
-- **The server never sends a message that is not a reply.** Every question it asks, it asks inside an answer
-- Each retry carries the **full** `_meta` envelope again — the server learns the client's capabilities afresh every time
-- `requestState` comes back byte-identical
-- Declining the form is not a failure: `isError` is `false` and the search falls back to the working directory
-- Supplying `directory` as an argument skips the round trip entirely
+## Where this goes next
 
----
+The search can now ask for what it lacks, but every answer is still a list of paths for the model to read. Chapter 06 gives the tool an interface the client renders: an MCP App that shows the same results as a dashboard.
 
-## How This Implements the Extension Pattern
-
-| Direction | Mechanism | Where |
-|-----------|-----------|-------|
-| Client → Server | `clientCapabilities.elicitation.form` in **every** request's `_meta` | `RequestEnvelope.supportsElicitationForm()` |
-| Server → Client | `capabilities.extensions["…"]` in `server/discover` | `withExtension()` — **this lesson** |
-| Server asks | `resultType: "input_required"` with an embedded `elicitation/create` | `InputRequiredResult` — **this lesson** |
-| Client answers | A **new** `tools/call` carrying `inputResponses` + `requestState` | `handleKeywordSearch` — **this lesson** |
-
-The pattern generalises to every extension:
-1. Declare the identifier under `capabilities.extensions` in `server/discover`
-2. Read the client's side off each request's `_meta` envelope — never off a field
-3. Ask by embedding a request in a result, never by sending one
-4. Carry any continuation state through `requestState`
-
----
-
-## Congratulations!
-
-Your MCP server now implements the modern extension and input model:
-
-- ✅ **`ServerCapabilities.extensions`** — declares specified extensions by identifier
-- ✅ **`withExtension()`** — order-independent, folded in at `build()`
-- ✅ **Per-request capabilities** — read from the `_meta` envelope, with no session flags
-- ✅ **`InputRequiredResult`** — the server asks by answering
-- ✅ **`SearchContinuation`** — continuation state that survives a stateless round trip
-- ✅ **A one-hop path and a fallback** — the tool is usable by clients that never implement MRTR at all
-
-In the next lesson you will wrap this tool in an **MCP App**, giving it an HTML interface the client renders directly.
+Start it with `./clean-checkout.sh 06-chapter`, or keep your own code: commit it and run `git merge origin/06-chapter`. The README explains both.

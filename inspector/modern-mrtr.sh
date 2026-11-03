@@ -24,8 +24,9 @@ TARGET=$(cd .. && pwd)/src/main/java/com/workshop/mcp/tools
 # models.
 META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"sampling":{},"elicitation":{"form":{},"url":{}}}}'
 
-# requestState as minted by SearchContinuation for keyword "record".
-DIR_STATE=$(printf '{"keyword":"record","stage":"directory"}' | base64 | tr -d '=' | tr '/+' '_-')
+# requestState as SearchContinuation mints it. It holds only the stage: each
+# retry repeats the keyword argument, so the state does not carry it.
+DIR_STATE=$(printf '{"stage":"directory"}' | base64 | tr -d '=' | tr '/+' '_-')
 
 {
   # Step 1: nothing to search yet, so the server embeds an elicitation/create.

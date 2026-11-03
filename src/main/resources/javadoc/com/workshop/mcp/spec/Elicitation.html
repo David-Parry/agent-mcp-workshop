@@ -102,7 +102,9 @@ loadScripts(document, 'script');</script>
  <p>
  A client that can show an in-conversation form declares <code>form</code>; one
  that can open an out-of-band page declares <code>url</code>. Both arrive as empty
- JSON objects, so presence is the whole signal.
+ JSON objects, so presence is the whole signal. An empty
+ <code>"elicitation": {}</code> names neither, and means form: that is how a
+ client declared elicitation before there were modes to name.
  </p>
  <p>
  In revision <code>2026-07-28</code> a server no longer sends
@@ -220,7 +222,7 @@ loadScripts(document, 'script');</script>
  the mode this workshop uses to ask for a search directory.</div>
 <dl class="notes">
 <dt>Returns:</dt>
-<dd>true when form mode is available</dd>
+<dd>true when form is declared, or when no mode is named at all</dd>
 </dl>
 </section>
 </li>

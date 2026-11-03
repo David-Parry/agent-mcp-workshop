@@ -391,6 +391,21 @@ class Workfile:
         inside = [s for s in self.slots if first <= s.start <= last]
         return inside[0] if len(inside) == 1 else None
 
+    def revised_block(self, target, code):
+        """A block the handout rewrites rather than fills: the arm or method
+        that opens on the anchor line, when the paste opens the same one."""
+        t = target - 1
+        if t >= len(self.original):
+            return None
+        anchored, pasted = self.original[t], code[0]
+        cases = CASE_LINE.match(anchored), CASE_LINE.match(pasted)
+        declarations = DECLARATION.match(anchored), DECLARATION.match(pasted)
+        if not any(a and p and a.group(a.lastindex) == p.group(p.lastindex) for a, p in (cases, declarations)):
+            return None
+        slot = Slot(t, self.block_end(t), re.match(r"\s*", anchored).group(0), None)
+        self.slots.append(slot)
+        return slot
+
     def block_end(self, line):
         text = "\n".join(self.original)
         offset = sum(len(row) + 1 for row in self.original[:line])
@@ -562,10 +577,11 @@ def paste(student, chapter, block, prose, anchors, works, where):
         return
     _, target, _, path, named = near[-1]
     work = works.get(path)
-    slot = work.slot_at(target) if work else None
+    slot = work.slot_at(target) or work.revised_block(target, code) if work else None
     if slot is None:
         finding(chapter, student.name, "paste has nowhere to go",
-                f"{where}: line {target} of {named} is not an empty method, arm or placeholder")
+                f"{where}: line {target} of {named} is not an empty method, arm or placeholder, "
+                "nor a block the paste rewrites")
         return
     if slot.fill:
         finding(chapter, student.name, "pasted twice", f"{where}: line {target} of {named} is already filled")

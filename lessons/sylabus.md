@@ -165,20 +165,21 @@ A working MCP server with all three core capabilities — ready to be extended w
 **Branch**: `05-chapter`
 
 ### Objective
-Wire up the MCP extension mechanism, then ask the user for a missing search directory in the only way a server still can — by answering the call with a question.
+See where extensions are declared, though this chapter declares none, then ask the user for a missing search directory in the only way a server still can — by answering the call with a question.
 
 ### What You'll Build
-- `extensions` capability map in `ServerCapabilities`, alongside the surviving `experimental`
-- `withExtension()` builder method
-- `InputRequiredResult` and `InputRequest` — an embedded method call with no `jsonrpc` and no `id`
-- **The MRTR loop**: `TOOLS_CALL` answers `resultType: "input_required"`, embedding an `elicitation/create` form
-- `SearchContinuation` — the keyword and stage, base64-encoded into the opaque `requestState`
+- `SearchContinuation` — the exchange's stage, base64-encoded into the opaque `requestState`
+- **The MRTR loop**: `TOOLS_CALL` hands the search to `handleKeywordSearch`, which answers `resultType: "input_required"`, embedding an `elicitation/create` form
+- `elicitedDirectory` — reads the user's answer off the retry, which may also be a decline or a cancel
+- Given, and read first: the `extensions` map in `ServerCapabilities` with `withExtension()`, `InputRequiredResult` and `InputRequest` — an embedded method call with no `jsonrpc` and no `id`
 
 ### Key Concepts
 - Extension identifier format (`{vendor-prefix}/{extension-name}`)
 - A server MUST NOT send a request; modern clients silently discard inbound ones
 - The retry is a **brand new request with a brand new id**, not a response — correlated only by the echoed `requestState`
 - Statelessness forces the continuation onto the wire: the server has nowhere to keep it
+- `requestState` comes back from the client, which can rewrite it, so it holds only the stage; the keyword comes back with the retried call's arguments
+- An empty `"elicitation":{}` declares form, as it did before there were modes
 - Always leave a one-hop path — MRTR is optional for clients, so the directory is also an optional tool argument
 - Removed (SEP-2575) is not deprecated (SEP-2577): `initialize` and its family are physically gone, whereas roots, sampling, and logging still work and are still declared by clients — this server just does not build on them
 
@@ -188,9 +189,10 @@ Wire up the MCP extension mechanism, then ask the user for a missing search dire
 - `tools/call key_word_search` **with** a `directory` argument completes in one hop
 - **Without** it, the answer is `input_required` embedding an `elicitation/create` with `mode: "form"`, and the client re-sends under a new id once the user has filled it in
 - Declining the form falls back to the server's working directory rather than failing
+- `elicitation/create` sent to the server is `-32601`: it only ever appears embedded in a result
 
 ### Outcome
-A server that uses the protocol's extensibility surface and asks for what it needs, exactly when it needs it, without ever sending a request.
+A server that asks for what it needs, exactly when it needs it, without ever sending a request, and is ready to declare the extensions Chapters 6 and 7 add.
 
 ---
 
