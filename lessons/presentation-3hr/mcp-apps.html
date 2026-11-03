@@ -96,26 +96,26 @@
             <div style="background:#0c1328;border:1px solid rgba(247,118,142,0.3);border-radius:12px;padding:18px">
                 <h4 style="color:var(--red);margin:0 0 12px">❌ Without MCP Apps</h4>
                 <p style="color:var(--muted);font-size:13px">User asks → LLM calls tool → Returns wall of text:</p>
-                <pre style="font-size:12px;margin-top:10px">/path/api.http, keyword_count=1
-/path/README.md, keyword_count=3
-/path/pom.xml, keyword_count=2
-... 55 more files</pre>
+                <pre style="font-size:12px;margin-top:10px">…/mcp/tasks/TaskStore.java, keyword_count=7
+…/mcp/tools/KeyWordSearch.java, keyword_count=10
+…/mcp/tools/Tool.java, keyword_count=4
+... 99 more files</pre>
                 <p style="color:var(--muted);font-size:12px;margin-top:8px">Hard to explore, no interactivity, no visualization</p>
             </div>
             <div style="background:#0c1328;border:1px solid rgba(158,206,106,0.3);border-radius:12px;padding:18px">
                 <h4 style="color:var(--green);margin:0 0 12px">✅ With MCP Apps</h4>
                 <p style="color:var(--muted);font-size:13px">User asks → LLM calls tool → Interactive dashboard appears inline:</p>
                 <div style="background:#1e2940;border-radius:8px;padding:12px;margin-top:10px;font-size:12px">
-                    <div style="color:var(--accent);margin-bottom:6px">🔍 Keyword Search Results</div>
-                    <div style="color:var(--muted)">Found 58 files • 400+ matches</div>
+                    <div style="color:var(--accent);margin-bottom:6px">🔍 Keyword Search Results <span style="font-size:10px">MCP App</span></div>
+                    <div style="color:var(--muted)">7 files with matches • 40 total occurrences</div>
                     <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">api.http ×1</span>
-                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">README.md ×3</span>
-                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">pom.xml ×2</span>
+                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">IORouter.java ×14</span>
+                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">UniqueKeys.java ×9</span>
+                        <span style="background:#0c1328;padding:2px 6px;border-radius:4px;font-size:11px">Tool.java ×6</span>
                     </div>
-                    <div style="margin-top:8px;color:var(--accent);font-size:11px;cursor:pointer">[ Search Again ] [ Filter ] [ Export ]</div>
+                    <div style="margin-top:8px;color:var(--accent);font-size:11px">[ Search ]</div>
                 </div>
-                <p style="color:var(--muted);font-size:12px;margin-top:8px">Sortable, filterable, interactive — stays in context</p>
+                <p style="color:var(--muted);font-size:12px;margin-top:8px">The workshop's page, with its sample rows — it stays in context</p>
             </div>
         </div>
     </section>
@@ -152,13 +152,11 @@
         <pre>{
   "capabilities": {
     "extensions": {
-      "io.modelcontextprotocol/ui": {
-        "mimeTypes": ["text/html;profile=mcp-app"]
-      }
+      "io.modelcontextprotocol/ui": {}
     }
   }
 }</pre>
-        <p>On revision <code>2026-07-28</code> this moved out of the <code>experimental</code> map into the dedicated <code>extensions</code> slot, and the identifier is <code>io.modelcontextprotocol/ui</code>. The declaration also names the mime types the server can serve, so a host knows before fetching anything whether it can render what is on offer. Clients read this from the <code>server/discover</code> result and cache it; if the extension is absent, the app never appears and the tool still works normally.</p>
+        <p>On revision <code>2026-07-28</code> this moved out of the <code>experimental</code> map into the dedicated <code>extensions</code> slot, and the identifier is <code>io.modelcontextprotocol/ui</code>. The settings object is empty: MCP Apps defines one setting, <code>mimeTypes</code>, and it is the <em>host's</em> — the page types it can render, declared in the client capabilities of each request. Clients read the server's declaration from the <code>server/discover</code> result and cache it; if the extension is absent, the app never appears and the tool still works normally.</p>
 
         <h3>2. Add _meta to your tool definition — under both keys</h3>
         <pre>{
@@ -178,14 +176,15 @@
         <p style="color:var(--muted);font-size:13px">This is transitional, and worth telling the class as much — in the direction that may surprise them. The <em>nested</em> key is the one the extension standardised on; the flat key is the legacy spelling, formally deprecated and due for removal before GA. We emit it anyway, because hosts shipped against it and a deprecated field keeps working for its whole transition. Write new code against <code>ui.resourceUri</code> and treat the flat key the way we treat <code>roots</code>: still on the wire, not something to build on.</p>
 
         <h3>3. Serve the HTML when the host requests it</h3>
-        <pre>// In your resources/read handler:
-if (uri.startsWith("ui://")) {
-    // Return the bundled HTML
-    return new ResourceContent(uri,
-        "text/html;profile=mcp-app",
-        readHtmlFromClasspath("mcp-app.html"));
-}</pre>
-        <p>The MIME type <code>text/html;profile=mcp-app</code> tells the host this is an MCP App, not a regular HTML resource — the same string the extension declared in <code>mimeTypes</code>, which is what lets the host decide up front whether it can render this at all.</p>
+        <pre>// IORouter, case RESOURCES_READ:
+boolean isApp = KEYWORD_APP_URI.equals(resourceUri);
+String mimeType = isApp ? Resource.MIME_TYPE_UI_APP : DEFAULT_MIME_TYPE;
+String content = JavadocResources.readResourceContent(
+        isApp ? "lesson/mcp-app.html" : resourceUri);
+ReadResourceResult result = ReadResourceResultBuilder.builder()
+        .addTextContent(resourceUri, mimeType, content)
+        .build();</pre>
+        <p>The MIME type <code>text/html;profile=mcp-app</code> tells the host this is an MCP App, not a regular HTML resource. The specification requires it for a page, and it is the same string a host lists in its own <code>mimeTypes</code> setting, which is how the host knows it can render what it is reading.</p>
         <p style="color:var(--muted);font-size:13px">One detail from the wider revision applies here: <code>resources/read</code> is one of the six cacheable methods, so the result also carries <code>resultType</code>, <code>ttlMs</code>, and <code>cacheScope</code>. An app's HTML is exactly the kind of thing you want a host to fetch once and keep.</p>
     </section>
 
@@ -230,8 +229,8 @@ if (uri.startsWith("ui://")) {
             <div class="flow-step">
                 <span class="step-num">6</span>
                 <div class="step-content">
-                    <h4>User clicks "Search Again"</h4>
-                    <p>The app calls back through <code>postMessage</code> → host routes → <code>tools/call</code> → fresh results → UI updates. No page reload, no context switch.</p>
+                    <h4>The user searches again from inside the app</h4>
+                    <p>A real app calls back through <code>postMessage</code> → host routes → <code>tools/call</code> → fresh results → UI updates. No page reload, no context switch. The workshop's page stops short of this: its Search button filters its own sample rows, and the calls it would make are written out in its comments.</p>
                 </div>
             </div>
         </div>
@@ -312,10 +311,13 @@ if (uri.startsWith("ui://")) {
             <div class="supported-item">✅ Claude (web)</div>
             <div class="supported-item">✅ Claude Desktop</div>
             <div class="supported-item">✅ VS Code Copilot</div>
+            <div class="supported-item">✅ Microsoft 365 Copilot</div>
             <div class="supported-item">✅ Goose</div>
             <div class="supported-item">✅ Postman</div>
             <div class="supported-item">✅ MCPJam</div>
+            <div class="supported-item">✅ Archestra.AI</div>
         </div>
+        <p style="color:var(--muted);font-size:13px;margin-top:10px">As listed on <a href="https://modelcontextprotocol.io/extensions/apps/overview">modelcontextprotocol.io</a>; the <a href="https://modelcontextprotocol.io/extensions/client-matrix">client matrix</a> tracks changes. The MCP Inspector also renders a page in its <strong>Apps</strong> tab, which is what the demo uses.</p>
     </section>
 
     <!-- IDE Demo: Chapter 6 -->
@@ -327,15 +329,15 @@ if (uri.startsWith("ui://")) {
             <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (which emits it <em>twice</em>, nested as <code>ui</code> and flat as the deprecated <code>ui/resourceUri</code>), and <code>AppTool</code>. Ask the class to spot the duplication before you explain it; someone always assumes it is a bug. Then ask which of the two is the deprecated one — most will guess the nested key, and it is the other way round.</li>
             <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>. One call, both keys: the duplication is impossible to get wrong from the outside.</li>
             <li><strong>Point at what is missing from <code>AppTool</code></strong> — there is no <code>execution</code> field any more. Tie it back to Ch 7: the client no longer decides about tasks, so the hint that fed that decision went with it.</li>
-            <li><strong>Open <code>lessons/mcp-app.html</code> directly in the browser</strong> — the standalone dashboard with mock data. Point at the comments explaining where <code>app.ontoolresult</code> and <code>app.callServerTool</code> take over in a real host.</li>
-            <li><strong>Walk the four <code>IORouter</code> changes:</strong> the <code>io.modelcontextprotocol/ui</code> extension declared with its <code>mimeTypes</code> in <code>server/discover</code>, <code>AppToolsListResult</code> from TOOLS_LIST, the <code>ui://</code> resource added in RESOURCES_LIST, and the <code>ui://</code> branch in RESOURCES_READ serving the HTML with MIME type <code>text/html;profile=mcp-app</code>.</li>
-            <li><strong>In Inspector — Tools tab:</strong> open the raw JSON for <code>key_word_search</code> and show both <code>_meta</code> keys side by side. <strong>Resources tab:</strong> <code>ui://keyword-search/mcp-app.html</code> appears; read it and show the MIME type matching the declared one exactly.</li>
-            <li><strong>Apps tab:</strong> click <strong>Refresh Apps</strong> — <em>Keyword Search App</em> appears. Run a search from inside the rendered dashboard and watch the tool round-trip happen from the iframe.</li>
+            <li><strong>Open <code>src/main/resources/lesson/mcp-app.html</code> directly in the browser</strong> — the standalone dashboard with sample data. Point at the comments explaining where <code>app.ontoolresult</code> and <code>app.callServerTool</code> would take over in a real host.</li>
+            <li><strong>Walk the four places in <code>IORouter</code> the app touches</strong> — all already wired on the branch, so this is reading, not typing: the empty <code>io.modelcontextprotocol/ui</code> declaration in <code>server/discover</code>, <code>AppToolsListResult</code> from TOOLS_LIST, the page listed in RESOURCES_LIST as <em>Keyword Search App</em>, and the RESOURCES_READ branch serving it with MIME type <code>text/html;profile=mcp-app</code>.</li>
+            <li><strong>In the Inspector:</strong> open the <code>tools/list</code> reply in the <strong>Protocol</strong> panel and show both <code>_meta</code> keys side by side — the Tools tab shows the arguments, not the <code>_meta</code>. <strong>Resources tab:</strong> <em>Keyword Search App</em> is listed beside the Javadoc pages; read it and show the MIME type.</li>
+            <li><strong>Apps tab:</strong> it appears because a tool has a <code>_meta.ui.resourceUri</code>, and lists <code>key_word_search</code> under <strong>MCP Apps (1)</strong>. Give it a keyword and a directory and click <strong>Open App</strong>: the Inspector calls the tool and renders the page in its sandbox. The page shows its sample rows whatever you searched for; the real result is the <code>tools/call</code> reply in the Protocol panel, sent to the page as well, which does not listen.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> MCP Apps are still just a tool plus a resource plus <code>_meta</code> — no new protocol machinery, and the statelessness migration barely touched them. What did change is bookkeeping: a different extension slot, a second copy of the uri, and one field fewer on the tool. Hosts that don't support Apps ignore <code>_meta</code> and the tool keeps working as text.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Apps — Interactive UI in the Conversation — Chapter 6.</div>
+    <div class="footer">© 2026 MCP Presentation. MCP Apps — Interactive UI in the Conversation — Chapter 6.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

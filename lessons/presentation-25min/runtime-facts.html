@@ -124,17 +124,17 @@
             <div class="fact-card" style="border-color:var(--accent)">
                 <h3>Extensions</h3>
                 <ul>
-                    <li><code>io.modelcontextprotocol/ui</code> &mdash; <code>mimeTypes: ["text/html;profile=mcp-app"]</code></li>
-                    <li><code>io.modelcontextprotocol/tasks</code></li>
+                    <li><code>io.modelcontextprotocol/ui</code> &mdash; <code>{}</code></li>
+                    <li><code>io.modelcontextprotocol/tasks</code> &mdash; <code>{}</code></li>
                 </ul>
-                <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Namespaced keys under <code>capabilities.extensions</code> &mdash; the old top-level <code>tasks</code> slot is gone, and unknown keys are ignored. See <a href="extensions.html" style="color:var(--accent)">Extensions</a>.</p>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Namespaced keys under <code>capabilities.extensions</code> &mdash; the old top-level <code>tasks</code> slot is gone, and unknown keys are ignored. MCP Apps defines no server settings: <code>mimeTypes</code> is what a <em>client</em> declares. See <a href="extensions.html" style="color:var(--accent)">Extensions</a>.</p>
             </div>
 
             <div class="fact-card">
                 <h3>Result Shape</h3>
                 <ul>
                     <li><strong><code>resultType</code> on every result:</strong> <code>complete</code> or <code>input_required</code> from the core protocol, plus <code>task</code> from the tasks extension</li>
-                    <li><strong>Cacheable &mdash; also need <code>ttlMs</code> + <code>cacheScope</code>:</strong> <code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code></li>
+                    <li><strong>Cacheable &mdash; also need <code>ttlMs</code> + <code>cacheScope</code>:</strong> <code>server/discover</code>, <code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code></li>
                     <li><strong>Must NOT carry them:</strong> <code>prompts/get</code>, <code>tools/call</code>, <code>completion/complete</code></li>
                     <li><strong>This server's hints:</strong> <code>ttlMs: 60000</code>, <code>cacheScope: "public"</code></li>
                 </ul>
@@ -149,19 +149,18 @@
                     <li><code>-32022</code> &mdash; unsupported revision; data carries <code>supported</code> and <code>requested</code></li>
                     <li><code>-32002</code>, <code>-32042</code> &mdash; retired. Never emit them; a <em>client</em> still accepts <code>-32002</code> from older servers</li>
                 </ul>
-                <p style="margin:8px 0 0;color:var(--muted);font-size:13px"><code>-32020</code>&hellip;<code>-32099</code> is now reserved for the spec; <code>-32000</code>&hellip;<code>-32019</code> stays implementation-defined. Resource-not-found, once <code>-32002</code>, is now just <code>-32602</code>.</p>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px"><code>-32020</code>&hellip;<code>-32099</code> is now reserved for the spec; <code>-32000</code>&hellip;<code>-32019</code> is legacy, and a new implementation should not use it. Resource-not-found, once <code>-32002</code>, is now just <code>-32602</code>.</p>
             </div>
 
             <div class="fact-card">
                 <h3>Removed Methods</h3>
-                <p style="margin:0 0 8px;color:var(--muted);font-size:13px">All of these now answer <code>-32601</code>:</p>
+                <p style="margin:0 0 8px;color:var(--muted);font-size:13px">The removed requests answer <code>-32601</code>:</p>
                 <ul>
-                    <li><code>initialize</code>, <code>notifications/initialized</code></li>
-                    <li><code>ping</code>, <code>logging/setLevel</code></li>
-                    <li><code>notifications/roots/list_changed</code></li>
+                    <li><code>initialize</code>, <code>ping</code>, <code>logging/setLevel</code></li>
                     <li><code>resources/subscribe</code>, <code>resources/unsubscribe</code></li>
                     <li><code>tasks/result</code>, <code>tasks/list</code></li>
                 </ul>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px">The removed notifications, <code>notifications/initialized</code> and <code>notifications/roots/list_changed</code>, are logged and dropped: nothing answers a notification.</p>
             </div>
 
             <div class="fact-card">
@@ -179,7 +178,7 @@
                 <h3>Available Prompts</h3>
                 <ul>
                     <li><strong>Prompt Name:</strong> <code>search_keyword</code></li>
-                    <li><strong>Description:</strong> Creates a prompt to search for a word using the key_word_search tool</li>
+                    <li><strong>Description:</strong> Creates a prompt, to search for a word using the key_word_search tool</li>
                     <li><strong>Arguments:</strong> keyword (required)</li>
                 </ul>
             </div>
@@ -187,10 +186,10 @@
             <div class="fact-card">
                 <h3>Available Resources</h3>
                 <ul>
-                    <li><strong>Javadoc:</strong> 60+ HTML files</li>
+                    <li><strong>Javadoc:</strong> the 75 HTML pages of the <code>spec</code> package, on <code>complete</code></li>
                     <li><strong>Example:</strong> <code>javadoc/com/workshop/mcp/spec/Capability.html</code></li>
                     <li><strong>MCP App:</strong> <code>ui://keyword-search/mcp-app.html</code> served as <code>text/html;profile=mcp-app</code></li>
-                    <li><strong>Pagination:</strong> &#10003; (nextCursor: "pageNext")</li>
+                    <li><strong>Pagination:</strong> none &mdash; one response carries the whole list</li>
                 </ul>
             </div>
 
@@ -202,7 +201,7 @@
                     <li><strong>Shape:</strong> <code>inputRequests</code> is a keyed map; each entry has <code>method</code> + optional <code>params</code>, no <code>jsonrpc</code>, no <code>id</code></li>
                     <li><strong>Key used here:</strong> <code>search_directory</code></li>
                     <li><strong>Elicitation:</strong> <code>mode: "form"</code>; the old <code>elicitationId</code> is gone</li>
-                    <li><strong><code>requestState</code>:</strong> opaque string, base64 JSON of <code>{keyword, stage}</code>, echoed back byte-exact</li>
+                    <li><strong><code>requestState</code>:</strong> opaque string, base64 JSON of <code>{stage}</code>, echoed back byte-exact; the keyword rides in the retried call's own arguments</li>
                 </ul>
             </div>
 
@@ -213,7 +212,7 @@
                     <li><strong>Gate:</strong> the client declared <code>io.modelcontextprotocol/tasks</code> on this request</li>
                     <li><strong>Immediate reply:</strong> <code>resultType: "task"</code> with <code>taskId</code>, status <code>working</code></li>
                     <li><strong>TTL / poll:</strong> <code>ttlMs: 300000</code>, <code>pollIntervalMs: 1000</code></li>
-                    <li><strong>Push:</strong> <code>notifications/tasks</code> on every status change, params = the full task snapshot</li>
+                    <li><strong>Push:</strong> none. <code>notifications/tasks</code> goes only to a client that subscribed to the task, and polling <code>tasks/get</code> is the default</li>
                 </ul>
             </div>
 
@@ -221,7 +220,7 @@
                 <h3>Subscriptions</h3>
                 <ul>
                     <li><strong>Method:</strong> <code>subscriptions/listen</code>, one long-lived request carrying every notification</li>
-                    <li><strong>Filter fields:</strong> <code>toolsListChanged</code>, <code>promptsListChanged</code>, <code>resourcesListChanged</code>, <code>resourceSubscriptions</code> &mdash; no slot for tasks</li>
+                    <li><strong>Filter fields:</strong> <code>toolsListChanged</code>, <code>promptsListChanged</code>, <code>resourcesListChanged</code>, <code>resourceSubscriptions</code> &mdash; no slot for tasks in core; the tasks extension adds <code>taskIds</code></li>
                     <li><strong>Demultiplexed by:</strong> <code>_meta["io.modelcontextprotocol/subscriptionId"]</code>, which holds the listen request's id</li>
                     <li><strong>Honored here:</strong> nothing &mdash; this server's lists are fixed (<code>listChanged: false</code>), so the stream closes at once</li>
                 </ul>
@@ -247,7 +246,7 @@
                 <ul>
                     <li><strong>Search Keyword:</strong> "record"</li>
                     <li><strong>Search Directory:</strong> from the call's <code>directory</code> argument, or the elicited directory, or the server's working directory</li>
-                    <li><strong>Files Matched:</strong> 1 <em>(one small package, so the trace stays readable)</em></li>
+                    <li><strong>Files Matched:</strong> 2 in <code>com/workshop/mcp/tools</code>, <code>KeyWordSearch.java</code> and <code>SearchContinuation.java</code> <em>(one small package, so the trace stays readable)</em></li>
                     <li><strong>Result Shape:</strong> <code>resultType: "complete"</code> plus one text content block per file, <code>path, keyword_count=N</code></li>
                 </ul>
             </div>
@@ -256,7 +255,7 @@
         <div class="hint">This page is designed as a lightweight "presentation": open it full&#8209;screen and use your browser's zoom for big&#8209;room projection.</div>
     </section>
 
-    <div class="footer">&copy; 2025 MCP Workshop. Runtime information extracted from the captured trace.</div>
+    <div class="footer">&copy; 2026 MCP Workshop. Runtime information extracted from the captured trace.</div>
 </main>
 <script src="theme.js"></script>
 </body>

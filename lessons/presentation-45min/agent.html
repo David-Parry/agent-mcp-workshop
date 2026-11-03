@@ -121,6 +121,8 @@
     │   └── SKILL.md     ← /plugin:keyword-search
     ├── keyword-report/
     │   └── SKILL.md     ← /plugin:keyword-report
+    ├── java-script-runner/
+    │   └── SKILL.md     ← /plugin:java-script-runner
     └── audit/
         └── SKILL.md     ← /plugin:audit</pre>
             </div>
@@ -156,7 +158,7 @@
                 <span class="skill-layer layer-execution">Execution Layer</span>
                 <span class="skill-command">/keyword-audit-plugin:java-script-runner --analyze &lt;path&gt;</span>
                 <h4>java-script-runner</h4>
-                <p>The <code>FileAnalyzer.java</code> source is <strong>embedded inside the SKILL.md</strong>. Claude writes it to <code>/tmp</code>, runs it via JVM, displays the output, then cleans up. Completely self-contained.</p>
+                <p>The <code>FileAnalyzer.java</code> source is <strong>embedded inside the SKILL.md</strong>. Claude writes it to <code>/tmp</code>, runs it with Java's single-file source launcher (<code>java FileAnalyzer.java</code>, no compile step), displays the output, then cleans up. Completely self-contained.</p>
             </div>
             <div class="skill-card">
                 <span class="skill-layer layer-orchestrator">Orchestrator</span>
@@ -188,7 +190,7 @@
                 <div class="step-left"><div class="step-circle">3</div><div class="step-line"></div></div>
                 <div class="step-right">
                     <h4>Java Structural Analysis</h4>
-                    <p>Calls <code>java-script-runner --analyze &lt;hotspot-path&gt;</code> → Claude writes the embedded FileAnalyzer.java source to <code>/tmp</code>, compiles and runs it via JVM, reports class/method structure.</p>
+                    <p>Calls <code>java-script-runner --analyze &lt;hotspot-path&gt;</code> → Claude writes the embedded FileAnalyzer.java source to <code>/tmp</code> and runs it with the source launcher, no compile step. It reports total, code, comment and blank lines, how often <code>TODO</code>, <code>FIXME</code>, <code>deprecated</code>, <code>import</code> and <code>class</code> appear, and the five longest lines.</p>
                 </div>
             </div>
             <div class="workflow-step reason-step">
@@ -262,7 +264,7 @@ claude --mcp-config .mcp-resolved.json --strict-mcp-config \
         </ul>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. Supervised Agent with Claude Code Plugin — Agent Chapter.</div>
+    <div class="footer">© 2026 MCP Presentation. Supervised Agent with Claude Code Plugin — Agent Chapter.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

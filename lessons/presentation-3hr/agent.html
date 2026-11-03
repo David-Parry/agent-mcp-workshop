@@ -123,6 +123,8 @@
     │   └── SKILL.md     ← /plugin:keyword-search
     ├── keyword-report/
     │   └── SKILL.md     ← /plugin:keyword-report
+    ├── java-script-runner/
+    │   └── SKILL.md     ← /plugin:java-script-runner
     └── audit/
         └── SKILL.md     ← /plugin:audit</pre>
             </div>
@@ -158,7 +160,7 @@
                 <span class="skill-layer layer-execution">Execution Layer</span>
                 <span class="skill-command">/keyword-audit-plugin:java-script-runner --analyze &lt;path&gt;</span>
                 <h4>java-script-runner</h4>
-                <p>The <code>FileAnalyzer.java</code> source is <strong>embedded inside the SKILL.md</strong>. Claude writes it to <code>/tmp</code>, runs it via JVM, displays the output, then cleans up. Completely self-contained.</p>
+                <p>The <code>FileAnalyzer.java</code> source is <strong>embedded inside the SKILL.md</strong>. Claude writes it to <code>/tmp</code>, runs it with Java's single-file source launcher (<code>java FileAnalyzer.java</code>, no compile step), displays the output, then cleans up. Completely self-contained.</p>
             </div>
             <div class="skill-card">
                 <span class="skill-layer layer-orchestrator">Orchestrator</span>
@@ -190,7 +192,7 @@
                 <div class="step-left"><div class="step-circle">3</div><div class="step-line"></div></div>
                 <div class="step-right">
                     <h4>Java Structural Analysis</h4>
-                    <p>Calls <code>java-script-runner --analyze &lt;hotspot-path&gt;</code> → Claude writes the embedded FileAnalyzer.java source to <code>/tmp</code>, compiles and runs it via JVM, reports class/method structure.</p>
+                    <p>Calls <code>java-script-runner --analyze &lt;hotspot-path&gt;</code> → Claude writes the embedded FileAnalyzer.java source to <code>/tmp</code> and runs it with the source launcher, no compile step. It reports total, code, comment and blank lines, how often <code>TODO</code>, <code>FIXME</code>, <code>deprecated</code>, <code>import</code> and <code>class</code> appear, and the five longest lines.</p>
                 </div>
             </div>
             <div class="workflow-step reason-step">
@@ -255,18 +257,18 @@ claude --mcp-config .mcp-resolved.json --strict-mcp-config \
         <h3>Agent Chapter Live: From Inspector to Supervised Agent</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the terminal in the project root with <code>lessons/agent-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Show the wiring:</strong> open <code>mcp.json</code> — the same JAR the Inspector has been driving all class, now registered with Claude Code. Then show the plugin layout: <code>keyword-audit-plugin/.claude-plugin/plugin.json</code> and the four skill folders under <code>skills/</code>.</li>
+            <li><strong>Show the wiring:</strong> open <code>lessons/mcp.json</code> — the same JAR the Inspector has been driving all class, now registered with Claude Code. Then show the plugin layout: <code>keyword-audit-plugin/.claude-plugin/plugin.json</code> and the four skill folders under <code>skills/</code>.</li>
             <li><strong>Skim two SKILL.md files:</strong> <code>keyword-search</code> (thin wrapper over the MCP tool) and <code>audit</code> (the 6-step orchestrator with the approval checkpoint). Point out that <code>java-script-runner</code> embeds full Java 21 source inside its markdown.</li>
-            <li><strong>Launch:</strong> <code>./start_claude_mcp.sh</code> — it builds the JAR if missing, expands the <code>mcp.json</code> template into <code>.mcp-resolved.json</code>, and starts Claude Code with <code>--plugin-dir</code>. <strong>Pre-flight check:</strong> the script reads the template from <code>lesson/mcp.json</code> (singular), but the repo ships it at <code>lessons/mcp.json</code> — before class, copy it to <code>lesson/mcp.json</code> (or symlink the folder) or the script exits with "No such file". Verify the plugin loaded with <code>/plugin</code> (Installed tab).</li>
-            <li><strong>Prove the raw MCP loop:</strong> ask Claude <em>"What MCP tools are available?"</em> then <em>"Search for the keyword TODO — which file uses it most?"</em> — a live LLM now drives the same <code>key_word_search</code> tool.</li>
-            <li><strong>Run skills individually:</strong> <code>/keyword-audit-plugin:keyword-search TODO</code> (data layer), <code>/keyword-audit-plugin:keyword-report TODO</code> (analysis layer), <code>/keyword-audit-plugin:java-script-runner --analyze src/main/java/com/workshop/mcp/IORouter.java</code> (execution layer — embedded FileAnalyzer runs via JVM).</li>
-            <li><strong>Run the full audit:</strong> <code>/keyword-audit-plugin:audit</code> — searches run, the hotspot is identified and analyzed, Claude reads the source and reasons about <em>why</em>.</li>
+            <li><strong>Launch:</strong> <code>./start_claude_mcp.sh</code> — it builds the JAR if missing, expands the <code>mcp.json</code> template into <code>.mcp-resolved.json</code>, and starts Claude Code with <code>--plugin-dir</code>. The template is <code>lessons/mcp.json</code>; if it is missing the script stops with <em>"MCP config template not found"</em>. Verify the plugin loaded with <code>/plugin</code> (Installed tab).</li>
+            <li><strong>Prove the raw MCP loop:</strong> ask Claude <em>"What MCP tools are available?"</em> then <em>"Search for the keyword "import" in this project — which file uses it most?"</em> — a live LLM now drives the same <code>key_word_search</code> tool.</li>
+            <li><strong>Run skills individually:</strong> <code>/keyword-audit-plugin:keyword-search deprecated</code> (data layer), <code>/keyword-audit-plugin:keyword-report deprecated</code> (analysis layer), <code>/keyword-audit-plugin:java-script-runner --analyze src/main/java/com/workshop/mcp/IORouter.java</code> (execution layer — the embedded FileAnalyzer runs through the source launcher). Search for <code>deprecated</code> because the finished server has no <code>TODO</code> or <code>FIXME</code> left in <code>src/main/java</code>.</li>
+            <li><strong>Run the full audit:</strong> <code>/keyword-audit-plugin:audit</code> — searches run (<code>deprecated</code>: 7 occurrences across 5 files), the hotspot, <code>IORouter.java</code>, is identified and analyzed, Claude reads the source and reasons about <em>why</em>.</li>
             <li><strong>The checkpoint:</strong> the agent stops with <em>"Proceed to synthesis? (yes/no)"</em>. Pause here — this is the whole point. Review the evidence with the class, type <code>yes</code>, and show the final prioritized audit report.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the supervised pattern — five automated steps of real work, one human approval before the consequential output. Everything built across the previous chapters composes here: the MCP tool feeds skills, skills feed the orchestrator, and the human stays in the loop.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. Supervised Agent with Claude Code Plugin — Agent Chapter.</div>
+    <div class="footer">© 2026 MCP Presentation. Supervised Agent with Claude Code Plugin — Agent Chapter.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

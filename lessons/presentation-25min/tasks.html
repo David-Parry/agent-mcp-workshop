@@ -54,7 +54,7 @@
 <body>
 <header>
     <h1>MCP Tasks &mdash; Call Now, Fetch Later <span class="badge">2026-07-28 extension</span> <span class="badge-time">18 &ndash; 21 min</span></h1>
-    <p class="subtitle">A quick tour of the tasks extension &mdash; long work stops blocking, and the server decides when</p>
+    <p class="subtitle">A quick tour of the tasks extension, at the Beta stage and headed for core &mdash; long work stops blocking, and the server decides when</p>
 </header>
 <main>
     <div class="nav">
@@ -132,11 +132,11 @@ sequenceDiagram
     C->>S: tasks/get { taskId }
     S-->>C: resultType: complete { status: working }
     Note over S: Task completes
-    S->>C: notifications/tasks (full task snapshot)
+    Note over C,S: no status push — polling is the default
     C->>S: tasks/get { taskId }
     S-->>C: resultType: complete { status: completed, result }
         </div>
-        <p style="color:var(--muted);font-size:13px;margin:8px 0 0">The status notification is the bare <code>notifications/tasks</code> &mdash; the <code>notifications/tasks/</code> prefix is reserved, so <code>notifications/tasks/status</code> is not a legal name. Its params are the whole task snapshot.</p>
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 0">A server may push status only to a client that subscribed through <code>subscriptions/listen</code>; this one pushes none, so the client polls. When a server does push, the notification is the bare <code>notifications/tasks</code> &mdash; the <code>notifications/tasks/</code> prefix is reserved, so <code>notifications/tasks/status</code> is not a legal name. Its params are the whole task snapshot.</p>
     </section>
 
     <section class="card">
@@ -146,8 +146,8 @@ sequenceDiagram
             <tbody>
                 <tr><td><code>tasks/get</code></td><td>Poll status; carries <code>result</code>, <code>error</code>, or <code>inputRequests</code> as the status calls for</td></tr>
                 <tr><td><code>tasks/update</code></td><td>Deliver <code>inputResponses</code> to a task sitting in <code>input_required</code></td></tr>
-                <tr><td><code>tasks/cancel</code></td><td>Best-effort cancel (<code>-32602</code> if already terminal)</td></tr>
-                <tr><td><code>notifications/tasks</code></td><td>Push on every status change</td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>Cooperative cancel, acknowledged with an empty result &mdash; a finished task keeps its status; <code>-32602</code> only for an unknown <code>taskId</code></td></tr>
+                <tr><td><code>notifications/tasks</code></td><td>Optional status push, only to a client subscribed through <code>subscriptions/listen</code>. This server sends none</td></tr>
             </tbody>
         </table>
         <p style="color:var(--muted);font-size:13px;margin:14px 0 0"><strong>Removed:</strong> <code>tasks/result</code> (clients poll <code>tasks/get</code> instead) and <code>tasks/list</code> (with no session to scope a listing to, it would leak other callers' task ids). Both now answer <code>-32601</code>. <strong>Renamed:</strong> <code>ttl</code> &rarr; <code>ttlMs</code> and <code>pollInterval</code> &rarr; <code>pollIntervalMs</code>.</p>
@@ -162,11 +162,11 @@ sequenceDiagram
         <ul style="margin-bottom:0">
             <li>Call <code>key_word_search</code> from a client declaring the tasks extension &mdash; the reply is a handle, not the answer. Nothing in the request asked for that.</li>
             <li>Watch the Inspector poll <code>tasks/get</code> once a second with string ids <code>inspector-ext-1</code>, <code>-2</code>, <code>-3</code>&hellip; until <code>status</code> flips.</li>
-            <li>Then <code>tasks/cancel</code> the finished task for <code>-32602</code> &mdash; terminal is terminal &mdash; and <code>tasks/list</code> for <code>-32601</code>.</li>
+            <li>Then run <code>inspector/modern-tasks.sh</code>: its <code>tasks/cancel</code> of the finished task is acknowledged, and the poll after it still says <code>completed</code> &mdash; terminal is terminal. <code>tasks/list</code> and <code>tasks/result</code> are gone, and answer <code>-32601</code>.</li>
         </ul>
     </div>
 
-    <div class="footer">© 2025 MCP Workshop. Tasks extension (io.modelcontextprotocol/tasks, MCP 2026-07-28).</div>
+    <div class="footer">© 2026 MCP Workshop. Tasks extension (io.modelcontextprotocol/tasks, MCP 2026-07-28).</div>
 </main>
 <script src="theme.js"></script>
 </body>

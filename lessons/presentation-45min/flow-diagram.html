@@ -70,23 +70,23 @@
             // re-states them in params._meta — this same envelope, every time.
             const ENV = '"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}';
             const TASK_ID = '1f28b1e7-e6dd-42c5-9d37-73a121d328a0';
-            // Base64 of {"keyword":"record","stage":"directory"} — the server has no
+            // Base64 of {"stage":"directory"} — the server has no
             // session, so its continuation state travels via the client.
-            const DIR_STATE = 'eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ';
+            const DIR_STATE = 'eyJzdGFnZSI6ImRpcmVjdG9yeSJ9';
 
             const tooltips = {
                 'server/discover': '{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{' + ENV + '}}',
-                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
-                'initialize (removed)': '{"jsonrpc":"2.0","id":4,"method":"initialize","params":{...}}  -->  {"jsonrpc":"2.0","id":4,"error":{"code":-32601,"message":"Method not found: initialize"}}',
+                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
+                'initialize (removed)': '{"jsonrpc":"2.0","id":4,"method":"initialize","params":{...}}  -->  {"jsonrpc":"2.0","id":4,"error":{"code":-32601,"message":"Method not found: initialize. This server only supports protocol versions without the initialize handshake: 2026-07-28","data":{"supported":["2026-07-28"]}}}',
                 'tools/list': '{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{' + ENV + '}}',
                 'tools/list result': '{"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project... Pass a directory to search it directly; omit it and the server asks, falling back to its working directory.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"directory":{"type":"string","description":"the absolute directory to search; omit it to have the server ask for one over a Multi Round-Trip Request and fall back to its working directory"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}',
                 'resources/templates/list': '{"jsonrpc":"2.0","id":1,"method":"resources/templates/list","params":{' + ENV + '}}',
                 'resources/templates/list result': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","resourceTemplates":[],"ttlMs":60000,"cacheScope":"public"}}',
                 'prompts/list': '{"jsonrpc":"2.0","id":2,"method":"prompts/list","params":{' + ENV + '}}',
-                'prompts/list result': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","prompts":[{"name":"search_keyword","description":"Creates a prompt, to search for a word using the key_word_search tool.","arguments":[{"name":"keyword","description":"The word to search for","required":true}]}],"nextCursor":"nextPage","ttlMs":60000,"cacheScope":"public"}}',
+                'prompts/list result': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","prompts":[{"name":"search_keyword","description":"Creates a prompt, to search for a word using the key_word_search tool.","arguments":[{"name":"keyword","description":"The word to search for","required":true}]}],"ttlMs":60000,"cacheScope":"public"}}',
                 'tools/call (directory argument)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{' + ENV + ',"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../workshop/tools"}}}',
                 'tools/call': '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{' + ENV + ',"name":"key_word_search","arguments":{"keyword":"record"}}}',
-                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":9,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"required":["directory"],"type":"object","properties":{"directory":{"description":"Absolute path to the directory the keyword search should look in","title":"Search Directory","type":"string"}}}}}},"requestState":"' + DIR_STATE + '"}}',
+                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":9,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}},"required":["directory"]}}}},"requestState":"' + DIR_STATE + '"}}',
                 'tools/call (retry 1)': '{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{' + ENV + ',"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"' + DIR_STATE + '","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../workshop/tools"}}}}}',
                 'tools/call result': '{"jsonrpc":"2.0","id":10,"result":{"resultType":"complete","content":[{"text":"/Users/.../tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
                 'tools/call (declined)': '{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{' + ENV + ',"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"' + DIR_STATE + '","inputResponses":{"search_directory":{"action":"decline"}}}}',
@@ -95,7 +95,6 @@
                 'tasks/get': '{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{' + ENV + ',"taskId":"' + TASK_ID + '"}}',
                 'tasks/get result (working)': '{"jsonrpc":"2.0","id":"inspector-ext-1","result":{"resultType":"complete","taskId":"' + TASK_ID + '","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:54:58.427615Z","lastUpdatedAt":"2026-09-04T17:54:58.427615Z","ttlMs":300000,"pollIntervalMs":1000}}',
                 'tasks/get result (completed)': '{"jsonrpc":"2.0","id":"inspector-ext-5","result":{"resultType":"complete","taskId":"' + TASK_ID + '","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:54:58.427615Z","lastUpdatedAt":"2026-09-04T17:55:02.450949Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
-                'notifications/tasks': '{"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"' + TASK_ID + '","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:54:58.427615Z","lastUpdatedAt":"2026-09-04T17:55:02.450949Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
                 'subscriptions/listen': '{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{' + ENV + ',"notifications":{"toolsListChanged":true,"promptsListChanged":true,"resourcesListChanged":true}}}',
                 'notifications/subscriptions/acknowledged': '{"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}',
                 'subscriptions/listen close': '{"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"}}}'
@@ -213,7 +212,7 @@
             Note over Client,Server: one hop, nothing asked — passing directories as tool<br/>parameters is the migration that replaced deprecated roots
 
             Client->>Server: tools/call
-            Note over Server: no directory argument, and a server cannot call a client.<br/>Embed elicitation/create, pack keyword + stage into requestState
+            Note over Server: no directory argument, and a server cannot call a client.<br/>Embed elicitation/create, pack the stage into requestState
             Server-->>Client: input_required (elicitation/create)
             Note over Client: host renders the form (mode "form"):<br/>directory = (absolute path)
 
@@ -236,8 +235,7 @@
             Client->>Server: tasks/get
             Server-->>Client: tasks/get result (working)
             Note over Client: polls once per second — ids inspector-ext-1…5
-            Server->>Client: notifications/tasks
-            Note over Client,Server: bare notifications/tasks — the .../status prefix is reserved.<br/>Params are the full task snapshot
+            Note over Client,Server: no status push — notifications/tasks goes only to a client<br/>that subscribed with subscriptions/listen, and polling is the default
             Client->>Server: tasks/get
             Server-->>Client: tasks/get result (completed)
             Note over Server: the completed snapshot carries the underlying result —<br/>tasks/result no longer exists
@@ -258,16 +256,16 @@
         <h3>Launch MCP Inspector — See This Flow Live</h3>
         <ul>
             <li>In the IDE terminal: <code>./gradlew build</code> to build the server JAR</li>
-            <li>Launch Inspector: <code>npx @modelcontextprotocol/inspector java -jar build/libs/agent-mcp-workshop-0.0.1.jar</code></li>
-            <li>Open the Inspector URL in your browser — click <strong>Connect</strong></li>
+            <li>Launch Inspector: <code>cd inspector &amp;&amp; ./run.sh</code>. Its <code>config.json</code> sets <code>"protocolEra": "auto"</code>; started any other way, the Inspector opens with the legacy <code>initialize</code> and this server answers <code>-32601</code></li>
+            <li>Open the Inspector URL in your browser and turn on the switch on the <code>workshop</code> card</li>
             <li>Watch the <strong>server/discover</strong> probe go out first, with the <em>string</em> id <code>server-discover-probe-1</code> — an answer is how the client learns this server speaks the stateless lifecycle (steps 1–2 above)</li>
-            <li>There is no third message: no <code>notifications/initialized</code>, no session. Expand any later request and find the whole envelope repeated in <code>params._meta</code></li>
-            <li>Or skip the UI and run the two probe scripts: <code>inspector/modern-probe.sh</code> (discovery + the removed methods) and <code>inspector/modern-mrtr.sh</code> (both MRTR paths)</li>
+            <li>Nothing follows the discovery pair to finish a handshake: no <code>notifications/initialized</code>, no session. Expand any later request and find the whole envelope repeated in <code>params._meta</code></li>
+            <li>Or skip the UI and run the two probe scripts: <code>inspector/modern-probe.sh</code> (discovery, the removed methods and the five rejections) and <code>inspector/modern-mrtr.sh</code> (its five steps: the bare call, the retry with a directory, a declined form, and two clients that cannot be asked)</li>
             <li>Compare the live message trace with the <a href="trace-log.html" style="color:var(--accent)">Trace Log</a> reference page</li>
         </ul>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. Diagram rendered with Mermaid — hover labels for JSON payloads.</div>
+    <div class="footer">© 2026 MCP Presentation. Diagram rendered with Mermaid — hover labels for JSON payloads.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

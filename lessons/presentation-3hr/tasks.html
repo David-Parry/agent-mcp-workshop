@@ -84,7 +84,7 @@
     <!-- Why Tasks -->
     <section class="card">
         <span class="chapter-badge">Chapter 7</span>
-        <span class="experimental-badge">Extension — io.modelcontextprotocol/tasks</span>
+        <span class="experimental-badge">Extension — io.modelcontextprotocol/tasks · Beta, headed for core</span>
         <h2>The Problem Tasks Solve</h2>
         <p>The synchronous <code>tools/call</code> shape works fine for fast operations &mdash; sub-second searches, lookups, small computations. It falls apart for anything that takes longer than a polite roundtrip: large-scale processing, batch jobs, ML inference, external API calls with retries.</p>
 
@@ -102,6 +102,7 @@
                 <tr><td>Stateless HTTP</td><td>Needs SSE or webhooks</td><td>Just request/response polling</td></tr>
             </tbody>
         </table>
+        <p style="color:var(--muted);font-size:13px">The crash-recovery row is what the extension allows, not what this workshop builds. <code>TaskStore</code> keeps tasks in the server's memory, so they end with the process, and nothing is purged when <code>ttlMs</code> runs out &mdash; the extension lets a server discard a task then, but does not make it.</p>
 
         <div class="key-concept" style="margin-top:18px;border-color:rgba(122,162,247,0.5)">
             <strong>What changed on 2026-07-28.</strong> Tasks were reshaped more than any other part of the protocol. In one list: the top-level <code>tasks</code> capability slot became the <code>io.modelcontextprotocol/tasks</code> extension; <code>tasks/result</code> and <code>tasks/list</code> were <em>removed</em>; <code>tasks/update</code> was added; <code>ttl</code>/<code>pollInterval</code> became <code>ttlMs</code>/<code>pollIntervalMs</code>; <code>notifications/tasks/status</code> became the bare <code>notifications/tasks</code>; and the client no longer decides when a task is created. Each of those has a reason, and the rest of this page is those reasons.
@@ -237,7 +238,7 @@
                 <span class="step-num">6</span>
                 <div class="step-content">
                     <h4>Optional notification</h4>
-                    <p>Receivers MAY push <code>notifications/tasks</code> on transition, with the full snapshot as params. Requestors MUST NOT depend on it &mdash; polling stays the contract.</p>
+                    <p>A server MAY push <code>notifications/tasks</code> on transition, with the full snapshot as params, but only to a client that opted in through <code>subscriptions/listen</code>. Polling is the default, and this server pushes nothing.</p>
                 </div>
             </div>
         </div>
@@ -258,13 +259,12 @@
 
      … inspector-ext-2, inspector-ext-3, once per second …
 
-&lt;-- {"jsonrpc":"2.0","method":"notifications/tasks","params":{
-     "taskId":"3dab39bc-…","status":"completed", … ,"result":{ … }}}
-
 --&gt; {"id":"inspector-ext-4","method":"tasks/get", … }
 &lt;-- {"resultType":"complete","taskId":"3dab39bc-…","status":"completed",
      "result":{"resultType":"complete",
-               "content":[{"text":"/…/SearchContinuation.java, keyword_count=1",
+               "content":[{"text":"/…/KeyWordSearch.java, keyword_count=1",
+                           "type":"text"},
+                          {"text":"/…/SearchContinuation.java, keyword_count=1",
                            "type":"text"}],
                "isError":false}}</pre>
         <p style="color:var(--muted);font-size:13px">Two <code>resultType</code>s in one message at the end, and they mean different things: the outer one describes the <em>poll</em> (which completed fine), the inner one describes the <em>work</em>. A failed task still has a successful poll.</p>
@@ -275,8 +275,8 @@
             <tbody>
                 <tr><td><code>tasks/get</code></td><td>&mdash;</td><td>Non-blocking status poll; carries <code>result</code> once terminal</td></tr>
                 <tr><td><code>tasks/update</code></td><td><strong>new</strong></td><td>Deliver <code>inputResponses</code> to a task sitting in <code>input_required</code></td></tr>
-                <tr><td><code>tasks/cancel</code></td><td>&mdash;</td><td>Best-effort cancel; <code>-32602</code> if already terminal</td></tr>
-                <tr><td><code>notifications/tasks</code></td><td>renamed</td><td>Optional status push; params are the full snapshot</td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>&mdash;</td><td>Cooperative cancel, acknowledged with an empty result &mdash; even for a finished task, which keeps its status; <code>-32602</code> only for an unknown <code>taskId</code></td></tr>
+                <tr><td><code>notifications/tasks</code></td><td>renamed</td><td>Optional status push to a client subscribed through <code>subscriptions/listen</code>; params are the full snapshot. This server sends none</td></tr>
                 <tr><td><code>tasks/result</code></td><td><strong>removed</strong></td><td>Folded into <code>tasks/get</code> &mdash; <code>-32601</code></td></tr>
                 <tr><td><code>tasks/list</code></td><td><strong>removed</strong></td><td>Nothing left to scope a listing to &mdash; <code>-32601</code></td></tr>
                 <tr><td><code>tools/call</code> + <code>params.task</code></td><td><strong>removed</strong></td><td>Servers ignore the field</td></tr>
@@ -332,19 +332,19 @@
         <h3>Chapter 7 Live: Call Now, Poll Later</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/07-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskResult</code>, <code>TasksGetParams</code>, <code>TasksUpdateParams</code>. Point out <code>TaskResult</code>'s three shapes — handle, poll snapshot, notification payload — all one record, differing only in which <code>resultType</code> it wears.</li>
-            <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules, expire by TTL. Note the ids are UUIDs, and say why: with <code>tasks/list</code> gone, holding the id is the whole access control story.</li>
+            <li><strong>Tour the task records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>Task</code>, <code>TaskStatus</code> (with <code>isTerminal()</code>), <code>TaskResult</code>, <code>TasksGetParams</code>, <code>TasksUpdateParams</code>. Point out <code>TaskResult</code>'s two shapes — the handle and the <code>tasks/get</code> snapshot — one record, differing in which <code>resultType</code> it wears and which payload fields are present.</li>
+            <li><strong>Open <code>tasks/TaskStore.java</code></strong> — the in-memory lifecycle store: create as <code>working</code>, transition to <code>completed</code>/<code>failed</code>/<code>cancelled</code>, enforce terminal-state rules. Nothing outlives the process and nothing is purged at <code>ttlMs</code>, which the extension allows. Note the ids are UUIDs, and say why: with <code>tasks/list</code> gone, holding the id is the whole access control story.</li>
             <li><strong>In <code>IORouter.java</code></strong>, show <code>envelope.supportsTasks()</code> gating task creation, and the <code>TASK_HANDLES_ENABLED</code> flag. Then search the file for <code>params.task</code> and find nothing — the client's opt-in no longer exists.</li>
-            <li><strong>Walk the task branch of <code>TOOLS_CALL</code></strong> — the server decides, creates the task, returns the handle, and runs <code>key_word_search</code> on a virtual thread (it sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable).</li>
+            <li><strong>Walk the task branch in <code>handleKeywordSearch</code></strong>, which <code>TOOLS_CALL</code> hands every search to — the server decides, creates the task, returns the handle, and runs <code>key_word_search</code> on a virtual thread (it sleeps ~4 seconds on purpose so the <code>working → completed</code> transition is observable).</li>
             <li><strong>In Inspector:</strong> call <code>key_word_search</code> and get back <code>resultType: "task"</code> in milliseconds. Read the flat fields off the result — no nested <code>task</code> object to open.</li>
-            <li><strong>Poll it:</strong> <code>tasks/get</code> with the <code>taskId</code>, three or four times, until <code>completed</code>. Show that the terminal snapshot carries the search hits under <code>result</code> — and then try <code>tasks/result</code> and get <code>-32601</code>, which is the fastest way to make the removal memorable.</li>
-            <li><strong>Watch the ordering trap:</strong> in the log, the <code>notifications/tasks</code> for <code>working</code> is emitted <em>before</em> the <code>tools/call</code> reply that hands out the <code>taskId</code>. A client that assumed notifications only arrive after the handle would drop it. Correlation is by id, never by arrival order.</li>
-            <li><strong>Finish with cancel:</strong> start another call and <code>tasks/cancel</code> it mid-flight — terminal <code>cancelled</code>, and a second cancel is rejected with <code>-32602</code>.</li>
+            <li><strong>Poll it:</strong> <code>tasks/get</code> with the <code>taskId</code>, three or four times, until <code>completed</code>. Show that the terminal snapshot carries the search hits under <code>result</code> — and point out there is no <code>tasks/result</code> to call: it is gone, and the server answers it <code>-32601</code> like any removed method.</li>
+            <li><strong>Ask from inside the task:</strong> clear the <code>directory</code> and run it again. The handle comes back as before, the first poll finds <code>input_required</code>, and the Inspector shows the form from the snapshot's <code>inputRequests</code> — answered through <code>tasks/update</code>, not a retry. No notification announces any of it: the poll is the only signal.</li>
+            <li><strong>Finish with cancel:</strong> run it once more without a directory and click <strong>Cancel</strong> in the form. The Inspector sends <code>tasks/cancel</code>, the server acknowledges it, and the task ends <code>cancelled</code>. <code>inspector/modern-tasks.sh</code> shows the other half: a cancel for a task that has already completed is acknowledged too, and the next poll still says <code>completed</code> — terminal is terminal.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the client asked for a keyword search and got back a receipt, without having requested one. Async is no longer something the caller opts into — it is something the server may decide, and the caller's only say is whether it can cope.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. Tasks &mdash; Chapter 7.</div>
+    <div class="footer">© 2026 MCP Presentation. Tasks &mdash; Chapter 7.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

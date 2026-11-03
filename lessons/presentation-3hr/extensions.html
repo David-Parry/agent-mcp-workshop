@@ -100,15 +100,13 @@
     "resources": { "listChanged": false, "subscribe": false },
     "tools":     { "listChanged": false },
     "extensions": {
-      "io.modelcontextprotocol/ui": {
-        "mimeTypes": ["text/html;profile=mcp-app"]
-      },
+      "io.modelcontextprotocol/ui": {},
       "io.modelcontextprotocol/tasks": {}
     }
   }
 }</pre>
 
-        <p style="color:var(--muted);font-size:13px;margin-top:12px">The client side is symmetric but arrives differently: a client declares its extensions inside <code>_meta["io.modelcontextprotocol/clientCapabilities"].extensions</code> on <em>every request</em>, because there is no handshake in which to say it once.</p>
+        <p style="color:var(--muted);font-size:13px;margin-top:12px">Each extension defines its own settings object, and an empty one means no settings: MCP Apps gives a server none, which is why <code>ui</code> is <code>{}</code> here. The client side is symmetric but arrives differently: a client declares its extensions inside <code>_meta["io.modelcontextprotocol/clientCapabilities"].extensions</code> on <em>every request</em>, because there is no handshake in which to say it once, and that is where <code>mimeTypes</code> goes.</p>
     </section>
 
     <section class="card">
@@ -247,10 +245,10 @@
         <h3><code>requestState</code> — Continuation That Travels</h3>
         <p>A server pausing mid-operation used to keep its half-finished work in memory. With sessions gone there is no memory to keep it in, so <strong>the continuation is handed to the client and comes back with the retry</strong>. It is declared as an <em>opaque string</em>: clients must never parse it, and servers may put whatever they like in it.</p>
         <p>This workshop base64-encodes a tiny JSON object, which makes it readable in a demo:</p>
-        <pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
+        <pre>"requestState": "eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"
 
 // url-safe base64, no padding — decode it and you get:
-{"keyword":"record","stage":"directory"}</pre>
+{"stage":"directory"}</pre>
         <p style="color:var(--muted);font-size:13px">Two things follow that are easy to miss. Because the state leaves your process, anything sensitive in it is now on the client's disk — sign or encrypt it if it matters. And because the client can hand it back at any time, from anywhere, a server should treat it as untrusted input rather than as its own memory.</p>
 
         <h3>The Real Exchange — Four Messages</h3>
@@ -263,18 +261,20 @@
       "resultType":"input_required",
       "inputRequests":{"search_directory":{
         "method":"elicitation/create","params":{ … the form … }}},
-      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}
+      "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"}}
 
 --&gt; {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{
       "name":"key_word_search","arguments":{"keyword":"record"},
       "inputResponses":{"search_directory":{
         "action":"accept","content":{"directory":"/…/mcp/tools"}}},
-      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ",
+      "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9",
       "_meta":{ … envelope … }}}
 
 &lt;-- {"jsonrpc":"2.0","id":2,"result":{
       "resultType":"complete",
-      "content":[{"text":"/…/SearchContinuation.java, keyword_count=1",
+      "content":[{"text":"/…/KeyWordSearch.java, keyword_count=1",
+                  "type":"text"},
+                 {"text":"/…/SearchContinuation.java, keyword_count=1",
                   "type":"text"}],
       "isError":false}}</pre>
 
@@ -294,8 +294,8 @@
         </div>
 
         <div class="key-concept" style="margin-top:16px;border-color:rgba(224,175,104,0.5)">
-            <strong>Removed and deprecated are not the same thing.</strong> This revision does both, and they land differently in the code. <em>Removed</em> is physical absence answering <code>-32601</code> — the handshake, <code>ping</code>, <code>logging/setLevel</code>, <code>resources/subscribe</code>, <code>tasks/list</code>, <code>notifications/roots/list_changed</code> (SEP-2575). <em>Deprecated</em> is an annotation only: Roots, Sampling, and Logging are deprecated under the feature lifecycle policy (SEP-2577), yet they keep working in this revision and every revision published within a year of it, and removing them would take a separate proposal. New servers should not adopt them — pass directories as tool parameters instead of Roots, call a provider API instead of Sampling, write to <code>stderr</code> or OpenTelemetry instead of Logging.
-            <p style="margin:10px 0 0;color:var(--muted);font-size:13px">Which is exactly why <code>key_word_search</code> has a <code>directory</code> argument: it <em>is</em> the recommended replacement for Roots, and this server has taken that migration — the roots stage it used to run is gone from the code. But watch what deprecation does <em>not</em> do. Roots stays in the specification, fully functional, for at least the twelve months after <code>2026-07-28</code>; clients SHOULD keep declaring the capability throughout; and so the Inspector you are about to demo against still sends <code>"roots":{"listChanged":true}</code> in every envelope. That is correct client behaviour, and this server ignores the key. Contrast <code>notifications/roots/list_changed</code>, which is <em>removed</em> under SEP-2575 and answers <code>-32601</code> — same feature, two different lifecycle mechanisms, landing in two completely different places.</p>
+            <strong>Removed and deprecated are not the same thing.</strong> This revision does both, and they land differently in the code. <em>Removed</em> is physical absence — the handshake, <code>ping</code>, <code>logging/setLevel</code>, <code>resources/subscribe</code>, <code>tasks/list</code>, <code>notifications/roots/list_changed</code> (SEP-2575). A removed request answers <code>-32601</code>; a removed notification is logged and dropped, because nothing answers a notification. <em>Deprecated</em> is an annotation only: Roots, Sampling, and Logging are deprecated under the feature lifecycle policy (SEP-2577), yet they keep working in this revision and every revision published within a year of it, and removing them would take a separate proposal. New servers should not adopt them — pass directories as tool parameters instead of Roots, call a provider API instead of Sampling, write to <code>stderr</code> or OpenTelemetry instead of Logging.
+            <p style="margin:10px 0 0;color:var(--muted);font-size:13px">Which is exactly why <code>key_word_search</code> has a <code>directory</code> argument: it <em>is</em> the recommended replacement for Roots, and this server has taken that migration — the roots stage it used to run is gone from the code. But watch what deprecation does <em>not</em> do. Roots stays in the specification, fully functional, for at least the twelve months after <code>2026-07-28</code>; clients SHOULD keep declaring the capability throughout; and so the Inspector you are about to demo against still sends <code>"roots":{"listChanged":true}</code> in every envelope. That is correct client behaviour, and this server ignores the key. Contrast <code>notifications/roots/list_changed</code>, which is <em>removed</em> under SEP-2575: it is gone from the method registry, so the server logs it and drops it — same feature, two different lifecycle mechanisms, landing in two completely different places.</p>
         </div>
 
         <h3>Three Ways <code>key_word_search</code> Gets a Directory</h3>
@@ -303,12 +303,12 @@
         <ol style="line-height:1.9">
             <li><strong>The <code>directory</code> argument on the call.</strong> This settles the question outright: none of what follows happens and the call completes in a single hop. It is also the migration the specification names in place of Roots, which is why it is first.</li>
             <li><strong>An embedded <code>elicitation/create</code>.</strong> Nothing was passed, so the server asks — and asking a human is now the only question this tool has left. It used to embed a <code>roots/list</code> ahead of this, since a client answers that from configuration without interrupting anyone; that stage went when the code took the migration above.</li>
-            <li><strong>The server's own working directory.</strong> If the form is declined, or the client never declared <code>elicitation</code> to be shown one, the asking has run out — and a result the caller can reject beats an error it cannot act on.</li>
+            <li><strong>The server's own working directory.</strong> If the form is declined, or the client never declared <code>elicitation</code> to be shown one, the asking has run out — and a result the caller can reject beats an error it cannot act on. That is also why a client without <code>elicitation</code> does not get <code>-32021</code>: that code is for a capability the request cannot be served without, and this one can be served, from the working directory.</li>
         </ol>
         <div class="key-concept">
             <strong>Why keep the one-hop path at all?</strong> MRTR is optional for clients, and not every one implements it — the Inspector's own task-augmented <code>tools/call</code> path rejects <code>input_required</code> outright with <em>"multi-round-trip auto-fulfilment is not enabled on this instance"</em>. A tool whose only route to an answer is a round trip is a tool those callers cannot use at all. Take the input as an optional argument; treat asking as the fallback.
         </div>
-        <p style="color:var(--muted);font-size:13px">The stage the exchange has reached is precisely what <code>requestState</code> is carrying: <code>{"keyword":"record","stage":"directory"}</code> says the form has gone out and its answer is what the retry should be read for. With one question left there is only one stage to record, but the field stays — it is what tells a retry apart from a first attempt.</p>
+        <p style="color:var(--muted);font-size:13px">The stage the exchange has reached is precisely what <code>requestState</code> is carrying: <code>{"stage":"directory"}</code> says the form has gone out and its answer is what the retry should be read for. With one question left there is only one stage to record, but the field stays — it is what tells a retry apart from a first attempt.</p>
 
         <h3>The Embedded Elicitation, in Full</h3>
         <pre>&lt;-- {"jsonrpc":"2.0","id":1,"result":{
@@ -320,18 +320,21 @@
           "message":"Pick a directory for the keyword-search tool to search in:",
           "requestedSchema":{
             "type":"object",
-            "required":["directory"],
             "properties":{"directory":{
-              "title":"Search Directory","type":"string",
-              "description":"Absolute path to the directory the keyword search should look in"}}}}}},
-      "requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}</pre>
+              "type":"string","title":"Search Directory",
+              "description":"Absolute path to the directory the keyword search should look in"}},
+            "required":["directory"]}}}},
+      "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"}}</pre>
         <p><code>elicitation/create</code> picked up a <code>mode</code> field on this revision — <code>"form"</code> to render a schema, <code>"url"</code> to hand off to a browser — and lost <code>elicitationId</code>. It lost it because it no longer needs one: the retry <em>is</em> the completion signal, so there is nothing to correlate. For the same reason <code>notifications/elicitation/complete</code> is gone.</p>
 
         <h3>When the User Says No</h3>
         <p>A declined form comes back as <code>{"action":"decline"}</code> in the <code>inputResponses</code> entry. At that point the server has asked everything it can ask, so rather than fail it searches its own working directory — the same place a shell command with no path argument would look:</p>
         <pre>{"resultType":"complete",
- "content":[{"type":"text","text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1"}],
+ "content":[{"type":"text","text":"/Users/.../inspector/modern-probe.sh, keyword_count=1"},
+            {"type":"text","text":"/Users/.../inspector/modern-mrtr.sh, keyword_count=5"},
+            {"type":"text","text":"/Users/.../inspector/modern-tasks.sh, keyword_count=1"}],
  "isError":false}</pre>
+        <p style="color:var(--muted);font-size:13px">That is <code>inspector/</code>, where <code>run.sh</code> starts the server, so the "directory a shell would look in" is the Inspector's own folder of probe scripts.</p>
         <p>That fallback is this server's choice, not a protocol rule. A server that has no sensible default should end the exchange with a <strong>tool-level</strong> error instead:</p>
         <pre>{"resultType":"complete",
  "content":[{"type":"text","text":"No search directory was provided."}],
@@ -361,8 +364,8 @@
             <li><strong>Open <code>ServerCapabilities.java</code></strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — count the slots out loud: seven, and <code>extensions</code> is one of them. Then <code>DiscoverResultBuilder.withExtension(...)</code>, and note there is no <code>tasks</code> slot to put tasks in any more.</li>
             <li><strong>In <code>IORouter.java</code></strong>, show <code>RequestEnvelope.supportsElicitationForm()</code> being consulted <em>per request</em> off the envelope. There is no <code>hasElicitation</code> field on the router — there is nowhere for one to live. Point out that this is the only top-level client capability the router asks about &mdash; the extensions map aside, which is where <code>supportsTasks()</code> looks &mdash; and then show a captured envelope still carrying <code>roots</code>: the client declares it because roots is deprecated rather than removed, and the server reads straight past it.</li>
             <li><strong>Walk <code>handleKeywordSearch()</code></strong> — the whole MRTR loop in one method, and read it in resolution order. A <code>directory</code> argument settles it and the tool runs at once. Otherwise, no <code>inputResponses</code> yet, so return <code>InputRequiredResult.of(...)</code> embedding <code>elicitation/create</code> under the key <code>search_directory</code>, carrying a fresh <code>SearchContinuation</code>. On the retry: decode the state, read the answer out of the map, search. Declined, or no <code>elicitation</code> declared: fall through to the working directory.</li>
-            <li><strong>Open <code>tools/SearchContinuation.java</code></strong> — a two-field record, <code>encode()</code>, <code>decode()</code>. Base64 it in the terminal live (<code>echo … | base64 -d</code>) so the class sees there is no magic in it, then make the point that a client is not allowed to do what you just did.</li>
-            <li><strong>Run <code>inspector/modern-mrtr.sh</code></strong> before touching the GUI — four messages, printed plainly, easy to read together. Have the class find the two different ids and the identical <code>requestState</code>.</li>
+            <li><strong>Open <code>tools/SearchContinuation.java</code></strong> — a one-field record holding the stage, <code>encode()</code>, <code>decode()</code>. The keyword is not in it: the retry repeats the call's arguments. Base64 it in the terminal live (<code>echo … | base64 -d</code>) so the class sees there is no magic in it, then make the point that a client is not allowed to do what you just did.</li>
+            <li><strong>Run <code>inspector/modern-mrtr.sh</code></strong> before touching the GUI — five replies, printed plainly, easy to read together: the question, the search after the retry, the fallback after a declined form, and the same fallback for two clients that cannot be asked. Have the class find the different ids and the identical <code>requestState</code>.</li>
             <li><strong>In Inspector:</strong> call <code>key_word_search</code> with keyword <code>record</code> <em>and</em> a <code>directory</code>. One request, one <code>complete</code> result — the baseline, and the shape a caller that cannot do round trips is left with.</li>
             <li><strong>Now drop the <code>directory</code> argument</strong> and call it again. This time the <strong>Search Directory</strong> form appears. Submit an absolute path, and show the second request going out with <code>inputResponses</code> and the <code>stage: "directory"</code> state — same logical call, two JSON-RPC exchanges.</li>
             <li><strong>Decline the form once</strong> — the search still returns, now rooted at the server's working directory. Then point at the <code>isError: true</code> shape above and draw the distinction between a tool that failed and a protocol that failed.</li>
@@ -370,7 +373,7 @@
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the server never sent a single message that was not a reply. Every question it asked, it asked inside an answer — and that constraint, not a style preference, is what MRTR exists to work around. The same pattern reappears in the Tasks chapter, where <code>tasks/update</code> delivers <code>inputResponses</code> to a task that is waiting.</p>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Multi Round-Trip Requests — Chapter 5.</div>
+    <div class="footer">© 2026 MCP Presentation. MCP Extensions and Multi Round-Trip Requests — Chapter 5.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

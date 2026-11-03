@@ -184,7 +184,7 @@ sequenceDiagram
             </div>
             <div class="feature-card">
                 <h4>📄 Resources</h4>
-                <p>Data sources the client can discover and read. URIs + MIME types. Supports pagination with cursors.</p>
+                <p>Data sources the client can discover and read. URIs + MIME types. The protocol can page a long list with cursors; this server returns its whole list at once.</p>
             </div>
             <div class="feature-card">
                 <h4>💬 Prompts</h4>
@@ -203,11 +203,11 @@ sequenceDiagram
             <li><strong>Existing codebases:</strong> Most enterprise Java code can be wrapped and exposed as MCP tools with minimal change</li>
             <li><strong>Type safety:</strong> Java's type system maps naturally to JSON Schema for tool parameters</li>
             <li><strong>JVM ecosystem:</strong> Access to the full Maven/Gradle ecosystem for any integration you need</li>
-            <li><strong>One server, many clients:</strong> Claude Code, Cursor, Windsurf, VS Code Copilot — any MCP-compatible host can use your server</li>
+            <li><strong>One server, many clients:</strong> Claude Code, Cursor, Windsurf, VS Code Copilot — any host that speaks revision <code>2026-07-28</code> can use your server. One built on an older SDK opens with <code>initialize</code> and is refused with <code>-32601</code></li>
         </ul>
     </section>
 
-    <div class="footer">© 2025 MCP Presentation. Protocol overview and architecture — 3-hour class.</div>
+    <div class="footer">© 2026 MCP Presentation. Protocol overview and architecture — 3-hour class.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

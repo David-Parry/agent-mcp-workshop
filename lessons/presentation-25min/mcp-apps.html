@@ -68,11 +68,11 @@
         <div class="two-col">
             <div style="background:rgba(247,118,142,.06);border:1px solid rgba(247,118,142,.4);border-radius:12px;padding:16px">
                 <h3 style="margin-top:0;color:var(--red)">Without MCP Apps</h3>
-                <p style="margin:0;font-size:13px;color:var(--muted)">The tool returns 58 lines of <code>path, keyword_count=N</code>. The user reads a wall of text and cannot sort, filter, or click anything.</p>
+                <p style="margin:0;font-size:13px;color:var(--muted)">The tool returns a line of <code>path, keyword_count=N</code> per file &mdash; 102 of them for <code>mcp</code> across this repository's own source. The user reads a wall of text and cannot sort, filter, or click anything.</p>
             </div>
             <div style="background:rgba(158,206,106,.06);border:1px solid rgba(158,206,106,.4);border-radius:12px;padding:16px">
                 <h3 style="margin-top:0;color:var(--green)">With MCP Apps</h3>
-                <p style="margin:0;font-size:13px;color:var(--muted)">The same result renders as a sortable dashboard inside the chat &mdash; and the user can re-run the search from the panel itself.</p>
+                <p style="margin:0;font-size:13px;color:var(--muted)">A page renders beside the result inside the chat, and a full app can re-run the search from the panel itself. The workshop's page shows sample rows, with those calls written out in its comments.</p>
             </div>
         </div>
     </section>
@@ -97,10 +97,9 @@
         <h2>Three Changes to the Server</h2>
         <h3>1. Declare the extension in <code>server/discover</code></h3>
 <pre>"extensions": {
-  "io.modelcontextprotocol/ui": {
-    "mimeTypes": ["text/html;profile=mcp-app"]
-  }
+  "io.modelcontextprotocol/ui": {}
 }</pre>
+        <p style="color:var(--muted);font-size:13px">Empty: the extension's one setting, <code>mimeTypes</code>, is the host's, sent in each request's client capabilities.</p>
 
         <h3>2. Point the tool at its UI via <code>_meta</code> &mdash; under <em>both</em> keys</h3>
 <pre>{
@@ -116,7 +115,7 @@
         <h3>3. Serve that URI as HTML with the app MIME type</h3>
 <pre>ui://keyword-search/mcp-app.html
   &rarr; text/html;profile=mcp-app</pre>
-        <p style="color:var(--muted);font-size:13px;margin-bottom:0">In this codebase: <code>AppTool</code>, <code>AppMeta</code>, and <code>UiMeta</code> carry the metadata, <code>AppToolBuilder.withResourceUri(...)</code> wires it up, and <code>resources/read</code> special-cases the <code>ui://</code> URI to return <code>lesson/mcp-app.html</code>.</p>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:0">In this codebase: <code>AppTool</code>, <code>AppMeta</code>, and <code>UiMeta</code> carry the metadata, <code>AppToolBuilder.withResourceUri(...)</code> wires it up, and <code>resources/read</code> answers the page's <code>ui://</code> address with <code>lesson/mcp-app.html</code> from the classpath.</p>
     </section>
 
     <section class="card">
@@ -143,7 +142,7 @@
             <div class="flow-step"><span class="step-num">2</span><div>Host preloads the HTML with <code>resources/read</code> &mdash; before the tool is ever called.</div></div>
             <div class="flow-step"><span class="step-num">3</span><div>User asks a question; host calls <code>tools/call</code> as normal.</div></div>
             <div class="flow-step"><span class="step-num">4</span><div>Host renders the preloaded HTML in a sandboxed iframe and hands it the tool result over <code>postMessage</code>.</div></div>
-            <div class="flow-step"><span class="step-num">5</span><div>The panel can call the tool again &mdash; the user re-searches without typing a new prompt.</div></div>
+            <div class="flow-step"><span class="step-num">5</span><div>A full app can call the tool again &mdash; the user re-searches without typing a new prompt. The workshop's page stops at its sample rows.</div></div>
         </div>
     </section>
 
@@ -161,13 +160,13 @@
     <div class="ide-demo">
         <h3>Live Demo</h3>
         <ul style="margin-bottom:0">
-            <li><code>resources/list</code> &mdash; spot <code>ui://keyword-search/mcp-app.html</code> among the Javadoc resources.</li>
+            <li><code>resources/list</code> &mdash; spot <code>ui://keyword-search/mcp-app.html</code>, named <em>Keyword Search App</em>, among the Javadoc resources.</li>
             <li><code>resources/read</code> it and show the returned MIME type <code>text/html;profile=mcp-app</code>.</li>
-            <li>In a host that supports Apps, call the tool and show the dashboard rendering inline.</li>
+            <li>In the Inspector's <strong>Apps</strong> tab, pick <code>key_word_search</code> under <strong>MCP Apps (1)</strong>, give it a keyword and a directory, and click <strong>Open App</strong>. The page renders with its sample rows; the real result is the <code>tools/call</code> reply in the Protocol panel.</li>
         </ul>
     </div>
 
-    <div class="footer">&copy; 2025 MCP Workshop. MCP Apps (io.modelcontextprotocol/ui) &mdash; quick overview.</div>
+    <div class="footer">&copy; 2026 MCP Workshop. MCP Apps (io.modelcontextprotocol/ui) &mdash; quick overview.</div>
 </main>
 <script src="theme.js"></script>
 </body>

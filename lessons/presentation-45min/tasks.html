@@ -80,7 +80,7 @@
     <section class="card">
         <div class="timing-badge">38 – 41 min</div>
         <span class="chapter-badge">Chapter 7</span>
-        <span class="experimental-badge">Extension — io.modelcontextprotocol/tasks</span>
+        <span class="experimental-badge">Extension — io.modelcontextprotocol/tasks · Beta, headed for core</span>
         <h2>The Problem Tasks Solve</h2>
         <p>The synchronous <code>tools/call</code> shape works fine for fast operations &mdash; sub-second searches, lookups, small computations. It falls apart for anything that takes longer than a polite roundtrip: large-scale processing, batch jobs, ML inference, external API calls with retries.</p>
 
@@ -100,6 +100,7 @@
                 <tr><td>Sessionless transport</td><td>Nothing to hold the work open</td><td>The <code>taskId</code> <em>is</em> the continuation</td></tr>
             </tbody>
         </table>
+        <p style="color:var(--muted);font-size:13px">The crash-recovery row is what the extension allows, not what this workshop builds: <code>TaskStore</code> keeps tasks in the server's memory, so they end with the process, and nothing is purged when <code>ttlMs</code> runs out.</p>
     </section>
 
     <!-- Capability negotiation -->
@@ -227,7 +228,7 @@
                 <span class="step-num">6</span>
                 <div class="step-content">
                     <h4>Optional notification</h4>
-                    <p>Receivers MAY push <code>notifications/tasks</code> on transition, with the full task snapshot as its params. Requestors MUST NOT depend on it &mdash; polling stays the contract.</p>
+                    <p>A server MAY push <code>notifications/tasks</code> on transition, with the full task snapshot as its params, but only to a client that opted in through <code>subscriptions/listen</code>. Polling is the default, and this server pushes nothing.</p>
                 </div>
             </div>
         </div>
@@ -239,8 +240,8 @@
                 <tr><td><code>tools/call</code></td><td>req &rarr; rec</td><td>Ordinary call; the <em>server</em> may answer with a handle</td></tr>
                 <tr><td><code>tasks/get</code></td><td>req &rarr; rec</td><td>Non-blocking poll; carries <code>result</code> once completed</td></tr>
                 <tr><td><code>tasks/update</code></td><td>req &rarr; rec</td><td>Deliver <code>inputResponses</code> to a task sitting in <code>input_required</code> — its only job</td></tr>
-                <tr><td><code>tasks/cancel</code></td><td>req &rarr; rec</td><td>Best-effort cancel; <code>-32602</code> if terminal</td></tr>
-                <tr><td><code>notifications/tasks</code></td><td>rec &rarr; req</td><td>Optional status push, params = the task snapshot</td></tr>
+                <tr><td><code>tasks/cancel</code></td><td>req &rarr; rec</td><td>Cooperative cancel, acknowledged with an empty result &mdash; even for a finished task, which keeps its status; <code>-32602</code> only for an unknown <code>taskId</code></td></tr>
+                <tr><td><code>notifications/tasks</code></td><td>rec &rarr; req</td><td>Optional status push to a subscribed client, params = the task snapshot. This server sends none</td></tr>
                 <tr style="opacity:.55"><td><code>tasks/result</code></td><td colspan="2">Removed — <code>tasks/get</code> carries the result instead. Now <code>-32601</code>.</td></tr>
                 <tr style="opacity:.55"><td><code>tasks/list</code></td><td colspan="2">Removed — nothing enumerates tasks any more. Now <code>-32601</code>.</td></tr>
                 <tr style="opacity:.55"><td><code>notifications/tasks/status</code></td><td colspan="2">Renamed to the bare <code>notifications/tasks</code>; the <code>notifications/tasks/</code> prefix is reserved.</td></tr>
@@ -299,10 +300,10 @@
             <li>You need ordered streaming output &mdash; tasks are point-in-time, not a stream. Reach for <code>subscriptions/listen</code> instead</li>
             <li>The result is small and cacheable &mdash; <code>ttlMs</code> on a plain result may buy more than a task would</li>
         </ul>
-        <p style="color:var(--muted);font-size:13px">In this workshop the switch is the <code>TASK_HANDLES_ENABLED</code> constant in <code>IORouter</code> — flipped deliberately so the same call can be demoed in both shapes.</p>
+        <p style="color:var(--muted);font-size:13px">In this workshop the switch is <code>answersWithTask</code> in <code>IORouter</code>: a handle goes back whenever the client declared the extension, behind a <code>TASK_HANDLES_ENABLED</code> constant that is <code>true</code> on the branch. The same call shows both shapes by changing only what the client declares — the probe scripts leave the extension off, and the Inspector turns it on.</p>
     </section>
 
-    <div class="footer">© 2025 MCP Presentation. Tasks &mdash; Chapter 7.</div>
+    <div class="footer">© 2026 MCP Presentation. Tasks &mdash; Chapter 7.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

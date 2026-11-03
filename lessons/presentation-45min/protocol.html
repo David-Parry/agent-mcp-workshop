@@ -217,7 +217,7 @@
   "id": 7,
   "error": {
     "code": -32601,
-    "message": "Method not found"
+    "message": "Method not found: ping"
   }
 }</pre>
                 <p style="font-size:13px;color:var(--muted);margin-top:8px">Standard codes: -32700 Parse Error, -32600 Invalid Request, -32601 Method Not Found, -32602 Invalid Params.</p>
@@ -241,9 +241,10 @@
                 <tr><td><code>-32021</code></td><td>Missing required client capability</td><td>Data: <code>{"requiredCapabilities":{…}}</code></td></tr>
                 <tr><td><code>-32022</code></td><td>Unsupported protocol version</td><td>Data: <code>{"supported":[…],"requested":"…"}</code></td></tr>
                 <tr><td><code>-32020</code>&hellip;<code>-32099</code></td><td>Reserved for the spec</td><td>Do not squat here</td></tr>
-                <tr><td><code>-32000</code>&hellip;<code>-32019</code></td><td>Implementation-defined</td><td>Your own server errors go here</td></tr>
+                <tr><td><code>-32000</code>&hellip;<code>-32019</code></td><td>Legacy</td><td>No new code may be allocated here, and a new implementation should not use one</td></tr>
             </tbody>
         </table>
+        <p style="color:var(--muted);font-size:13px;margin-top:8px">A server's own error codes belong outside <code>-32768</code>&hellip;<code>-32000</code>, the range JSON-RPC keeps for itself. This one needs none: a tool that fails answers with an <code>isError</code> result, not an error.</p>
 
         <h3>MCP Method Namespace</h3>
         <p>All MCP methods follow a <code>category/action</code> naming convention:</p>
@@ -289,7 +290,7 @@
         <p>The client learns what the server can do from <code>server/discover</code>. The server learns what the <em>client</em> can do from <code>_meta["io.modelcontextprotocol/clientCapabilities"]</code> — on every request, because there is no session to remember it in. A server may only hand back a task to a request that declared the tasks extension; it may only embed <code>elicitation/create</code> in a result if that same request declared <code>elicitation</code>. No guessing — explicit opt-in, re-stated every time.</p>
     </section>
 
-    <div class="footer">© 2025 MCP Presentation. Transport layer and JSON-RPC protocol — Chapters 1 &amp; 2.</div>
+    <div class="footer">© 2026 MCP Presentation. Transport layer and JSON-RPC protocol — Chapters 1 &amp; 2.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

@@ -69,11 +69,10 @@
             <div>
                 <h3 style="margin-top:0">What this server declares</h3>
 <pre>"extensions": {
-  "io.modelcontextprotocol/ui": {
-    "mimeTypes": ["text/html;profile=mcp-app"]
-  },
+  "io.modelcontextprotocol/ui": {},
   "io.modelcontextprotocol/tasks": {}
 }</pre>
+                <p style="color:var(--muted);font-size:13px;margin:8px 0 0">Empty means no settings. <code>mimeTypes</code> is a client setting, sent in each request's envelope.</p>
             </div>
             <div>
                 <h3 style="margin-top:0">Identifier format</h3>
@@ -107,10 +106,10 @@
             <div>
                 <h3 style="margin-top:0">Why <code>requestState</code> exists</h3>
                 <p style="margin:0 0 8px">Sessions are gone, so the server has nowhere to remember what it was doing. The continuation travels to the client and back:</p>
-<pre>"requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
+<pre>"requestState": "eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"
 
   decodes to
-  {"keyword":"record","stage":"directory"}</pre>
+  {"stage":"directory"}</pre>
                 <p style="color:var(--muted);font-size:13px;margin:0">An <strong>opaque string</strong> to the client. This repo happens to base64 its JSON; the protocol only guarantees the exact bytes come back.</p>
             </div>
         </div>
@@ -125,7 +124,7 @@
             <div class="flow-step"><span class="step-num">2</span><div>The client renders the form (<code>mode: "form"</code>) and the user types a path.</div></div>
             <div class="flow-step"><span class="step-num">3</span><div>Client re-sends <code>tools/call</code> with a <strong>new id</strong>, the same <code>requestState</code>, and the answer under <code>inputResponses.search_directory</code>.</div></div>
             <div class="flow-step"><span class="step-num">4</span><div>Server decodes its own <code>requestState</code>, reads the directory out of the map, searches, and returns <code>resultType: "complete"</code>. It never stored a thing.</div></div>
-            <div class="flow-step"><span class="step-num">5</span><div>Declined the form, or could not show one? The server stops asking and searches its own working directory &mdash; the call always returns a result, never a dead end.</div></div>
+            <div class="flow-step"><span class="step-num">5</span><div>Declined the form, or could not show one? The server stops asking and searches its own working directory &mdash; the call always returns a result, never a dead end. Not <code>-32021</code> either: that code is for a capability the request cannot be served without, and this one can be served.</div></div>
         </div>
 
         <p style="color:var(--muted);font-size:13px">There used to be a cheaper question ahead of that form: an embedded <code>roots/list</code>, which a client answers from its own configuration without troubling anyone, escalating to the form only when the roots came back empty. Roots is deprecated under SEP&#8209;2577, so that stage is gone and the <code>directory</code> argument took its place. Deprecated is not removed, though &mdash; roots stays in the spec and works for at least twelve months, and real clients (the Inspector included) still declare <code>"roots": {"listChanged": true}</code> on every request. This server simply does not read the key.</p>
@@ -148,15 +147,15 @@
            keyword-search tool to search in:",
         "requestedSchema": {
           "type": "object",
-          "required": ["directory"],
           "properties": { "directory": {
             "type": "string",
-            "title": "Search Directory" } }
+            "title": "Search Directory" } },
+          "required": ["directory"]
         }
       }
     }
   },
-  "requestState": "eyJrZXl3b3JkIjoi..."
+  "requestState": "eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"
 }</pre>
                 <p style="color:var(--muted);font-size:13px">New: <code>mode</code> is <code>"form"</code> or <code>"url"</code>. Gone: the old <code>elicitationId</code> field &mdash; the retry correlates the answer now.</p>
             </div>
@@ -169,7 +168,7 @@
     "_meta": { ...envelope... },
     "name": "key_word_search",
     "arguments": { "keyword": "record" },
-    "requestState": "eyJrZXl3b3JkIjoi...",
+    "requestState": "eyJzdGFnZSI6ImRpcmVjdG9yeSJ9",
     "inputResponses": {
       "search_directory": {
         "action": "accept",
@@ -210,7 +209,7 @@
         </ul>
     </div>
 
-    <div class="footer">&copy; 2025 MCP Workshop. Extensions and Multi Round-Trip Requests &mdash; quick overview.</div>
+    <div class="footer">&copy; 2026 MCP Workshop. Extensions and Multi Round-Trip Requests &mdash; quick overview.</div>
 </main>
 <script src="theme.js"></script>
 </body>

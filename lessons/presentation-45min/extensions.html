@@ -93,10 +93,8 @@
     "prompts": { "listChanged": false },
     "resources": { "listChanged": false, "subscribe": false },
     "extensions": {
-      "io.modelcontextprotocol/tasks": {},
-      "io.modelcontextprotocol/ui": {
-        "mimeTypes": ["text/html;profile=mcp-app"]
-      }
+      "io.modelcontextprotocol/ui": {},    // MCP Apps gives a server no settings
+      "io.modelcontextprotocol/tasks": {}
     }
   }
 }
@@ -105,7 +103,10 @@
 "io.modelcontextprotocol/clientCapabilities": {
   "roots": { "listChanged": true },   // deprecated — ignored here
   "elicitation": { "form": {}, "url": {} },
-  "extensions": { "io.modelcontextprotocol/tasks": {} }
+  "extensions": {
+    "io.modelcontextprotocol/tasks": {},
+    "io.modelcontextprotocol/ui": { "mimeTypes": ["text/html;profile=mcp-app"] }
+  }
 }</pre>
         <p style="color:var(--muted);font-size:13px;margin-top:10px">Because the client re-declares on every request, capability negotiation is now a <em>per-request</em> fact. The same tool can answer one client inline and hand another a task handle, decided fresh each time.</p>
     </section>
@@ -185,7 +186,7 @@
                 <span class="step-num">2</span>
                 <div class="step-content">
                     <h4>Server replies with a question, not the answer</h4>
-                    <p><code>tools/call key_word_search</code> arrives with no <code>directory</code> argument, so there is nothing to search. The server replies <code>resultType: "input_required"</code>, embedding <code>elicitation/create</code> under the key <code>search_directory</code>, plus a <code>requestState</code> holding the keyword and how far the exchange has got.</p>
+                    <p><code>tools/call key_word_search</code> arrives with no <code>directory</code> argument, so there is nothing to search. The server replies <code>resultType: "input_required"</code>, embedding <code>elicitation/create</code> under the key <code>search_directory</code>, plus a <code>requestState</code> holding how far the exchange has got.</p>
                 </div>
             </div>
             <div class="flow-step">
@@ -206,14 +207,14 @@
                 <span class="step-num">5</span>
                 <div class="step-content">
                     <h4>Server decodes its own state and continues</h4>
-                    <p><code>SearchContinuation.decode(requestState)</code> recovers the keyword and stage, the form answer supplies the directory, and the search finally runs. The server remembered nothing between the two requests — it did not have to.</p>
+                    <p><code>SearchContinuation.decode(requestState)</code> recovers the stage, the retried call's own arguments still carry the keyword, the form answer supplies the directory, and the search finally runs. The server remembered nothing between the two requests — it did not have to.</p>
                 </div>
             </div>
             <div class="flow-step">
                 <span class="step-num">6</span>
                 <div class="step-content">
                     <h4>And when the asking runs out</h4>
-                    <p>A declined form, or a client that cannot show one at all, leaves the server with no answer and nothing left to ask. It searches its own working directory rather than failing — the call always produces a result.</p>
+                    <p>A declined form, or a client that cannot show one at all, leaves the server with no answer and nothing left to ask. It searches its own working directory rather than failing — the call always produces a result. Nor does it answer <code>-32021</code>: that code is for a capability the request cannot be served without, and this one can be served, from the working directory.</p>
                 </div>
             </div>
         </div>
@@ -235,7 +236,7 @@
         "params": { "mode": "form" }
       }
     },
-    "requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
+    "requestState": "eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"
   }
 }</pre>
         <p style="color:var(--muted);font-size:13px;margin-top:8px"><code>inputRequests</code> is a <strong>keyed map, not an array</strong> — <code>search_directory</code> is the server's own label, and the answer comes back under exactly that key. Only three methods may ever be embedded: <code>roots/list</code>, <code>sampling/createMessage</code>, and <code>elicitation/create</code> — and this server builds only the last of them, the other two being deprecated under SEP&#8209;2577. <code>params</code> is abbreviated above; here it is in full.</p>
@@ -250,14 +251,14 @@
       "message": "Pick a directory for the keyword-search tool to search in:",
       "requestedSchema": {
         "type": "object",
-        "required": ["directory"],
         "properties": {
           "directory": {
-            "title": "Search Directory",
             "type": "string",
+            "title": "Search Directory",
             "description": "Absolute path to the directory the keyword search should look in"
           }
-        }
+        },
+        "required": ["directory"]
       }
     }
   }
@@ -279,13 +280,13 @@
         "content": { "directory": "/…/mcp/tools" }
       }
     },
-    "requestState": "eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"
+    "requestState": "eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"
   }
 }</pre>
         <p style="color:var(--muted);font-size:13px;margin-top:8px">An input response is the <strong>bare result</strong> the embedded method would have returned — <code>{"action": "accept", "content": {...}}</code>, not anything JSON-RPC-shaped. Only <code>accept</code> carries content; the user may equally answer <code>"decline"</code> or <code>"cancel"</code>, and then the server falls back to its working directory.</p>
 
         <div class="key-concept">
-            <strong>Why <code>requestState</code> exists:</strong> it is an <em>opaque string</em>, not JSON. Sessions are gone, so the server has nowhere to keep what it learned while producing the interim result — the continuation state has to travel to the client and back. This repo base64-encodes <code>{"keyword":"record","stage":"directory"}</code> into it, but the protocol guarantees only that the client returns the exact bytes. Treat it as a cookie you wrote to yourself.
+            <strong>Why <code>requestState</code> exists:</strong> it is an <em>opaque string</em>, not JSON. Sessions are gone, so the server has nowhere to keep what it learned while producing the interim result — the continuation state has to travel to the client and back. This repo base64-encodes <code>{"stage":"directory"}</code> into it, but the protocol guarantees only that the client returns the exact bytes. Treat it as a cookie you wrote to yourself.
         </div>
 
         <h3>What Changed — Old Shape vs. New</h3>
@@ -306,20 +307,20 @@
     <div class="ide-demo">
         <span class="ide-demo-badge">⌨️ IDE Demo — 41–43 min</span>
         <h3>Inspector: See the MRTR Loop Live</h3>
-        <p style="color:var(--muted);font-size:14px">Two ways in — the Inspector UI, or <code>inspector/modern-mrtr.sh</code>, which walks both paths in one go.</p>
+        <p style="color:var(--muted);font-size:14px">Two ways in — the Inspector UI, or <code>inspector/modern-mrtr.sh</code>, which walks all five of its steps in one go: the question, the retry, a declined form, and two clients that cannot be asked.</p>
         <ul>
-            <li>Connect — nothing is asked. No request of any kind goes out from the server at startup, because a server has no way to send one</li>
+            <li>Turn on the switch on the <code>workshop</code> card — nothing is asked. No request of any kind goes out from the server at startup, because a server has no way to send one</li>
             <li>Open <strong>Tools</strong> and invoke <code>key_word_search</code> with a keyword <em>and</em> a <code>directory</code> — one request, one <code>complete</code> result. That is the baseline to contrast against</li>
             <li>Now drop the <code>directory</code> argument and invoke it again</li>
             <li>The answer is <code>resultType: "input_required"</code> with <code>inputRequests.search_directory</code> — <em>a result, not a request</em>. Point at the missing <code>id</code> inside it</li>
             <li>The <strong>Search Directory</strong> form appears, carrying <code>mode: "form"</code>. Submit an absolute path and the client re-sends <code>tools/call</code> under a <strong>new id</strong>. Compare the two ids in the trace</li>
-            <li>Base64-decode the <code>requestState</code> on screen: <code>{"keyword":"record","stage":"directory"}</code> — the server's memory, in the client's hands</li>
+            <li>Base64-decode the <code>requestState</code> on screen: <code>{"stage":"directory"}</code> — the server's memory, in the client's hands</li>
             <li>Point at the client's own <code>"roots": {"listChanged": true}</code> in the envelope while you are there: the Inspector still declares it, correctly, because roots is deprecated rather than removed. The server never reads it</li>
             <li>Decline that form — the search still returns, rooted at the server's working directory. There is no dead end to demo, by design</li>
         </ul>
     </div>
 
-    <div class="footer">© 2025 MCP Presentation. MCP Extensions and Multi Round-Trip Requests — Chapter 5.</div>
+    <div class="footer">© 2026 MCP Presentation. MCP Extensions and Multi Round-Trip Requests — Chapter 5.</div>
 </main>
 <div id="agenda-overlay" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
 <style>

@@ -65,22 +65,21 @@
             // full on server/discover — every request repeats it.
             const tooltips = {
                 'server/discover': '{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"extensions":{"io.modelcontextprotocol/tasks":{},"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}}}}',
-                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
+                'server/discover result': '{"jsonrpc":"2.0","id":"server-discover-probe-1","result":{"resultType":"complete","supportedVersions":["2026-07-28"],"capabilities":{"completions":{},"prompts":{"listChanged":false},"resources":{"listChanged":false,"subscribe":false},"tools":{"listChanged":false},"extensions":{"io.modelcontextprotocol/ui":{},"io.modelcontextprotocol/tasks":{}}},"instructions":"Searches a project for a keyword...","ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}',
                 'tools/list': '{"jsonrpc":"2.0","id":0,"method":"tools/list","params":{"_meta":{...envelope...}}}',
                 'tools/list result': '{"jsonrpc":"2.0","id":0,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword across all files in a project... Pass a directory to search it directly; omit it and the server asks, falling back to its working directory.","inputSchema":{"type":"object","properties":{"keyword":{"type":"string","description":"the keyword to search for in a file"},"directory":{"type":"string","description":"the absolute directory to search; omit it to have the server ask for one over a Multi Round-Trip Request and fall back to its working directory"}},"required":["keyword"]},"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public"}}',
                 'tools/call (directory)': '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../com/workshop/mcp/tools"}}}',
                 'tools/call (directory) result': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
                 'tools/call': '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"}}}',
-                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","required":["directory"],"properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}}}}}},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ"}}',
-                'tools/call (retry)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../com/workshop/mcp/tools"}}}}}',
+                'input_required (elicitation/create)': '{"jsonrpc":"2.0","id":2,"result":{"resultType":"input_required","inputRequests":{"search_directory":{"method":"elicitation/create","params":{"mode":"form","message":"Pick a directory for the keyword-search tool to search in:","requestedSchema":{"type":"object","properties":{"directory":{"type":"string","title":"Search Directory","description":"Absolute path to the directory the keyword search should look in"}},"required":["directory"]}}}},"requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"}}',
+                'tools/call (retry)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9","inputResponses":{"search_directory":{"action":"accept","content":{"directory":"/Users/.../com/workshop/mcp/tools"}}}}}',
                 'tools/call (retry) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}',
-                'tools/call (declined)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJrZXl3b3JkIjoicmVjb3JkIiwic3RhZ2UiOiJkaXJlY3RvcnkifQ","inputResponses":{"search_directory":{"action":"decline"}}}}',
-                'tools/call (fallback) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}  —  searched from the server working directory, because the asking ran out',
+                'tools/call (declined)': '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"_meta":{...envelope...},"name":"key_word_search","arguments":{"keyword":"record"},"requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9","inputResponses":{"search_directory":{"action":"decline"}}}}',
+                'tools/call (fallback) result': '{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","content":[{"text":"/Users/.../inspector/modern-probe.sh, keyword_count=1","type":"text"},{"text":"/Users/.../inspector/modern-mrtr.sh, keyword_count=5","type":"text"},{"text":"/Users/.../inspector/modern-tasks.sh, keyword_count=1","type":"text"}],"isError":false}}  —  searched from the server working directory, inspector/ when run.sh starts it, because the asking ran out',
                 'tools/call (tasks ext)': 'Same request as the one-hop call above — there is no task opt-in any more. The client merely declared io.modelcontextprotocol/tasks in its clientCapabilities.extensions, which permits the server to answer with a handle: {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{...envelope with tasks extension...},"name":"key_word_search","arguments":{"keyword":"record","directory":"/Users/.../com/workshop/mcp/tools"}}}  —  drop the directory and the handle still comes back first, with the question arriving later as an input_required status on the task itself',
                 'task handle': '{"jsonrpc":"2.0","id":1,"result":{"resultType":"task","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"working","statusMessage":"The operation is now in progress.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:06.276669Z","ttlMs":300000,"pollIntervalMs":1000}}',
                 'tasks/get': '{"jsonrpc":"2.0","id":"inspector-ext-1","method":"tasks/get","params":{"_meta":{...envelope...},"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f"}}',
                 'tasks/get result': '{"jsonrpc":"2.0","id":"inspector-ext-4","result":{"resultType":"complete","taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
-                'notifications/tasks': '{"jsonrpc":"2.0","method":"notifications/tasks","params":{"taskId":"95a30b18-0626-4160-acf6-3f3ac215c19f","status":"completed","statusMessage":"The operation completed successfully.","createdAt":"2026-09-04T17:56:06.276669Z","lastUpdatedAt":"2026-09-04T17:56:10.294781Z","ttlMs":300000,"pollIntervalMs":1000,"result":{"resultType":"complete","content":[{"text":"/Users/.../mcp/tools/SearchContinuation.java, keyword_count=1","type":"text"}],"isError":false}}}',
                 'subscriptions/listen': '{"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen","params":{"_meta":{...envelope...},"notifications":{"toolsListChanged":true,"promptsListChanged":true,"resourcesListChanged":true,"resourceSubscriptions":["ui://keyword-search/mcp-app.html"]}}}',
                 'notifications/subscriptions/acknowledged': '{"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}',
                 'subscriptions/listen result': '{"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"}}}'
@@ -231,7 +230,7 @@
 <body>
 <header>
     <h1>MCP Workshop – JSON‑RPC Communication Flow <span class="badge-time">5 &ndash; 8 min</span></h1>
-    <p class="subtitle">The whole exchange as one sequence diagram &mdash; discovery, cacheable reads, a round-trip tool call, a task handle, and a notification stream. Hover any message for the real JSON.</p>
+    <p class="subtitle">The whole exchange as one sequence diagram &mdash; discovery, cacheable reads, a round-trip tool call, a task handle, and a subscription that closes at once. Hover any message for the real JSON.</p>
 </header>
 <main>
     <div class="nav">
@@ -294,9 +293,8 @@
 
             Client->>Server: tasks/get
             Note over Client: polled once a second with the string ids<br/>inspector-ext-1, -2, -3 … while the status is working
-            Server->>Client: notifications/tasks
             Server-->>Client: tasks/get result
-            Note over Client,Server: the completed tasks/get carries the underlying result
+            Note over Client,Server: the completed tasks/get carries the underlying result.<br/>No status push: notifications/tasks goes only to a subscribed client
 
             Note over Client,Server: subscriptions/listen — one request, many notifications
             Client->>Server: subscriptions/listen
@@ -305,10 +303,10 @@
             Server-->>Client: subscriptions/listen result
             Note over Server: this server advertises listChanged: false,<br/>so nothing is honored and the stream closes at once
         </div>
-        <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the full stateless lifecycle: discovery, cacheable reads, an MRTR round trip, a task handle, and a notification stream.</div>
+        <div class="hint">Tip: Hover or tap to scroll the diagram if it overflows. This diagram shows the full stateless lifecycle: discovery, cacheable reads, an MRTR round trip, a task handle, and a subscription that closes at once.</div>
     </section>
 
-    <div class="footer">© 2025 MCP Workshop. Diagram rendered with Mermaid.</div>
+    <div class="footer">© 2026 MCP Workshop. Diagram rendered with Mermaid.</div>
 </main>
 <script src="theme.js"></script>
 </body>
