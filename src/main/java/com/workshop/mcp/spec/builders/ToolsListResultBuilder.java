@@ -79,12 +79,12 @@ public class ToolsListResultBuilder {
      * 
      * @param name the name of the tool
      * @param description the description of the tool
-     * @param inputSchema the input schema for the tool, may be null
+     * @param inputSchema the input schema for the tool
      * @return this builder instance for method chaining
+     * @throws IllegalStateException if any of the three is missing
      */
     public ToolsListResultBuilder addTool(String name, String description, InputSchema inputSchema) {
-        this.tools.add(new Tool(name, description, inputSchema));
-        return this;
+        return addToolWithBuilder(tool -> tool.withName(name).withDescription(description).withInputSchema(inputSchema));
     }
 
     /**
@@ -203,11 +203,14 @@ public class ToolsListResultBuilder {
          * Builds and returns the final {@link Tool} object.
          * 
          * @return a new Tool instance with the configured properties
-         * @throws IllegalStateException if name or description is not set
+         * @throws IllegalStateException if name, description or input schema is not set
          */
         public Tool build() {
             if (name == null || description == null) {
                 throw new IllegalStateException("Name and description are required for Tool");
+            }
+            if (inputSchema == null) {
+                throw new IllegalStateException("inputSchema is required for Tool, even one that takes no arguments");
             }
             return new Tool(name, description, inputSchema);
         }

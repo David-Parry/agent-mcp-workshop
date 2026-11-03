@@ -216,16 +216,17 @@
     instead of using the mock data below.
   -->
   <div class="demo-notice" id="demo-notice">
-    <strong>Lesson Demo Mode:</strong> This file is running standalone.
-    In a real MCP App, results arrive from the host via postMessage when
-    your <code>key_word_search</code> tool is called.
+    <strong>Lesson Demo Mode:</strong> this page never talks to the host. The rows
+    are sample data, and Search only filters them by file name. In a real MCP App,
+    results arrive from the host via postMessage when your
+    <code>key_word_search</code> tool is called.
   </div>
 
   <div class="search-bar">
     <input
       type="text"
       id="keyword-input"
-      placeholder='Enter a keyword (e.g. "TODO", "mcp", "import")…'
+      placeholder='Enter a keyword (e.g. "mcp", "spec", "Test")…'
       value="mcp"
     />
     <!--
@@ -271,14 +272,13 @@
      *   4. This UI updates without any page reload or tab switch.
      */
     const MOCK_DATA = [
-      { file: "src/main/java/com/workshop/mcp/IORouter.java",      count: 14 },
+      { file: "src/main/java/com/workshop/mcp/IORouter.java",        count: 14 },
       { file: "src/main/java/com/workshop/mcp/spec/UniqueKeys.java", count: 9  },
-      { file: "src/main/java/com/workshop/mcp/spec/Tool.java",      count: 6  },
-      { file: "src/main/java/com/workshop/mcp/spec/Resource.java",  count: 5  },
-      { file: "src/main/java/com/workshop/mcp/IORouter.java",       count: 4  },
-      { file: "src/test/java/com/workshop/mcp/ServerTest.java",     count: 3  },
-      { file: "lesson/06-overview.md",                              count: 2  },
-      { file: "README.md",                                          count: 1  },
+      { file: "src/main/java/com/workshop/mcp/spec/Tool.java",       count: 6  },
+      { file: "src/main/java/com/workshop/mcp/spec/Resource.java",   count: 5  },
+      { file: "src/test/java/com/workshop/mcp/ServerTest.java",      count: 3  },
+      { file: "lessons/06-overview.md",                              count: 2  },
+      { file: "README.md",                                           count: 1  },
     ];
 
     function runSearch() {
@@ -294,9 +294,7 @@
        *   });
        *   const rows = parseToolResult(result);
        */
-      const rows = MOCK_DATA.filter(r =>
-        r.file.toLowerCase().includes(keyword.toLowerCase()) || keyword === "mcp"
-      );
+      const rows = MOCK_DATA.filter(r => r.file.toLowerCase().includes(keyword.toLowerCase()));
 
       renderResults(keyword, rows);
     }

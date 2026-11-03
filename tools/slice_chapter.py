@@ -220,10 +220,6 @@ HANDLE_KEYWORD_SEARCH_CH5 = '''
     }
 '''
 
-PASTE_FILES = {
-    6: {"lessons/AppToolBuilder.java", "lessons/mcp-app.html"},
-}
-
 CH4_EXTRA_TESTS = '''
     @Test
     @Tag("chapter04")
@@ -634,10 +630,7 @@ def discover_method(chapter):
             '                                  + "directory if the client offers nothing.'
         )
     if chapter >= 6:
-        extras.append(
-            '                .withExtension(MetaKeys.UI_EXTENSION,\n'
-            '                               Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))'
-        )
+        extras.append('                .withExtension(MetaKeys.UI_EXTENSION, Map.of())')
     extra = ("\n" + "\n".join(extras) + "\n") if extras else "\n"
     return f'''
     private DiscoverResult discoverResult() {{
@@ -950,8 +943,6 @@ def file_chapter(rel: str) -> int:
     m = re.match(r"lessons/0([1-7])-", rel)
     if m:
         return int(m.group(1))
-    if rel in {"lessons/AppToolBuilder.java", "lessons/mcp-app.html"}:
-        return 6
     return 8
 
 
@@ -967,7 +958,7 @@ def keep_for(chapter: int, rel: str) -> bool:
         m = re.match(r"lessons/0([1-7])-", rel)
         if m:
             return int(m.group(1)) == chapter
-        return rel in PASTE_FILES.get(chapter, set())
+        return False
     return file_chapter(rel) <= chapter
 
 

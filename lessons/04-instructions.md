@@ -135,7 +135,9 @@ The two failures in `TOOLS_CALL` look alike and are answered differently:
 
 ### A note on the tool's `inputSchema`
 
-`KeyWordSearch` declares a plain object schema with two string properties, which is about as simple as a tool schema gets. Two rules sit behind that simplicity and are worth knowing before you write a more ambitious one.
+`KeyWordSearch` declares a plain object schema with two string properties, which is about as simple as a tool schema gets. A tool with no arguments at all still has one: the schema MUST be a JSON Schema object, never `null`, and for such a tool the specification recommends `{"type":"object","additionalProperties":false}`. The given builders refuse to build a tool without a schema.
+
+Two rules sit behind that simplicity and are worth knowing before you write a more ambitious one.
 
 **The dialect is JSON Schema 2020-12 by default.** A schema with no `$schema` field is interpreted as 2020-12, and every conforming client and server must support that dialect. You may name a different one explicitly — `"$schema": "http://json-schema.org/draft-07/schema#"` — but then both sides have to support it, and an implementation that does not is required to say so rather than guess. This revision deliberately loosened `inputSchema` and `outputSchema` to accept *any* 2020-12 keyword, where earlier revisions permitted only a small subset. `structuredContent` was loosened the same way, to any JSON value.
 
@@ -232,7 +234,7 @@ Both extra branches matter:
 ./gradlew chapterTest -Pchapter=04
 ```
 
-The run reports 140 tests, and 22 of them fail before you start, all of them in `IORouterTest`. The other 118 test the given code: the builders, the spec records, `KeyWordSearch` and `JavadocResources`. If one of those fails, given code has been changed. Failures worth recognising:
+The run reports 141 tests, and 22 of them fail before you start, all of them in `IORouterTest`. The other 119 test the given code: the builders, the spec records, `KeyWordSearch` and `JavadocResources`. If one of those fails, given code has been changed. Failures worth recognising:
 
 - `everyMethodTheServerAcceptsIsActuallyAnswered` — a case is still empty, so a method the server accepts gets no reply. This test ran in Chapter 3 too, and it runs in every chapter that adds to the switch.
 - `aListThatFitsOnOnePageOffersNoCursorToANextOne` — a list offers a `nextCursor` although it has one page.

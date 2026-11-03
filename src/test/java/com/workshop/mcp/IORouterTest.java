@@ -140,13 +140,15 @@ class IORouterTest {
 
     @Test
     @Tag("chapter06")
-    void discoverDeclaresTheUiExtension() {
+    void discoverDeclaresTheUiExtensionWithNoSettings() {
         router.route("""
                 {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
 
         JsonObject extensions = io.only().getAsJsonObject("result")
                 .getAsJsonObject("capabilities").getAsJsonObject("extensions");
-        assertTrue(extensions.has(MetaKeys.UI_EXTENSION));
+        // mimeTypes is a host's setting, the list of what it can render. MCP
+        // Apps defines no settings for a server.
+        assertEquals(new JsonObject(), extensions.getAsJsonObject(MetaKeys.UI_EXTENSION));
     }
 
     @Test
@@ -244,6 +246,7 @@ class IORouterTest {
 
     @Test
     @Tag("chapter04")
+    @Tag("chapter06")
     void cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
@@ -277,6 +280,7 @@ class IORouterTest {
 
     @Test
     @Tag("chapter04")
+    @Tag("chapter06")
     void anInputSchemaWritesOnlyJsonSchemaKeywords() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));

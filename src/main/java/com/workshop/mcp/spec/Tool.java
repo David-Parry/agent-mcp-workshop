@@ -5,7 +5,13 @@ package com.workshop.mcp.spec;
  * <p>
  * Tools are functions or operations that the server exposes to clients, allowing them
  * to perform specific actions or retrieve information. Each tool has a unique name,
- * a description of its functionality, and an optional schema defining its input parameters.
+ * a description of its functionality, and a schema defining its input parameters.
+ * </p>
+ * <p>
+ * The schema is required even for a tool that takes no arguments: the
+ * specification says it MUST be a JSON Schema object and not {@code null}.
+ * Such a tool sends an object schema with no properties, which is what an
+ * {@code InputSchemaBuilder} given nothing builds.
  * </p>
  * <p>
  * The specification also allows an optional {@code icons} array here — the
@@ -17,7 +23,7 @@ package com.workshop.mcp.spec;
  * 
  * @param name the unique identifier for the tool, used when invoking it
  * @param description a human-readable description of what the tool does and how to use it
- * @param inputSchema the schema defining the tool's input parameters, may be null for tools with no parameters
+ * @param inputSchema the schema defining the tool's input parameters
  * 
  * @see InputSchema
  * @since 1.0

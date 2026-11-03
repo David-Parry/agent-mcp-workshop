@@ -94,7 +94,7 @@ loadScripts(document, 'script');</script>
 <dt>Record Components:</dt>
 <dd><code><span id="param-name">name</span></code> - the unique identifier for the tool, used when invoking it</dd>
 <dd><code><span id="param-description">description</span></code> - a human-readable description of what the tool does and how to use it</dd>
-<dd><code><span id="param-inputSchema">inputSchema</span></code> - the schema defining the tool's input parameters, may be null for tools with no parameters</dd>
+<dd><code><span id="param-inputSchema">inputSchema</span></code> - the schema defining the tool's input parameters</dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">Tool</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description, <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema)
@@ -103,7 +103,13 @@ loadScripts(document, 'script');</script>
  <p>
  Tools are functions or operations that the server exposes to clients, allowing them
  to perform specific actions or retrieve information. Each tool has a unique name,
- a description of its functionality, and an optional schema defining its input parameters.
+ a description of its functionality, and a schema defining its input parameters.
+ </p>
+ <p>
+ The schema is required even for a tool that takes no arguments: the
+ specification says it MUST be a JSON Schema object and not <code>null</code>.
+ Such a tool sends an object schema with no properties, which is what an
+ <code>InputSchemaBuilder</code> given nothing builds.
  </p>
  <p>
  The specification also allows an optional <code>icons</code> array here — the

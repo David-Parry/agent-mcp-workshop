@@ -4,12 +4,13 @@ package com.workshop.mcp.spec;
  * Represents a tool that declares MCP App UI capability via {@code _meta.ui.resourceUri}.
  * <p>
  * An {@code AppTool} is identical to a regular {@link Tool} in every way except that
- * it carries an additional {@code _meta} field. When an MCP host receives an
- * {@code AppTool} in the tools list, it treats the tool normally AND knows to preload
- * the HTML resource at {@code _meta.ui.resourceUri} to render an interactive UI.
+ * it carries an additional {@code _meta} field. A host that supports MCP Apps calls
+ * the tool normally and renders its result with the HTML resource at
+ * {@code _meta.ui.resourceUri}, which it reads with {@code resources/read} and may
+ * fetch ahead of the first call. Any other client ignores {@code _meta}.
  * </p>
  *
- * <p>The full JSON representation sent to the host looks like:</p>
+ * <p>Its JSON has this shape, shown here with a one-argument schema:</p>
  * <pre>{@code
  * {
  *   "name": "key_word_search",

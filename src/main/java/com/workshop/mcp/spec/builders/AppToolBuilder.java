@@ -133,7 +133,7 @@ public class AppToolBuilder {
      * </p>
      *
      * @return a new AppTool with the configured name, description, schema, and UI metadata
-     * @throws IllegalStateException if name, description, or resourceUri is missing
+     * @throws IllegalStateException if name, description, resourceUri or inputSchema is missing
      */
     public AppTool build() {
         if (name == null || name.isBlank()) {
@@ -143,7 +143,10 @@ public class AppToolBuilder {
             throw new IllegalStateException("description is required for AppTool");
         }
         if (resourceUri == null || resourceUri.isBlank()) {
-            throw new IllegalStateException("resourceUri is required for AppTool — use withResourceUri(\"ui://...\")" );
+            throw new IllegalStateException("resourceUri is required for AppTool — use withResourceUri(\"ui://...\")");
+        }
+        if (inputSchema == null) {
+            throw new IllegalStateException("inputSchema is required for AppTool, even one that takes no arguments");
         }
         return new AppTool(name, description, inputSchema, AppMeta.of(resourceUri));
     }

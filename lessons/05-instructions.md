@@ -432,6 +432,6 @@ The stage is safe to trust, because a forged one can only skip the question. Sta
 
 ## Where this goes next
 
-The search can now ask for what it lacks, but every answer is still a list of paths for the model to read. Chapter 06 gives the tool an interface the client renders: an MCP App that shows the same results as a dashboard.
+The search can now ask for what it lacks, but every answer is still a list of paths for the model to read. Chapter 06 gives the tool a page of its own: an MCP App, which a host that supports the extension shows beside the tool's result.
 
 Start it with `./clean-checkout.sh 06-chapter`, or keep your own code: commit it and run `git merge origin/06-chapter`. The README explains both.

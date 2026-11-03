@@ -485,8 +485,7 @@ public class IORouter implements Router {
         DiscoverResultBuilder builder = DiscoverResultBuilder
                 .builder()
                 .withDefaultCapabilities()
-                .withExtension(MetaKeys.UI_EXTENSION,
-                               Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP)))
+                .withExtension(MetaKeys.UI_EXTENSION, Map.of())
                 .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
                                   + "for one over a Multi Round-Trip Request, and searches its own working "
                                   + "directory if the client offers nothing.")

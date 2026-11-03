@@ -94,14 +94,17 @@ class BuildersCoverageTest {
         }
 
         @Test
-        void anAppToolNeedsNoInputSchemaAtAll() {
-            AppTool tool = AppToolBuilder.builder()
+        void anAppToolWithoutAnInputSchemaIsRejected() {
+            // The specification requires the schema even of a tool that takes
+            // no arguments; such a tool sends an object schema with no
+            // properties, not null.
+            AppToolBuilder builder = AppToolBuilder.builder()
                     .withName("ping")
                     .withDescription("Takes nothing.")
-                    .withResourceUri("ui://ping/mcp-app.html")
-                    .build();
+                    .withResourceUri("ui://ping/mcp-app.html");
 
-            assertNull(tool.inputSchema());
+            assertTrue(assertThrows(IllegalStateException.class, builder::build)
+                               .getMessage().startsWith("inputSchema is required for AppTool"));
         }
 
         @Test
@@ -911,7 +914,7 @@ class BuildersCoverageTest {
                     .build();
 
             ToolsListResult result = ToolsListResultBuilder.builder()
-                    .addTool(new Tool("first", "The first", null))
+                    .addTool(new Tool("first", "The first", InputSchemaBuilder.builder().build()))
                     .addTool("second", "The second", schema)
                     .build();
 
@@ -947,9 +950,10 @@ class BuildersCoverageTest {
 
         @Test
         void theToolListCanBeReplacedWholesale() {
+            InputSchema none = InputSchemaBuilder.builder().build();
             ToolsListResult result = ToolsListResultBuilder.builder()
-                    .addTool(new Tool("discarded", "Replaced below", null))
-                    .withTools(new ArrayList<>(List.of(new Tool("kept", "The kept one", null))))
+                    .addTool(new Tool("discarded", "Replaced below", none))
+                    .withTools(new ArrayList<>(List.of(new Tool("kept", "The kept one", none))))
                     .build();
 
             assertEquals(List.of("kept"), result.tools().stream().map(Tool::name).toList());
@@ -985,6 +989,24 @@ class BuildersCoverageTest {
                     new ToolsListResultBuilder.ToolBuilder().withName("second");
 
             assertThrows(IllegalStateException.class, builder::build);
+        }
+
+        @Test
+        void aToolWithoutAnInputSchemaIsRejectedHoweverItIsAdded() {
+            // The specification requires the schema even of a tool that takes
+            // no arguments; such a tool sends an object schema with no
+            // properties, not null.
+            ToolsListResultBuilder.ToolBuilder builder =
+                    new ToolsListResultBuilder.ToolBuilder().withName("ping").withDescription("Takes nothing");
+
+            assertThrows(IllegalStateException.class, builder::build);
+            assertThrows(IllegalStateException.class,
+                         () -> ToolsListResultBuilder.builder().addTool("ping", "Takes nothing", (InputSchema) null));
+            Tool noArguments = new ToolsListResultBuilder.ToolBuilder()
+                    .withName("ping").withDescription("Takes nothing").withInputSchema(schema -> { })
+                    .build();
+            assertEquals("object", noArguments.inputSchema().type());
+            assertTrue(noArguments.inputSchema().properties().isEmpty());
         }
     }
 }

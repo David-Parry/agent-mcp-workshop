@@ -911,8 +911,13 @@ def s_tasks_gated(c):
 
 @scenario("mcp_apps", "mcp-apps", chapter=6)
 def s_mcp_apps(c):
-    if UI_EXTENSION not in discovered_extensions(c, "probe"):
+    extensions = discovered_extensions(c, "probe")
+    if UI_EXTENSION not in extensions:
         raise Failure(f"{UI_EXTENSION} should be declared under capabilities.extensions")
+    # mimeTypes is a host's setting, the list of what it can render. MCP Apps
+    # defines no settings for a server.
+    if extensions[UI_EXTENSION] != {}:
+        raise Failure(f"{UI_EXTENSION} should be declared with no settings: {extensions[UI_EXTENSION]}")
 
     c.request(1, "tools/list")
     tool = (c.expect_result(1).get("tools") or [{}])[0]
