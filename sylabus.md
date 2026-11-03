@@ -126,29 +126,33 @@ Implement the three core MCP capabilities to create a useful server.
 ### What You'll Build
 
 #### Resources Capability
-- `JavadocResources` helper class
+- `JavadocResources` helper class, given and read first
 - `RESOURCES_LIST` handler (discovery)
+- `RESOURCES_TEMPLATES_LIST` handler, answered with an empty list
 - `RESOURCES_READ` handler (content retrieval)
 
 #### Tools Capability
-- `KeyWordSearch` tool implementation — required `keyword` and required `directory`. A missing directory is a **tool-level error** (`isError`). Chapter 5 turns that into a round trip.
+- `KeyWordSearch` tool, given and read first — a required `keyword` and an optional `directory`. In this chapter a call without a directory is a **tool-level error** (`isError`). Chapter 5 turns that into a round trip.
 - `TOOLS_LIST` handler via `ToolsListResultBuilder` (not `AppToolBuilder`)
 - `TOOLS_CALL` handler (tool execution)
 
 #### Prompts Capability
 - `PROMPTS_LIST` handler
 - `PROMPTS_GET` handler
+- `COMPLETION_COMPLETE` handler, suggesting values for the prompt's `keyword`
 
 ### Key Concepts
 - Builder pattern for response construction
 - JSON Schema for tool parameters
 - Classpath resource loading
+- Cache hints on every list and read result, and no `nextCursor` when there is one page
+- Errors versus results: an unknown tool, prompt or resource is `-32602`; a tool that ran and failed is a result with `isError`
 - Runtime context as a tool argument, resolved per call — there is no session to configure it in
 
 ### Verification
 - "List Resources" shows Javadoc files
-- "List Tools" shows `key_word_search` with a required `keyword` and a required `directory`
-- "List Prompts" shows `search_keyword`
+- "List Tools" shows `key_word_search` with a required `keyword` and an optional `directory`
+- "List Prompts" shows `search_keyword`, and typing its `keyword` offers completions
 - Calling the tool without a `directory` returns a clear tool-level error. Chapter 5 adds the round trip and the working-directory fallback.
 
 ### Outcome
