@@ -1178,22 +1178,20 @@ def anchor_symbol(token):
     return name if re.fullmatch(r"[A-Za-z_]\w*", name) else None
 
 
-def handout_file(token):
+def handout_file(token, root=ROOT):
     if not token:
         return None
     if "/" in token:
-        path = ROOT / token
+        path = root / token
         return path if path.exists() else None
-    found = sorted(ROOT.glob(f"src/main/**/{token}"))
+    found = sorted(root.glob(f"src/main/**/{token}"))
     return found[0] if len(found) == 1 else None
 
 
-def check_anchors(chapter):
-    """Every **line N** in a handout must land on the symbol it names, in the
-    file as the branch hands it out: a signature, a case label, or the
-    placeholder comment, which names its method too."""
-    handout = ROOT / f"lessons/{chapter}-instructions.md"
-    problems = []
+def handout_anchors(chapter, root=ROOT):
+    """Every **line N** in a handout, with what it points at:
+    (handout line, N, symbol or None, file path or None, the file token read)."""
+    handout = root / f"lessons/{chapter}-instructions.md"
     context = None
     in_fence = False
     for number, line in enumerate(handout.read_text().splitlines(), 1):
@@ -1211,31 +1209,38 @@ def check_anchors(chapter):
             prior = [tok for pos, tok in symbols if sentence < pos < anchor.start()]
             later = [tok for pos, tok in symbols if pos > anchor.start()]
             token = (prior[-1:] or later[:1] or [""])[0]
-            symbol = anchor_symbol(token)
             owner = re.match(r"([A-Z]\w*)\.\w+", token)
             after = [tok for pos, tok in files if pos > anchor.start()]
             before = [tok for pos, tok in files if pos < anchor.start()]
             named = (after[:1] or before[-1:] or [owner.group(1) + ".java" if owner else context])[0]
-            path = handout_file(named)
-            where = f"{handout.name}:{number}"
-            if path is None:
-                problems.append(f"{where}: cannot tell which file **line {target}** is in (got {named!r})")
-                continue
-            lines = path.read_text().splitlines()
-            if target == 1:
-                continue
-            if not symbol:
-                problems.append(f"{where}: no `symbol` next to **line {target}** to check it against")
-                continue
-            if target <= len(lines) and re.search(rf"\b{re.escape(symbol)}\b", lines[target - 1]):
-                continue
-            seen = [str(i) for i, text in enumerate(lines, 1) if re.search(rf"\b{re.escape(symbol)}\b", text)]
-            problems.append(
-                f"{where}: line {target} of {path.relative_to(ROOT)} does not show `{symbol}`"
-                f" (it appears on {', '.join(seen[:4]) or 'no line'})"
-            )
+            yield number, target, anchor_symbol(token), handout_file(named, root), named
         if files:
             context = files[-1][1]
+
+
+def check_anchors(chapter, root=ROOT):
+    """Every **line N** in a handout must land on the symbol it names, in the
+    file as the branch hands it out: a signature, a case label, or the
+    placeholder comment, which names its method too."""
+    problems = []
+    for number, target, symbol, path, named in handout_anchors(chapter, root):
+        where = f"{chapter}-instructions.md:{number}"
+        if path is None:
+            problems.append(f"{where}: cannot tell which file **line {target}** is in (got {named!r})")
+            continue
+        if target == 1:
+            continue
+        if not symbol:
+            problems.append(f"{where}: no `symbol` next to **line {target}** to check it against")
+            continue
+        lines = path.read_text().splitlines()
+        if target <= len(lines) and re.search(rf"\b{re.escape(symbol)}\b", lines[target - 1]):
+            continue
+        seen = [str(i) for i, text in enumerate(lines, 1) if re.search(rf"\b{re.escape(symbol)}\b", text)]
+        problems.append(
+            f"{where}: line {target} of {path.relative_to(root)} does not show `{symbol}`"
+            f" (it appears on {', '.join(seen[:4]) or 'no line'})"
+        )
     return problems
 
 
