@@ -92,6 +92,7 @@
                     <li><strong>Required:</strong> <code>io.modelcontextprotocol/clientCapabilities</code></li>
                     <li><strong>Recommended:</strong> <code>io.modelcontextprotocol/clientInfo</code></li>
                     <li><strong>Optional:</strong> <code>io.modelcontextprotocol/logLevel</code> &mdash; absent means the server MUST stay silent on <code>notifications/message</code></li>
+                    <li><strong>Optional:</strong> <code>traceparent</code>, <code>tracestate</code>, <code>baggage</code> &mdash; W3C trace context, reserved <em>unprefixed</em> by explicit exception so OpenTelemetry libraries work unchanged</li>
                 </ul>
                 <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Missing a required field is <code>-32602</code>. This is what replaced the handshake.</p>
             </div>
@@ -132,7 +133,7 @@
             <div class="fact-card">
                 <h3>Result Shape</h3>
                 <ul>
-                    <li><strong><code>resultType</code> on every result:</strong> <code>complete</code>, <code>input_required</code>, or <code>task</code></li>
+                    <li><strong><code>resultType</code> on every result:</strong> <code>complete</code> or <code>input_required</code> from the core protocol, plus <code>task</code> from the tasks extension</li>
                     <li><strong>Cacheable &mdash; also need <code>ttlMs</code> + <code>cacheScope</code>:</strong> <code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code></li>
                     <li><strong>Must NOT carry them:</strong> <code>prompts/get</code>, <code>tools/call</code>, <code>completion/complete</code></li>
                     <li><strong>This server's hints:</strong> <code>ttlMs: 60000</code>, <code>cacheScope: "public"</code></li>
@@ -146,8 +147,9 @@
                     <li><code>-32602</code> &mdash; incomplete <code>_meta</code> envelope</li>
                     <li><code>-32021</code> &mdash; missing client capability; data carries <code>requiredCapabilities</code></li>
                     <li><code>-32022</code> &mdash; unsupported revision; data carries <code>supported</code> and <code>requested</code></li>
+                    <li><code>-32002</code>, <code>-32042</code> &mdash; retired. Never emit them; a <em>client</em> still accepts <code>-32002</code> from older servers</li>
                 </ul>
-                <p style="margin:8px 0 0;color:var(--muted);font-size:13px"><code>-32020</code>&hellip;<code>-32099</code> is now reserved for the spec; <code>-32000</code>&hellip;<code>-32019</code> stays implementation-defined.</p>
+                <p style="margin:8px 0 0;color:var(--muted);font-size:13px"><code>-32020</code>&hellip;<code>-32099</code> is now reserved for the spec; <code>-32000</code>&hellip;<code>-32019</code> stays implementation-defined. Resource-not-found, once <code>-32002</code>, is now just <code>-32602</code>.</p>
             </div>
 
             <div class="fact-card">
@@ -168,7 +170,7 @@
                     <li><strong>Tool Name:</strong> <code>key_word_search</code></li>
                     <li><strong>Description:</strong> Searches for a specified keyword across all files in a project</li>
                     <li><strong>Parameters:</strong> keyword (required), directory (optional) <em>&mdash; omit the directory and the server asks over a round trip, then falls back to its working directory</em></li>
-                    <li><strong>UI:</strong> <code>_meta.ui.resourceUri</code> <em>and</em> <code>_meta["ui/resourceUri"]</code> &rarr; <code>ui://keyword-search/mcp-app.html</code></li>
+                    <li><strong>UI:</strong> <code>_meta.ui.resourceUri</code> (canonical) <em>and</em> the deprecated <code>_meta["ui/resourceUri"]</code> &rarr; <code>ui://keyword-search/mcp-app.html</code></li>
                     <li><strong>No <code>execution</code> field</strong> &mdash; <code>Tool.execution</code> / <code>taskSupport</code> was removed</li>
                 </ul>
             </div>

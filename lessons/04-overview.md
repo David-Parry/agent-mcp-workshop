@@ -19,7 +19,7 @@ The Resources feature allows servers to expose various types of content that cli
 - **RESOURCES_LIST Handler**: Implements the discovery mechanism:
   - Returns all available Javadoc HTML files from the MCP specification classes
   - Uses `ResourcesListResultBuilder` to construct the response
-  - Includes a cursor for potential pagination (though not implemented for simplicity)
+  - Emits a `nextCursor` and the `ttlMs` / `cacheScope` hints every cacheable result must carry — see **Caching and Pagination** below, including why this server's placeholder cursor is not something to copy
 
 - **RESOURCES_READ Handler**: Enables content retrieval:
   - Deserializes `ReadResourceParam` to get the requested resource URI
@@ -61,6 +61,52 @@ Prompts create user-friendly templates that guide clients in using tools effecti
   - Creates a conversation-like flow showing what will happen
   - Adapts responses based on whether arguments are provided
   - Bridges the gap between user intent and tool execution
+
+### 4. **Caching and Pagination**
+
+The handlers in this chapter return two things students have not had to think about before: freshness hints on every result, and a cursor on the list results. They interact, and the interaction has rules.
+
+#### Cache hints are mandatory, not optional
+
+On revision `2026-07-28` a server **MUST** include `ttlMs` and `cacheScope` on any `resultType: "complete"` result from exactly six operations — `server/discover`, `tools/list`, `prompts/list`, `resources/list`, `resources/templates/list`, and `resources/read`. Five of those six land in this chapter; only `server/discover` was Chapter 3's. The server uses a uniform `LIST_TTL_MILLIS = 60_000` and `CacheScope.PUBLIC`:
+
+```java
+success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
+                                              LIST_TTL_MILLIS, CacheScope.PUBLIC));
+```
+
+- **`ttlMs`** is a freshness hint, analogous to HTTP `Cache-Control: max-age`. It must be `>= 0`. It is *not* a polling interval — a client checks freshness when it needs the data, not on a timer.
+- **`cacheScope`** is `"public"` or `"private"`. `"public"` says the result holds nothing user-specific, so a shared gateway may serve it to **any** caller — including across authorization contexts. These javadoc resources are identical for everyone, so `"public"` is right here. A per-user filtered list would not be, and `cacheScope` is a visibility *hint*, never an access control.
+
+Interim `input_required` results carry no hints at all, and results produced by an MRTR retry — anything arriving with `inputResponses` or `requestState` — **MUST NOT** be cached, because the inputs that shaped them are not part of the cache key.
+
+#### Each page caches independently
+
+A paginated list is not one cached object. **Each page is a separately cacheable response**, and the cache key is the method plus the parameters that affect the result — which means **the cursor is part of the key**. Page two is a different cache entry from page one.
+
+Three rules follow:
+
+1. **Each page carries its own `ttlMs`**, and its freshness clock starts when *that page* arrives. A server MAY hand out different TTLs per page — a long one for early pages of a stable list, a short one for the tail.
+2. **`cacheScope` MUST be uniform across all pages** of a given list request. If page one is `"private"`, every later page must be `"private"` too. This is the one place where the two fields behave differently, and it is the detail most worth remembering.
+3. **An invalid cursor invalidates everything.** If a previously good cursor starts erroring, the client SHOULD throw away *all* cached pages and re-fetch from the beginning. There is no cross-page consistency guarantee otherwise: if the underlying data shifts between fetches, a client can legitimately observe duplicates or gaps. Anyone needing a true snapshot re-fetches from the start, without a cursor.
+
+#### What this server does — and why not to copy it
+
+Look closely at the handler and you will find something the specification does not endorse:
+
+```java
+.withNextCursor("pageNext");   // RESOURCES_LIST
+.withNextCursor("nextPage");   // PROMPTS_LIST
+```
+
+`nextCursor` is supposed to be present **only when more results exist**; its absence is precisely how a client learns it has reached the end. This server emits a hardcoded placeholder on every call and never reads an incoming `cursor` parameter back. A client that dutifully follows the cursor would be handed page one again, complete with the same cursor, forever.
+
+It is harmless in the workshop because the Inspector shows one page and stops. It is worth pointing at anyway, because it is a tidy illustration of two rules at once:
+
+- **Emit `nextCursor` only when there is genuinely a next page.** Returning `null` — omitting it — is how you say "that was all."
+- **An empty string is a valid cursor.** Clients MUST NOT read `""` as the end of results; only an absent or null `nextCursor` means that. So "is the cursor falsy?" is the wrong test, in any language where the empty string is falsy.
+
+A server that paginates for real reads `params.cursor`, returns the matching slice, and answers an unrecognised cursor with `-32602` (Invalid params) rather than silently restarting.
 
 ## Architecture Integration
 

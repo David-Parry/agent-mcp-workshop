@@ -104,6 +104,13 @@ loadScripts(document, 'script');</script>
  Tools are functions or operations that the server exposes to clients, allowing them
  to perform specific actions or retrieve information. Each tool has a unique name,
  a description of its functionality, and an optional schema defining its input parameters.
+ </p>
+ <p>
+ The specification also allows an optional <code>icons</code> array here — the
+ same general field <a href="Prompt.html" title="class in com.workshop.mcp.spec"><code>Prompt</code></a>, <a href="Resource.html" title="class in com.workshop.mcp.spec"><code>Resource</code></a>, and the server's own
+ <a href="ServerInfo.html" title="class in com.workshop.mcp.spec"><code>ServerInfo</code></a> may carry, giving a host something to render beside the
+ name. This server advertises no icons, so the field is not modelled; an
+ inbound one would simply be ignored.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>

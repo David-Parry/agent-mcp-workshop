@@ -236,19 +236,19 @@ default                 → error(id, METHOD_NOT_FOUND)</pre>
             </div>
         </div>
 
-        <h3>Two Fields on Every Result — and Two More on Five of Them</h3>
-        <p><code>resultType</code> is required on <strong>every</strong> result in this revision. It is one of <code>"complete"</code>, <code>"input_required"</code>, or <code>"task"</code> — the client reads it first to know whether it is holding an answer, a question, or a receipt.</p>
-        <p>Cacheable results must <em>also</em> carry <code>ttlMs</code> (non-negative) and <code>cacheScope</code> (<code>"public"</code> or <code>"private"</code>). There are exactly five:</p>
+        <h3>Two Fields on Every Result — and Two More on Six of Them</h3>
+        <p><code>resultType</code> is required on <strong>every</strong> result in this revision. The core protocol defines two values, <code>"complete"</code> and <code>"input_required"</code>; <code>"task"</code> arrives with the <code>io.modelcontextprotocol/tasks</code> extension and is only legal once that extension has been declared on both sides. The client reads the field first to know whether it is holding an answer, a question, or a receipt.</p>
+        <p>Cacheable results must <em>also</em> carry <code>ttlMs</code> (non-negative) and <code>cacheScope</code> (<code>"public"</code> or <code>"private"</code>). There are exactly six:</p>
         <table>
             <thead><tr><th>Carries ttlMs + cacheScope</th><th>Must NOT carry them</th></tr></thead>
             <tbody>
                 <tr>
-                    <td><code>tools/list</code><br/><code>prompts/list</code><br/><code>resources/list</code><br/><code>resources/templates/list</code><br/><code>resources/read</code></td>
+                    <td><code>server/discover</code><br/><code>tools/list</code><br/><code>prompts/list</code><br/><code>resources/list</code><br/><code>resources/templates/list</code><br/><code>resources/read</code></td>
                     <td><code>prompts/get</code><br/><code>tools/call</code><br/><code>completion/complete</code><br/><span style="color:var(--muted)">…and every other result</span></td>
                 </tr>
             </tbody>
         </table>
-        <p style="color:var(--muted);font-size:13px">The split is easy to remember: <em>lists and reads are cacheable, invocations are not</em>. Caching is how a sessionless protocol claws back the round trips the handshake used to save.</p>
+        <p style="color:var(--muted);font-size:13px">The split is easy to remember: <em>discovery, lists and reads are cacheable, invocations are not</em>. Caching is how a sessionless protocol claws back the round trips the handshake used to save — and <code>server/discover</code> is the one it claws back first.</p>
 
         <h3>JavadocResources — Classpath Loading</h3>
         <ul>

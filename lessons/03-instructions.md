@@ -148,7 +148,17 @@ This command will:
 
 #### Step 4.2: The Inspector configuration is already on the branch
 
-`inspector/config.json` and `inspector/run.sh` shipped with this chapter. Open `config.json` and confirm `"protocolEra": "modern"` is a **direct sibling of `command` and `args`**, inside the `workshop` entry. Nested anywhere else, the Inspector silently falls back to the legacy era, sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for.
+`inspector/config.json` and `inspector/run.sh` shipped with this chapter. Open `config.json` and confirm `"protocolEra": "auto"` is a **direct sibling of `command` and `args`**, inside the `workshop` entry. Nested anywhere else the key is ignored, and the Inspector falls back to its default era, which is `legacy` — it sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for.
+
+The three eras are worth knowing, because the one you pick decides what the first message on the wire is:
+
+| Era | What the Inspector does at connect |
+|-----|------------------------------------|
+| `legacy` | **The default.** Plain `initialize`, no probing. |
+| `auto` | Probe `server/discover` first, fall back to `initialize` on any non-modern outcome. |
+| `modern` | Pin exactly `2026-07-28`. No fallback, so a non-modern server fails loudly. |
+
+This workshop ships `auto`, so the probe goes out first and your server gets to answer it. Switch to `modern` when you want the stricter check: it refuses to fall back, so a server that has not yet implemented `server/discover` fails immediately instead of quietly retrying the handshake.
 
 `run.sh` pins Inspector `2.5.0`:
 
@@ -217,6 +227,13 @@ The `[API][RECEIVED]` prefix matches the one `startInputReader` uses, so a singl
 Notice what is **not** in that switch: `notifications/initialized`. It went the same way as `initialize`.
 
 Also fill `acknowledgeSubscription()` at **line 185** of `IORouter.java` — a `subscriptions/listen` is acknowledged and then closed, because this server advertises no `listChanged` support.
+
+Both halves of that matter, and they are two different messages:
+
+1. **The acknowledgement.** The server MUST send `notifications/subscriptions/acknowledged` as the *first* message on the subscription, carrying `io.modelcontextprotocol/subscriptionId` in `_meta`, and MUST NOT send any notification on that subscription before it. The `notifications` field echoes back the subset the server actually agreed to honour — here, nothing, since this server supports no `listChanged`. A client is expected to compare what it asked for against what came back.
+2. **The graceful close.** When the server ends a subscription on its own initiative, it SHOULD answer the original `subscriptions/listen` request with an ordinary completion result before closing — again tagged with the subscription id. That response is what distinguishes a clean shutdown from a dropped transport: a stream that just stops carries no response at all, and a client may treat that silence as a reason to reconnect. `SubscriptionsListenResult.closing()` is this message.
+
+The subscription id is the JSON-RPC id of the `subscriptions/listen` request itself. On stdio every subscription shares one channel, so that id is the only way a client can demultiplex notifications belonging to different subscriptions — which is why omitting it leaves the client waiting forever.
 
 ### Important Note: Error Handling and STDIO in MCP Servers
 

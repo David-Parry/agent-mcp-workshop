@@ -125,6 +125,25 @@ A missing directory is `isError: true` inside a successful JSON-RPC result. The 
 
 `directoryArgument` is already on the class — it reads `arguments.directory` and treats blank as absent.
 
+### A note on the tool's `inputSchema`
+
+`KeyWordSearch` declares a plain object schema with two string properties, which is about as simple as a tool schema gets. Two rules sit behind that simplicity and are worth knowing before you write a more ambitious one.
+
+**The dialect is JSON Schema 2020-12 by default.** A schema with no `$schema` field is interpreted as 2020-12, and every conforming client and server must support that dialect. You may name a different one explicitly — `"$schema": "http://json-schema.org/draft-07/schema#"` — but then both sides have to support it, and an implementation that does not is required to say so rather than guess. This revision deliberately loosened `inputSchema` and `outputSchema` to accept *any* 2020-12 keyword, where earlier revisions permitted only a small subset. `structuredContent` was loosened the same way, to any JSON value.
+
+**That loosening came with two guardrails**, both aimed at the fact that a schema is attacker-controlled input:
+
+- A `$ref` may point at an absolute URI, but an implementation **MUST NOT** automatically dereference one that resolves over the network. Fetching remote refs is allowed only as an explicit opt-in, off by default, and even then wants a host allowlist, timeouts, and size limits. A schema whose external `$ref` cannot be resolved should be rejected, not quietly treated as permissive.
+- Composition keywords — `anyOf`, `oneOf`, `allOf`, `if`/`then`/`else`, and `$defs` — are expressive and expensive. Implementations should bound them: a maximum depth, a cap on subschema count, or a per-validation time budget. Without a bound, a deeply nested schema is a denial-of-service vector aimed straight at your validator.
+
+Neither rule bites this workshop's two-string schema. Both bite the moment someone pastes in a generated schema from elsewhere.
+
+### Two more things about `tools/list`
+
+**Return tools in a deterministic order.** With one tool it makes no difference, which is exactly why it is easy to get wrong later. A list that reshuffles between calls defeats the `ttlMs` cache you just attached to it, and because the tool list is rendered into the model's prompt, a reshuffle costs prompt-cache hits at the LLM too. Sort by name, or preserve registration order — just pick one and keep it.
+
+**`icons` is available and unused here.** Tools, prompts, resources, and the server's own identity may all carry an optional `icons` array, each entry an `src` URI (HTTPS or `data:`) plus optional `mimeType`, `sizes`, and `theme`. Hosts render them beside the name. This server advertises none. If you add them, treat icon URIs as untrusted input: HTTPS or `data:` only, no credentials on the fetch, same-origin as the server, and validate the content type by magic bytes rather than trusting the declared `mimeType`.
+
 ## Part 3: Implementing the Prompts Capability
 
 **Action Required**: paste into the empty cases in `IORouter.java`:
@@ -190,7 +209,7 @@ cd inspector
 ./run.sh
 ```
 
-`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`. Do not nest it anywhere else.
+`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
 
 ### Resources
 - **List Resources** shows Javadoc pages. There is no `ui://` entry.

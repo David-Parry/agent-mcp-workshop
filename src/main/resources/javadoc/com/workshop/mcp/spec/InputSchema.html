@@ -105,6 +105,17 @@ loadScripts(document, 'script');</script>
  that a tool expects. It follows JSON Schema conventions to specify the type,
  properties, and requirements for tool inputs, enabling proper validation and
  type checking of tool invocations.
+ </p>
+ <p>
+ A schema with no <code>$schema</code> field defaults to JSON Schema 2020-12,
+ which is what this record emits. Revision <code>2026-07-28</code> loosened the
+ field to accept any 2020-12 keyword rather than the small subset earlier
+ revisions allowed, so richer schemas are legal — at the cost of two rules
+ worth knowing. An implementation MUST NOT automatically dereference a
+ <code>$ref</code> that resolves to a network URI, and it SHOULD bound the
+ composition keywords (<code>anyOf</code>, <code>oneOf</code>, <code>allOf</code>,
+ <code>if</code>/<code>then</code>/<code>else</code>, <code>$defs</code>) so a hostile schema
+ cannot exhaust the validator.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>

@@ -111,7 +111,7 @@
     "ui/resourceUri": "ui://keyword-search/mcp-app.html"
   }
 }</pre>
-        <p style="color:var(--muted);font-size:13px">The nested <code>ui.resourceUri</code> and the flat <code>ui/resourceUri</code> hold the same value. Hosts read one or the other depending on their vintage, so the reference extension mirrors whichever the author omitted &mdash; and so does <code>AppMeta.of(...)</code>.</p>
+        <p style="color:var(--muted);font-size:13px">The nested <code>ui.resourceUri</code> and the flat <code>ui/resourceUri</code> hold the same value. The nested one is canonical; the flat one is <strong>deprecated</strong> and will be removed before GA. Hosts read one or the other depending on their vintage, so <code>AppMeta.of(...)</code> mirrors the value into both.</p>
 
         <h3>3. Serve that URI as HTML with the app MIME type</h3>
 <pre>ui://keyword-search/mcp-app.html

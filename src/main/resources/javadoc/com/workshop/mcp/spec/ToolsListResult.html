@@ -104,6 +104,11 @@ loadScripts(document, 'script');</script>
  <p>
  Like <a href="AppToolsListResult.html" title="class in com.workshop.mcp.spec"><code>AppToolsListResult</code></a>, this is a cacheable result and must carry
  <code>resultType</code>, <code>ttlMs</code>, and <code>cacheScope</code>.
+ </p>
+ <p>
+ Servers should return tools in a deterministic order. A list that reshuffles
+ between calls defeats client-side caching and, because the list is rendered
+ into the model's prompt, costs prompt-cache hits downstream too.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>

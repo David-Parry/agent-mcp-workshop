@@ -46,14 +46,23 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 UNSUPPORTED_PROTOCOL_VERSION = -32022
 
+# Retired by this revision: a conforming server must never emit either.
+# -32002 was resource-not-found and is now INVALID_PARAMS; -32042 was the URL
+# elicitation signal that existed only on 2025-11-25. Clients still accept
+# -32002 from older servers, so the prohibition binds servers only.
+RETIRED_ERROR_CODES = {-32002, -32042}
+
 # The seven optional slots a 2026-07-28 server may declare. Anything else,
 # tasks included, belongs under extensions.
 CAPABILITY_SLOTS = {
     "experimental", "logging", "completions", "prompts", "resources", "tools", "extensions",
 }
 
-# Exactly these five methods may carry freshness hints.
+# Exactly these six methods carry freshness hints. server/discover belongs on
+# the list: discovery is a read like any other, and a client that cached it can
+# skip the probe entirely.
 CACHEABLE_METHODS = [
+    "server/discover",
     "tools/list", "prompts/list", "resources/list", "resources/templates/list", "resources/read",
 ]
 
@@ -199,6 +208,11 @@ class Client:
             timeout,
             f"response to id={id_}",
         )
+        code = (msg.get("error") or {}).get("code")
+        if code in RETIRED_ERROR_CODES:
+            raise Failure(
+                f"{code} was retired by {PROTOCOL_VERSION} and must never be emitted: {msg['error']}"
+            )
         return msg
 
     def expect_result(self, id_, timeout=8.0):
@@ -794,10 +808,13 @@ def s_mcp_apps(c):
     tool = (c.expect_result(1).get("tools") or [{}])[0]
 
     meta = tool.get("_meta") or {}
+    # The nested key is canonical. The flat one is deprecated by the MCP Apps
+    # extension and due for removal before GA, but older hosts still read it,
+    # so this server emits both and they must agree.
     if (meta.get("ui") or {}).get("resourceUri") != APP_URI:
         raise Failure(f"tool _meta.ui.resourceUri wrong: {tool}")
     if meta.get("ui/resourceUri") != APP_URI:
-        raise Failure(f"the flat _meta['ui/resourceUri'] key is required too: {tool}")
+        raise Failure(f"the deprecated flat _meta['ui/resourceUri'] key must still agree: {tool}")
 
     # Removed from tools/list: its taskSupport hint forced a warmup call.
     for gone in ("execution", "taskSupport"):

@@ -93,6 +93,41 @@ tasks.named('javadoc') {
     include '**/com/workshop/mcp/spec/**'
 }
 
+// The spec javadoc is the corpus this server serves as MCP resources, not just
+// documentation, so the committed copy under src/main/resources has to track the
+// source. JavadocResources enumerates it from html-files.txt, which lists only the
+// class pages directly under spec/ — builders/ ships but stays unlisted.
+//
+// This is deliberately not wired into `build`: a build that rewrites tracked
+// source files is a surprise, and tools/slice_chapter.py prunes the pages and the
+// listing together when it cuts chapter branches.
+def servedJavadoc = layout.projectDirectory.dir('src/main/resources/javadoc/com/workshop/mcp/spec')
+
+tasks.register('syncSpecJavadoc', Sync) {
+    description = 'Refreshes the javadoc corpus the server serves as MCP resources.'
+    group = 'documentation'
+
+    dependsOn javadoc
+    from layout.buildDirectory.dir('docs/javadoc/com/workshop/mcp/spec')
+    into servedJavadoc
+    include '**/*.html'
+
+    // Sync removes anything it did not copy, which is what keeps a deleted class
+    // from lingering in the corpus — but it also takes the listing with it, so the
+    // listing is rebuilt here rather than preserved.
+    doLast {
+        def root = servedJavadoc.asFile
+        def pages = (root.listFiles() ?: [] as File[])
+                .findAll { it.isFile() && it.name.endsWith('.html') }
+                .collect { it.name }
+                .findAll { !(it in ['package-summary.html', 'package-tree.html']) }
+                .toSorted()
+        new File(root, 'html-files.txt').text =
+                pages.collect { "javadoc/com/workshop/mcp/spec/$it" }.join('\n') + '\n'
+        logger.lifecycle("syncSpecJavadoc: ${pages.size()} served pages listed")
+    }
+}
+
 // Configure JaCoCo test report
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report

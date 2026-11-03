@@ -11,7 +11,7 @@ That second point is the whole chapter. In earlier revisions of MCP a server ask
 
 What replaced it is **Multi Round-Trip Requests (MRTR)**: the server answers with `resultType: "input_required"`, *embedding* the request it would have sent. The client resolves it and re-sends the **original** request — brand new id — carrying the answers. The question travels inside an answer.
 
-> Official documentation: [https://modelcontextprotocol.info/docs/extensions/](https://modelcontextprotocol.info/docs/extensions/)
+> Official documentation: [https://modelcontextprotocol.io/extensions/overview](https://modelcontextprotocol.io/extensions/overview)
 
 ---
 
@@ -360,7 +360,7 @@ That is why `key_word_search` takes a `directory` argument at all — it is the 
 
 Roots is also why this chapter reads the way it does. An embedded `roots/list` used to be the worked example above: the server asked the client where to look, the client answered from its own configuration without troubling anybody, and only an empty answer escalated to a form. Two questions and an escalation — a genuinely nice demonstration of a round trip, built on a feature that the same specification tells you, a few pages later, not to build on. Reading a spec's lifecycle policy before choosing an example is cheaper than reading it afterwards. Nothing about MRTR was lost in the move: the exchange you just wrote is the same exchange, with the user answering instead of the client.
 
-Watch the two policies land differently on the same feature. `notifications/roots/list_changed` was *removed*, so it is gone from the method registry entirely. The `roots` capability was only *deprecated*, so clients keep declaring it — SEP-2577 says they should, for the whole transition — and the Inspector will still put `"roots":{"listChanged":true}` in every envelope it sends you. That is correct client behaviour, not a bug to chase. `ClientCapabilities` no longer names the field, so Gson drops it and the server carries on. It has nothing to do with `"protocolEra": "modern"` either: the era selects the sessionless behaviour family, it does not suppress a capability that is merely deprecated.
+Watch the two policies land differently on the same feature. `notifications/roots/list_changed` was *removed*, so it is gone from the method registry entirely. The `roots` capability was only *deprecated*, so clients keep declaring it — SEP-2577 says they should, for the whole transition — and the Inspector will still put `"roots":{"listChanged":true}` in every envelope it sends you. That is correct client behaviour, not a bug to chase. `ClientCapabilities` no longer names the field, so Gson drops it and the server carries on. It has nothing to do with `"protocolEra": "auto"` either: the era selects the sessionless behaviour family, it does not suppress a capability that is merely deprecated.
 
 ---
 
@@ -379,7 +379,7 @@ cd inspector
 ./run.sh
 ```
 
-Make sure `inspector/config.json` has `"protocolEra": "modern"` as a **direct sibling key** — nested anywhere else and the CLI quietly sends a legacy `initialize` instead of `server/discover`.
+Make sure `inspector/config.json` has `"protocolEra": "auto"` as a **direct sibling key** — nested anywhere else and the key is ignored, the CLI falls back to its `legacy` default, and it sends `initialize` instead of `server/discover`.
 
 ### 3. Verify the discovery response
 

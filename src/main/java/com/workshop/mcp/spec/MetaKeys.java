@@ -10,6 +10,14 @@ package com.workshop.mcp.spec;
  * re-states them inside {@code params._meta}, and every result identifies its
  * sender the same way. These constants name those slots.
  * </p>
+ * <p>
+ * A {@code _meta} key is an optional dot-separated prefix ending in a slash,
+ * followed by a name. Any prefix whose second label is {@code modelcontextprotocol}
+ * or {@code mcp} is reserved for the specification, which is why every key here
+ * carries {@code io.modelcontextprotocol/}. The W3C trace-context keys
+ * ({@link #TRACEPARENT}, {@link #TRACESTATE}, {@link #BAGGAGE}) are the one
+ * documented exception: they are reserved with no prefix at all.
+ * </p>
  *
  * @see RequestEnvelope
  * @since 1.0
@@ -50,4 +58,17 @@ public final class MetaKeys {
 
     /** Identifier of the MCP Apps (UI) extension, declared under {@code capabilities.extensions}. */
     public static final String UI_EXTENSION = "io.modelcontextprotocol/ui";
+
+    /**
+     * W3C trace context for the request, carried unprefixed by exception.
+     * A server that participates in tracing reads this to continue the
+     * caller's trace rather than starting a new one.
+     */
+    public static final String TRACEPARENT = "traceparent";
+
+    /** Vendor-specific trace state travelling alongside {@link #TRACEPARENT}. */
+    public static final String TRACESTATE = "tracestate";
+
+    /** W3C baggage: key-value context propagated across the call graph. */
+    public static final String BAGGAGE = "baggage";
 }

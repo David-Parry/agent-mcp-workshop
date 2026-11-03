@@ -281,9 +281,10 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="../AppTool.html" title="class in com.workshop.mcp.spec">AppTool</a></span>&nbsp;<span class="element-name">build</span>()</div>
 <div class="block">Builds and returns the configured <a href="../AppTool.html" title="class in com.workshop.mcp.spec"><code>AppTool</code></a>.
  <p>
- The resource URI is written under both <code>_meta.ui.resourceUri</code> and
- the flat <code>_meta["ui/resourceUri"]</code>, matching what the reference
- MCP Apps extension puts on the wire.
+ The resource URI is written under the canonical
+ <code>_meta.ui.resourceUri</code> and also under the deprecated flat
+ <code>_meta["ui/resourceUri"]</code>, which older hosts still read. The flat
+ key is scheduled for removal before GA.
  </p></div>
 <dl class="notes">
 <dt>Returns:</dt>

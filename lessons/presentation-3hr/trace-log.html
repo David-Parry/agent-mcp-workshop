@@ -138,7 +138,7 @@
       io.modelcontextprotocol/clientCapabilities in params._meta"}}
     No envelope at all. On the old revision this request was perfectly legal, because the
     handshake had already said all of this once.</pre>
-        <div class="hint" style="margin-top:10px;font-size:13px;color:var(--muted)">Captured with <code>inspector/modern-probe.sh</code>. If your Inspector opens with <code>initialize</code> instead of <code>server/discover</code>, it is running in legacy mode — add <code>"protocolEra": "modern"</code> to the server entry in <code>inspector/config.json</code>.</div>
+        <div class="hint" style="margin-top:10px;font-size:13px;color:var(--muted)">Captured with <code>inspector/modern-probe.sh</code>. If your Inspector opens with <code>initialize</code> instead of <code>server/discover</code>, it is running in its default legacy era — add <code>"protocolEra": "auto"</code> to the server entry in <code>inspector/config.json</code>.</div>
         <div class="hint">
             Color coding:
             <span style="color:#7dcfff">Blue = Received (Client → Server)</span> &nbsp;|&nbsp;

@@ -173,6 +173,7 @@
                 <tr><td><code>io.modelcontextprotocol/clientCapabilities</code></td><td><strong>Required</strong></td><td>What the client can be asked to do <em>on this request</em>. This is what gates whether the server may show a form or hand back a task. This server reads exactly one capability it acts on, <code>elicitation</code>, plus the <code>extensions</code> map; <code>roots</code> and <code>sampling</code> still arrive and are ignored.</td></tr>
                 <tr><td><code>io.modelcontextprotocol/clientInfo</code></td><td>Recommended</td><td>Which client software is calling. Useful for logs and workarounds; nothing depends on it.</td></tr>
                 <tr><td><code>io.modelcontextprotocol/logLevel</code></td><td>Optional</td><td>Opt-in to <code>notifications/message</code> for this request. <strong>When it is absent the server MUST NOT emit any</strong> — silence is the default, not a level.</td></tr>
+                <tr><td><code>traceparent</code>, <code>tracestate</code>, <code>baggage</code></td><td>Optional</td><td>W3C trace context for OpenTelemetry. The one set of reserved keys with <strong>no prefix at all</strong> — a deliberate exception so existing tracing libraries work unchanged. This server ignores them; a traced one would continue the caller's trace from <code>traceparent</code>.</td></tr>
             </tbody>
         </table>
         <p style="color:var(--muted);font-size:13px;margin-top:10px">Missing either required member is <code>-32602</code>. Declaring an unsupported revision is <code>-32022</code>, and its <code>data</code> carries both <code>supported</code> and <code>requested</code> so the client can renegotiate from the error alone. If a server needs a capability the request did not declare, that is <code>-32021</code> with <code>data.requiredCapabilities</code>.</p>
@@ -192,6 +193,7 @@
                 <tr><td><code>-32022</code></td><td>Unsupported protocol version</td><td><code>data.supported</code> + <code>data.requested</code>, both required.</td></tr>
             </tbody>
         </table>
+        <p style="color:var(--muted);font-size:13px;margin-top:10px">Two codes from earlier revisions are <strong>retired rather than reused</strong>, and an implementation of this revision MUST NOT emit either: <code>-32002</code>, which used to mean "resource not found" and is now plain <code>-32602</code>, and <code>-32042</code>, the URL-elicitation signal that existed only on <code>2025-11-25</code>. The asymmetry is the interesting part — a <em>client</em> should still accept <code>-32002</code>, because it may be talking to an older server. Retiring a number is not the same as freeing it.</p>
 
         <h3>What Was Deleted — and How Deletion Works Now</h3>
         <p>Deletion in this revision is <strong>physical</strong>: the method is simply absent from the registry, so it answers <code>-32601</code> by absence rather than by a special case. These are gone:</p>
@@ -204,7 +206,7 @@ tasks/list</pre>
 
         <h3>Message Routing — The IORouter Switch</h3>
         <p>Every request is routed on its method name, but only after two gates: discovery is answered first (asking which versions a server speaks cannot itself require knowing them), then method existence, then the envelope.</p>
-        <pre>SERVER_DISCOVER          → answered first, before any version check
+        <pre>SERVER_DISCOVER          → answered first, before any version check; cacheable
 ─── if the method is not in INBOUND_METHODS → -32601 ───
 ─── envelopeFor(message): -32602 or -32022, or the validated envelope ───
 case PROMPTS_LIST        → cacheable: + ttlMs, cacheScope
@@ -222,11 +224,11 @@ case TASKS_GET / TASKS_UPDATE / TASKS_CANCEL → tasks extension</pre>
         <div class="two-col" style="margin-top:12px">
             <div class="cap-card">
                 <h4><code>resultType</code> is required on <em>every</em> result</h4>
-                <p>Three values only: <code>"complete"</code>, <code>"input_required"</code>, <code>"task"</code>. It is how a client knows whether it is holding an answer, a question, or a receipt — without inspecting the shape.</p>
+                <p>The core protocol defines two: <code>"complete"</code> and <code>"input_required"</code>. <code>"task"</code> is contributed by the <code>io.modelcontextprotocol/tasks</code> extension, so this server may only send it to a client that declared that extension. Together they tell a client whether it is holding an answer, a question, or a receipt — without inspecting the shape.</p>
             </div>
             <div class="cap-card">
-                <h4><code>ttlMs</code> + <code>cacheScope</code> on exactly five methods</h4>
-                <p><code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code>. <code>ttlMs</code> is non-negative; <code>cacheScope</code> is <code>"public"</code> or <code>"private"</code>. Their neighbours — <code>prompts/get</code>, <code>tools/call</code>, <code>completion/complete</code> — must <strong>not</strong> carry them, because their answers depend on arguments.</p>
+                <h4><code>ttlMs</code> + <code>cacheScope</code> on exactly six methods</h4>
+                <p><code>server/discover</code>, <code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code>. <code>ttlMs</code> is non-negative; <code>cacheScope</code> is <code>"public"</code> or <code>"private"</code>. Their neighbours — <code>prompts/get</code>, <code>tools/call</code>, <code>completion/complete</code> — must <strong>not</strong> carry them, because their answers depend on arguments. Interim <code>input_required</code> results are never cacheable either, whatever the method.</p>
             </div>
         </div>
 
@@ -269,7 +271,7 @@ case TASKS_GET / TASKS_UPDATE / TASKS_CANCEL → tasks extension</pre>
             <li><strong>Walk <code>envelopeFor()</code></strong> — the four lines that replaced the handshake. <code>isComplete()</code> → <code>-32602</code>; <code>isSupportedVersion()</code> → <code>-32022</code> carrying <code>supported</code> and <code>requested</code>. Point out the ordering above it: method existence is settled <em>first</em>, so a removed method reports as removed.</li>
             <li><strong>Open <code>spec/RequestId.java</code> and <code>spec/RequestIdTypeAdapter.java</code></strong> — the record that holds either a string or a number and the adapter that writes it back in the same form. Tell the war story: <code>id</code> used to be a <code>Long</code>, and the migration's very first crash was <code>NumberFormatException: For input string: "server-discover-probe-1"</code>.</li>
             <li><strong>Build:</strong> <code>./gradlew clean build</code> in the project root terminal.</li>
-            <li><strong>Show <code>inspector/config.json</code> before launching</strong> — the load-bearing line is <code>"protocolEra": "modern"</code>, a sibling of <code>command</code>/<code>args</code>/<code>env</code>, not nested under anything. Without it the Inspector opens with the legacy handshake and the first thing on the wire is an <code>initialize</code> that this server answers <code>-32601</code>. <code>"modernLogLevel": "off"</code> is a valid sibling too, and is what keeps <code>notifications/message</code> out of the message pane. A <code>"roots"</code> array is also still accepted there — this config no longer sets one, because the server no longer asks.</li>
+            <li><strong>Show <code>inspector/config.json</code> before launching</strong> — the load-bearing line is <code>"protocolEra": "auto"</code>, a sibling of <code>command</code>/<code>args</code>/<code>env</code>, not nested under anything. <code>auto</code> probes <code>server/discover</code> first and only falls back to <code>initialize</code> if that probe comes back non-modern. Without the key the Inspector uses its <code>legacy</code> default, and the first thing on the wire is an <code>initialize</code> that this server answers <code>-32601</code>. <code>"modern"</code> is the stricter third choice: it pins <code>2026-07-28</code> and refuses to fall back at all. <code>"modernLogLevel": "off"</code> is a valid sibling too, and is what keeps <code>notifications/message</code> out of the message pane. A <code>"roots"</code> array is also still accepted there — this config no longer sets one, because the server no longer asks.</li>
             <li><strong>Launch MCP Inspector:</strong> <code>cd inspector &amp;&amp; ./run.sh</code>, open the printed URL, connect. In the message pane, show <code>server/discover → server/discover result</code> — two messages, no third. Point at the string id and at <code>serverInfo</code> sitting in <code>_meta</code>.</li>
             <li><strong>Prove the envelope repeats:</strong> click any capability and show that <em>this</em> request carries the whole <code>_meta</code> block again. Nothing was remembered.</li>
             <li><strong>Teaching moment — the rejections:</strong> run <code>inspector/modern-probe.sh</code> in a terminal and read the last three lines together — <code>-32601</code> for <code>initialize</code>, <code>-32022</code> for a <code>2025-11-25</code> envelope, <code>-32602</code> for no envelope at all. Three different failures, three different diagnoses, all readable from the error alone.</li>

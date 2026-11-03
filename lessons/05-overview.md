@@ -8,7 +8,7 @@ This lesson introduces two mechanisms that look separate but are not: the **exte
 
 Students will declare an extension under `capabilities.extensions` in the `server/discover` response, then rewrite the elicitation flow so the server asks for a search directory *by answering* rather than by asking.
 
-> Official documentation: [https://modelcontextprotocol.info/docs/extensions/](https://modelcontextprotocol.info/docs/extensions/)
+> Official documentation: [https://modelcontextprotocol.io/extensions/overview](https://modelcontextprotocol.io/extensions/overview)
 
 ## The Change That Drives This Lesson
 
@@ -55,18 +55,42 @@ Both maps survive, and they mean different things:
 
 Note what is **absent**: the pre-`2026-07-28` top-level `tasks` slot is gone. Tasks became `extensions["io.modelcontextprotocol/tasks"]`, which is Chapter 7's subject.
 
+## The Extension Lifecycle
+
+Before the list of extensions, the thing to know about any one of them: **every extension sits at one of three stages**, and the stage tells you how much you can lean on it (SEP-3392).
+
+| Stage | What can change | What you can expect |
+|-------|-----------------|---------------------|
+| **Experimental** | Anything, at any time, without notice | Nothing. The design may change or vanish. Pin to a commit. |
+| **Beta** | Anything, but breaking changes should be rare, batched, and announced | Real usage is welcome. Breaking changes are documented in a changelog. |
+| **Stable** | Only with a new core protocol revision | Behavior is fixed for the revision you negotiated. A published revision is immutable. |
+
+An extension starts Experimental and **must** pass through Beta. From Beta it either settles at Stable or a Standards Track SEP promotes it into the core specification. Each Beta extension declares its intended destination — Stable or Core — and that intent can change while it is in Beta.
+
+Two consequences worth holding on to:
+
+- **The identifier never changes with the stage.** `io.modelcontextprotocol/tasks` is the same string whether the extension is Beta or has landed in core. Breaking changes keep the identifier too; a `-v2` suffix appears only when old and new behavior must coexist within one protocol revision.
+- **Promotion to core makes the feature unconditional.** Once a Standards Track SEP folds an extension into revision R, it is core behavior for any peer that negotiates R or later — advertised or not. The extension spec still governs earlier revisions, so a client that speaks both keeps advertising it.
+
 ## Official Extensions
 
-The MCP organization currently maintains extension repositories including:
+Official extensions live in the MCP GitHub organization in repositories prefixed `ext-`, and the directory holding the spec (`specification/beta/`, `specification/stable/`) is what records the stage.
 
-### ext-auth — Supplementary Authorization
+| Extension | Identifier | Stage | What it does |
+|-----------|-----------|-------|--------------|
+| OAuth Client Credentials | `io.modelcontextprotocol/oauth-client-credentials` | Stable | Machine-to-machine auth for servers calling protected APIs on their own behalf |
+| Enterprise-Managed Authorization | *(see ext-auth)* | Stable | Centralized, auditable access control through corporate identity providers |
+| MCP Apps | `io.modelcontextprotocol/ui` | **Stable** | Interactive UI inline in conversations — charts, forms, media players. **Chapter 6's subject.** |
+| MCP Tasks | `io.modelcontextprotocol/tasks` | **Beta, to Core** | Async execution for long-running work: polling, mid-flight input, durable handles. **Chapter 7's subject.** |
+| Skills over MCP | `io.modelcontextprotocol/skills` | Beta | Serve Agent Skills — workflow instructions and supporting files — through Resources |
+| Server Cards | *(see ext-server-card)* | Beta | Lets a client discover a server's metadata *before* connecting to it |
 
-- **OAuth 2.0 Client Credentials** — machine-to-machine authentication for servers calling protected APIs on their own behalf
-- **Enterprise-Managed Authorization** — centralized, auditable access control through corporate identity providers
+The two this workshop implements sit at different stages, and that difference is not cosmetic:
 
-### ext-apps — Interactive UI Capabilities
+- **MCP Apps is Stable.** The UI contract you write in Chapter 6 is fixed for `2026-07-28`. It will not shift under you until a new protocol revision ships.
+- **MCP Tasks is Beta, headed for Core.** Chapter 7's task handles work today, but the shape can still move, and when promotion lands, task support stops being something you declare and becomes something every server at that revision is simply expected to do.
 
-Lets servers render **interactive UI inline within conversations** — charts, forms, media players, custom components. This is Chapter 6's subject.
+**Server Cards** is the one on the list that operates outside a live session. Everything else here is negotiated *after* you connect; a server card is fetched over plain HTTP *before* a connection exists, so a client can decide whether connecting is worthwhile — a directory listing rather than a conversation.
 
 ## Extension Identifiers
 

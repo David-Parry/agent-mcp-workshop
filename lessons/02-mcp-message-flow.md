@@ -98,6 +98,7 @@ sequenceDiagram
 2. **Every Request Carries Its Own Envelope**:
    - `params._meta` re-declares `protocolVersion` and `clientCapabilities` on **every** request — both required
    - `clientInfo` and `logLevel` are optional; with no `logLevel` the server must not emit `notifications/message`
+   - `traceparent`, `tracestate`, and `baggage` may also appear, carrying W3C trace context for OpenTelemetry. They are the only reserved `_meta` keys with no `io.modelcontextprotocol/` prefix — an explicit exception to the naming rule. This server ignores them
    - Capability-dependent behaviour is therefore decided per request, not once at startup
 
 3. **The Server Cannot Call the Client**:
@@ -131,3 +132,4 @@ sequenceDiagram
 - A missing or incomplete `_meta` envelope returns `-32602`
 - An unsupported `protocolVersion` returns `-32022`, whose `data` must carry both `requested` and `supported`
 - Tool failures are **not** protocol errors: they come back as `isError: true` inside a successful result
+- `-32002` and `-32042` are **retired**: a server on this revision must never emit either. Resource-not-found, once `-32002`, is now plain `-32602`. A *client* should still accept `-32002`, because the server on the other end may be speaking an older revision

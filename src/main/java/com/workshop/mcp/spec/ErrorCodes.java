@@ -9,10 +9,20 @@ package com.workshop.mcp.spec;
  * -32768 to -32000, which are reserved for pre-defined errors.
  * </p>
  * <p>
- * Error codes from -32000 to -32099 are reserved for implementation-defined server errors,
- * while application-specific errors should use codes outside the reserved ranges.
+ * Revision {@code 2026-07-28} partitioned the JSON-RPC server-error range:
+ * {@code -32000} to {@code -32019} stays implementation-defined, while
+ * {@code -32020} to {@code -32099} is reserved for the specification. Codes
+ * in the reserved sub-range may only be used with their specified meanings.
  * </p>
- * 
+ * <p>
+ * Two codes from earlier revisions are retired rather than recycled, and a
+ * server on this revision MUST NOT emit either: {@code -32002} (resource not
+ * found, now expressed as {@link #INVALID_PARAMS}) and {@code -32042} (URL
+ * elicitation required, which existed only on {@code 2025-11-25}). A client
+ * should still accept {@code -32002} from a server speaking an earlier
+ * revision, so the prohibition is one-directional.
+ * </p>
+ *
  * @see JsonRpcError
  * @see JsonRpcErrorResponse
  * @since 1.0
@@ -59,6 +69,11 @@ public final class ErrorCodes {
      * This error indicates that the method exists but the provided parameters are invalid,
      * missing required fields, or have incorrect types. The error data should provide
      * details about which parameters are invalid.
+     * </p>
+     * <p>
+     * This also covers "resource not found" on {@code resources/read}, which
+     * earlier revisions signalled with {@code -32002}. The move aligns MCP
+     * with plain JSON-RPC: an unreadable {@code uri} is a bad parameter.
      * </p>
      */
     public static final int INVALID_PARAMS = -32602;

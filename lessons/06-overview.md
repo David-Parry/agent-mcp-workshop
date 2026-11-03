@@ -115,7 +115,7 @@ The host checks this at discovery. If it is absent the host will not attempt to 
 }
 ```
 
-The URI appears twice on purpose. Hosts read either the nested `ui.resourceUri` or the flat `ui/resourceUri` depending on their vintage, so the server writes both; `AppMeta.of` is what keeps the two in step.
+The URI appears twice on purpose, and the direction of travel is the opposite of what most people guess. The nested `ui.resourceUri` is the **canonical** form; the flat `ui/resourceUri` is **deprecated** by the MCP Apps extension and marked for removal before GA. Hosts read one or the other depending on their vintage, so the server writes both and `AppMeta.of` keeps them in step — but new code should be written against the nested key.
 
 ### 4. A resource handler for the `ui://` URI
 
@@ -130,7 +130,7 @@ This lesson adds three new Java types to the workshop codebase that represent th
 | Class | Purpose |
 |-------|---------|
 | `UiMeta` | Holds the `resourceUri` pointing to the `ui://` HTML resource, plus an optional `visibility` hint |
-| `AppMeta` | Wraps `UiMeta` as the `_meta` field on a tool, and mirrors the URI under the flat `ui/resourceUri` key |
+| `AppMeta` | Wraps `UiMeta` as the `_meta` field on a tool, and mirrors the URI under the deprecated flat `ui/resourceUri` key |
 | `AppTool` | A tool record that includes `_meta` alongside name, description, and inputSchema |
 
 And a builder:

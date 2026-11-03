@@ -87,11 +87,11 @@ Implement `server/discover` and the per-request envelope that replaced the hands
 ### Tasks
 1. Fill `discoverResult()` and the `server/discover` shortcut (answered before any version check)
 2. Fill `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported`) for an unsupported revision
-3. Build and test with MCP Inspector in modern mode (`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`)
+3. Build and test with MCP Inspector (`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`)
 4. Fill the notification handler using Chapter 2's `deserializeParams` and the existing `NotificationCancelledParams`
 
 ### Verification
-- MCP Inspector connects successfully with `"protocolEra": "modern"`
+- MCP Inspector connects successfully with `"protocolEra": "auto"`, and the first message on the wire is `server/discover`, not `initialize`
 - Discovery completes (green status) — note the **string** id on that first message
 - `initialize` returns `-32601`, checked before the envelope so a legacy client is told the truth
 - A request with no `_meta` returns `-32602`; one declaring `2025-11-25` returns `-32022`
@@ -253,7 +253,7 @@ Connect your MCP server to a real AI coding assistant and use it in conversation
 1. Create / register `mcp.json` for your chosen client
 2. Verify tool discovery
 3. Have real conversations using your tool
-4. Build a Claude Code plugin with four composable skills and a 6-step audit workflow that pauses at an approval checkpoint
+4. Build a Claude Code plugin with four composable skills and a 6-step audit workflow that pauses at an approval checkpoint — note that these are host-installed skills, not the `io.modelcontextprotocol/skills` extension, which serves the same `SKILL.md` artifacts over the protocol instead
 
 ### Supported Clients
 | Client | Configuration Location |

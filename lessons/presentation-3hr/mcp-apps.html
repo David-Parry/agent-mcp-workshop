@@ -173,9 +173,9 @@
   }
 }</pre>
         <div class="key-concept" style="margin-top:14px">
-            <strong>Yes, the same URI twice.</strong> The nested <code>_meta.ui.resourceUri</code> is the original shape; the flat <code>_meta["ui/resourceUri"]</code> is the one the revision standardised on, matching how every other <code>_meta</code> member is a slash-namespaced flat key. Hosts in the wild currently read one or the other, so a server that wants to be rendered by both emits both. They must always agree.
+            <strong>Yes, the same URI twice.</strong> The nested <code>_meta.ui.resourceUri</code> is the canonical form. The flat <code>_meta["ui/resourceUri"]</code> is <strong>deprecated</strong> by the MCP Apps extension and is marked for removal before GA. Hosts in the wild still read one or the other depending on their vintage, so a server that wants to be rendered by both emits both. They must always agree.
         </div>
-        <p style="color:var(--muted);font-size:13px">This is transitional, and worth telling the class as much: the flat key is where the spec is going and the nested one is politeness toward hosts that have not caught up. Emitting both costs a few bytes on a cacheable result. Emitting only the nested one costs you the newer hosts.</p>
+        <p style="color:var(--muted);font-size:13px">This is transitional, and worth telling the class as much — in the direction that may surprise them. The <em>nested</em> key is the one the extension standardised on; the flat key is the legacy spelling, formally deprecated and due for removal before GA. We emit it anyway, because hosts shipped against it and a deprecated field keeps working for its whole transition. Write new code against <code>ui.resourceUri</code> and treat the flat key the way we treat <code>roots</code>: still on the wire, not something to build on.</p>
 
         <h3>3. Serve the HTML when the host requests it</h3>
         <pre>// In your resources/read handler:
@@ -186,7 +186,7 @@ if (uri.startsWith("ui://")) {
         readHtmlFromClasspath("mcp-app.html"));
 }</pre>
         <p>The MIME type <code>text/html;profile=mcp-app</code> tells the host this is an MCP App, not a regular HTML resource — the same string the extension declared in <code>mimeTypes</code>, which is what lets the host decide up front whether it can render this at all.</p>
-        <p style="color:var(--muted);font-size:13px">One detail from the wider revision applies here: <code>resources/read</code> is one of the five cacheable methods, so the result also carries <code>resultType</code>, <code>ttlMs</code>, and <code>cacheScope</code>. An app's HTML is exactly the kind of thing you want a host to fetch once and keep.</p>
+        <p style="color:var(--muted);font-size:13px">One detail from the wider revision applies here: <code>resources/read</code> is one of the six cacheable methods, so the result also carries <code>resultType</code>, <code>ttlMs</code>, and <code>cacheScope</code>. An app's HTML is exactly the kind of thing you want a host to fetch once and keep.</p>
     </section>
 
     <section class="card">
@@ -246,7 +246,7 @@ if (uri.startsWith("ui://")) {
             </div>
             <div class="feature-card">
                 <h4>AppMeta</h4>
-                <p>The <code>_meta</code> object on a tool definition. Carries <code>UiMeta</code> as <code>ui</code> <em>and</em> the flat <code>ui/resourceUri</code> string, kept in sync by construction so the two can never disagree.</p>
+                <p>The <code>_meta</code> object on a tool definition. Carries <code>UiMeta</code> as <code>ui</code> — the canonical key — <em>and</em> the deprecated flat <code>ui/resourceUri</code> string, kept in sync by construction so the two can never disagree.</p>
             </div>
             <div class="feature-card">
                 <h4>AppTool + AppToolBuilder</h4>
@@ -324,7 +324,7 @@ if (uri.startsWith("ui://")) {
         <h3>Chapter 6 Live: The Keyword Search Dashboard</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/06-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (which emits it <em>twice</em>, nested as <code>ui</code> and flat as <code>ui/resourceUri</code>), and <code>AppTool</code>. Ask the class to spot the duplication before you explain it; someone always assumes it is a bug.</li>
+            <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (which emits it <em>twice</em>, nested as <code>ui</code> and flat as the deprecated <code>ui/resourceUri</code>), and <code>AppTool</code>. Ask the class to spot the duplication before you explain it; someone always assumes it is a bug. Then ask which of the two is the deprecated one — most will guess the nested key, and it is the other way round.</li>
             <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>. One call, both keys: the duplication is impossible to get wrong from the outside.</li>
             <li><strong>Point at what is missing from <code>AppTool</code></strong> — there is no <code>execution</code> field any more. Tie it back to Ch 7: the client no longer decides about tasks, so the hint that fed that decision went with it.</li>
             <li><strong>Open <code>lessons/mcp-app.html</code> directly in the browser</strong> — the standalone dashboard with mock data. Point at the comments explaining where <code>app.ontoolresult</code> and <code>app.callServerTool</code> take over in a real host.</li>

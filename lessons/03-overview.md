@@ -26,6 +26,17 @@ Two mechanisms replace it:
 
 The practical consequence for your code: capability flags like "can this client show a form" stop being fields on the router and become per-request facts read out of the envelope.
 
+### What statelessness changed on the other transport
+
+This workshop builds a stdio server, so the rest of the revision's transport work never reaches us. It is worth a paragraph anyway, because it is the same statelessness argument carried through to HTTP, and it is what you will meet first if you port this server to Streamable HTTP:
+
+- **Sessions are gone.** The `Mcp-Session-Id` header was removed outright. A server that needs state across calls mints an explicit handle and takes it back as an ordinary tool argument — the same move the tasks extension makes with `taskId`. One consequence is that list endpoints no longer vary per connection.
+- **The GET notification stream is gone**, replaced by `subscriptions/listen` — the same method we implement here, so this part does transfer.
+- **Stream resumability is gone.** `Last-Event-ID` and SSE event IDs were removed. A broken response stream loses the in-flight request, and the client must reissue it under a **new** request id rather than resuming.
+- **Two request headers became mandatory** on POST: `Mcp-Method` and `Mcp-Name`, mirroring the JSON-RPC body so intermediaries can route and rate-limit without parsing it. A header that disagrees with the body is `-32020` — the one error code in our table a stdio server can never emit. Relatedly, a tool may annotate an argument with `x-mcp-header` to have the client mirror its value into an `Mcp-Param-*` header.
+- **Cancellation differs.** On modern Streamable HTTP, cancelling means closing that request's own response stream. Over stdio it is still `notifications/cancelled`, which is what we implement.
+- **Authorization moved too** — authorization servers should return RFC 9207's `iss` and clients must validate it, client credentials are bound to the issuer that minted them, and Dynamic Client Registration is now deprecated in favour of Client ID Metadata Documents. None of it applies here: a stdio server takes credentials from its environment rather than following the authorization framework at all.
+
 ## Key Implementation Tasks
 
 ### 1. **The `server/discover` Handler**

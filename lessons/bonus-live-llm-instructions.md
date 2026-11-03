@@ -2,7 +2,7 @@
 
 > **Bonus appendix — running against a live LLM.**
 > Follows on from [bonus-live-llm-overview.md](bonus-live-llm-overview.md).
-> Use `lessons/mcp.json`, which already sets `"protocolEra": "modern"`.
+> Use `lessons/mcp.json`, which already sets `"protocolEra": "auto"`.
 
 ## From Inspector to Real Conversations
 

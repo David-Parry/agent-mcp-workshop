@@ -146,11 +146,16 @@ return (element != null && element.isJsonPrimitive()) ? element.getAsString() : 
    - Slashes and dots are not legal in Java identifiers, so a record component cannot be named after them the way ordinary params can
    - They are therefore pulled out of the tree by literal name, using the constants in `MetaKeys`
 
-2. **Missing is not the same as broken**:
+2. **What else is allowed to live in `_meta`**:
+   - A key is an optional prefix — dot-separated labels ending in a slash — followed by a name. Any prefix whose *second* label is `modelcontextprotocol` or `mcp` is reserved for the specification, which is why every key this server reads begins `io.modelcontextprotocol/`. Note that `com.example.mcp/` is **not** reserved: the second label there is `example`.
+   - The specification reserves one set of keys with **no prefix at all**: `traceparent`, `tracestate`, and `baggage`, carrying [W3C trace context](https://www.w3.org/TR/trace-context/) for OpenTelemetry. They are a deliberate exception to the prefix rule, kept unprefixed so existing tracing libraries work unchanged. This server does not participate in tracing, so it ignores them — but a production server that does would read `traceparent` here and continue the caller's trace instead of starting a new one.
+   - Everything else is free for vendors under their own reversed-domain prefix. An unrecognised key is simply ignored, which is exactly what `deserializeEnvelope` does by only asking for the names it knows.
+
+3. **Missing is not the same as broken**:
    - No params, positional (array) params, or no `_meta` all produce an envelope of four nulls rather than an exception
    - `RequestEnvelope.isComplete()` then reports it as incomplete, and the router turns that into a clean protocol error — which is far more useful to a client than a stack trace
 
-3. **`asString` guards the type, not just the presence**:
+4. **`asString` guards the type, not just the presence**:
    - A `protocolVersion` that arrives as `{"major":2026}` is not a version string
    - Checking `isJsonPrimitive()` before `getAsString()` means a wrongly-typed field reads as absent, instead of throwing and taking the whole request down
 

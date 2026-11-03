@@ -45,7 +45,9 @@ public record AppMeta(
 
 This is the one place in the app wiring with a surprise in it: **the URI goes on the wire twice.**
 
-The reference MCP Apps extension writes it both nested, as `ui.resourceUri`, and flat, as `ui/resourceUri` — and mirrors whichever one the author left out. Hosts read one or the other depending on their vintage, so a server that emits only one of them works with some hosts and mystifies others. Carrying both costs a few bytes and removes an entire category of "it works in the Inspector but not in Claude" bug reports.
+The URI goes out twice: nested as `ui.resourceUri` and flat as `ui/resourceUri`. Which one is authoritative is worth getting straight, because the shape suggests the wrong answer — every other `_meta` member is a slash-namespaced flat key, so the flat spelling *looks* like the modern one. It is not. The MCP Apps extension marks `_meta["ui/resourceUri"]` **deprecated**, with removal scheduled before GA, and names `_meta.ui.resourceUri` as its replacement.
+
+We still emit both, for the same reason clients still declare `roots`: a deprecated field keeps working for its whole transition, and hosts shipped against the old spelling. A server that emits only one of them works with some hosts and mystifies others. Carrying both costs a few bytes and removes an entire category of "it works in the Inspector but not in Claude" bug reports — but when you write a host, read the nested key.
 
 The flat key contains a slash, which is not legal in a Java identifier, so it is mapped with Gson's `@SerializedName`. This is the same problem the `_meta` envelope keys had in chapter 2, solved a different way: there the keys were read out of the JSON tree by hand, here the record component is simply renamed on the way out.
 

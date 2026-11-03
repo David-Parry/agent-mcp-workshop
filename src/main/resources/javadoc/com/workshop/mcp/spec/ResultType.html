@@ -98,6 +98,14 @@ loadScripts(document, 'script');</script>
  any schema validation runs, and reject a result that omits it. The
  "absent means complete" bridge applies only to servers speaking an earlier
  revision.
+ </p>
+ <p>
+ The core protocol defines two values, <a href="#COMPLETE"><code>COMPLETE</code></a> and
+ <a href="#INPUT_REQUIRED"><code>INPUT_REQUIRED</code></a>. Extensions contribute the rest: <a href="#TASK"><code>TASK</code></a>
+ comes from <code>io.modelcontextprotocol/tasks</code>. The set a client will
+ accept is the core pair plus the values of whichever extensions it
+ negotiated, so a value is only legal on the wire once the extension that
+ defines it has been declared on both sides.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -156,7 +164,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="COMPLETE">
 <h3>COMPLETE</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">COMPLETE</span></div>
-<div class="block">An ordinary, final result.</div>
+<div class="block">An ordinary, final result. Defined by the core protocol.</div>
 <dl class="notes">
 <dt>See Also:</dt>
 <dd>
@@ -172,7 +180,8 @@ loadScripts(document, 'script');</script>
 <h3>INPUT_REQUIRED</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">INPUT_REQUIRED</span></div>
 <div class="block">An interim result asking the client for information the server needs
- before it can finish. See <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a>.</div>
+ before it can finish. Defined by the core protocol.
+ See <a href="InputRequiredResult.html" title="class in com.workshop.mcp.spec"><code>InputRequiredResult</code></a>.</div>
 <dl class="notes">
 <dt>See Also:</dt>
 <dd>
@@ -187,7 +196,9 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="TASK">
 <h3>TASK</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">TASK</span></div>
-<div class="block">A handle to work the server is performing in the background.</div>
+<div class="block">A handle to work the server is performing in the background.
+ Contributed by the <code>io.modelcontextprotocol/tasks</code> extension, so
+ it may only be sent to a client that declared that extension.</div>
 <dl class="notes">
 <dt>See Also:</dt>
 <dd>

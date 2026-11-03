@@ -169,7 +169,7 @@
   }
 }</pre>
         <div style="background:rgba(122,162,247,0.08);border:1px solid rgba(122,162,247,0.3);border-radius:10px;padding:16px;margin:16px 0">
-            <strong>Why twice?</strong> <code>2026-07-28</code> carries the resource URI under the nested <code>_meta.ui.resourceUri</code> <em>and</em> the flat <code>_meta["ui/resourceUri"]</code>. Hosts read one or the other depending on their vintage, so emit both — the same string, two slots. <code>AppMeta.of(uri)</code> in this repo fills them from a single argument so they cannot drift apart.
+            <strong>Why twice?</strong> The nested <code>_meta.ui.resourceUri</code> is canonical; the flat <code>_meta["ui/resourceUri"]</code> is <strong>deprecated</strong> and due for removal before GA. Hosts read one or the other depending on their vintage, so emit both — the same string, two slots — while writing new code against the nested one. <code>AppMeta.of(uri)</code> in this repo fills them from a single argument so they cannot drift apart.
         </div>
 
         <h3>3. Serve the HTML when the host requests it</h3>

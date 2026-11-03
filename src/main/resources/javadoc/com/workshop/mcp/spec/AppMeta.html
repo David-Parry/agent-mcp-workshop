@@ -92,18 +92,19 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-ui">ui</span></code> - the nested UI metadata</dd>
-<dd><code><span id="param-resourceUri">resourceUri</span></code> - the same URI under the flat <code>ui/resourceUri</code> key</dd>
+<dd><code><span id="param-ui">ui</span></code> - the nested UI metadata, the canonical form</dd>
+<dd><code><span id="param-resourceUri">resourceUri</span></code> - the same URI under the deprecated flat <code>ui/resourceUri</code> key</dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">AppMeta</span>(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">The <code>_meta</code> block that links a tool to its MCP App UI.
  <p>
- The reference MCP Apps extension writes the resource URI under two keys and
- mirrors whichever one the author omitted: the nested <code>ui.resourceUri</code>
- and the flat <code>ui/resourceUri</code>. Hosts read one or the other depending
- on their vintage, so this record carries both.
+ The nested <code>ui.resourceUri</code> is the canonical form. The flat
+ <code>ui/resourceUri</code> is <strong>deprecated</strong> by the MCP Apps
+ extension and is scheduled for removal before GA, but hosts in the wild
+ still read one or the other depending on their vintage, so this record
+ emits both and keeps them in step. Write new hosts against the nested key.
  </p>
  <p>
  The flat key contains a slash and so cannot be a Java identifier; it is

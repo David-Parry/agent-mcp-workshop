@@ -123,6 +123,7 @@
                 <ul style="margin:0;padding-left:20px;font-size:13px">
                     <li><code>io.modelcontextprotocol/tasks</code> — long-running work</li>
                     <li><code>io.modelcontextprotocol/ui</code> — MCP Apps</li>
+                    <li><code>io.modelcontextprotocol/skills</code> — Agent Skills over Resources</li>
                     <li><code>io.modelcontextprotocol/oauth-client-credentials</code></li>
                     <li><code>io.modelcontextprotocol/enterprise-managed-authorization</code></li>
                 </ul>
@@ -142,28 +143,51 @@
     </section>
 
     <section class="card">
-        <h2>The Two Official Extension Repositories</h2>
-        <div class="two-col">
-            <div class="ext-card">
-                <h4>🔐 ext-auth — Authorization</h4>
-                <p>Covers authorization scenarios the core protocol doesn't address:</p>
-                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
-                    <li><strong>OAuth 2.0 Client Credentials</strong> — machine-to-machine auth for servers calling protected APIs on their own behalf</li>
-                    <li><strong>Enterprise-Managed Authorization</strong> — centralized access control via corporate identity providers (Okta, Azure AD, etc.)</li>
-                </ul>
-            </div>
-            <div class="ext-card">
-                <h4>🖥️ ext-apps — Interactive UI</h4>
-                <p>Allows MCP servers to render interactive HTML UI elements inside the conversation:</p>
-                <ul style="font-size:13px;padding-left:18px;margin:8px 0">
-                    <li>Charts and data visualizations</li>
-                    <li>Forms for structured input collection</li>
-                    <li>Video and media players</li>
-                    <li>Custom interactive components</li>
-                </ul>
-                <p style="font-size:13px;margin-top:8px">This is what powers <strong>MCP Apps</strong> — covered on the next page.</p>
-            </div>
+        <h2>Every Extension Has a Stage</h2>
+        <p>Before the catalogue, the question to ask of any extension you are thinking of adopting: <strong>what stage is it at?</strong> That one answer tells you how much the ground can move under you. SEP-3392 defines three.</p>
+
+        <table>
+            <thead><tr><th>Stage</th><th>What can change</th><th>What you can expect</th></tr></thead>
+            <tbody>
+                <tr><td style="color:var(--red);font-weight:600">Experimental</td><td>Anything, at any time, without notice</td><td>Nothing. Pin to a commit — two revisions need not be compatible.</td></tr>
+                <tr><td style="color:var(--orange);font-weight:600">Beta</td><td>Anything, but breaking changes should be rare, batched, and announced</td><td>Real usage is welcome. Breaking changes land in a changelog.</td></tr>
+                <tr><td style="color:var(--green);font-weight:600">Stable</td><td>Only with a new core protocol revision</td><td>Behaviour is fixed for the revision you negotiated. Published revisions are immutable.</td></tr>
+            </tbody>
+        </table>
+
+        <p style="margin-top:14px">An extension starts Experimental and <strong>must</strong> pass through Beta. From there it either settles at Stable, or a Standards Track SEP promotes it into the core specification — and each Beta extension states which of the two it is aiming for.</p>
+
+        <div class="key-concept">
+            <strong>The identifier never changes with the stage.</strong> <code>io.modelcontextprotocol/tasks</code> is the same string at Beta as it is the day it lands in core. Even a breaking change keeps it; a <code>-v2</code> suffix shows up only when old and new behaviour have to coexist inside one protocol revision. So you cannot read maturity off the identifier — you have to go and look.
         </div>
+
+        <div class="key-concept" style="border-color:rgba(158,206,106,0.4)">
+            <strong>Promotion to core makes a feature unconditional.</strong> When a Standards Track SEP folds an extension into revision R, it becomes core behaviour for any peer negotiating R or later — advertised or not. The extension spec still governs earlier revisions, so a client that speaks both keeps declaring it. The spec moves to <code>specification/archived/</code> on release.
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>The Official Extensions</h2>
+        <p>Official extensions live in the MCP GitHub organisation under repositories prefixed <code>ext-</code>. The directory holding the spec — <code>specification/beta/</code>, <code>specification/stable/</code> — is the authoritative record of the stage.</p>
+
+        <table>
+            <thead><tr><th>Extension</th><th>Repository</th><th>Stage</th><th>What it does</th></tr></thead>
+            <tbody>
+                <tr><td>OAuth Client Credentials</td><td><code>ext-auth</code></td><td style="color:var(--green)">Stable</td><td>Machine-to-machine auth for servers calling protected APIs on their own behalf</td></tr>
+                <tr><td>Enterprise-Managed Authorization</td><td><code>ext-auth</code></td><td style="color:var(--green)">Stable</td><td>Centralised access control via corporate identity providers (Okta, Entra ID, etc.)</td></tr>
+                <tr><td><strong>MCP Apps</strong> <span style="color:var(--muted)">(<code>…/ui</code>)</span></td><td><code>ext-apps</code></td><td style="color:var(--green)">Stable</td><td>Interactive HTML inline in the conversation — charts, forms, media players. <strong>Chapter 6.</strong></td></tr>
+                <tr><td><strong>MCP Tasks</strong> <span style="color:var(--muted)">(<code>…/tasks</code>)</span></td><td><code>ext-tasks</code></td><td style="color:var(--orange)">Beta, to Core</td><td>Async execution for long-running work: polling, mid-flight input, durable handles. <strong>Chapter 7.</strong></td></tr>
+                <tr><td>Skills over MCP <span style="color:var(--muted)">(<code>…/skills</code>)</span></td><td><code>ext-skills</code></td><td style="color:var(--orange)">Beta</td><td>Serve Agent Skills — workflow instructions and their supporting files — through Resources</td></tr>
+                <tr><td>Server Cards</td><td><code>ext-server-card</code></td><td style="color:var(--orange)">Beta</td><td>Lets a client read a server's metadata over HTTP <em>before</em> connecting to it</td></tr>
+            </tbody>
+        </table>
+
+        <div class="key-concept" style="margin-top:16px">
+            <strong>The two this workshop implements sit at different stages — and it shows.</strong>
+            <p style="margin:10px 0 0;color:var(--muted);font-size:13px"><strong>MCP Apps is Stable:</strong> the UI contract written in Chapter 6 is fixed for <code>2026-07-28</code> and cannot shift until a new protocol revision ships. <strong>MCP Tasks is Beta, headed for Core:</strong> Chapter 7's task handles work today, but the shape can still move — and when promotion lands, tasks stop being something a server <em>declares</em> and become something every server at that revision is simply expected to do. The <code>if (TASK_HANDLES_ENABLED)</code> branch guarding <code>withTasksExtension()</code> is a Beta-era artefact with a visible expiry date.</p>
+        </div>
+
+        <p style="color:var(--muted);font-size:13px;margin-top:14px"><strong>Server Cards is the odd one out</strong>, and worth ten seconds for that reason. Everything else on this list is negotiated <em>after</em> you connect, through <code>server/discover</code> or the request envelope. A server card is fetched over plain HTTP <em>before</em> any connection exists, so a client can decide whether connecting is worth it at all — closer to a directory listing than to a conversation.</p>
     </section>
 
     <!-- MRTR -->

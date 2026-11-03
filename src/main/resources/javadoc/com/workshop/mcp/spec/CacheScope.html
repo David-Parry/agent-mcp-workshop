@@ -95,9 +95,18 @@ loadScripts(document, 'script');</script>
  <p>
  Paired with <code>ttlMs</code>, this tells the client whether a shared
  intermediary may cache the response or whether it is specific to the calling
- principal. Both fields are required on <code>tools/list</code>,
+ principal. The specification calls a result carrying the pair a
+ <code>CacheableResult</code>, and requires both fields on exactly six
+ operations: <code>server/discover</code>, <code>tools/list</code>,
  <code>prompts/list</code>, <code>resources/list</code>,
  <code>resources/templates/list</code>, and <code>resources/read</code>.
+ </p>
+ <p>
+ Only results with <code>resultType</code> <a href="ResultType.html#COMPLETE"><code>ResultType.COMPLETE</code></a> are
+ cacheable. An interim <a href="ResultType.html#INPUT_REQUIRED"><code>ResultType.INPUT_REQUIRED</code></a> result carries no
+ hints, and neither does the result of a retry that carried
+ <code>inputResponses</code> or <code>requestState</code> — those depend on inputs
+ that are not part of the cache key.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>

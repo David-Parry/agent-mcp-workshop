@@ -8,6 +8,11 @@ import java.util.List;
  * Like {@link AppToolsListResult}, this is a cacheable result and must carry
  * {@code resultType}, {@code ttlMs}, and {@code cacheScope}.
  * </p>
+ * <p>
+ * Servers should return tools in a deterministic order. A list that reshuffles
+ * between calls defeats client-side caching and, because the list is rendered
+ * into the model's prompt, costs prompt-cache hits downstream too.
+ * </p>
  *
  * @param resultType always {@link ResultType#COMPLETE}
  * @param tools      the advertised tools

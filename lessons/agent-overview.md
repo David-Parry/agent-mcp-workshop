@@ -53,6 +53,23 @@ keyword-audit-plugin/
 
 A skill is a single prompt-driven command. A plugin is a container that bundles multiple skills under one namespace, distributable as a unit.
 
+### A third thing with the same name: Skills over MCP
+
+Search for "MCP skills" and you will find **Skills over MCP** (`io.modelcontextprotocol/skills`, SEP-2640) — an official MCP extension. It is easy to assume this is what this chapter builds. It is not, and the difference is worth two minutes because the overlap is real.
+
+Both use the *same* artifact. A skill in either world is a directory holding a `SKILL.md` with YAML frontmatter carrying `name` and `description`, per the Agent Skills specification. The files in `keyword-audit-plugin/skills/` are valid under both.
+
+What differs is **delivery**:
+
+| | This chapter (Claude Code plugin) | Skills over MCP extension |
+|---|---|---|
+| Where skills live | On disk, installed into the host | On a server, fetched over the protocol |
+| How the host finds them | Filesystem scan of `~/.claude/skills/` or `--plugin-dir` | `skills/list` and `skills/get` |
+| How content is read | Direct file read | `resources/read` on a `skill://` URI |
+| What the server does | Nothing — it only serves the `key_word_search` tool | Declares the extension plus the `resources` capability, and publishes a per-file manifest of SHA-256 digests and byte sizes the host must verify |
+
+So the same four skills you are about to write could, in principle, be served by the very MCP server they drive — the host would discover them with `skills/list` instead of finding them on disk. This workshop does not implement that extension; `server/discover` declares `io.modelcontextprotocol/ui`, plus `io.modelcontextprotocol/tasks` when task handles are enabled. Mentioning it here so that when you meet `skills/list` in the wild you know it is a different mechanism for shipping the same thing, not a competing format.
+
 ## The Two-Folder Structure
 
 The same pattern as earlier chapters: reference lives in `lessons/`, your working copy is at the project root.
