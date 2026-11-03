@@ -100,7 +100,10 @@ loadScripts(document, 'script');</script>
 <div class="block">Represents an unknown or unrecognized JSON structure in the MCP (Model Context Protocol) system.
  <p>
  This record is used as a fallback when deserializing JSON data that doesn't match
- any known message types or structures. It preserves the raw JSON string for
+ any known message types or structures: an array, a bare value, an object without
+ <code>"jsonrpc": "2.0"</code>, or one that is none of the four message shapes. It is
+ well-formed JSON that is not a valid message, which JSON-RPC answers with
+ <a href="ErrorCodes.html#INVALID_REQUEST"><code>ErrorCodes.INVALID_REQUEST</code></a>. It preserves the raw JSON string for
  potential future processing or error handling.
  </p></div>
 <dl class="notes">

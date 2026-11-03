@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 /**
  * Deserializer for JSON-RPC messages in the MCP (Model Context Protocol) system.
@@ -20,8 +21,14 @@ import com.google.gson.JsonParser;
  *   <li>{@link JsonRpcNotification} - Messages with "method" but no "id" field</li>
  *   <li>{@link JsonRpcResponse} - Messages with a "result" field</li>
  *   <li>{@link JsonRpcErrorResponse} - Messages with an "error" field</li>
- *   <li>{@link Unknown} - Messages that don't match any known pattern</li>
+ *   <li>{@link Unknown} - Well-formed JSON that is not a JSON-RPC 2.0 message</li>
  * </ul>
+ * <p>
+ * Text that is not JSON at all is the one case that throws. Keeping it apart
+ * from {@link Unknown} is what lets the router answer the two differently:
+ * {@link ErrorCodes#PARSE_ERROR} for the first, {@link ErrorCodes#INVALID_REQUEST}
+ * for the second.
+ * </p>
  * 
  * @see JsonRpcRequest
  * @see JsonRpcNotification
@@ -31,6 +38,8 @@ import com.google.gson.JsonParser;
  * @since 1.0
  */
 public class JsonRpcMessageDeserializer {
+    private static final JsonPrimitive JSON_RPC_VERSION = new JsonPrimitive("2.0");
+
     private final Gson gson;
 
     /**
@@ -51,6 +60,7 @@ public class JsonRpcMessageDeserializer {
      * This method examines the structure of the JSON to determine the correct
      * message type:
      * <ul>
+     *   <li>If the JSON is not an object carrying {@code "jsonrpc": "2.0"}, it's wrapped in an {@link Unknown}</li>
      *   <li>If the JSON contains "method" and "id", it's a {@link JsonRpcRequest}</li>
      *   <li>If the JSON contains "method" without "id", it's a {@link JsonRpcNotification}</li>
      *   <li>If the JSON contains "result", it's a {@link JsonRpcResponse}</li>
@@ -59,12 +69,19 @@ public class JsonRpcMessageDeserializer {
      * </ul>
      * 
      * @param json the JSON string to deserialize
-     * @return the deserialized message object, or {@link Unknown} if the format is unrecognized
-     * @throws com.google.gson.JsonSyntaxException if the JSON is malformed
-     * @throws IllegalStateException if the JSON string is not a valid JSON object
+     * @return the deserialized message object, or {@link Unknown} if it is not a JSON-RPC 2.0 message
+     * @throws com.google.gson.JsonParseException if the text is not JSON at all
      */
     public Object deserialize(String json) {
-        JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
+        JsonElement tree = JsonParser.parseString(json);
+        // An array (a batch, which this revision does not accept), a bare
+        // value, or an object that does not say it is JSON-RPC 2.0 is still
+        // well-formed JSON. Returning it rather than throwing is what keeps it
+        // an invalid request instead of a parse error.
+        if (!tree.isJsonObject() || !JSON_RPC_VERSION.equals(tree.getAsJsonObject().get("jsonrpc"))) {
+            return new Unknown(json);
+        }
+        JsonObject jsonObject = tree.getAsJsonObject();
         if (jsonObject.has("method")) {
             // An explicit "id": null is still no id. Testing only for the key
             // being present classified such a message as a request, and the

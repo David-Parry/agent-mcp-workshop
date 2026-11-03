@@ -99,10 +99,12 @@ loadScripts(document, 'script');</script>
  -32768 to -32000, which are reserved for pre-defined errors.
  </p>
  <p>
- Revision <code>2026-07-28</code> partitioned the JSON-RPC server-error range:
- <code>-32000</code> to <code>-32019</code> stays implementation-defined, while
- <code>-32020</code> to <code>-32099</code> is reserved for the specification. Codes
- in the reserved sub-range may only be used with their specified meanings.
+ Revision <code>2026-07-28</code> partitioned the JSON-RPC server-error range.
+ <code>-32000</code> to <code>-32019</code> is legacy: earlier revisions used it for
+ implementation-defined errors, no new code may be allocated in it, and new
+ implementations should not use it at all. <code>-32020</code> to <code>-32099</code>
+ is reserved for the specification, and codes in it may only be used with
+ their specified meanings.
  </p>
  <p>
  Two codes from earlier revisions are retired rather than recycled, and a
@@ -304,11 +306,10 @@ loadScripts(document, 'script');</script>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type">int</span>&nbsp;<span class="element-name">HEADER_MISMATCH</span></div>
 <div class="block">An MCP HTTP header does not match the JSON-RPC body.
  <p>
- Introduced in revision <code>2026-07-28</code>, which partitioned the
- JSON-RPC server-error range: <code>-32000</code> to <code>-32019</code> stays
- implementation-defined, while <code>-32020</code> to <code>-32099</code> is
- reserved for the specification. This code applies only to the Streamable
- HTTP transport, so a stdio server never emits it.
+ Introduced in revision <code>2026-07-28</code>, the first code in the
+ sub-range that revision reserved for the specification,
+ <code>-32020</code> to <code>-32099</code>. This code applies only to the
+ Streamable HTTP transport, so a stdio server never emits it.
  </p></div>
 <dl class="notes">
 <dt>See Also:</dt>

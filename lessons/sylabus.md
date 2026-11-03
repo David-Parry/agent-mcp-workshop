@@ -41,32 +41,43 @@ A working transport layer that can read input, publish to listeners, and emit JS
 
 ---
 
-## Chapter 2: JSON-RPC Protocol Review
+## Chapter 2: Reading JSON-RPC Messages
 
 **Branch**: `02-chapter`
 
 ### Objective
-Understand the JSON-RPC 2.0 protocol that MCP uses for all communication.
+Turn each inbound line into a typed JSON-RPC message, and read the stateless envelope every request carries.
 
-### What You'll Learn
-- JSON-RPC request/response structure
-- Message types: Request, Response, Notification, Error
-- MCP's extension of JSON-RPC
-- Capability negotiation concepts
+### What You'll Build
+- `JsonRpcMessageDeserializer` — classification, typed params, and the `params._meta` envelope
+
+### What You're Given
+- The message records (`JsonRpcRequest`, `JsonRpcNotification`, `JsonRpcResponse`, `JsonRpcErrorResponse`, `Unknown`), `RequestEnvelope`, and the capability records it holds
+- `RequestId` and `RequestIdTypeAdapter`, registered once in `McpGson`, so an id goes back out as the string or number it arrived as
+- `MetaKeys` and `ErrorCodes` — the specification's key names and error numbers
 
 ### Key Concepts
-- Stateless request-response pattern
-- Transport-agnostic protocol design
-- Bidirectional communication
-- Structured data exchange with schemas
+- Structural typing: JSON-RPC has no type tag, so the fields present decide the shape
+- `"jsonrpc": "2.0"` is required, and malformed JSON fails differently from well-formed JSON that is not a message, so chapter 3 can answer `-32700` and `-32600`
+- Absent versus null, and the `"id": null` notification trap
+- Requests flow from client to server only: a server MUST NOT initiate one
+- Statelessness: every request re-declares its context in `params._meta`, whose reserved prefixes and unprefixed trace keys the specification defines
+
+### Tasks
+1. Implement `deserialize()` — set aside what is not a message, then classify the four shapes
+2. Implement both `deserializeParams()` overloads and `convert()`
+3. Implement `deserializeEnvelope()` and its helpers `metaObject()` and `asString()`
 
 ### Supporting Materials
-- `02-message-class-diagram.md` — class relationships
+- `02-message-class-diagram.md` — this chapter's classes
 - `02-mcp-message-flow.md` — message sequence diagrams
 - `02-mcp-json-communication-flow-diagram.md` — JSON examples
 
+### Verification
+- `./gradlew chapterTest -Pchapter=02` is green: 33 tests, of which the 21 in `JsonRpcMessageDeserializerTest` start red
+
 ### Outcome
-Understanding of how MCP messages are structured and exchanged.
+Every inbound line becomes either a typed message or a clearly marked non-message, and every request's envelope can be read.
 
 ---
 

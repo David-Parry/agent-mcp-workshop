@@ -105,8 +105,14 @@ loadScripts(document, 'script');</script>
    <li><a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec"><code>JsonRpcNotification</code></a> - Messages with "method" but no "id" field</li>
    <li><a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec"><code>JsonRpcResponse</code></a> - Messages with a "result" field</li>
    <li><a href="JsonRpcErrorResponse.html" title="class in com.workshop.mcp.spec"><code>JsonRpcErrorResponse</code></a> - Messages with an "error" field</li>
-   <li><a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> - Messages that don't match any known pattern</li>
- </ul></div>
+   <li><a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> - Well-formed JSON that is not a JSON-RPC 2.0 message</li>
+ </ul>
+ <p>
+ Text that is not JSON at all is the one case that throws. Keeping it apart
+ from <a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> is what lets the router answer the two differently:
+ <a href="ErrorCodes.html#PARSE_ERROR"><code>ErrorCodes.PARSE_ERROR</code></a> for the first, <a href="ErrorCodes.html#INVALID_REQUEST"><code>ErrorCodes.INVALID_REQUEST</code></a>
+ for the second.
+ </p></div>
 <dl class="notes">
 <dt>Since:</dt>
 <dd>1.0</dd>
@@ -225,6 +231,7 @@ loadScripts(document, 'script');</script>
  This method examines the structure of the JSON to determine the correct
  message type:
  <ul>
+   <li>If the JSON is not an object carrying <code>"jsonrpc": "2.0"</code>, it's wrapped in an <a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a></li>
    <li>If the JSON contains "method" and "id", it's a <a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec"><code>JsonRpcRequest</code></a></li>
    <li>If the JSON contains "method" without "id", it's a <a href="JsonRpcNotification.html" title="class in com.workshop.mcp.spec"><code>JsonRpcNotification</code></a></li>
    <li>If the JSON contains "result", it's a <a href="JsonRpcResponse.html" title="class in com.workshop.mcp.spec"><code>JsonRpcResponse</code></a></li>
@@ -235,10 +242,9 @@ loadScripts(document, 'script');</script>
 <dt>Parameters:</dt>
 <dd><code>json</code> - the JSON string to deserialize</dd>
 <dt>Returns:</dt>
-<dd>the deserialized message object, or <a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> if the format is unrecognized</dd>
+<dd>the deserialized message object, or <a href="Unknown.html" title="class in com.workshop.mcp.spec"><code>Unknown</code></a> if it is not a JSON-RPC 2.0 message</dd>
 <dt>Throws:</dt>
-<dd><code>com.google.gson.JsonSyntaxException</code> - if the JSON is malformed</dd>
-<dd><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/IllegalStateException.html" title="class or interface in java.lang" class="external-link">IllegalStateException</a></code> - if the JSON string is not a valid JSON object</dd>
+<dd><code>com.google.gson.JsonParseException</code> - if the text is not JSON at all</dd>
 </dl>
 </section>
 </li>

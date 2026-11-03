@@ -80,8 +80,10 @@ sequenceDiagram
     rect rgb(120, 200, 180)
         Note over Client,Server: Server-to-client notifications
         Client->>Server: subscriptions/listen (long-lived request)
-        Server-->>Client: acknowledgment tagged with subscriptionId
-        Server--)Client: notifications/*, tagged with the same id
+        Server--)Client: notifications/subscriptions/acknowledged, tagged with subscriptionId
+        Server--)Client: notifications/*, tagged with the same id (only those it agreed to)
+        Server-->>Client: result (resultType: "complete") closes the stream
+        Note right of Server: Nothing this server lists ever<br/>changes, so it agrees to nothing<br/>and closes straight after the<br/>acknowledgement
     end
 
     Client->>Server: notifications/cancelled
@@ -97,7 +99,7 @@ sequenceDiagram
 
 2. **Every Request Carries Its Own Envelope**:
    - `params._meta` re-declares `protocolVersion` and `clientCapabilities` on **every** request — both required
-   - `clientInfo` and `logLevel` are optional; with no `logLevel` the server must not emit `notifications/message`
+   - `clientInfo` and `logLevel` are optional; with no `logLevel` the server must not emit `notifications/message`. Logging over the protocol is deprecated under SEP-2577, like roots and sampling, and this server never sends it: its log goes to a file
    - `traceparent`, `tracestate`, and `baggage` may also appear, carrying W3C trace context for OpenTelemetry. They are the only reserved `_meta` keys with no `io.modelcontextprotocol/` prefix — an explicit exception to the naming rule. This server ignores them
    - Capability-dependent behaviour is therefore decided per request, not once at startup
 
@@ -116,8 +118,10 @@ sequenceDiagram
    - **Completion**: `completion/complete` (standalone)
 
 5. **Notifications**:
-   - Server-to-client notifications require an open `subscriptions/listen` stream and must be tagged with its `subscriptionId`
-   - `notifications/cancelled`: indicates operation cancellation
+   - Every notification a server sends belongs to a request that is still in flight: progress to the call it reports on, list changes to an open `subscriptions/listen`
+   - Server-to-client notifications about list changes require an open `subscriptions/listen` stream and must be tagged with its `subscriptionId`
+   - The stream opens with `notifications/subscriptions/acknowledged` and ends with an ordinary result for the listen request
+   - `notifications/cancelled`: indicates operation cancellation. Only a client cancels requests
    - `notifications/roots/list_changed` is gone — there is no session whose roots could change
 
 6. **Dependencies**:
@@ -128,8 +132,10 @@ sequenceDiagram
 
 ## Error Handling:
 - Any request can return a `JsonRpcErrorResponse`
+- Text that is not JSON returns `-32700`, and JSON that is not a JSON-RPC 2.0 message returns `-32600`. Neither has an id the server could quote back, so the error response carries none, which the MCP schema allows exactly for this case
 - A removed or unknown method returns `-32601` — removal in this revision is physical, an absence from the method registry
 - A missing or incomplete `_meta` envelope returns `-32602`
 - An unsupported `protocolVersion` returns `-32022`, whose `data` must carry both `requested` and `supported`
 - Tool failures are **not** protocol errors: they come back as `isError: true` inside a successful result
+- `-32000` to `-32019` is legacy: no new code may be allocated there, and a new implementation should not use one. The specification's own codes, such as `-32022`, live from `-32020` to `-32099`
 - `-32002` and `-32042` are **retired**: a server on this revision must never emit either. Resource-not-found, once `-32002`, is now plain `-32602`. A *client* should still accept `-32002`, because the server on the other end may be speaking an older revision

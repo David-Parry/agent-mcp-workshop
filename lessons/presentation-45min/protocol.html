@@ -203,11 +203,11 @@
                 <h4>Either Side → Other Side</h4>
                 <pre>{
   "jsonrpc": "2.0",
-  "method": "notifications/tasks",
-  "params": { "taskId": "3dab39bc-…",
-              "status": "working" }
+  "method": "notifications/subscriptions/acknowledged",
+  "params": { "notifications": {},
+    "_meta": { "io.modelcontextprotocol/subscriptionId": "listen:0" } }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected. This is the <em>only</em> direction a server may still speak unprompted.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected. A client sends them freely; a server never speaks unprompted, only <em>within a request still in flight</em> — this one opens the <code>subscriptions/listen</code> stream it is tagged with.</p>
             </div>
             <div class="msg-card">
                 <span class="label label-error">Error Response</span>

@@ -9,10 +9,12 @@ package com.workshop.mcp.spec;
  * -32768 to -32000, which are reserved for pre-defined errors.
  * </p>
  * <p>
- * Revision {@code 2026-07-28} partitioned the JSON-RPC server-error range:
- * {@code -32000} to {@code -32019} stays implementation-defined, while
- * {@code -32020} to {@code -32099} is reserved for the specification. Codes
- * in the reserved sub-range may only be used with their specified meanings.
+ * Revision {@code 2026-07-28} partitioned the JSON-RPC server-error range.
+ * {@code -32000} to {@code -32019} is legacy: earlier revisions used it for
+ * implementation-defined errors, no new code may be allocated in it, and new
+ * implementations should not use it at all. {@code -32020} to {@code -32099}
+ * is reserved for the specification, and codes in it may only be used with
+ * their specified meanings.
  * </p>
  * <p>
  * Two codes from earlier revisions are retired rather than recycled, and a
@@ -91,11 +93,10 @@ public final class ErrorCodes {
     /**
      * An MCP HTTP header does not match the JSON-RPC body.
      * <p>
-     * Introduced in revision {@code 2026-07-28}, which partitioned the
-     * JSON-RPC server-error range: {@code -32000} to {@code -32019} stays
-     * implementation-defined, while {@code -32020} to {@code -32099} is
-     * reserved for the specification. This code applies only to the Streamable
-     * HTTP transport, so a stdio server never emits it.
+     * Introduced in revision {@code 2026-07-28}, the first code in the
+     * sub-range that revision reserved for the specification,
+     * {@code -32020} to {@code -32099}. This code applies only to the
+     * Streamable HTTP transport, so a stdio server never emits it.
      * </p>
      */
     public static final int HEADER_MISMATCH = -32020;

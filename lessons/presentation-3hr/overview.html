@@ -77,7 +77,7 @@
     <section class="card">
         <h2>What is the Model Context Protocol?</h2>
         <p>MCP is an <strong>open standard</strong> that defines how AI applications, language models, and external services communicate. Think of it as the USB-C of AI integrations — a universal connector that lets any LLM-based application speak to any data source or tool without custom glue code.</p>
-        <p style="margin-top:12px">MCP uses <strong>JSON-RPC 2.0</strong> as its message format and runs over STDIO (and HTTP/SSE). As of revision <code>2026-07-28</code> the traffic is <strong>one-directional</strong>: only the client initiates requests. A server that needs something asks for it inside a result, which is what makes the protocol stateless.</p>
+        <p style="margin-top:12px">MCP uses <strong>JSON-RPC 2.0</strong> as its message format and runs over STDIO or Streamable HTTP. As of revision <code>2026-07-28</code> the traffic is <strong>one-directional</strong>: only the client initiates requests. A server that needs something asks for it inside a result, which is what makes the protocol stateless.</p>
     </section>
 
     <section class="card">
@@ -164,11 +164,11 @@ sequenceDiagram
         <div class="features-grid">
             <div class="feature-card">
                 <h4>🔌 Transport Agnostic</h4>
-                <p>Works over STDIO, Server-Sent Events (SSE), and Streamable HTTP. Protocol logic is independent of transport.</p>
+                <p>Works over STDIO and Streamable HTTP; the older HTTP+SSE transport is deprecated. Protocol logic is independent of transport.</p>
             </div>
             <div class="feature-card">
-                <h4>↔️ Bidirectional</h4>
-                <p>Both client and server can initiate requests. Enables real-time updates, sampling, elicitation, and root change notifications.</p>
+                <h4>➡️ Client-Initiated</h4>
+                <p>Only the client sends requests. A server that needs user input embeds the question <em>in its result</em> and the client comes back — the Multi Round-Trip Request. Its notifications ride on a request still in flight.</p>
             </div>
             <div class="feature-card">
                 <h4>🧩 Extensible</h4>

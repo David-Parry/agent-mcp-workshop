@@ -148,11 +148,11 @@
         <h2>What You'll See Built</h2>
         <p>By the end of this class, you will have watched a complete Java MCP server demonstrated layer by layer:</p>
         <ul style="margin:16px 0;padding-left:24px">
-            <li style="margin:8px 0"><strong>Speaks JSON-RPC 2.0</strong> over STDIO with full bidirectional communication</li>
+            <li style="margin:8px 0"><strong>Speaks JSON-RPC 2.0</strong> over STDIO, statelessly: the client asks, the server answers, with no handshake and no session</li>
             <li style="margin:8px 0"><strong>Exposes Resources</strong> — 70+ Javadoc HTML files served from the JAR classpath</li>
             <li style="margin:8px 0"><strong>Provides Tools</strong> — a <code>key_word_search</code> tool with JSON Schema parameters</li>
             <li style="margin:8px 0"><strong>Offers Prompts</strong> — user-friendly templates that guide clients toward tool usage</li>
-            <li style="margin:8px 0"><strong>Supports Elicitation</strong> — server-initiated user input collection via forms</li>
+            <li style="margin:8px 0"><strong>Supports Elicitation</strong> — asks the user for input by embedding a form in its result, a Multi Round-Trip Request</li>
             <li style="margin:8px 0"><strong>Renders MCP Apps</strong> — an interactive search dashboard inside the conversation</li>
             <li style="margin:8px 0"><strong>Handles Tasks</strong> — asynchronous call-now / fetch-later tool execution</li>
             <li style="margin:8px 0"><strong>Powers an Agent</strong> — a Claude Code plugin that runs a supervised keyword audit workflow</li>

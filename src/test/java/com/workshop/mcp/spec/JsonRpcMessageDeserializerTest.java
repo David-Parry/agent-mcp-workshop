@@ -101,11 +101,26 @@ class JsonRpcMessageDeserializerTest {
     }
 
     @Test
-    void jsonThatIsNotAnObjectIsRejected() {
+    void jsonThatIsNotAnObjectIsUnknownRatherThanRejected() {
         // A JSON-RPC batch arrives as an array and this server does not accept
-        // one, so the array must not be mistaken for a lone message.
+        // one, so the array must not be mistaken for a lone message. It is
+        // still well-formed JSON, though: an invalid request, not a parse error.
         for (String json : List.of("[]", "\"tools/list\"", "17", "null")) {
-            assertThrows(IllegalStateException.class, () -> deserializer.deserialize(json), json);
+            assertEquals(new Unknown(json), deserializer.deserialize(json), json);
+        }
+    }
+
+    @Test
+    void aMessageThatDoesNotSayItIsJsonRpc2IsUnknown() {
+        // The version must be the string "2.0": absent, another version, the
+        // number 2.0 and null are all invalid requests.
+        for (String json : List.of(
+                "{\"id\":1,\"method\":\"tools/list\"}",
+                "{\"jsonrpc\":\"1.0\",\"id\":1,\"method\":\"tools/list\"}",
+                "{\"jsonrpc\":2.0,\"id\":1,\"method\":\"tools/list\"}",
+                "{\"jsonrpc\":null,\"method\":\"notifications/cancelled\"}",
+                "{\"jsonrpc\":\"1.0\",\"id\":4,\"result\":{}}")) {
+            assertEquals(new Unknown(json), deserializer.deserialize(json), json);
         }
     }
 

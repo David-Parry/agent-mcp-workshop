@@ -163,7 +163,7 @@
         <div class="two-col" style="margin-top:16px">
             <div class="msg-card">
                 <span class="label label-request">Request</span>
-                <h4>Client or Server → Other Side</h4>
+                <h4>Client → Server</h4>
                 <pre>{
   "jsonrpc": "2.0",
   "id": 6,
@@ -180,7 +180,7 @@
             </div>
             <div class="msg-card">
                 <span class="label label-response">Response</span>
-                <h4>Other Side → Requester</h4>
+                <h4>Server → Client</h4>
                 <pre>{
   "jsonrpc": "2.0",
   "id": 6,
@@ -207,7 +207,7 @@
     "reason": "user navigated away"
   }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected. This is the only message shape a server may send unprompted.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">No <code>id</code> — fire-and-forget. No Response expected. A client sends them freely; a server sends one only <em>scoped to a request still in flight</em>, such as progress on a call or a change on an open <code>subscriptions/listen</code>.</p>
             </div>
             <div class="msg-card">
                 <span class="label label-error">Error Response</span>

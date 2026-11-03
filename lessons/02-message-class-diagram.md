@@ -1,122 +1,147 @@
-# High level Class Diagram for MCP (Model Context Protocol)
+# Chapter 02 Class Diagram: Reading JSON-RPC Messages
+
+These are the classes on the chapter 02 branch, all in `com.workshop.mcp.spec`. `JsonRpcMessageDeserializer` is the one you implement; everything else is given. The result types, params records and builders arrive with the chapters that use them, starting with `DiscoverResult` in chapter 03.
 
 ```mermaid
 classDiagram
     direction LR
-    
-    %% JsonRpc Classes - Top Row
-    class JsonRpcRequest
-    class JsonRpcResponse
-    class JsonRpcNotification
-    class JsonRpcError
-    class JsonRpcErrorResponse
-    
-    %% Core Protocol Classes - Second Row
-    class DiscoverResult
-    class CompletionCompleteResponse
-    class InputRequiredResult
-    class InputRequest
-    
-    %% Parameter Classes
-    class RequestEnvelope
-    class PromptsGetParams
-    class ToolCallParams
-    class ReadResourceParam
-    class CompletionCompleteParams
-    class ToolsListParams
-    class PromptsListParams
-    class TasksGetParams
-    
-    %% Schema Classes - Left Side
-    class InputSchema
-    class PropertySchema
-    
-    %% Tool Classes - Center Left
-    class ToolsListResult
-    class ToolCallResult
-    class Tool
-    
-    %% Prompt Classes - Center Right
-    class Prompt
-    class PromptsListResult
-    class PromptsGetResult
-    
-    %% Resource Classes - Bottom Row
-    class Resource
-    class ResourcesListResult
-    class ReadResourceResult
-    class TextReadResource
-    
-    %% Additional Core Classes
-    class Message
-    class ContentItem
-    class ServerCapabilities
+
+    class JsonRpcMessageDeserializer {
+        -Gson gson
+        +deserialize(String json) Object
+        +deserializeParams(JsonRpcRequest request, Class~T~ paramsClass) T
+        +deserializeParams(JsonRpcNotification request, Class~T~ paramsClass) T
+        +convert(Object value, Class~T~ type) T
+        +deserializeEnvelope(JsonRpcRequest request) RequestEnvelope
+    }
+    class McpGson {
+        +create()$ Gson
+    }
+    class RequestIdTypeAdapter {
+        +write(JsonWriter out, RequestId value)
+        +read(JsonReader in) RequestId
+    }
+    class RequestId {
+        +String stringValue
+        +Long numberValue
+        +of(String value)$ RequestId
+        +of(long value)$ RequestId
+        +isString() boolean
+    }
+
+    class JsonRpcRequest {
+        +String jsonrpc
+        +RequestId id
+        +String method
+        +Object params
+    }
+    class JsonRpcNotification {
+        +String jsonrpc
+        +String method
+        +Object params
+    }
+    class JsonRpcResponse {
+        +String jsonrpc
+        +RequestId id
+        +Object result
+    }
+    class JsonRpcErrorResponse {
+        +String jsonrpc
+        +RequestId id
+        +JsonRpcError error
+    }
+    class JsonRpcError {
+        +int code
+        +String message
+        +Object data
+    }
+    class Unknown {
+        +String json
+    }
+
+    class RequestEnvelope {
+        +String protocolVersion
+        +ClientCapabilities clientCapabilities
+        +ClientInfo clientInfo
+        +String logLevel
+        +isComplete() boolean
+        +isSupportedVersion() boolean
+        +supportsElicitationForm() boolean
+        +supportsTasks() boolean
+    }
     class ClientCapabilities {
         +Elicitation elicitation
         +Map~String, Object~ extensions
     }
-    class ServerInfo
-    class ClientInfo
-    class Capability
-    class Elicitation
-    class ElicitationCreateParams
-    class ElicitationCreateResult
-    class MetaInfo
-    class CompletionArgument
-    class PromptRef
-    
-    %% Relationships to show grouping
-    InputSchema ..> PropertySchema : contains
-    PromptsListResult ..> Prompt : contains
-    ResourcesListResult ..> Resource : contains
-    JsonRpcErrorResponse ..> JsonRpcError : contains
-    
-    %% JsonRpcRequest can contain these in params field
-    JsonRpcRequest ..> RequestEnvelope : params._meta
-    JsonRpcRequest ..> PromptsGetParams : params
-    JsonRpcRequest ..> ToolCallParams : params
-    JsonRpcRequest ..> ReadResourceParam : params
-    JsonRpcRequest ..> CompletionCompleteParams : params
-    JsonRpcRequest ..> ToolsListParams : params
-    JsonRpcRequest ..> PromptsListParams : params
-    JsonRpcRequest ..> TasksGetParams : params
-    
-    %% JsonRpcResponse can contain these in result field
-    JsonRpcResponse ..> CompletionCompleteResponse : result
-    JsonRpcResponse ..> InputRequiredResult : result
-    JsonRpcResponse ..> DiscoverResult : result
-    JsonRpcResponse ..> ToolsListResult : result
-    JsonRpcResponse ..> ToolCallResult : result
-    JsonRpcResponse ..> PromptsListResult : result
-    JsonRpcResponse ..> PromptsGetResult : result
-    JsonRpcResponse ..> ResourcesListResult : result
-    JsonRpcResponse ..> ReadResourceResult : result
-    
-    %% Multi Round-Trip Requests — the question travels out in a result,
-    %% the answer comes back in the params of the retry
-    InputRequiredResult ..> InputRequest : inputRequests
-    InputRequest ..> ElicitationCreateParams : params
-    ToolCallParams ..> ElicitationCreateResult : inputResponses
-    
-    %% Additional relationships discovered
-    ToolsListResult ..> Tool : contains
-    ReadResourceResult ..> TextReadResource : contains
-    ToolCallResult ..> ContentItem : contains
-    PromptsGetResult ..> Message : contains
-    DiscoverResult ..> ServerCapabilities : contains
-    DiscoverResult ..> ServerInfo : in _meta
-    RequestEnvelope ..> ClientCapabilities : contains
-    RequestEnvelope ..> ClientInfo : contains
-    ServerCapabilities ..> Capability : contains
-    ClientCapabilities ..> Elicitation : contains
-    Elicitation ..> Capability : form and url
-    Tool ..> InputSchema : contains
-    CompletionCompleteParams ..> MetaInfo : contains
-    CompletionCompleteParams ..> CompletionArgument : contains
-    CompletionCompleteParams ..> PromptRef : contains
-    PromptsGetParams ..> MetaInfo : contains
-    ToolCallParams ..> MetaInfo : contains
-    ReadResourceParam ..> MetaInfo : contains
-    ToolsListParams ..> MetaInfo : contains
-    PromptsListParams ..> MetaInfo : contains
+    class ClientInfo {
+        +String name
+        +String version
+    }
+    class Elicitation {
+        +Capability form
+        +Capability url
+    }
+    class Capability {
+        +Boolean listChanged
+        +Boolean subscribe
+    }
+    class NotificationCancelledParams {
+        +RequestId requestId
+        +String reason
+    }
+
+    class MetaKeys {
+        <<constants>>
+        +PROTOCOL_VERSION$
+        +CLIENT_CAPABILITIES$
+        +CLIENT_INFO$
+        +LOG_LEVEL$
+        +TRACEPARENT$
+        +TRACESTATE$
+        +BAGGAGE$
+    }
+    class ErrorCodes {
+        <<constants>>
+        +PARSE_ERROR = -32700$
+        +INVALID_REQUEST = -32600$
+        +METHOD_NOT_FOUND = -32601$
+        +INVALID_PARAMS = -32602$
+        +INTERNAL_ERROR = -32603$
+        +HEADER_MISMATCH = -32020$
+        +MISSING_REQUIRED_CLIENT_CAPABILITY = -32021$
+        +UNSUPPORTED_PROTOCOL_VERSION = -32022$
+    }
+
+    JsonRpcMessageDeserializer ..> McpGson : gets its Gson from
+    McpGson ..> RequestIdTypeAdapter : registers
+    RequestIdTypeAdapter ..> RequestId : reads and writes
+
+    JsonRpcMessageDeserializer ..> JsonRpcRequest : method and an id
+    JsonRpcMessageDeserializer ..> JsonRpcNotification : method, no id
+    JsonRpcMessageDeserializer ..> JsonRpcResponse : result
+    JsonRpcMessageDeserializer ..> JsonRpcErrorResponse : error
+    JsonRpcMessageDeserializer ..> Unknown : valid JSON, not a message
+    JsonRpcMessageDeserializer ..> RequestEnvelope : reads params._meta
+    JsonRpcMessageDeserializer ..> MetaKeys : looks up keys by
+
+    JsonRpcRequest --> RequestId
+    JsonRpcResponse --> RequestId
+    JsonRpcErrorResponse --> RequestId
+    JsonRpcErrorResponse --> JsonRpcError
+    JsonRpcError ..> ErrorCodes : code
+    JsonRpcNotification ..> NotificationCancelledParams : params of notifications/cancelled
+    NotificationCancelledParams --> RequestId
+
+    RequestEnvelope --> ClientCapabilities
+    RequestEnvelope --> ClientInfo
+    ClientCapabilities --> Elicitation
+    Elicitation --> Capability : form and url
 ```
+
+## Reading the diagram
+
+- **Five possible answers from `deserialize`.** The four JSON-RPC shapes, plus `Unknown` for well-formed JSON that is not a JSON-RPC 2.0 message: an array, a bare value, an object without `"jsonrpc": "2.0"`, or an object with none of `method`, `result` and `error`. Text that is not JSON at all throws instead, so chapter 03 can answer the two cases with different errors.
+- **An id is a string or a number, never both.** `RequestId` keeps whichever form arrived, and `RequestIdTypeAdapter` writes it back the same way, because a server must quote an id exactly as the client sent it. `McpGson.create()` is the one place the adapter is registered, so every component that reads or writes JSON shares it.
+- **The envelope is not a params record.** Its keys, such as `io.modelcontextprotocol/protocolVersion`, are not legal Java identifiers, so `deserializeEnvelope` reads them by the names in `MetaKeys` and builds a `RequestEnvelope` by hand.
+- **`traceparent`, `tracestate` and `baggage`** are in `MetaKeys` because the specification reserves them unprefixed for W3C trace context. This server does not read them yet; see the stretch exercise in the [instructions](02-instructions.md).
+- **`ErrorCodes` is defined here and used from chapter 03 on.** The -32000 to -32019 block is legacy, so the server uses only the JSON-RPC codes and the specification's own reserved ones.
