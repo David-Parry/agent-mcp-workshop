@@ -103,7 +103,8 @@ loadScripts(document, 'script');</script>
 <hr>
 <div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">Task</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;taskId, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;status, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;statusMessage, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;createdAt, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;lastUpdatedAt, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;ttlMs, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a>&nbsp;pollIntervalMs)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
-<div class="block">The durable state of one unit of background work.
+<div class="block">The state of one unit of background work, which outlives the request that
+ started it.
  <p>
  Tasks moved out of the core protocol in revision <code>2026-07-28</code> and into
  the <code>io.modelcontextprotocol/tasks</code> extension. Three things changed
@@ -117,7 +118,7 @@ loadScripts(document, 'script');</script>
  <p>
  This record is the store's view of a task. <a href="TaskResult.html" title="class in com.workshop.mcp.spec"><code>TaskResult</code></a> is how it
  appears on the wire, which differs depending on whether it is answering
- <code>tools/call</code>, <code>tasks/get</code>, or <code>notifications/tasks</code>.
+ <code>tools/call</code> or <code>tasks/get</code>.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>

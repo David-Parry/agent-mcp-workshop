@@ -100,7 +100,7 @@ class SpecTypesCoverageTest {
         @Test
         @Tag("chapter07")
         void aTaskMethodKeyPrintsAsTheMethodNameItStandsFor() {
-            assertEquals("notifications/tasks", UniqueKeys.NOTIFICATIONS_TASKS.getValue());
+            assertEquals("tasks/update", UniqueKeys.TASKS_UPDATE.getValue());
         }
 
         @Test

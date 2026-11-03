@@ -12,9 +12,10 @@ import java.util.List;
  * would leave the client waiting on notifications that never come.
  * </p>
  * <p>
- * There is no slot for task notifications: the reference client's filter has
- * exactly these four fields, so {@code notifications/tasks} is not reachable
- * through a listen stream and is delivered unsolicited instead.
+ * These are the core protocol's four filters. The tasks extension adds a
+ * fifth, {@code taskIds}, for its {@code notifications/tasks}. This server
+ * pushes no task status, so it does not read that filter: a client polls
+ * {@code tasks/get} instead, which is what the MCP Inspector does.
  * </p>
  *
  * @param toolsListChanged      deliver {@code notifications/tools/list_changed}

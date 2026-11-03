@@ -1,7 +1,8 @@
 package com.workshop.mcp.spec;
 
 /**
- * The durable state of one unit of background work.
+ * The state of one unit of background work, which outlives the request that
+ * started it.
  * <p>
  * Tasks moved out of the core protocol in revision {@code 2026-07-28} and into
  * the {@code io.modelcontextprotocol/tasks} extension. Three things changed
@@ -15,7 +16,7 @@ package com.workshop.mcp.spec;
  * <p>
  * This record is the store's view of a task. {@link TaskResult} is how it
  * appears on the wire, which differs depending on whether it is answering
- * {@code tools/call}, {@code tasks/get}, or {@code notifications/tasks}.
+ * {@code tools/call} or {@code tasks/get}.
  * </p>
  *
  * @param taskId         receiver-generated unique identifier for the task

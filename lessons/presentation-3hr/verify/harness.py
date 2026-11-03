@@ -52,6 +52,7 @@ INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 UNSUPPORTED_PROTOCOL_VERSION = -32022
+MISSING_REQUIRED_CLIENT_CAPABILITY = -32021
 
 # Retired by this revision: a conforming server must never emit either.
 # -32002 was resource-not-found and is now INVALID_PARAMS; -32042 was the URL
@@ -793,14 +794,6 @@ def s_tasks(c):
     if handle.get("status") != "working":
         raise Failure(f"a fresh task should be working: {handle}")
 
-    # The bare method name; the notifications/tasks/ prefix is reserved.
-    working = c.expect_notification(
-        "notifications/tasks",
-        pred=lambda m: (m.get("params") or {}).get("status") == "working",
-    )
-    if (working.get("params") or {}).get("taskId") != task_id:
-        raise Failure(f"the status notification should carry the task snapshot: {working}")
-
     # Clients poll tasks/get, and the Inspector polls it with string ids.
     c.request("inspector-ext-1", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
     polled = c.expect_result("inspector-ext-1")
@@ -825,9 +818,44 @@ def s_tasks(c):
     else:
         raise Failure(f"task {task_id} never reached completed")
 
+    # A server must not send a notification type nobody asked for, and the
+    # only way to ask for notifications/tasks is a subscriptions/listen that
+    # names the task. This client only polled.
+    if c.saw_notification("notifications/tasks"):
+        raise Failure(f"notifications/tasks were pushed without a subscription: {c.raw_lines}")
+
+    # Cancelling only asks: a finished task is acknowledged with an empty
+    # result and keeps its status. So is an answer it is no longer waiting for.
+    c.request("cancel-done", "tasks/cancel", {"taskId": task_id}, capabilities=TASK_CLIENT)
+    require_empty_acknowledgement(c.expect_result("cancel-done"), "tasks/cancel on a finished task")
+    c.request("update-done", "tasks/update",
+              {"taskId": task_id, "inputResponses": {KEY_DIRECTORY: {"action": "decline"}}},
+              capabilities=TASK_CLIENT)
+    require_empty_acknowledgement(c.expect_result("update-done"), "tasks/update on a finished task")
+    c.request("after", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+    if c.expect_result("after").get("status") != "completed":
+        raise Failure("a terminal status must never change")
+
     # A task id that was never issued must not be guessable or resolvable.
     c.request("inspector-ext-99", "tasks/get", {"taskId": "no-such-task"}, capabilities=TASK_CLIENT)
     c.expect_error("inspector-ext-99", code=INVALID_PARAMS)
+
+    # Capabilities travel with each request, so a task method from a client
+    # that left the extension off is refused, even with a real task id.
+    for method in ("tasks/get", "tasks/update", "tasks/cancel"):
+        c.request(f"undeclared-{method}", method, {"taskId": task_id}, capabilities=DEPRECATED_AND_FORMS)
+        error = c.expect_error(f"undeclared-{method}", code=MISSING_REQUIRED_CLIENT_CAPABILITY)
+        required = ((error.get("data") or {}).get("requiredCapabilities") or {}).get("extensions") or {}
+        if TASKS_EXTENSION not in required:
+            raise Failure(f"-32021 should name the extension the client has to declare: {error}")
+
+
+def require_empty_acknowledgement(result, what):
+    """tasks/update and tasks/cancel acknowledge with an empty result: no task fields."""
+    require_result_type(result, "complete", what)
+    extra = set(result) - {"resultType", "_meta"}
+    if extra:
+        raise Failure(f"{what} should be an empty acknowledgement, but carries {sorted(extra)}: {result}")
 
 
 @scenario("tasks_input_required", "tasks, extensions", chapter=7)
@@ -868,12 +896,21 @@ def s_tasks_input_required(c):
     if not embedded or embedded.get("method") != "elicitation/create":
         raise Failure(f"a waiting task must publish its embedded request: {asked}")
 
-    # tasks/update is the round trip. Before requireInput was wired up no task
-    # ever reached input_required, so this only ever returned -32602.
+    # An answer under a key the task never asked is ignored, not refused, and
+    # the task goes on waiting for the one it did ask.
+    c.request("stray", "tasks/update",
+              {"taskId": task_id, "inputResponses": {"not_a_key_it_asked": {"action": "decline"}}},
+              capabilities=TASK_CLIENT)
+    require_empty_acknowledgement(c.expect_result("stray"), "tasks/update answering nothing the task asked")
+    c.request("still-asking", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+    if c.expect_result("still-asking").get("status") != "input_required":
+        raise Failure("an update that answers nothing the task asked must leave it waiting")
+
+    # tasks/update is the round trip.
     c.request(2, "tasks/update",
               {"taskId": task_id, "inputResponses": {KEY_DIRECTORY: form_answer(directory)}},
               capabilities=TASK_CLIENT)
-    require_result_type(c.expect_result(2), "complete", "tasks/update answering what the task asked")
+    require_empty_acknowledgement(c.expect_result(2), "tasks/update answering what the task asked")
 
     # And the task resumes with that answer.
     deadline = time.time() + 15.0

@@ -130,7 +130,6 @@ public class IORouter implements Router {
     IORouter(IOHandler io, LogFile logger) {
         this.logger = logger;
         this.io = io;
-        this.taskStore.onStatusChange(this::sendTaskStatusNotification);
     }
 
     public void route(String message) {
@@ -244,6 +243,15 @@ public class IORouter implements Router {
             logger.log("[API][SENT] server/discover — advertised " + RequestEnvelope.SUPPORTED_VERSIONS);
             return;
         }
+        // The tasks/ prefix belongs to the extension. Capabilities are declared
+        // per request, so even a client holding a task id has to declare the
+        // extension on every task method it calls.
+        if (uniqueKey.getValue().startsWith("tasks/") && !envelope.supportsTasks()) {
+            logger.log("[API][SENT] " + message.method() + " — the tasks extension was not declared (returning -32021)");
+            error(message.id(), ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, "Missing required client capability",
+                  Map.of("requiredCapabilities", Map.of("extensions", Map.of(MetaKeys.TASKS_EXTENSION, Map.of()))));
+            return;
+        }
 
         switch (uniqueKey) {
             case PROMPTS_LIST -> {
@@ -298,9 +306,9 @@ public class IORouter implements Router {
             }
             case TASKS_GET -> {
                 TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
-                // A missing taskId is answered, not faulted on: reading a null
-                // id straight into the store threw out of the router and left
-                // the client waiting for a reply that never came.
+                // A missing taskId is answered like an unknown one. Read into
+                // the store, a null id would throw out of the router and leave
+                // the client waiting for a reply that never comes.
                 TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
                 if (detail == null) {
                     logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
@@ -312,36 +320,31 @@ public class IORouter implements Router {
             }
             case TASKS_UPDATE -> {
                 TasksUpdateParams params = deserializer.deserializeParams(message, TasksUpdateParams.class);
-                if (params.taskId() == null || taskStore.get(params.taskId()) == null) {
+                // Answers the task is not waiting for are ignored, not refused:
+                // the task may have moved on by the time they arrive.
+                Task task = params.taskId() == null ? null
+                        : taskStore.applyInput(params.taskId(), params.inputResponses());
+                if (task == null) {
                     logger.log("[API][SENT] tasks/update — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to update task: Task not found");
-                } else if (taskStore.applyInput(params.taskId(), params.inputResponses()) == null) {
-                    logger.log("[API][SENT] tasks/update rejected — taskId=" + params.taskId()
-                               + " is not awaiting input (returning -32602)");
-                    error(message.id(), ErrorCodes.INVALID_PARAMS,
-                          "Cannot update task: it is not waiting for input");
                 } else {
-                    logger.log("[API][SENT] tasks/update — taskId=" + params.taskId() + " resumed");
+                    logger.log("[API][SENT] tasks/update — taskId=" + task.taskId() + " acknowledged, now "
+                               + task.status());
                     success(message.id(), Map.of("resultType", ResultType.COMPLETE));
                 }
             }
             case TASKS_CANCEL -> {
                 TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
-                Task before = params.taskId() == null ? null : taskStore.get(params.taskId());
-                if (before == null) {
+                // A finished task keeps its status, and the cancel is still
+                // acknowledged: cancelling only asks.
+                Task task = params.taskId() == null ? null : taskStore.cancel(params.taskId());
+                if (task == null) {
                     logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
                 } else {
-                    Task cancelled = taskStore.cancel(params.taskId());
-                    if (cancelled == null) {
-                        logger.log("[API][SENT] tasks/cancel rejected — taskId=" + params.taskId()
-                                   + " already terminal (" + before.status() + ", returning -32602)");
-                        error(message.id(), ErrorCodes.INVALID_PARAMS,
-                              "Cannot cancel task: already in terminal status '" + before.status() + "'");
-                    } else {
-                        logger.log("[API][SENT] tasks/cancel — taskId=" + cancelled.taskId() + " cancelled");
-                        success(message.id(), TaskResult.detail(cancelled, null, null, null));
-                    }
+                    logger.log("[API][SENT] tasks/cancel — taskId=" + task.taskId() + " acknowledged, now "
+                               + task.status());
+                    success(message.id(), Map.of("resultType", ResultType.COMPLETE));
                 }
             }
             case RESOURCES_LIST -> {
@@ -553,7 +556,7 @@ public class IORouter implements Router {
         // arrives later as a *status* on that task, resolved through
         // tasks/update rather than by re-sending this call.
         if (answersWithTask(envelope)) {
-            Task task = taskStore.create(null);
+            Task task = taskStore.create();
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId()
                        + " with no directory; the task will ask for one");
             success(requestId, TaskResult.handle(task));
@@ -628,7 +631,7 @@ public class IORouter implements Router {
                                           Set<String> directories, RequestEnvelope envelope) {
         ToolCallParams resolved = resolvedCall(params);
         if (answersWithTask(envelope)) {
-            Task task = taskStore.create(null);
+            Task task = taskStore.create();
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId() + " status=" + task.status());
             success(requestId, TaskResult.handle(task));
             runToolAsTask(task.taskId(), resolved, directories);
@@ -874,20 +877,5 @@ public class IORouter implements Router {
 
     private boolean isTerminal(String taskId) {
         return TaskStatus.fromValue(taskStore.get(taskId).status()).isTerminal();
-    }
-
-    /**
-     * Emit a {@code notifications/tasks} for the given task snapshot.
-     * <p>
-     * The method name is the bare {@code notifications/tasks}; the
-     * {@code notifications/tasks/} prefix is reserved.
-     * </p>
-     */
-    private void sendTaskStatusNotification(TaskResult task) {
-        logger.log("[API][SENT] notifications/tasks — taskId=" + task.taskId() + " status=" + task.status());
-        io.emit(new JsonRpcNotification(
-                JSON_RPC_VERSION,
-                UniqueKeys.NOTIFICATIONS_TASKS.getValue(),
-                task));
     }
 }

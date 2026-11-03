@@ -1,38 +1,28 @@
-# Chapter 07: Tasks — Step-By-Step
+# Chapter 07: Tasks — Call Now, Fetch Later
 
-## What You Are Building
+## Overview
 
-You will extend the workshop server so a `tools/call` can be answered with a **task handle** instead of a result: the server returns `resultType: "task"` immediately, runs the work in the background, and then services `tasks/get`, `tasks/update`, and `tasks/cancel`, plus the `notifications/tasks` push.
+In this lesson a search can run as a **task**. The server answers `tools/call` at once with a handle instead of holding the request open, runs the search in the background, and the client polls for the outcome with `tasks/get`. A task that still needs to know where to search asks for it as its status, and the client answers with `tasks/update`.
 
-Everything you add is additive — the inline `tools/call` path from Chapter 5 keeps working unchanged, and is still what a client without the extension gets.
+Tasks are an official extension, `io.modelcontextprotocol/tasks`, and its `2026-07-28` version is **Stable**. They began as an experimental feature of the `2025-11-25` specification, and SEP-2663 moved them out of the core protocol and reshaped them on the way; `lessons/07-overview.md` lists what changed. The extension adds three methods: `tasks/get`, `tasks/update` and `tasks/cancel`.
 
-## What Changed on 2026-07-28
+The records, the extension's declaration, the decision to answer with a handle and the threads the work runs on are already on this branch. You write:
 
-Tasks were reshaped more than any other part of the protocol. Before writing code, it is worth having the list in one place, because almost every step below is a consequence of one of these:
+1. Seven methods of `TaskStore`, the class that holds each task's state: `create`, `complete`, `fail`, `requireInput`, `applyInput`, `awaitInput` and `cancel`
+2. `runSearchAsTaskThatAsks` in `IORouter`, the search that asks for its directory as the task's status
+3. The three cases that answer `tasks/get`, `tasks/update` and `tasks/cancel`
 
-| Before | Now | Why |
-|--------|-----|-----|
-| top-level `tasks` capability slot | `extensions["io.modelcontextprotocol/tasks"]` | tasks left the core protocol |
-| client opts in with `params.task` | **server decides** | servers MUST ignore an inbound `task` field |
-| `tasks/result` (blocking) | **removed** — poll `tasks/get` | a blocking call needs a session to block in |
-| `tasks/list` | **removed** | a listing would leak other callers' task ids |
-| — | `tasks/update` (**new**) | delivers input to a waiting task |
-| `ttl` / `pollInterval` | `ttlMs` / `pollIntervalMs` | units in the name |
-| `notifications/tasks/status` | `notifications/tasks` | the `notifications/tasks/` prefix is reserved |
-| `_meta["…/related-task"]` wrapper | flat `taskId` | correlation by id, not by wrapper |
-| `tool.execution.taskSupport` | **removed** | the client no longer chooses |
+The line numbers below are where each method sits in the file as you checked it out. Every paste pushes what is below it further down, so after your first paste in a file, find each one by its name rather than its number.
 
-That `tasks/list` removal deserves a note: with sessions gone, there is no session to scope a task to. A task id's only access control is the entropy of its UUID, so anything that enumerates ids is a leak.
+> Official documentation: [https://modelcontextprotocol.io/extensions/tasks/overview](https://modelcontextprotocol.io/extensions/tasks/overview), and the specification itself at [https://github.com/modelcontextprotocol/ext-tasks/blob/main/specification/2026-07-28/tasks.md](https://github.com/modelcontextprotocol/ext-tasks/blob/main/specification/2026-07-28/tasks.md)
 
 ---
 
-## Part 1: The spec records are already on the branch
+## Part 1: Read How a Call Becomes a Task
 
-`Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams`, and `TasksCancelParams` already exist under `src/main/java/com/workshop/mcp/spec/`. Read them; you do not create them. What you fill is `TaskStore` and the hollowed `TASKS_*` cases.
+### Step 1: Read the records
 
-Note `ttlMs` and `pollIntervalMs` on `Task`. The old names carried no units and were renamed outright.
-
-### `Task.java` — the store's view
+**Action Required**: open `src/main/java/com/workshop/mcp/spec/Task.java`. It is the store's view of a task:
 
 ```java
 public record Task(
@@ -46,141 +36,34 @@ public record Task(
 ) {}
 ```
 
-Note `ttlMs` and `pollIntervalMs`. The old names carried no units and were renamed outright.
+- **`taskId`** is a random UUID. There is no session to tie a task to, so the id is all that stops one client reading another's task. That is why it must be unguessable, and why the extension has no `tasks/list`.
+- **`status`** is one of the five values in `TaskStatus`: `working`, `input_required`, `completed`, `failed` and `cancelled`. The last three are **terminal**: once a task reaches one, its status never changes again.
+- **`ttlMs`** is how long the server keeps the task, and **`pollIntervalMs`** how often it would like to be asked. Both are the server's choice. The extension gives a client no way to ask for a different TTL.
 
-### `TaskStatus.java`
+`TaskResult` is how a task looks on the wire, and it has two shapes:
+
+- **`TaskResult.handle(task)`** answers `tools/call` with `resultType: "task"`: the work has started, so poll for it.
+- **`TaskResult.detail(...)`** answers `tasks/get` with `resultType: "complete"`, plus what the status calls for: `result` once the task has completed, `error` once it has failed, and `inputRequests` while it is waiting for input.
+
+`tasks/get` answers `complete` even for a task that failed. The poll succeeded; the work did not.
+
+The three params records name only what each method reads: `TasksGetParams` holds a `taskId`, `TasksCancelParams` the same, and `TasksUpdateParams` a `taskId` and the `inputResponses`.
+
+### Step 2: Read the decision to answer with a task
+
+`discoverResult` in `src/main/java/com/workshop/mcp/IORouter.java` declares the extension, which is what permits a handle at all:
 
 ```java
-public enum TaskStatus {
-    WORKING("working"),
-    INPUT_REQUIRED("input_required"),
-    COMPLETED("completed"),
-    FAILED("failed"),
-    CANCELLED("cancelled");
-
-    private final String value;
-    TaskStatus(String value) { this.value = value; }
-    public String getValue() { return value; }
-    public boolean isTerminal() {
-        return this == COMPLETED || this == FAILED || this == CANCELLED;
-    }
-    public static TaskStatus fromValue(String value) {
-        if (value == null) return null;
-        for (TaskStatus s : values()) {
-            if (s.value.equalsIgnoreCase(value)) return s;
-        }
-        return null;
-    }
+if (TASK_HANDLES_ENABLED) {
+    // Declaring the extension here is what permits a task handle at
+    // all; a client that does not see it will not poll.
+    builder.withTasksExtension();
 }
 ```
 
-### `TaskResult.java` — the wire projection
+`withTasksExtension()` adds `"io.modelcontextprotocol/tasks": {}` to the `extensions` map. The extension has no settings, on either side.
 
-One flat record serves three different messages, distinguished by `resultType` and by which trailing payload fields are present:
-
-```java
-public record TaskResult(
-    String resultType,
-    String taskId,
-    String status,
-    String statusMessage,
-    String createdAt,
-    String lastUpdatedAt,
-    Long ttlMs,
-    Long pollIntervalMs,
-    Object result,
-    JsonRpcError error,
-    Map<String, InputRequest> inputRequests
-) {
-    public static TaskResult handle(Task task) { /* resultType: "task" */ }
-
-    public static TaskResult detail(Task task, Object result, JsonRpcError error,
-                                    Map<String, InputRequest> inputRequests) { /* resultType: "complete" */ }
-
-    public static TaskResult notification(Task task, Object result, JsonRpcError error) { /* no resultType */ }
-}
-```
-
-- **`handle(...)`** answers `tools/call` with `resultType: "task"` — "the work is running, poll for it"
-- **`detail(...)`** answers `tasks/get` with `resultType: "complete"` — the poll itself succeeded, whatever the task's own status is — plus the payload the status calls for: `result` when completed, `error` when failed, `inputRequests` when input is required
-- **`notification(...)`** forms the params of `notifications/tasks`, which are task fields rather than a result and so carry **no** `resultType`
-
-Fields left null are omitted from the JSON, which is what lets one record cover all three. There is no `CreateTaskResult` and no `related-task` `_meta` wrapper; the shape is flat and `taskId` does the correlating.
-
-### Per-method params
-
-```java
-public record TasksGetParams(String taskId) {}
-public record TasksCancelParams(String taskId) {}
-public record TasksUpdateParams(String taskId, Map<String, Object> inputResponses) {}
-```
-
-There is no `TasksResultParams` and no `TasksListParams`, because there are no such methods any more.
-
-These records name only the fields they read. The `_meta` envelope is still required on every one of these requests — `envelopeFor()` validates it before the switch is reached — but it is read off the raw request rather than through these records.
-
----
-
-## Part 2: Declare the Extension
-
-There is nothing to add to `ServerCapabilities` — Chapter 5 already gave it its `extensions` map, and tasks go in it like any other extension.
-
-**Action Required**: `discoverResult()` is already on `IORouter.java` at **line 336**. Add `withTasksExtension()` to that builder chain:
-
-```java
-private DiscoverResult discoverResult() {
-    DiscoverResultBuilder builder = DiscoverResultBuilder
-            .builder()
-            .withDefaultCapabilities()
-            .withExtension(MetaKeys.UI_EXTENSION, /* … */)
-            .withInstructions("…")
-            .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
-            .withDefaultServerInfo();
-    if (TASK_HANDLES_ENABLED) {
-        // Declaring the extension here is what permits a task handle at all;
-        // a client that does not see it will not poll.
-        builder.withTasksExtension();
-    }
-    return builder.build();
-}
-```
-
-Where `withTasksExtension()` is just a named shortcut:
-
-```java
-public DiscoverResultBuilder withTasksExtension() {
-    return withExtension(MetaKeys.TASKS_EXTENSION, Map.of());
-}
-```
-
-And `TASK_HANDLES_ENABLED` is a constant, so the workshop can demonstrate the same call in both shapes:
-
-```java
-private static final boolean TASK_HANDLES_ENABLED = true;
-```
-
-Client-side, there is likewise no new capability record to write. `ClientCapabilities.extensions` already exists, and the check is a map lookup:
-
-```java
-public boolean hasExtension(String identifier) {
-    return extensions != null && extensions.containsKey(identifier);
-}
-```
-
----
-
-## Part 3: There Is No `hasTasks` Field
-
-The same rule as Chapter 5 applies, for the same reason. Whether a client can poll a task is a fact about **the request being answered**, not about a connection:
-
-```java
-public boolean supportsTasks() {
-    return clientCapabilities != null
-           && clientCapabilities.hasExtension(MetaKeys.TASKS_EXTENSION);
-}
-```
-
-**Action Required**: Fill `answersWithTask` at **line 450** of `IORouter.java` (or confirm it already matches):
+The server decides call by call whether to answer with a handle. A client that declared the extension must accept either a handle or an ordinary result, and a client that did not must never get a handle, because it would not know to poll:
 
 ```java
 private boolean answersWithTask(RequestEnvelope envelope) {
@@ -188,350 +71,449 @@ private boolean answersWithTask(RequestEnvelope envelope) {
 }
 ```
 
-Two rules are baked into that one line:
+`envelope.supportsTasks()` reads the `clientCapabilities` of the request being answered. As in Chapter 5, there is no connection to remember a capability on, so the question is always about this request. `TASK_HANDLES_ENABLED` is a constant, so that you can turn handles off and watch the same call come back inline.
 
-1. **The server decides.** There is no `params.task` opt-in any more, and a server MUST ignore one if a legacy client sends it. `TASK_HANDLES_ENABLED` is this server's decision.
-2. **Never hand a handle to a client that cannot poll.** The client must have declared the extension **on the request being answered**. Handing a task to a client that will not poll strands the work forever.
+The router checks `answersWithTask` in two places. When the call names its directory, `executeKeyWordSearchCall` hands a task client its handle and starts `runToolAsTask`, which runs the search on a virtual thread. That thread waits 4 seconds before it searches, so that you can watch the task sit in `working`.
+
+### Step 3: Read why a task asks as its status
+
+When the call names no directory, the tool has to ask for one. Chapter 5 asked by answering the call with `input_required`, and a task client cannot be asked that way: `resultType` holds one value, so a response is a handle or a question, never both. The Inspector rejects the attempt:
+
+> Unsupported result type 'input_required' for tools/call: multi-round-trip auto-fulfilment is not enabled on this instance
+
+So `handleKeywordSearch` gives a task client its handle first:
+
+```java
+if (answersWithTask(envelope)) {
+    Task task = taskStore.create();
+    logger.log("[API][SENT] tools/call — created taskId=" + task.taskId()
+               + " with no directory; the task will ask for one");
+    success(requestId, TaskResult.handle(task));
+    runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params), envelope);
+    return;
+}
+```
+
+The question moves onto the task. `runSearchAsTaskThatAsks`, which you write in Part 3, puts the task in `input_required` with the same `elicitation/create` Chapter 5 embedded. The client sees it when it polls `tasks/get`, and answers with `tasks/update`. The task has an id of its own, so no `requestState` is needed to tie the answer to the question.
+
+### Step 4: Read the check on the task methods
+
+In `process`, before the switch, every `tasks/` method is refused to a client that did not declare the extension:
+
+```java
+// The tasks/ prefix belongs to the extension. Capabilities are declared
+// per request, so even a client holding a task id has to declare the
+// extension on every task method it calls.
+if (uniqueKey.getValue().startsWith("tasks/") && !envelope.supportsTasks()) {
+    logger.log("[API][SENT] " + message.method() + " — the tasks extension was not declared (returning -32021)");
+    error(message.id(), ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, "Missing required client capability",
+          Map.of("requiredCapabilities", Map.of("extensions", Map.of(MetaKeys.TASKS_EXTENSION, Map.of()))));
+    return;
+}
+```
+
+The extension requires `-32021` here, with what the client is missing in `data`. Capabilities travel with each request, so even a client holding a task id has to declare the extension on every `tasks/get`, `tasks/update` and `tasks/cancel` it sends.
 
 ---
 
-## Part 4: Create the `TaskStore`
+## Part 2: Write the Task Store
 
-Under `src/main/java/com/workshop/mcp/tasks/`, add `TaskStore.java`. It is deliberately framework-free — no executor pool, no database — to match the workshop's raw-protocol style.
+`TaskStore` keeps every task in a `ConcurrentHashMap`, keyed by its id. Each `Entry` is a small mutable object guarded by its own lock: every method takes `synchronized (entry)` before it reads or changes one. When a task stops waiting for input, the method that moved it calls `entry.notifyAll()`, which wakes the background work waiting in `awaitInput`.
 
-Key responsibilities:
+### Step 1: Fill `create`
 
-1. **Generate task IDs** as random UUIDs. The extension requires them to be unique and *unguessable* when authorization is unavailable. This server is stdio-only with no authorization, so that entropy is the only access control there is — which matters more now that there is no session to scope a task to.
-2. **Track per-task state** in a `ConcurrentHashMap`, with each entry's mutable state guarded by its own monitor.
-3. **Expose `create / get / detail / complete / fail / cancel`**, plus the input-handling trio below.
-4. **Fire status listeners** on every transition, outside the entry lock so a listener cannot deadlock back into the store.
-
-### The input-required trio
-
-These three are what make `tasks/update` reachable, and they are easy to get wrong:
+**Action Required**: fill `create` at **line 60** of `src/main/java/com/workshop/mcp/tasks/TaskStore.java`:
 
 ```java
-/** Publishes what the task needs and moves it to INPUT_REQUIRED. */
-public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) { /* … */ }
-
-/** Blocks the task's own work until an answer arrives. */
-public Map<String, Object> awaitInput(String taskId, long timeoutMillis) { /* … */ }
-
-/** Delivers tasks/update input and moves the task back to WORKING. */
-public Task applyInput(String taskId, Map<String, Object> inputResponses) { /* … */ }
+public Task create() {
+    String id = UUID.randomUUID().toString();
+    String now = Instant.now().toString();
+    Entry entry = new Entry(
+        id,
+        TaskStatus.WORKING.getValue(),
+        "The operation is now in progress.",
+        now,
+        now,
+        TTL_MILLIS,
+        DEFAULT_POLL_INTERVAL_MILLIS
+    );
+    entries.put(id, entry);
+    return entry.snapshot();
+}
 ```
 
-The split between `requireInput` and `awaitInput` is the important part. `requireInput` returns *immediately*, because the thread calling it is the one answering a `tasks/get` poll and must not be held. The work itself then waits in `awaitInput` until a `tasks/update` arrives **on a different thread** and calls `applyInput`, which notifies the waiter.
+The task is in the map before `create` returns, so a `tasks/get` for its id resolves as soon as the client has the handle. The extension requires that: a server must not hand out a task it cannot yet answer for.
 
-Note also that `applyInput` only retains answers the task actually asked for:
+### Step 2: Fill `complete` and `fail`
+
+**Action Required**: fill `complete` at **line 103** of `TaskStore.java`:
 
 ```java
-Map<String, Object> accepted = new HashMap<>();
-if (inputResponses != null && entry.inputRequests != null) {
-    for (String key : entry.inputRequests.keySet()) {
-        Object answer = inputResponses.get(key);
-        if (answer != null) {
-            accepted.put(key, answer);
+public void complete(String taskId, Object result) {
+    Entry entry = entries.get(taskId);
+    if (entry == null) {
+        return;
+    }
+    synchronized (entry) {
+        if (entry.isTerminal()) {
+            return;
         }
+        entry.status = TaskStatus.COMPLETED.getValue();
+        entry.statusMessage = "The operation completed successfully.";
+        entry.lastUpdatedAt = Instant.now().toString();
+        entry.result = result;
+        entry.inputRequests = null;
+        entry.notifyAll();
     }
 }
 ```
 
-The keys are chosen by this server and must not be reused across a task's lifetime, so anything unrecognised is dropped rather than trusted.
-
-See `src/main/java/com/workshop/mcp/tasks/TaskStore.java` — the class is already on the branch. Fill the hollowed methods:
-- `create` — **line 68**
-- `complete` — **line 111**
-- `fail` — **line 122**
-- `requireInput` — **line 136**
-- `applyInput` — **line 156**
-- `awaitInput` — **line 187**
-- `cancel` — **line 220**
-
----
-
-## Part 5: Add the Method Constants
-
-**Action Required**: In `src/main/java/com/workshop/mcp/spec/UniqueKeys.java`, the three methods and the notification are already declared (`TASKS_GET` at **line 129**, `TASKS_UPDATE` at **line 139**, `TASKS_CANCEL` at **line 144**, `NOTIFICATIONS_TASKS` at **line 155**). Confirm they match:
+**Action Required**: fill `fail` at **line 114** of `TaskStore.java`:
 
 ```java
-TASKS_GET("tasks/get"),
-TASKS_UPDATE("tasks/update"),
-TASKS_CANCEL("tasks/cancel"),
-NOTIFICATIONS_TASKS("notifications/tasks"),
-```
-
-And register the three requests as inbound. `INBOUND_METHODS` is at **line 95** of `IORouter.java`:
-
-```java
-private static final Set<UniqueKeys> INBOUND_METHODS = EnumSet.of(
-        // … everything from earlier chapters …
-        UniqueKeys.TASKS_GET,
-        UniqueKeys.TASKS_UPDATE,
-        UniqueKeys.TASKS_CANCEL);
-```
-
-Do **not** add `TASKS_RESULT` or `TASKS_LIST`. Deletions in this revision are physical: a method absent from the registry must be answered with `-32601`, even if you would happily service it.
-
-Note the notification is the bare `notifications/tasks`, not `notifications/tasks/status`. The `notifications/tasks/` prefix is reserved for future use.
-
----
-
-## Part 6: Wire `IORouter`
-
-### a) Field and constructor
-
-The `taskStore` field is at **line 112** of `IORouter.java`; the constructor that wires `onStatusChange` is at **line 120**:
-
-```java
-private final TaskStore taskStore = new TaskStore();
-
-public IORouter(IOHandler io) {
-    this.io = io;
-    this.taskStore.onStatusChange(this::sendTaskStatusNotification);
-}
-```
-
-### b) `TOOLS_LIST` is unchanged
-
-There is nothing to advertise per tool. `execution.taskSupport` was removed along with the client's ability to choose, so `AppTool` has no `execution` field:
-
-```java
-public record AppTool(
-    String name,
-    String description,
-    InputSchema inputSchema,
-    AppMeta _meta
-) {}
-```
-
-### c) Answer `tools/call` with a handle
-
-In `executeKeyWordSearchCall` at **line 476** of `IORouter.java` — the method Chapter 5 left you with — branch on the predicate rather than on a request field:
-
-```java
-private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params, String keyword,
-                                      Set<String> directories, RequestEnvelope envelope) {
-    ToolCallParams resolved = resolvedCall(params, keyword);
-    if (answersWithTask(envelope)) {
-        Task task = taskStore.create(null);
-        success(requestId, TaskResult.handle(task));
-        runToolAsTask(task.taskId(), resolved, directories);
-    } else {
-        success(requestId, new KeyWordSearch().call(resolved, directories));
+public void fail(String taskId, String reason) {
+    Entry entry = entries.get(taskId);
+    if (entry == null) {
+        return;
+    }
+    synchronized (entry) {
+        if (entry.isTerminal()) {
+            return;
+        }
+        entry.status = TaskStatus.FAILED.getValue();
+        entry.statusMessage = reason;
+        entry.lastUpdatedAt = Instant.now().toString();
+        entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
+        entry.inputRequests = null;
+        entry.notifyAll();
     }
 }
 ```
 
-`runToolAsTask` is at **line 598** of `IORouter.java`. It hands the work to
-`runOnVirtualThread`, which is already in the class: `Thread.ofVirtual()`, named
-`task-<id>`. Virtual threads unmount while they sleep, which is what we want for
-blocking tool work.
+#### What to notice
+
+1. **Neither touches a terminal task.** A task cancelled while its search was still running stays cancelled when the search finishes, because `complete` ignores it.
+2. **`failed` means a JSON-RPC error.** The task's `error` is the `-32603` the same call would have got had it run inline and thrown. A search that finds nothing, or any tool result with `isError: true`, is a **completed** task with that result in `result`.
+
+### Step 3: Fill `requireInput`, `applyInput` and `awaitInput`
+
+These three carry the question a task asks.
+
+**Action Required**: fill `requireInput` at **line 128** of `TaskStore.java`:
 
 ```java
-private void runToolAsTask(String taskId, ToolCallParams params, Set<String> directories) {
+public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) {
+    Entry entry = entries.get(taskId);
+    if (entry == null) {
+        return null;
+    }
+    synchronized (entry) {
+        if (entry.isTerminal()) {
+            return null;
+        }
+        entry.status = TaskStatus.INPUT_REQUIRED.getValue();
+        entry.statusMessage = "The operation is waiting for input.";
+        entry.lastUpdatedAt = Instant.now().toString();
+        entry.inputRequests = inputRequests;
+        return entry.snapshot();
+    }
+}
+```
+
+**Action Required**: fill `applyInput` at **line 151** of `TaskStore.java`:
+
+```java
+public Task applyInput(String taskId, Map<String, Object> inputResponses) {
+    Entry entry = entries.get(taskId);
+    if (entry == null) {
+        return null;
+    }
+    synchronized (entry) {
+        Map<String, Object> accepted = new HashMap<>();
+        if (TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)
+            && inputResponses != null && entry.inputRequests != null) {
+            for (String key : entry.inputRequests.keySet()) {
+                Object answer = inputResponses.get(key);
+                if (answer != null) {
+                    accepted.put(key, answer);
+                }
+            }
+        }
+        if (!accepted.isEmpty()) {
+            entry.status = TaskStatus.WORKING.getValue();
+            entry.statusMessage = "The operation resumed with the input provided.";
+            entry.lastUpdatedAt = Instant.now().toString();
+            entry.inputRequests = null;
+            entry.inputResponses = accepted;
+            entry.notifyAll();
+        }
+        return entry.snapshot();
+    }
+}
+```
+
+**Action Required**: fill `awaitInput` at **line 182** of `TaskStore.java`:
+
+```java
+public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
+    Entry entry = entries.get(taskId);
+    if (entry == null) {
+        return null;
+    }
+    long deadline = System.currentTimeMillis() + timeoutMillis;
+    synchronized (entry) {
+        while (TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)) {
+            long remaining = deadline - System.currentTimeMillis();
+            if (remaining <= 0) {
+                return null;
+            }
+            try {
+                entry.wait(remaining);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        if (entry.isTerminal()) {
+            return null;
+        }
+        return entry.inputResponses == null ? Map.of() : Map.copyOf(entry.inputResponses);
+    }
+}
+```
+
+#### What to notice
+
+1. **`requireInput` returns at once.** It publishes the question and leaves. The work then waits in `awaitInput`, and the answer arrives on another thread, in `applyInput`, whose `notifyAll` wakes it.
+2. **`applyInput` ignores what it cannot use, rather than refusing it.** The extension asks this of a server: an answer under a key the task never asked, or any answer when the task is no longer waiting, is dropped, because the task may have moved on by the time the update arrives. An update that answers nothing the task asked leaves it waiting.
+3. **`awaitInput` returns `null` whenever no answer is coming.** The task went terminal while it waited, the wait ran out, or the waiting thread was interrupted. The caller tells a cancelled task from an unanswered one by reading the status again, which is what `runSearchAsTaskThatAsks` does.
+
+### Step 4: Fill `cancel`
+
+**Action Required**: fill `cancel` at **line 202** of `TaskStore.java`:
+
+```java
+public Task cancel(String taskId) {
+    Entry entry = entries.get(taskId);
+    if (entry == null) {
+        return null;
+    }
+    synchronized (entry) {
+        if (!entry.isTerminal()) {
+            entry.status = TaskStatus.CANCELLED.getValue();
+            entry.statusMessage = "The task was cancelled by request.";
+            entry.lastUpdatedAt = Instant.now().toString();
+            entry.inputRequests = null;
+            entry.notifyAll();
+        }
+        return entry.snapshot();
+    }
+}
+```
+
+Cancelling only asks. A task that has already finished keeps its status, and `cancel` returns `null` only for an id it does not know. A task waiting for input stops: `notifyAll` wakes its thread, which sees the task is cancelled and never searches. A search already running is not stopped. It runs to its end, and `complete` ignores it. The first stretch below changes that.
+
+---
+
+## Part 3: Write the Task That Asks
+
+**Action Required**: fill `runSearchAsTaskThatAsks` at **line 756** of `src/main/java/com/workshop/mcp/IORouter.java`:
+
+```java
+private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
     runOnVirtualThread(taskId, () -> {
+        logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
         try {
-            Thread.sleep(4000L);                    // so the transition is observable
+            Set<String> directories = new LinkedHashSet<>();
+
+            if (envelope.supportsElicitationForm()) {
+                Map<String, Object> answers = askOnTask(
+                        taskId, SearchContinuation.KEY_DIRECTORY,
+                        InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()));
+                if (isTerminal(taskId)) {
+                    return;
+                }
+                String directory = elicitedDirectory(answers.get(SearchContinuation.KEY_DIRECTORY));
+                if (directory != null) {
+                    directories.add(directory);
+                }
+            }
+
+            if (directories.isEmpty()) {
+                String workingDirectory = workingDirectory();
+                logger.log("[TASK " + taskId + "] nothing was offered, using the working directory "
+                           + workingDirectory);
+                directories.add(workingDirectory);
+            }
+
             ToolCallResult result = new KeyWordSearch().call(params, directories);
             taskStore.complete(taskId, result);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            taskStore.fail(taskId, "Interrupted: " + ie.getMessage());
+            logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
         } catch (Exception e) {
+            logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
             taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
         }
     });
 }
 ```
 
-### d) A handle or a question — never both
+#### What to notice
 
-This is the subtlest thing in the chapter. `resultType` holds **one** value, so a `tools/call` response is *either* a task handle *or* an `input_required` — never one and then the other.
+1. **It asks only a client that can show a form.** Any other client could never answer, so the search starts at once from the server's working directory, as the inline path does.
+2. **The wait is bounded.** `askOnTask`, which is already in the router, calls `requireInput` and then `awaitInput` with `TASK_INPUT_TIMEOUT_MILLIS`, a minute. A client does not have to answer at all, and without a limit the task would wait for good. After a minute with no answer, the search carries on from the working directory.
+3. **A cancelled task stops there.** `isTerminal` is checked straight after the wait, so a task cancelled while it waited never searches or reports a result.
+4. **The `catch` is what keeps a task from hanging.** Anything the search throws, such as a directory path with a NUL byte in it, fails the task. Without it the thread would die and leave the task in `working` for good.
 
-That forces an ordering on `handleKeywordSearch`: it has to commit to the answer shape **before** the tool works out what it is missing. Get it backwards and a task-declaring client with no directory receives an `input_required`, which the Inspector rejects outright:
+---
 
-> Unsupported result type `input_required` for `tools/call`: multi-round-trip auto-fulfilment is not enabled on this instance
+## Part 4: Answer the Three Methods
 
-**Action Required**: In `handleKeywordSearch` at **line 366** of `IORouter.java`, once no directory has been resolved, take the task branch *first*:
-
-```java
-if (answersWithTask(envelope)) {
-    Task task = taskStore.create(null);
-    success(requestId, TaskResult.handle(task));
-    runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params, keyword), envelope);
-    return;
-}
-
-// … only now the Chapter 5 input_required branch …
-```
-
-Nothing is given up by committing early. The question simply moves off the call and onto the task, where it is asked as a **status**. Fill `runSearchAsTaskThatAsks` at **line 635** of `IORouter.java`:
-
-```java
-private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
-    runOnVirtualThread(taskId, () -> {
-        Set<String> directories = new LinkedHashSet<>();
-
-        // The same single question the inline path asks, carried by the task
-        // instead of by the result.
-        if (envelope.supportsElicitationForm()) {
-            Map<String, Object> answers = askOnTask(
-                    taskId, SearchContinuation.KEY_DIRECTORY,
-                    InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()));
-            if (isTerminal(taskId)) {
-                return;                             // cancelled while waiting
-            }
-            String directory = elicitedDirectory(answers.get(SearchContinuation.KEY_DIRECTORY));
-            if (directory != null) {
-                directories.add(directory);
-            }
-        }
-
-        if (directories.isEmpty()) {
-            directories.add(workingDirectory());    // answered nothing? still finish
-        }
-
-        taskStore.complete(taskId, new KeyWordSearch().call(params, directories));
-    });
-}
-
-private Map<String, Object> askOnTask(String taskId, String key, InputRequest request) {
-    taskStore.requireInput(taskId, Map.of(key, request));
-    Map<String, Object> answers = taskStore.awaitInput(taskId, TASK_INPUT_TIMEOUT_MILLIS);
-    return answers == null ? Map.of() : answers;
-}
-```
-
-`askOnTask` returns an empty map rather than null when nothing arrives, because an unanswered question and an unasked one are the same thing to the caller: no directory, so fall back. Whether the silence was a cancellation is a separate question, and `isTerminal` is what asks it — a cancelled task must never go on to report a result.
-
-`elicitedDirectory` is the method you already wrote in Chapter 5. Both paths ask the identical question and unpack the identical answer; only the carrier differs.
-
-Bound the wait. A task that waited forever would sit there until its TTL expired, and a client has no obligation to answer at all:
-
-```java
-private static final long TASK_INPUT_TIMEOUT_MILLIS = 60_000L;
-```
-
-### e) Handle the three methods
-
-Paste over the empty cases in `IORouter.java`:
-- `TASKS_GET` — **line 219**
-- `TASKS_UPDATE` — **line 222**
-- `TASKS_CANCEL` — **line 225**
+**Action Required**: paste these cases over the empty ones: `TASKS_GET` at **line 307**, `TASKS_UPDATE` at **line 310** and `TASKS_CANCEL` at **line 313** of `IORouter.java`:
 
 ```java
 case TASKS_GET -> {
     TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
+    // A missing taskId is answered like an unknown one. Read into
+    // the store, a null id would throw out of the router and leave
+    // the client waiting for a reply that never comes.
     TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
     if (detail == null) {
+        logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
         error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to retrieve task: Task not found");
     } else {
+        logger.log("[API][SENT] tasks/get taskId=" + detail.taskId() + " status=" + detail.status());
         success(message.id(), detail);
     }
 }
 case TASKS_UPDATE -> {
     TasksUpdateParams params = deserializer.deserializeParams(message, TasksUpdateParams.class);
-    if (params.taskId() == null || taskStore.get(params.taskId()) == null) {
+    // Answers the task is not waiting for are ignored, not refused:
+    // the task may have moved on by the time they arrive.
+    Task task = params.taskId() == null ? null
+            : taskStore.applyInput(params.taskId(), params.inputResponses());
+    if (task == null) {
+        logger.log("[API][SENT] tasks/update — unknown taskId=" + params.taskId() + " (returning -32602)");
         error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to update task: Task not found");
-    } else if (taskStore.applyInput(params.taskId(), params.inputResponses()) == null) {
-        error(message.id(), ErrorCodes.INVALID_PARAMS, "Cannot update task: it is not waiting for input");
     } else {
+        logger.log("[API][SENT] tasks/update — taskId=" + task.taskId() + " acknowledged, now "
+                   + task.status());
         success(message.id(), Map.of("resultType", ResultType.COMPLETE));
     }
 }
-case TASKS_CANCEL -> { /* cancel, or -32602 if unknown or already terminal */ }
-```
-
-An unknown task id is `-32602` **Invalid params**, not a "not found" result. And note that `tasks/get` answers `resultType: "complete"` even when the *task* has failed — the poll succeeded; the work did not.
-
-Do not skip the `params.taskId() == null` guards. A request that omits `taskId` altogether is a different mistake from one that names a task nobody created, but both are the client's mistake and both deserve `-32602`. Reading a null id straight into the store instead throws a `NullPointerException` out of `route()`, and because that escapes rather than becoming a response, the client is left holding a request that will never be answered — a hang rather than an error, which is far harder to diagnose from the other end.
-
-### f) Emit the status notification
-
-`sendTaskStatusNotification` is at **line 703** of `IORouter.java`:
-
-```java
-private void sendTaskStatusNotification(TaskResult task) {
-    io.emit(new JsonRpcNotification(
-            JSON_RPC_VERSION,
-            UniqueKeys.NOTIFICATIONS_TASKS.getValue(),
-            task));
+case TASKS_CANCEL -> {
+    TasksCancelParams params = deserializer.deserializeParams(message, TasksCancelParams.class);
+    // A finished task keeps its status, and the cancel is still
+    // acknowledged: cancelling only asks.
+    Task task = params.taskId() == null ? null : taskStore.cancel(params.taskId());
+    if (task == null) {
+        logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
+        error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
+    } else {
+        logger.log("[API][SENT] tasks/cancel — taskId=" + task.taskId() + " acknowledged, now "
+                   + task.status());
+        success(message.id(), Map.of("resultType", ResultType.COMPLETE));
+    }
 }
 ```
 
-The params are the full task snapshot, flat — no `related-task` wrapper.
+#### What to notice
+
+1. **An unknown task id is `-32602` Invalid params**, and a missing one is answered the same way. Read into the store, a `null` id would throw out of the router, and the client would wait for a reply that never comes.
+2. **`tasks/update` and `tasks/cancel` answer with an empty result**, `{"resultType":"complete"}` and the `_meta` every result carries. The extension calls this an acknowledgement: it says the request arrived, not what it did to the task. A client that wants to know polls `tasks/get`. After a cancel it need not, and the extension lets it forget the task at once.
+3. **Neither refuses a task that has moved on.** An answer the task is not waiting for is ignored, and so is a cancel of a finished task, so a client never gets an error for a race it could not see.
 
 ---
 
-## Verifying
+## You are done when the tests pass
 
-### Build
+```bash
+./gradlew chapterTest -Pchapter=07
+```
+
+The run reports 71 tests, and 58 of them fail before you start: 23 in `IORouterTest` and 35 in `TaskStoreTest`. The other 13 pass already. Four are the given parts of the router: the extension is declared, a client without it never gets a handle and is refused the task methods, and the test hook that interrupts a task's thread behaves. Four check what the store does with an id it does not know, which an empty method already gets right, and five check the task types in `spec`. Failures worth recognising:
+
+- `createStartsATaskInWorkingStatus` or `createGeneratesAnUnguessableIdPerTask` — `create` still throws, or builds its task some other way. Almost every router test fails with it, because no task can be created.
+- `completeIsIgnoredOnceTheTaskIsTerminal` or `failIsIgnoredOnceTheTaskIsTerminal` — the terminal check is missing, so a finished task changed its status.
+- `anUpdateThatAnswersNothingTheTaskAskedLeavesItWaiting` or `anUpdateForATaskThatIsNotWaitingIsIgnored` — `applyInput` resumes the task, or changes it, without an answer to what it asked.
+- `awaitInputReturnsNullWhenTheWaitExpires` or `awaitInputReturnsNullWhenTheTaskIsCancelledWhileWaiting` — the wait ignores its deadline, or returns an empty answer for a task cancelled while it waited.
+- `cancellingAFinishedTaskLeavesItAsItWas` or `aSecondCancelChangesNothing` — `cancel` changes a task that has already finished.
+- `aTaskAsksForItsDirectoryAsAStatusAndResumesOnTasksUpdate` — the task never reaches `input_required`, or never resumes after `tasks/update`.
+- `cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt` — the `isTerminal` check after the wait is missing, so a cancelled task searched anyway.
+- `aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking` — the `catch` is missing from `runSearchAsTaskThatAsks`, so the task stays in `working`.
+- `everyMethodTheServerAcceptsIsActuallyAnswered` — one of the three cases is still empty.
+- `theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId` — a case reads a missing `taskId` into the store.
+- `aCancelIsAcknowledgedWithAnEmptyResultAndASecondOneToo`, `cancellingAFinishedTaskIsAcknowledgedAndLeavesItFinished` or `answeringATaskThatIsNoLongerAskingIsAcknowledgedAndChangesNothing` — a case answers with the task, or with an error, where the extension wants an empty acknowledgement.
+
+A router test that fails with `task never reached …` polled for 20 seconds for a status that never came, usually because one of the store's methods is still empty.
+
+Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
 ```bash
 ./gradlew clean build
+python3 lessons/presentation-3hr/verify/harness.py --chapter 07
 ```
 
-### Inspector: the inline path still works
-
-1. `./inspector/run.sh` and connect
-2. Call `key_word_search` with a keyword **and** a `directory` — it returns `resultType: "complete"` synchronously, as in Chapter 5
-
-### The task handle
-
-3. Call the tool from a client that declares the extension. The first answer is a handle:
-   ```json
-   {"resultType":"task","taskId":"3dab39bc-…","status":"working",
-    "ttlMs":300000,"pollIntervalMs":1000}
-   ```
-   Point out the renamed `ttlMs` / `pollIntervalMs`, and that there is no `task` object wrapping them.
-4. Watch for `notifications/tasks` — the bare method name — carrying `status: "working"`
-5. Send `tasks/get` with that `taskId`. Expect `working` for ~4s, then `completed` with the underlying `ToolCallResult` under `result`
-6. Send `tasks/result` and `tasks/list`. Expect **`-32601`** from both. They are gone
-
-### The task-level round trip
-
-7. Call the tool with **no** `directory` from a task-declaring client that also declares form elicitation. Note the first answer is a **handle**, not an `input_required`
-8. Poll `tasks/get` until `status` is `input_required`, and read `inputRequests` off the same response:
-   ```json
-   {"resultType":"complete","status":"input_required",
-    "inputRequests":{"search_directory":{"method":"elicitation/create",
-                                         "params":{"mode":"form","message":"…","requestedSchema":{ … }}}}}
-   ```
-9. Answer it:
-   ```json
-   {"jsonrpc":"2.0","id":2,"method":"tasks/update",
-    "params":{"_meta":{ … },"taskId":"3dab39bc-…",
-              "inputResponses":{"search_directory":{"action":"accept",
-                                                    "content":{"directory":"/path/to/repo"}}}}}
-   ```
-   Expect `{"resultType":"complete"}`
-10. Keep polling — the task resumes and completes, having searched the directory you handed it
-11. Now repeat from step 7 but **decline** instead. The task still completes, rooted at the server's working directory. Declining is not a failure
-
-### Cancellation
-
-12. Create a fresh task, immediately send `tasks/cancel`. Expect `status: "cancelled"`
-13. Send `tasks/cancel` on that same id again. Expect `-32602`
-14. Cancel a task that is sitting in `input_required`. The waiting thread must notice and give up — a cancelled task must never go on to report a result
-
-### Automated
+Last, walk one task through by hand. `inspector/modern-tasks.sh` sends each request, reads the answer and uses the task id in it for the next. It calls the tool without a directory, polls until the task asks, answers with the tool's own source directory, polls until the task completes, and then cancels it. Finally come two requests that are refused: one from a client that left the extension off, and one for a task that was never created:
 
 ```bash
-./gradlew test
-python3 lessons/presentation-3hr/verify/harness.py tasks tasks_input_required tasks_gated task_client_is_not_asked
+./inspector/modern-tasks.sh
 ```
 
----
+```text
+{"jsonrpc":"2.0","id":1,"result":{"resultType":"task","taskId":"<task-id>","status":"working",…,"ttlMs":300000,"pollIntervalMs":1000,…}}
+{"jsonrpc":"2.0","id":"poll-…","result":{"resultType":"complete","taskId":"<task-id>","status":"input_required",…,"inputRequests":{"search_directory":{"method":"elicitation/create",…}}
+{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","_meta":{…}}}
+{"jsonrpc":"2.0","id":"poll-…","result":{"resultType":"complete","taskId":"<task-id>","status":"completed",…,"result":{"resultType":"complete","content":[{"text":"…KeyWordSearch.java, keyword_count…","type":"text"},…}}
+{"jsonrpc":"2.0","id":3,"result":{"resultType":"complete","_meta":{…}}}
+{"jsonrpc":"2.0","id":"poll-…","result":{"resultType":"complete","taskId":"<task-id>","status":"completed",…}}
+{"jsonrpc":"2.0","id":4,"error":{"code":-32021,"message":"Missing required client capability","data":{"requiredCapabilities":{"extensions":{"io.modelcontextprotocol/tasks":{}}}}}}
+{"jsonrpc":"2.0","id":5,"error":{"code":-32602,"message":"Failed to retrieve task: Task not found"}}
+```
 
-## ✅ What You Completed
+The poll after the cancel still says `completed`: the task had already finished. The server sent nothing it was not asked for. Nothing was subscribed to, so no `notifications/tasks` came, and every line is the answer to a request.
 
-- Declared tasks as an **extension**, not a capability slot
-- Built a framework-free `TaskStore` with status callbacks and an input-required lifecycle
-- Wired three method handlers and one notification emitter into `IORouter`
-- Made task creation a **server** decision, gated on what the client declared *on that request*
-- Committed to the answer shape before asking anything, so a handle and a question never collide
-- Implemented the task-level round trip, where the question is a **status** and `tasks/update` is the answer
-- Left a fallback on every path, so no task ever strands waiting for input that never comes
+## Try It in the MCP Inspector
 
-You now understand the call-now / fetch-later pattern at the protocol level, and the more subtle point underneath it: once a request has been answered with a handle, every further conversation about that work has to happen through the task, because the request is over.
+```bash
+cd inspector
+./run.sh
+```
+
+Turn on the switch on the `workshop` card to connect. The Inspector declares `io.modelcontextprotocol/tasks` on every request, so every call to `key_word_search` comes back as a task. Open **Tasks**, beside **Protocol** in the panel on the right.
+
+### A task that runs
+- In the **Tools** tab, select `key_word_search`, give it a `keyword` and a `directory`, and click **Execute Tool**.
+- The **Protocol** panel shows the `tools/call` answered at once with `resultType: "task"`. A `tasks/get` follows about once a second, the `pollIntervalMs` the handle asked for, and after 4 seconds one answers `completed`. The search result appears under **Results**.
+- **Tasks** lists the task under **Completed**, with its id, its TTL of 300000ms and the whole task as `tasks/get` returned it.
+
+### A task that asks
+- Clear the `directory` and click **Execute Tool** again. The Inspector sends the empty field as `""`, which the tool treats as no directory at all.
+- The handle comes back as before, and the first poll finds the task in `input_required`. The Inspector shows the form from its `inputRequests`, with a note that the answer goes back through `tasks/update`, not a retry.
+- Enter a directory and click **Submit**. The **Protocol** panel shows the `tasks/update` and its empty acknowledgement, and the next poll finds the task `completed`.
+
+### A task that is cancelled
+- Run it once more without a directory, and click **Cancel** in the form this time. The Inspector sends `tasks/cancel`, and the server acknowledges it. The server's log in `inspector/logs/` shows the waiting thread waking with `no answer arrived for search_directory` and stopping without a search.
+- The **Tools** tab reports `Pending request aborted`, because the Inspector stopped waiting for a result. **Tasks** moves the task under **Completed**, marked cancelled. The Inspector marks it from the acknowledgement alone and does not poll again, which the extension allows, so the panel keeps the status message of the last poll.
+
+### The Run as task switch
+- Turn on **Run as task** and run a search with a directory. The Inspector adds `"task":{"ttl":60000}` to the call, the opt-in of the `2025-11-25` specification that the extension removed. The server ignores it, as the extension requires: the call is answered as before, and the task's TTL is still 300000ms.
+
+## Stretch: Stop the work when a task is cancelled
+
+Cancelling marks the task, but the search runs on. The router already keeps every task's thread in `taskWorkers`, and `interruptTaskWorker` interrupts one. Call it from the `TASKS_CANCEL` case once the store has cancelled the task. A task cancelled during the 4-second wait in `runToolAsTask` is then interrupted out of its `sleep`, and the `fail` in its `catch` changes nothing, because the task is already cancelled. The search itself never checks for an interrupt. To stop a search halfway, have `KeyWordSearch` check `Thread.currentThread().isInterrupted()` between files.
+
+## Stretch: Push status to a client that subscribes
+
+This server never pushes task status, which the extension allows: polling is the default. A client asks for pushes with `subscriptions/listen`, naming the tasks in `notifications.taskIds`. Add `taskIds` to `SubscriptionFilter`, and refuse it with `-32021` to a client that did not declare the extension. List the ids you agree to in the acknowledgement, and keep the stream open: `acknowledgeSubscription` answers the request at once, and that answer is what closes it. Then send a `notifications/tasks` on every change to a subscribed task, carrying what `tasks/get` would answer at that moment and the subscription's id in `_meta`. The extension forbids `notifications/progress` and `notifications/message` on a task's stream.
+
+## Stretch: Report progress in the status message
+
+The extension rules out `notifications/progress` for tasks. Progress goes in `statusMessage` instead, which a client reads on every poll. Give `TaskStore` a method that changes only the message, and have the search report as it goes, for example `"Searched 120 of 300 files"`.
+
+## Stretch: Let a task expire
+
+The store keeps every task until the server stops, and a task outlives its `ttlMs`. Once that has passed, the extension lets a server mark the task `failed` and later delete it. Purge expired tasks, and answer `tasks/get` for one with `-32602`, as for an id that was never issued. A server that must survive a restart would also keep its tasks somewhere durable, so that a client holding a task id could go on polling it.
+
+## Where this goes next
+
+That is the whole server. The `complete` branch has the same code, every chapter's lessons and two appendices, linked from its README: **Running against a live LLM** points a real assistant at your server, and **Building an agent plugin** wraps the tool in skills an agent can drive. Your code should now match `complete` file for file. Commit anything you want to keep, then switch to it with `./clean-checkout.sh complete`.

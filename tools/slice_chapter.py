@@ -55,7 +55,7 @@ CORE_UNIQUE_KEYS = [
     "NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED",
 ]
 ELICITATION_KEYS = ["ELICITATION_CREATE"]
-TASK_KEYS = ["TASKS_GET", "TASKS_UPDATE", "TASKS_CANCEL", "NOTIFICATIONS_TASKS"]
+TASK_KEYS = ["TASKS_GET", "TASKS_UPDATE", "TASKS_CANCEL"]
 
 INBOUND = {
     3: ["SERVER_DISCOVER", "SUBSCRIPTIONS_LISTEN"],
@@ -671,17 +671,19 @@ def strip_tasks(text):
         flags=re.S,
     )
     text = sub_once(
-        r"        this\.io = io;\n        this\.taskStore\.onStatusChange\(this::sendTaskStatusNotification\);\n",
-        "        this.io = io;\n",
+        r"        // The tasks/ prefix belongs to the extension\..*?"
+        r"            return;\n        }\n",
+        "",
         text,
-        "task status listener",
+        "tasks extension check",
+        flags=re.S,
     )
     for label in ("TASKS_GET", "TASKS_UPDATE", "TASKS_CANCEL"):
         text = remove_case(text, label)
     for name in (
         "answersWithTask", "runToolAsTask", "runSearchAsTaskThatAsks",
         "runOnVirtualThread", "interruptTaskWorker",
-        "askOnTask", "isTerminal", "sendTaskStatusNotification",
+        "askOnTask", "isTerminal",
     ):
         text = remove_method(text, name)
     text = replace_method(text, "executeKeyWordSearchCall", EXECUTE_INLINE)
@@ -938,6 +940,8 @@ def file_chapter(rel: str) -> int:
         return 7
     if rel == "inspector/modern-mrtr.sh":
         return 5
+    if rel == "inspector/modern-tasks.sh":
+        return 7
     if rel.startswith("inspector/"):
         return 3
     m = re.match(r"lessons/0([1-7])-", rel)

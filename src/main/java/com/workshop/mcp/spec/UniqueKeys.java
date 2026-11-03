@@ -146,17 +146,6 @@ public enum UniqueKeys {
     TASKS_CANCEL("tasks/cancel"),
 
     /**
-     * Notification sent when a task transitions to a new status (tasks extension).
-     * <p>
-     * The method name is the bare {@code notifications/tasks}, not
-     * {@code notifications/tasks/status}; the {@code notifications/tasks/}
-     * prefix is reserved for future use. The params are the full task
-     * snapshot.
-     * </p>
-     */
-    NOTIFICATIONS_TASKS("notifications/tasks"),
-
-    /**
      * Name of an embedded {@code elicitation/create} request.
      * Embedded in an {@link InputRequiredResult} rather than sent as a request.
      */

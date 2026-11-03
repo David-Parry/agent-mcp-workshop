@@ -92,7 +92,7 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-resultType">resultType</span></code> - <a href="ResultType.html#TASK"><code>ResultType.TASK</code></a>, <a href="ResultType.html#COMPLETE"><code>ResultType.COMPLETE</code></a>, or null for a notification</dd>
+<dd><code><span id="param-resultType">resultType</span></code> - <a href="ResultType.html#TASK"><code>ResultType.TASK</code></a> or <a href="ResultType.html#COMPLETE"><code>ResultType.COMPLETE</code></a></dd>
 <dd><code><span id="param-taskId">taskId</span></code> - the task identifier</dd>
 <dd><code><span id="param-status">status</span></code> - one of <a href="TaskStatus.html" title="enum class in com.workshop.mcp.spec"><code>TaskStatus</code></a>'s string values</dd>
 <dd><code><span id="param-statusMessage">statusMessage</span></code> - optional human-readable description of the current state</dd>
@@ -109,7 +109,7 @@ loadScripts(document, 'script');</script>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">The wire projection of a <a href="Task.html" title="class in com.workshop.mcp.spec"><code>Task</code></a>.
  <p>
- The same flat set of fields serves three different messages, distinguished
+ The same flat set of fields serves two different results, distinguished
  by <code>resultType</code> and by which of the trailing payload fields are
  present:
  </p>
@@ -122,13 +122,10 @@ loadScripts(document, 'script');</script>
        payload the status calls for — <code>result</code> when completed,
        <code>error</code> when failed, <code>inputRequests</code> when input is
        required.</li>
-   <li><a href="#notification(com.workshop.mcp.spec.Task,java.lang.Object,com.workshop.mcp.spec.JsonRpcError)"><code>notification(Task, Object, JsonRpcError)</code></a> forms the params of
-       <code>notifications/tasks</code>, which are task fields rather than a
-       result and so carry no <code>resultType</code>.</li>
  </ul>
  <p>
  Fields left null are omitted from the JSON, which is what keeps one record
- usable for all three shapes.
+ usable for both shapes.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -222,51 +219,44 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-lastUpdatedAt"><code>lastUpdatedAt</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="TaskResult.html" title="class in com.workshop.mcp.spec">TaskResult</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#notification(com.workshop.mcp.spec.Task,java.lang.Object,com.workshop.mcp.spec.JsonRpcError)" class="member-name-link">notification</a><wbr>(<a href="Task.html" title="class in com.workshop.mcp.spec">Task</a>&nbsp;task,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;result,
- <a href="JsonRpcError.html" title="class in com.workshop.mcp.spec">JsonRpcError</a>&nbsp;error)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Projects a task as the params of <code>notifications/tasks</code>.</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#pollIntervalMs()" class="member-name-link">pollIntervalMs</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#pollIntervalMs()" class="member-name-link">pollIntervalMs</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-pollIntervalMs"><code>pollIntervalMs</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#result()" class="member-name-link">result</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#result()" class="member-name-link">result</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-result"><code>result</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resultType()" class="member-name-link">resultType</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resultType()" class="member-name-link">resultType</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-resultType"><code>resultType</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#status()" class="member-name-link">status</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#status()" class="member-name-link">status</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-status"><code>status</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#statusMessage()" class="member-name-link">statusMessage</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#statusMessage()" class="member-name-link">statusMessage</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-statusMessage"><code>statusMessage</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#taskId()" class="member-name-link">taskId</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#taskId()" class="member-name-link">taskId</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-taskId"><code>taskId</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#ttlMs()" class="member-name-link">ttlMs</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Long.html" title="class or interface in java.lang" class="external-link">Long</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#ttlMs()" class="member-name-link">ttlMs</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-ttlMs"><code>ttlMs</code></a> record component.</div>
 </div>
 </div>
@@ -354,23 +344,6 @@ loadScripts(document, 'script');</script>
 <dd><code>inputRequests</code> - what the task is waiting for, otherwise null</dd>
 <dt>Returns:</dt>
 <dd>the detailed snapshot, carrying <a href="ResultType.html#COMPLETE"><code>ResultType.COMPLETE</code></a></dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="notification(com.workshop.mcp.spec.Task,java.lang.Object,com.workshop.mcp.spec.JsonRpcError)">
-<h3>notification</h3>
-<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="TaskResult.html" title="class in com.workshop.mcp.spec">TaskResult</a></span>&nbsp;<span class="element-name">notification</span><wbr><span class="parameters">(<a href="Task.html" title="class in com.workshop.mcp.spec">Task</a>&nbsp;task,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;result,
- <a href="JsonRpcError.html" title="class in com.workshop.mcp.spec">JsonRpcError</a>&nbsp;error)</span></div>
-<div class="block">Projects a task as the params of <code>notifications/tasks</code>.</div>
-<dl class="notes">
-<dt>Parameters:</dt>
-<dd><code>task</code> - the current task state</dd>
-<dd><code>result</code> - the underlying result when completed, otherwise null</dd>
-<dd><code>error</code> - the failure when failed, otherwise null</dd>
-<dt>Returns:</dt>
-<dd>the notification params, with no <code>resultType</code></dd>
 </dl>
 </section>
 </li>

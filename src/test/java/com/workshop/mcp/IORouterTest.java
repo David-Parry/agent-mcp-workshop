@@ -55,6 +55,18 @@ class IORouterTest {
               }
             }""";
 
+    /** {@link #FULL_META} from a client that also declares the tasks extension, as every task method requires. */
+    private static final String TASKS_META = """
+            "_meta":{
+              "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+              "io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"},
+              "io.modelcontextprotocol/clientCapabilities":{
+                "roots":{"listChanged":true},
+                "elicitation":{"form":{},"url":{}},
+                "extensions":{"io.modelcontextprotocol/tasks":{}}
+              }
+            }""";
+
     private CapturingIOHandler io;
     private IORouter router;
 
@@ -613,12 +625,41 @@ class IORouterTest {
         assertNotNull(handle.get("taskId"));
         assertTrue(handle.has("ttlMs"), "renamed from ttl in the tasks extension");
         assertTrue(handle.has("pollIntervalMs"), "renamed from pollInterval in the tasks extension");
+    }
 
-        // The status notification is the bare notifications/tasks, not
-        // notifications/tasks/status — that prefix is reserved.
-        JsonObject notification = io.notifications().get(0);
-        assertEquals("notifications/tasks", notification.get("method").getAsString());
-        assertEquals("working", notification.getAsJsonObject("params").get("status").getAsString());
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskSendsNoStatusNotificationsThatNobodySubscribedTo(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        // A server must not send a notification type the client did not ask
+        // for, and the only way to ask for notifications/tasks is a
+        // subscriptions/listen that names the task. This client only polls.
+        router.route(taskCallWithADirectory(63, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "completed");
+
+        assertTrue(io.notificationsEverSent().isEmpty(), "nothing was subscribed to: " + io.notificationsEverSent());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void theTaskMethodsRefuseAClientThatDidNotDeclareTheExtension() {
+        // Capabilities travel with each request, so a client that leaves the
+        // extension off a task method is refused even if it holds a task id.
+        for (String method : List.of("tasks/get", "tasks/update", "tasks/cancel")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":64,"method":"%s","params":{%s,"taskId":"no-such-task"}}"""
+                                 .formatted(method, FULL_META));
+
+            JsonObject error = io.onlyError();
+            assertEquals(ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, error.get("code").getAsInt(), method);
+            assertTrue(error.getAsJsonObject("data").getAsJsonObject("requiredCapabilities")
+                               .getAsJsonObject("extensions").has(MetaKeys.TASKS_EXTENSION),
+                       "the error names what the client has to declare: " + error);
+        }
     }
 
     @Test
@@ -674,7 +715,7 @@ class IORouterTest {
                   "taskId":"%s",
                   "inputResponses":{"search_directory":{"action":"accept",
                                      "content":{"directory":"%s"}}}}}"""
-                             .formatted(FULL_META, taskId, directory));
+                             .formatted(TASKS_META, taskId, directory));
         JsonObject update = io.responses().get(0);
         assertNull(update.get("error"), "answering what the task asked for must not be rejected");
         assertEquals(ResultType.COMPLETE, update.getAsJsonObject("result").get("resultType").getAsString());
@@ -697,7 +738,7 @@ class IORouterTest {
         router.route("""
                 {"jsonrpc":"2.0","id":14,"method":"tasks/update","params":{%s,
                   "taskId":"%s","inputResponses":{"search_directory":{"action":"decline"}}}}"""
-                             .formatted(FULL_META, taskId));
+                             .formatted(TASKS_META, taskId));
 
         JsonObject done = awaitTaskStatus(taskId, "completed");
         assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
@@ -715,7 +756,7 @@ class IORouterTest {
         awaitTaskStatus(taskId, "input_required");
         router.route("""
                 {"jsonrpc":"2.0","id":16,"method":"tasks/cancel","params":{%s,"taskId":"%s"}}"""
-                             .formatted(FULL_META, taskId));
+                             .formatted(TASKS_META, taskId));
 
         // The waiting thread has to notice and give up; a cancelled task must
         // not go on to report a result.
@@ -743,7 +784,7 @@ class IORouterTest {
             io.clear();
             router.route("""
                     {"jsonrpc":"2.0","id":"poll","method":"tasks/get","params":{%s,"taskId":"%s"}}"""
-                                 .formatted(FULL_META, taskId));
+                                 .formatted(TASKS_META, taskId));
             snapshot = io.responses().get(0).getAsJsonObject("result");
             if (status.equals(snapshot.get("status").getAsString())) {
                 return snapshot;
@@ -772,7 +813,7 @@ class IORouterTest {
     void pollingAnUnknownTaskIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":"ext-1","method":"tasks/get",
-                 "params":{%s,"taskId":"no-such-task"}}""".formatted(FULL_META));
+                 "params":{%s,"taskId":"no-such-task"}}""".formatted(TASKS_META));
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
@@ -863,7 +904,7 @@ class IORouterTest {
             io.clear();
             router.route("""
                     {"jsonrpc":"2.0","id":"drift","method":"%s","params":{%s}}"""
-                                 .formatted(wireName, FULL_META));
+                                 .formatted(wireName, TASKS_META));
 
             assertFalse(io.responses().isEmpty(),
                         "'" + wireName + "' is accepted by INBOUND_METHODS but answered nothing");
@@ -918,7 +959,7 @@ class IORouterTest {
         for (String method : List.of("tasks/get", "tasks/update", "tasks/cancel")) {
             io.clear();
             router.route("""
-                    {"jsonrpc":"2.0","id":61,"method":"%s","params":{%s}}""".formatted(method, FULL_META));
+                    {"jsonrpc":"2.0","id":61,"method":"%s","params":{%s}}""".formatted(method, TASKS_META));
 
             assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(),
                          method + " must answer a request with no taskId");
@@ -1318,7 +1359,7 @@ class IORouterTest {
     void updatingATaskThatDoesNotExistIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":40,"method":"tasks/update",
-                 "params":{%s,"taskId":"no-such-task","inputResponses":{}}}""".formatted(FULL_META));
+                 "params":{%s,"taskId":"no-such-task","inputResponses":{}}}""".formatted(TASKS_META));
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
@@ -1326,24 +1367,42 @@ class IORouterTest {
     @Test
     @Timeout(30)
     @Tag("chapter07")
-    void answeringATaskThatIsNoLongerAskingAnythingIsRejected(
+    void answeringATaskThatIsNoLongerAskingIsAcknowledgedAndChangesNothing(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         router.route(taskCallWithADirectory(41, directory.toString()));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
         awaitTaskStatus(taskId, "completed");
 
-        // The task exists, so this is not "task not found" — it is a task that
-        // has no outstanding question for these answers to belong to.
+        // The task exists but has no outstanding question for these answers
+        // to belong to, which the extension says to ignore rather than refuse.
         io.clear();
         router.route("""
                 {"jsonrpc":"2.0","id":42,"method":"tasks/update",
                  "params":{%s,"taskId":"%s","inputResponses":{"search_directory":{"action":"decline"}}}}"""
-                             .formatted(FULL_META, taskId));
+                             .formatted(TASKS_META, taskId));
 
-        JsonObject error = io.onlyError();
-        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
-        assertTrue(error.get("message").getAsString().contains("not waiting for input"),
-                   "the client is told the task was not asking, not that it vanished: " + error);
+        assertEmptyAcknowledgement(io.only());
+        assertEquals("completed", awaitTaskStatus(taskId, "completed").get("status").getAsString());
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void anUpdateThatAnswersNothingTheTaskAskedLeavesItWaiting() throws Exception {
+        router.route(taskCallWithoutADirectory(65, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "input_required");
+
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":66,"method":"tasks/update",
+                 "params":{%s,"taskId":"%s","inputResponses":{"not_a_key_it_asked":{"action":"decline"}}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        assertEmptyAcknowledgement(io.only());
+        assertEquals("input_required", awaitTaskStatus(taskId, "input_required").get("status").getAsString(),
+                     "the question it asked is still standing");
+        router.route(cancel(67, taskId));
     }
 
     @Test
@@ -1351,7 +1410,7 @@ class IORouterTest {
     void cancellingATaskThatDoesNotExistIsInvalidParams() {
         router.route("""
                 {"jsonrpc":"2.0","id":43,"method":"tasks/cancel",
-                 "params":{%s,"taskId":"no-such-task"}}""".formatted(FULL_META));
+                 "params":{%s,"taskId":"no-such-task"}}""".formatted(TASKS_META));
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
     }
@@ -1359,18 +1418,35 @@ class IORouterTest {
     @Test
     @Timeout(30)
     @Tag("chapter07")
-    void cancellingATaskTwiceIsRejectedTheSecondTime() {
+    void aCancelIsAcknowledgedWithAnEmptyResultAndASecondOneToo() throws Exception {
         router.route(taskCallWithoutADirectory(44, "\"elicitation\":{\"form\":{}}"));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
 
+        io.clear();
         router.route(cancel(45, taskId));
+        assertEmptyAcknowledgement(io.only());
+
         io.clear();
         router.route(cancel(46, taskId));
+        assertEmptyAcknowledgement(io.only());
+        awaitTaskStatus(taskId, "cancelled");
+    }
 
-        JsonObject error = io.onlyError();
-        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
-        assertTrue(error.get("message").getAsString().contains("terminal"),
-                   "the client is told why, not just that it failed: " + error);
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void cancellingAFinishedTaskIsAcknowledgedAndLeavesItFinished(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        router.route(taskCallWithADirectory(68, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "completed");
+
+        io.clear();
+        router.route(cancel(69, taskId));
+
+        assertEmptyAcknowledgement(io.only());
+        JsonObject after = awaitTaskStatus(taskId, "completed");
+        assertNotNull(after.get("result"), "a terminal status never changes, so the result stays: " + after);
     }
 
     // --- tasks: the virtual thread's own outcomes ----------------------
@@ -1438,7 +1514,7 @@ class IORouterTest {
                 {"jsonrpc":"2.0","id":53,"method":"tasks/update","params":{%s,"taskId":"%s",
                   "inputResponses":{"search_directory":{"action":"accept",
                                                         "content":{"directory":"%s"}}}}}"""
-                             .formatted(FULL_META, taskId, directory));
+                             .formatted(TASKS_META, taskId, directory));
 
         JsonObject done = awaitTaskStatus(taskId, "completed");
         assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"),
@@ -1475,7 +1551,7 @@ class IORouterTest {
                 {"jsonrpc":"2.0","id":58,"method":"tasks/update","params":{%s,
                   "taskId":"%s","inputResponses":{"search_directory":{"action":"accept",
                                                    "content":{}}}}}"""
-                             .formatted(FULL_META, taskId));
+                             .formatted(TASKS_META, taskId));
 
         JsonObject done = awaitTaskStatus(taskId, "completed");
         assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
@@ -1522,7 +1598,7 @@ class IORouterTest {
                 {"jsonrpc":"2.0","id":51,"method":"tasks/update","params":{%s,"taskId":"%s",
                   "inputResponses":{"search_directory":{"action":"accept",
                                      "content":{"directory":"/tmp/\\u0000nope"}}}}}"""
-                             .formatted(FULL_META, taskId));
+                             .formatted(TASKS_META, taskId));
 
         JsonObject failed = awaitTaskStatus(taskId, "failed");
         assertNotNull(failed.get("error"));
@@ -1559,10 +1635,22 @@ class IORouterTest {
                            "argument":{"name":"%s","value":"j"}}}""".formatted(id, FULL_META, argumentName);
     }
 
+    /**
+     * Asserts that a response is the empty result {@code tasks/update} and
+     * {@code tasks/cancel} acknowledge with: nothing but its {@code resultType}
+     * and the {@code _meta} every result carries.
+     */
+    private static void assertEmptyAcknowledgement(JsonObject response) {
+        assertNull(response.get("error"), "expected an acknowledgement, got " + response);
+        JsonObject result = response.getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertEquals(Set.of("resultType", "_meta"), result.keySet(), "an acknowledgement carries no task: " + result);
+    }
+
     private static String cancel(int id, String taskId) {
         return """
                 {"jsonrpc":"2.0","id":%d,"method":"tasks/cancel",
-                 "params":{%s,"taskId":"%s"}}""".formatted(id, FULL_META, taskId);
+                 "params":{%s,"taskId":"%s"}}""".formatted(id, TASKS_META, taskId);
     }
 
     /** A {@code tools/call} from a task client that supplies its directory. */
@@ -1601,6 +1689,8 @@ class IORouterTest {
         // Tasks emit their status changes from their own thread, so this is
         // written to concurrently with the assertions reading it.
         private final List<JsonObject> emitted = new CopyOnWriteArrayList<>();
+        // Never cleared, for a test that has to see everything a task ever sent.
+        private final List<JsonObject> history = new CopyOnWriteArrayList<>();
         private volatile boolean failNextEmit;
 
         @Override
@@ -1609,7 +1699,9 @@ class IORouterTest {
                 failNextEmit = false;
                 throw new IllegalStateException("the write failed");
             }
-            emitted.add(JsonParser.parseString(McpGson.create().toJson(message)).getAsJsonObject());
+            JsonObject json = JsonParser.parseString(McpGson.create().toJson(message)).getAsJsonObject();
+            emitted.add(json);
+            history.add(json);
         }
 
         /** Makes the next emit throw, as a broken handler would. */
@@ -1633,6 +1725,11 @@ class IORouterTest {
 
         List<JsonObject> notifications() {
             return emitted.stream().filter(m -> !m.has("id")).toList();
+        }
+
+        /** Every notification since the handler was made, whatever {@link #clear()} has dropped. */
+        List<JsonObject> notificationsEverSent() {
+            return history.stream().filter(m -> !m.has("id")).toList();
         }
 
         /** The single response, asserting there was exactly one. */

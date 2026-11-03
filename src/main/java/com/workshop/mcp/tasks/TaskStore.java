@@ -12,8 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 /**
  * In-memory store for {@link Task} state and the payloads tasks produce. Kept
@@ -22,9 +20,13 @@ import java.util.function.Consumer;
  *
  * <p>Thread-safety: a {@link ConcurrentHashMap} backs the per-task entries
  * and each entry's mutable state is guarded by a small object monitor
- * (synchronized on the entry itself). Callbacks registered via
- * {@link #onStatusChange(Consumer)} fire after the entry's state has been
- * updated, outside the lock, so they cannot deadlock back into the store.</p>
+ * (synchronized on the entry itself).</p>
+ *
+ * <p>Nothing here outlives the process, and nothing is purged. A task is
+ * still answered after its {@code ttlMs} has run out, which the extension
+ * allows: a server MAY discard a task then, but does not have to. A server
+ * that had to survive a restart would keep these entries somewhere durable,
+ * so that a client holding a task id could go on polling it.</p>
  *
  * <p>Task IDs are randomly generated UUIDs — the extension requires them to be
  * unique among all tasks controlled by this receiver and unguessable when
@@ -42,30 +44,20 @@ public class TaskStore {
     /** Default suggested polling interval if none is supplied. */
     public static final long DEFAULT_POLL_INTERVAL_MILLIS = 1000L;
 
-    /** Hard ceiling on TTL — receivers MAY override the requested TTL. */
-    public static final long MAX_TTL_MILLIS = 5L * 60_000L;
+    /**
+     * How long every task is advertised to live. The TTL is the server's
+     * choice alone: the extension gives a client no way to ask for one.
+     */
+    public static final long TTL_MILLIS = 5L * 60_000L;
 
     private final ConcurrentHashMap<String, Entry> entries = new ConcurrentHashMap<>();
-    private final CopyOnWriteArrayList<Consumer<TaskResult>> statusListeners = new CopyOnWriteArrayList<>();
-
-    /**
-     * Register a callback invoked every time a task's status changes.
-     * Used by the router to emit {@code notifications/tasks}.
-     *
-     * @param listener invoked with the post-change notification projection
-     */
-    public void onStatusChange(Consumer<TaskResult> listener) {
-        statusListeners.add(listener);
-    }
 
     /**
      * Create a new task in {@link TaskStatus#WORKING WORKING} status.
      *
-     * @param requestedTtlMillis a requested TTL; may be {@code null}. The
-     *                           store may override it.
      * @return a snapshot of the freshly created task
      */
-    public Task create(Long requestedTtlMillis) {
+    public Task create() {
         String id = UUID.randomUUID().toString();
         String now = Instant.now().toString();
         Entry entry = new Entry(
@@ -74,13 +66,11 @@ public class TaskStore {
             "The operation is now in progress.",
             now,
             now,
-            clampTtl(requestedTtlMillis),
+            TTL_MILLIS,
             DEFAULT_POLL_INTERVAL_MILLIS
         );
         entries.put(id, entry);
-        Task snapshot = entry.snapshot();
-        fireStatusChange(entry, snapshot);
-        return snapshot;
+        return entry.snapshot();
     }
 
     /**
@@ -125,7 +115,6 @@ public class TaskStore {
         if (entry == null) {
             return;
         }
-        Task snapshot;
         synchronized (entry) {
             if (entry.isTerminal()) {
                 return;
@@ -135,10 +124,8 @@ public class TaskStore {
             entry.lastUpdatedAt = Instant.now().toString();
             entry.result = result;
             entry.inputRequests = null;
-            snapshot = entry.snapshot();
             entry.notifyAll();
         }
-        fireStatusChange(entry, snapshot);
     }
 
     /**
@@ -153,7 +140,6 @@ public class TaskStore {
         if (entry == null) {
             return;
         }
-        Task snapshot;
         synchronized (entry) {
             if (entry.isTerminal()) {
                 return;
@@ -163,10 +149,8 @@ public class TaskStore {
             entry.lastUpdatedAt = Instant.now().toString();
             entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
             entry.inputRequests = null;
-            snapshot = entry.snapshot();
             entry.notifyAll();
         }
-        fireStatusChange(entry, snapshot);
     }
 
     /**
@@ -184,7 +168,6 @@ public class TaskStore {
         if (entry == null) {
             return null;
         }
-        Task snapshot;
         synchronized (entry) {
             if (entry.isTerminal()) {
                 return null;
@@ -193,38 +176,36 @@ public class TaskStore {
             entry.statusMessage = "The operation is waiting for input.";
             entry.lastUpdatedAt = Instant.now().toString();
             entry.inputRequests = inputRequests;
-            snapshot = entry.snapshot();
+            return entry.snapshot();
         }
-        fireStatusChange(entry, snapshot);
-        return snapshot;
     }
 
     /**
-     * Deliver {@code tasks/update} input to a task that asked for it, moving
-     * it back to {@link TaskStatus#WORKING WORKING}.
+     * Deliver {@code tasks/update} input to a task, moving it back to
+     * {@link TaskStatus#WORKING WORKING} once it has an answer to what it
+     * asked.
      * <p>
-     * Only answers the task actually asked for are retained; anything else is
-     * ignored, since the keys are chosen by this server and must not be
-     * reused across a task's lifetime.
+     * Anything else is ignored rather than refused, as the extension asks of
+     * a server: answers under keys the task never asked for, and every answer
+     * when the task is not waiting at all, as it may no longer be by the time
+     * an update arrives. An update with nothing usable in it leaves a waiting
+     * task waiting.
      * </p>
      *
      * @param taskId         target task
      * @param inputResponses the answers, keyed by the identifiers the task asked under
-     * @return the post-transition snapshot, or {@code null} if the task does
-     *         not exist or was not waiting for input
+     * @return the task as it stands after the update, or {@code null} if
+     *         there is no such task
      */
     public Task applyInput(String taskId, Map<String, Object> inputResponses) {
         Entry entry = entries.get(taskId);
         if (entry == null) {
             return null;
         }
-        Task snapshot;
         synchronized (entry) {
-            if (!TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)) {
-                return null;
-            }
             Map<String, Object> accepted = new HashMap<>();
-            if (inputResponses != null && entry.inputRequests != null) {
+            if (TaskStatus.INPUT_REQUIRED.getValue().equals(entry.status)
+                && inputResponses != null && entry.inputRequests != null) {
                 for (String key : entry.inputRequests.keySet()) {
                     Object answer = inputResponses.get(key);
                     if (answer != null) {
@@ -232,16 +213,16 @@ public class TaskStore {
                     }
                 }
             }
-            entry.status = TaskStatus.WORKING.getValue();
-            entry.statusMessage = "The operation resumed with the input provided.";
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.inputRequests = null;
-            entry.inputResponses = accepted;
-            snapshot = entry.snapshot();
-            entry.notifyAll();
+            if (!accepted.isEmpty()) {
+                entry.status = TaskStatus.WORKING.getValue();
+                entry.statusMessage = "The operation resumed with the input provided.";
+                entry.lastUpdatedAt = Instant.now().toString();
+                entry.inputRequests = null;
+                entry.inputResponses = accepted;
+                entry.notifyAll();
+            }
+            return entry.snapshot();
         }
-        fireStatusChange(entry, snapshot);
-        return snapshot;
     }
 
     /**
@@ -296,71 +277,34 @@ public class TaskStore {
     }
 
     /**
-     * Returns the input a task received through {@code tasks/update}, so the
-     * background work can pick it up and continue.
+     * Move the task to {@link TaskStatus#CANCELLED CANCELLED}, unless it has
+     * already finished.
+     * <p>
+     * A cancel is a request the server may decline, and a finished task
+     * declines it, because a terminal status never changes. The caller
+     * acknowledges the request either way, and the client learns the outcome
+     * by polling.
+     * </p>
      *
      * @param taskId target task
-     * @return the accepted answers, or an empty map when there are none
-     */
-    public Map<String, Object> inputResponsesFor(String taskId) {
-        Entry entry = entries.get(taskId);
-        if (entry == null) {
-            return Map.of();
-        }
-        synchronized (entry) {
-            return entry.inputResponses == null ? Map.of() : Map.copyOf(entry.inputResponses);
-        }
-    }
-
-    /**
-     * Move the task to {@link TaskStatus#CANCELLED CANCELLED}. Returns
-     * {@code null} if the task does not exist or is already in a terminal
-     * state — callers should treat {@code null} as the {@code -32602}
-     * Invalid params condition.
-     *
-     * @param taskId target task
-     * @return the post-cancellation snapshot, or {@code null} if the
-     *         cancellation request is invalid
+     * @return the task as it stands after the request, or {@code null} if
+     *         there is no such task
      */
     public Task cancel(String taskId) {
         Entry entry = entries.get(taskId);
         if (entry == null) {
             return null;
         }
-        Task snapshot;
         synchronized (entry) {
-            if (entry.isTerminal()) {
-                return null;
+            if (!entry.isTerminal()) {
+                entry.status = TaskStatus.CANCELLED.getValue();
+                entry.statusMessage = "The task was cancelled by request.";
+                entry.lastUpdatedAt = Instant.now().toString();
+                entry.inputRequests = null;
+                entry.notifyAll();
             }
-            entry.status = TaskStatus.CANCELLED.getValue();
-            entry.statusMessage = "The task was cancelled by request.";
-            entry.lastUpdatedAt = Instant.now().toString();
-            entry.inputRequests = null;
-            snapshot = entry.snapshot();
-            entry.notifyAll();
+            return entry.snapshot();
         }
-        fireStatusChange(entry, snapshot);
-        return snapshot;
-    }
-
-    private void fireStatusChange(Entry entry, Task snapshot) {
-        Object result;
-        JsonRpcError error;
-        synchronized (entry) {
-            result = entry.result;
-            error = entry.error;
-        }
-        TaskResult projection = TaskResult.notification(snapshot, result, error);
-        for (Consumer<TaskResult> listener : statusListeners) {
-            listener.accept(projection);
-        }
-    }
-
-    private static long clampTtl(Long requested) {
-        if (requested == null || requested <= 0) {
-            return MAX_TTL_MILLIS;
-        }
-        return Math.min(requested, MAX_TTL_MILLIS);
     }
 
     /** Mutable per-task record. Access guarded by {@code synchronized (this)}. */
