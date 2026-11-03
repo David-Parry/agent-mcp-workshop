@@ -485,7 +485,7 @@ public class IORouter implements Router {
     /**
      * Builds the {@code server/discover} answer.
      * <p>
-     * On stdio this is answered by a throwaway probe process, so it is derived
+     * A client, or a shared cache, may reuse this answer, so it is derived
      * entirely from static configuration.
      * </p>
      *

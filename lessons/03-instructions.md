@@ -132,7 +132,7 @@ return DiscoverResultBuilder
 
 3. **Capabilities**: prompts, resources, tools and completions, none of them with `listChanged`. **This server advertises them before it can serve them.** The handlers arrive in chapter 04, and until then each of those methods is `-32601`.
 
-4. **Cache hints are required**: `ttlMs` and `cacheScope` let a client reuse the answer instead of asking again. On stdio the Inspector runs discovery in a throwaway probe process, which is why this answer is built from fixed configuration and nothing a long-running server would have accumulated. `LIST_TTL_MILLIS` is one minute: long enough that a client is not re-asking on every keystroke, short enough that a restart is noticed.
+4. **Cache hints are required**: `ttlMs` and `cacheScope` let a client reuse the answer instead of asking again, and `cacheScope: "public"` lets a shared cache hand the same answer to other clients. That is why this answer is built from fixed configuration and nothing a long-running server would have accumulated. `LIST_TTL_MILLIS` is one minute: long enough that a client is not re-asking on every keystroke, short enough that a restart is noticed.
 
 5. **`resultType` is required on every result**: the builder sets it to `complete`.
 
@@ -280,14 +280,14 @@ cd inspector
 ./run.sh
 ```
 
-Open the URL it prints (typically `http://127.0.0.1:6274`), choose `workshop`, and connect. Then:
+Open the URL it prints (typically `http://127.0.0.1:6274`). The `workshop` card is read from `config.json`; turn on its switch to connect. Then:
 
 1. **Discovery completes.** The probe's id is the string `"server-discover-probe-1"`, and it comes back as a string; `RequestId` exists for exactly that. The capabilities list prompts, resources, tools and completions.
-2. **Click List Tools, List Resources or List Prompts.** Each fails at once with `-32601` Method not found. Discovery advertised them, and this branch cannot serve them yet. Chapter 04 adds the handlers; until then the server says so, rather than leaving the request unanswered.
+2. **Open the Tools, Resources or Prompts tab.** The Inspector asked for every list as soon as discovery completed, and each request has already failed with `-32601`: the Tools tab says *Couldn't load tools*, with `Method not found: tools/list` and a **Retry** button. Discovery advertised them, and this branch cannot serve them yet. Chapter 04 adds the handlers; until then the server says so, rather than leaving the request unanswered.
 
 ### Step 4: Read the log
 
-Nothing but MCP messages may go to stdout: a stray `System.out.println` corrupts the stream the client is parsing. So the server logs to a file instead, under `logs/` in whatever working directory the client starts it in. `run.sh` starts it in `inspector/`, so look in `inspector/logs/`. There is one file per server process, and the Inspector's discovery probe runs in a process of its own.
+Nothing but MCP messages may go to stdout: a stray `System.out.println` corrupts the stream the client is parsing. So the server logs to a file instead, under `logs/` in whatever working directory the client starts it in. `run.sh` starts it in `inspector/`, so look in `inspector/logs/`. There is one file per server process, and the Inspector starts a new process each time you connect.
 
 ### Step 5: Send the mistakes on purpose
 

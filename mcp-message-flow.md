@@ -9,7 +9,7 @@ sequenceDiagram
 
     Note over Client,Server: Discovery (no handshake, no session)
     Client->>Server: server/discover (request)
-    Note right of Server: Answered from static config —<br/>on stdio a throwaway probe<br/>process may be the one asking
+    Note right of Server: Answered from static config —<br/>the answer is cacheable,<br/>and other clients may reuse it
     Server-->>Client: result
     Note right of Server: Returns supportedVersions,<br/>capabilities, instructions,<br/>ttlMs/cacheScope, and serverInfo in _meta
 

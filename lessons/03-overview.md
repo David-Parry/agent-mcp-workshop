@@ -8,7 +8,7 @@
 3. Acknowledge a `subscriptions/listen` stream, and close it
 4. Handle notification messages with type-safe deserialization
 
-**To verify success:** `./gradlew chapterTest -Pchapter=03` is green, and so is the harness. Then connect the MCP Inspector to your server and confirm that discovery completes, and that "List Resources" fails at once with `-32601`: the server advertises resources, but their handlers arrive in chapter 04.
+**To verify success:** `./gradlew chapterTest -Pchapter=03` is green, and so is the harness. Then connect the MCP Inspector to your server and confirm that discovery completes, and that the Resources tab shows `Method not found: resources/list`, which is `-32601`: the server advertises resources, but their handlers arrive in chapter 04.
 
 ---
 
@@ -22,7 +22,7 @@ Older revisions were stateless in spirit and stateful in practice. An `initializ
 
 Two mechanisms replace it:
 
-- **`server/discover`** — a client asks a server what it can do, at any time, without opening anything. On stdio the Inspector answers this with a throwaway probe process, which is why the result must be derivable from static configuration alone.
+- **`server/discover`** — a client asks a server what it can do, at any time, without opening anything. The answer carries cache hints, and a shared cache may hand it to other clients, which is why the result must be derivable from static configuration alone.
 - **The `_meta` envelope** — every single request re-declares the client's protocol version, capabilities, and identity in `params._meta`. Nothing persists between requests, so nothing needs to be remembered.
 
 The practical consequence for your code: capability flags like "can this client show a form" stop being fields on the router and become per-request facts read out of the envelope.
@@ -78,7 +78,7 @@ The **sequence diagram** shows the cancellation notification flow where the clie
 Students will:
 - Build the project using Gradle
 - Use the MCP Inspector (v2.5.0) with the workshop's `auto` era, which probes `server/discover` before it would fall back to `initialize`
-- Intentionally trigger errors by clicking "List Resources" to understand capability advertising vs. implementation
+- Open the Resources tab and read its `Method not found` error to understand capability advertising vs. implementation
 - Send malformed requests on purpose with `inspector/modern-probe.sh`
 
 ## Architecture Understanding

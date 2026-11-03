@@ -16,9 +16,9 @@ import java.util.Map;
 /**
  * Builder for creating {@link DiscoverResult} objects with a fluent API.
  * <p>
- * This replaces {@code InitializeResultBuilder}. Because
- * {@code server/discover} is answered by a throwaway probe process on stdio,
- * everything here is derived from static configuration.
+ * This replaces {@code InitializeResultBuilder}. Because a client may cache
+ * and reuse the {@code server/discover} answer, everything here is derived
+ * from static configuration.
  * </p>
  *
  * <p>Example usage:</p>

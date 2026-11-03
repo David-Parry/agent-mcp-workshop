@@ -93,9 +93,9 @@ loadScripts(document, 'script');</script>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></span></div>
 <div class="block">Builder for creating <a href="../DiscoverResult.html" title="class in com.workshop.mcp.spec"><code>DiscoverResult</code></a> objects with a fluent API.
  <p>
- This replaces <code>InitializeResultBuilder</code>. Because
- <code>server/discover</code> is answered by a throwaway probe process on stdio,
- everything here is derived from static configuration.
+ This replaces <code>InitializeResultBuilder</code>. Because a client may cache
+ and reuse the <code>server/discover</code> answer, everything here is derived
+ from static configuration.
  </p>
 
  <p>Example usage:</p>

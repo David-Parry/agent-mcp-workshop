@@ -150,9 +150,9 @@ Implement the three core MCP capabilities to create a useful server.
 - Runtime context as a tool argument, resolved per call — there is no session to configure it in
 
 ### Verification
-- "List Resources" shows Javadoc files
-- "List Tools" shows `key_word_search` with a required `keyword` and an optional `directory`
-- "List Prompts" shows `search_keyword`, and typing its `keyword` offers completions
+- The Inspector's Resources tab lists the Javadoc files
+- The Tools tab shows `key_word_search` with a required `keyword` and an optional `directory`
+- The Prompts tab shows `search_keyword`, and typing its `keyword` offers completions
 - Calling the tool without a `directory` returns a clear tool-level error. Chapter 5 adds the round trip and the working-directory fallback.
 
 ### Outcome

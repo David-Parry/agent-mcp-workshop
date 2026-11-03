@@ -136,7 +136,7 @@ Students will validate their implementation by:
 - **Tools**: Discovering and executing the keyword search tool
 - **Prompts**: Viewing available prompts and their argument requirements, with completion suggestions while typing the keyword
 
-The Inspector will no longer show errors when clicking "List Resources", "List Tools", or "List Prompts" - all features are now fully functional.
+The Inspector's Resources, Tools and Prompts tabs no longer show `Method not found`: all three features now answer.
 
 ## What Students Will Achieve
 

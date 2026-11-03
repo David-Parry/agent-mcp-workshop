@@ -262,17 +262,19 @@ cd inspector
 
 `inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
 
+Turn on the switch on the `workshop` card to connect. The Inspector fetches every list as soon as discovery completes, so each tab is filled when you open it.
+
 ### Resources
-- **List Resources** shows Javadoc pages. There is no `ui://` entry.
+- The **Resources** tab lists the Javadoc pages. There is no `ui://` entry.
 - Opening a page returns its HTML.
 
 ### Tools
-- **List Tools** shows `key_word_search` with a required `keyword` and an optional `directory`.
+- The **Tools** tab shows `key_word_search` with a required `keyword` and an optional `directory`.
 - Calling **with** a directory returns occurrence counts.
 - Calling **without** a directory is a tool error (`isError: true`) whose text asks for a directory. The Inspector does **not** show a form — that is Chapter 5.
 
 ### Prompts
-- **List Prompts** shows `search_keyword`.
+- The **Prompts** tab shows `search_keyword`.
 - Typing in its `keyword` field offers `java`, `the` and `and`. Getting the prompt with a keyword returns one `user` message.
 
 ## Stretch: Page for real

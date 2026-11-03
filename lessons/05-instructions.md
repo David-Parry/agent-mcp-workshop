@@ -407,15 +407,15 @@ cd inspector
 `inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
 
 ### Discovery
-- Click **Connect** and find the `server/discover` result. There is no `initialize` anywhere in the log.
+- Turn on the switch on the `workshop` card, and expand the `server/discover` entry in the message log. There is no `initialize` anywhere in the log.
 - `capabilities` has no `extensions` map yet. The UI extension arrives in Chapter 6 and tasks in Chapter 7.
 - Look at what the *client* sent in `_meta.io.modelcontextprotocol/clientCapabilities`. The Inspector declares `"roots":{"listChanged":true}` there, and will keep doing so: deprecated is not removed. The server does not model the key, so it is dropped.
 
 ### The round trip
-- Open **List Tools** and call `key_word_search` with a keyword and **no** `directory`.
+- Open the **Tools** tab and call `key_word_search` with the keyword `java` and **no** `directory`.
 - The first answer is `resultType: "input_required"` carrying `inputRequests.search_directory`. The embedded request has no `id`: this is a result, not a request.
-- The Inspector shows the form. Paste an absolute path and submit; it re-sends `tools/call` under a **new id**, with `inputResponses` and the echoed `requestState`.
-- **Decline the form once.** The search still returns, now rooted at the server's working directory, and `isError` is `false`.
+- The Inspector shows the form as an **Elicitation Request**. Paste an absolute path and submit; it re-sends `tools/call` under a **new id**, with `inputResponses` and the echoed `requestState`. The log groups both calls under one **MRTR** entry, as Round 1 and Round 2.
+- **Decline the form once.** The search still returns, now rooted at the server's working directory, and `isError` is `false`. That directory is `inspector/`, where `run.sh` started the server. The search skips its `logs/`, so `java` is found only in the few files there, such as `config.json`; a keyword that appears only under `src/` comes back as **Empty result**.
 - Call it once more **with** a `directory` argument. The round trip disappears entirely.
 
 ## Stretch: Ask with a URL

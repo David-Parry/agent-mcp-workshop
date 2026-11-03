@@ -20,9 +20,9 @@ import java.util.Map;
  * {@link MetaKeys#SERVER_INFO}.
  * </p>
  * <p>
- * On stdio this request is answered by a throwaway probe process that the
- * client discards immediately afterwards, so the answer must not depend on
- * anything the server has accumulated.
+ * The answer is cacheable: {@code ttlMs} and {@code cacheScope} let a client,
+ * or a shared intermediary, reuse it, so it must not depend on anything the
+ * server has accumulated.
  * </p>
  *
  * @param resultType        always {@link ResultType#COMPLETE}
