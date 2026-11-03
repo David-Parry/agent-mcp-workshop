@@ -29,6 +29,10 @@ Every step must pass before the first session. If something fails, fix it now �
 
 ### 3. Start chapter 1
 
+There are two ways through the chapters, and you can switch between them at any point.
+
+**Check out each chapter.** Every chapter branch starts from the reference solutions of the chapters before it:
+
 ```bash
 ./clean-checkout.sh 01-chapter
 ```
@@ -36,6 +40,16 @@ Every step must pass before the first session. If something fails, fix it now �
 That branch is a **slice** of the finished server: Chapter 1's methods are empty, later chapters are not there yet, and `lessons/` holds this chapter only. When a chapter is green, move on with `./clean-checkout.sh 0(N+1)-chapter` — that discards uncommitted work on purpose, because the next branch already contains the solutions for 1..N.
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
+
+**Keep your own code.** Work on a branch of your own, and merge each chapter into it:
+
+```bash
+git switch -c my-work
+git fetch origin
+git merge origin/01-chapter
+```
+
+When a chapter is green, commit it (`git add -A && git commit -m "Finish chapter 0N"`) and run `git merge origin/0(N+1)-chapter`. Each chapter branch is the one before it with that chapter solved, so the merge brings in the reference solution and the next chapter's empty methods. It is clean if you wrote the methods as the handouts give them. Where you wrote something differently, git stops with a conflict: keep your version, or take the reference with `git checkout --theirs -- <file>`.
 
 ## How the rest of the workshop is organised
 
@@ -56,9 +70,8 @@ Stuck? look at `complete`. The full lesson set lives there too.
 | Branch | What it is |
 | --- | --- |
 | `trunk` | This one. Setup and verification only, no server code. |
-| `01-chapter` … `07-chapter` | The workshop proper. Each is a cumulative slice: prior chapters filled, the current chapter hollowed, later chapters absent. |
-| `complete` | The finished server, every chapter done. What the instructor demonstrates from, and where to look when you are stuck. |
-| `agent-chapter` | Optional bonus: wrapping the tool in agent skills. |
+| `01-chapter` … `07-chapter` | The workshop proper. Each is the one before it with that chapter solved: prior chapters filled, the current chapter hollowed, later chapters absent. |
+| `complete` | The finished server, every chapter done. What the instructor demonstrates from, where to look when you are stuck, and where the agent chapter and the bonus start. |
 
 ## Feedback
 
