@@ -25,7 +25,7 @@ Every step must pass before the first session. If something fails, fix it now �
 ### 2. Read what you are about to build
 
 - [00-introduction.md](00-introduction.md) — why the protocol matters and what the worked example is
-- [sylabus.md](sylabus.md) — the seven chapters, what each one covers, and roughly how long it takes
+- [sylabus.md](sylabus.md) — the seven chapters, what each one covers, and how each one is checked
 
 ### 3. Start chapter 1
 
@@ -63,7 +63,7 @@ You know a chapter is finished when its tests go green. Use **that** chapter's n
 
 Red is the normal starting state for a chapter — the methods you are about to write are empty.
 
-Stuck? look at `complete`. The full lesson set lives there too.
+Stuck? Look at `complete`. The full lesson set lives there too.
 
 ## The branches
 
