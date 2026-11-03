@@ -201,28 +201,31 @@ A server that asks for what it needs, exactly when it needs it, without ever sen
 **Branch**: `06-chapter`
 
 ### Objective
-Extend the existing tool with an interactive HTML UI that renders inside the conversation.
+Give the existing tool a page of its own, which a host that supports MCP Apps renders inside the conversation.
 
 ### What You'll Build
-- Three new spec records: `UiMeta`, `AppMeta`, `AppTool`
-- `AppToolBuilder` with `withResourceUri(...)` — there is no `withExecution` / `taskSupport`
-- Declare `io.modelcontextprotocol/ui` under `capabilities.extensions`
-- Serve `ui://keyword-search/mcp-app.html` from the classpath via `RESOURCES_READ`
+- `AppMeta.of` — the page's address under both the canonical `_meta.ui.resourceUri` and the deprecated flat `ui/resourceUri`
+- `AppToolBuilder.withResourceUri(...)` and `build()`, which refuses a tool with no name, description, page or input schema — there is no `withExecution` / `taskSupport`
+- Given, and read first: the records `UiMeta`, `AppMeta`, `AppTool` and `AppToolsListResult`; the router's `io.modelcontextprotocol/ui` declaration; the `TOOLS_LIST`, `RESOURCES_LIST` and `RESOURCES_READ` cases that send the tool and serve `ui://keyword-search/mcp-app.html` from the classpath; and the demo page itself
 
 ### Key Concepts
 - Pattern: **Tool + Resource + `_meta` = interactive app**
-- MIME type `text/html;profile=mcp-app` signals an interactive app
-- Sandboxed iframes for security
-- Progressive enhancement — tools still work in text-only clients
+- MCP Apps is a Stable extension, revision `2026-01-26`, and adds no protocol methods
+- The server declares the extension with no settings; `mimeTypes` is the host's, the page types it can render
+- `visibility` says who may see and call a tool, the model or the app, not where the page is shown
+- MIME type `text/html;profile=mcp-app` is required for a page
+- Sandboxed iframes and a strict default Content Security Policy for security
+- Progressive enhancement — tools still work in text-only clients, so the tool always returns text
 
 ### Verification
-- `tools/list` returns the tool with `_meta.ui.resourceUri`
+- The `server/discover` result declares `"io.modelcontextprotocol/ui": {}`
+- `tools/list` returns the tool with both `_meta.ui.resourceUri` and `_meta["ui/resourceUri"]`
 - `resources/list` advertises the `ui://` URI
-- `resources/read` returns the HTML body
-- Inspector's "Refresh Apps" renders the dashboard inside the chat
+- `resources/read` returns the HTML under `text/html;profile=mcp-app`
+- The Inspector's Apps tab lists `key_word_search`, and **Open App** renders the demo page with its sample rows
 
 ### Outcome
-A tool that returns plain text **and** a rendered interactive dashboard, depending on host capability.
+A tool that returns plain text to every client, and carries a page that a host supporting MCP Apps renders beside the result.
 
 ---
 
