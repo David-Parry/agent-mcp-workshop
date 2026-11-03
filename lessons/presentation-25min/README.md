@@ -47,6 +47,7 @@ bright-room conditions (the choice persists in `localStorage`).
 | `trace-log.html` | Raw timestamped JSON-RPC trace with filters |
 | `contact.html` | Links and where to find the code |
 | `theme.css` / `theme.js` | Shared light-theme overrides and the toggle |
+| `presentation-25min.pdf` | The ten pages printed for handing out, one tall page each. After editing a page, print it again with `python3 tools/deck_pdf.py` from the repository root |
 
 `trace-log.html` is the ground truth — every other page is a lens on that same traffic.
 
