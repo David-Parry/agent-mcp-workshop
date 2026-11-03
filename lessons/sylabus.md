@@ -74,7 +74,7 @@ Turn each inbound line into a typed JSON-RPC message, and read the stateless env
 - `02-mcp-json-communication-flow-diagram.md` — JSON examples
 
 ### Verification
-- `./gradlew chapterTest -Pchapter=02` is green: 33 tests, of which the 21 in `JsonRpcMessageDeserializerTest` start red
+- `./gradlew chapterTest -Pchapter=02` is green: 35 tests, of which the 22 in `JsonRpcMessageDeserializerTest` start red
 
 ### Outcome
 Every inbound line becomes either a typed message or a clearly marked non-message, and every request's envelope can be read.

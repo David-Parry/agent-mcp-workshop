@@ -3,6 +3,7 @@ package com.workshop.mcp.spec;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
@@ -65,7 +66,7 @@ public class JsonRpcMessageDeserializer {
      *   <li>If the JSON contains "method" without "id", it's a {@link JsonRpcNotification}</li>
      *   <li>If the JSON contains "result", it's a {@link JsonRpcResponse}</li>
      *   <li>If the JSON contains "error", it's a {@link JsonRpcErrorResponse}</li>
-     *   <li>Otherwise, it's wrapped in an {@link Unknown} object</li>
+     *   <li>Otherwise, or if a member has the wrong type for its shape, it's wrapped in an {@link Unknown} object</li>
      * </ul>
      * 
      * @param json the JSON string to deserialize
@@ -82,23 +83,28 @@ public class JsonRpcMessageDeserializer {
             return new Unknown(json);
         }
         JsonObject jsonObject = tree.getAsJsonObject();
-        if (jsonObject.has("method")) {
-            // An explicit "id": null is still no id. Testing only for the key
-            // being present classified such a message as a request, and the
-            // server then answered a notification with a null id.
-            JsonElement id = jsonObject.get("id");
-            if (id != null && !id.isJsonNull()) {
-                return gson.fromJson(json, JsonRpcRequest.class);
-            } else {
-                return gson.fromJson(json, JsonRpcNotification.class);
+        try {
+            if (jsonObject.has("method")) {
+                // An explicit "id": null is still no id. Testing only for the key
+                // being present classified such a message as a request, and the
+                // server then answered a notification with a null id.
+                JsonElement id = jsonObject.get("id");
+                if (id != null && !id.isJsonNull()) {
+                    return gson.fromJson(json, JsonRpcRequest.class);
+                } else {
+                    return gson.fromJson(json, JsonRpcNotification.class);
+                }
+            } else if (jsonObject.has("result")) {
+                return gson.fromJson(json, JsonRpcResponse.class);
+            } else if (jsonObject.has("error")) {
+                return gson.fromJson(json, JsonRpcErrorResponse.class);
             }
-        } else if (jsonObject.has("result")) {
-            return gson.fromJson(json, JsonRpcResponse.class);
-        } else if (jsonObject.has("error")) {
-            return gson.fromJson(json, JsonRpcErrorResponse.class);
-        } else {
+        } catch (JsonParseException e) {
+            // Well-formed, but a member has the wrong type: an id that is an
+            // object, say. That is an invalid request too, not a parse error.
             return new Unknown(json);
         }
+        return new Unknown(json);
     }
 
     /**

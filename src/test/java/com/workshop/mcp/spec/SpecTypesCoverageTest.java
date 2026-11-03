@@ -181,6 +181,11 @@ class SpecTypesCoverageTest {
             assertTrue(rejected.getMessage().contains("BOOLEAN"), rejected.getMessage());
         }
 
+        @Test
+        void aFractionalIdIsRejectedAsMalformedRatherThanTruncated() {
+            assertThrows(JsonParseException.class, () -> read("1.5"));
+        }
+
         private String write(RequestId id) throws IOException {
             StringWriter json = new StringWriter();
             try (JsonWriter out = new JsonWriter(json)) {

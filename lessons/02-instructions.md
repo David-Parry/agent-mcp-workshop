@@ -4,7 +4,7 @@ In chapter 1 you got lines of text in and out of the process. Those lines are ju
 
 This chapter is where bytes become messages. You will implement `JsonRpcMessageDeserializer`, the single place in the server where inbound JSON is turned into a typed object. Every request the server ever answers passes through the method you are about to write.
 
-Open `src/main/java/com/workshop/mcp/spec/JsonRpcMessageDeserializer.java`. The class, its fields, and its Javadoc are there. Each method body holds a `// Chapter 02:` comment and a `throw new UnsupportedOperationException(...)`, so the class compiles but every call fails; replace both lines with the code.
+Open `src/main/java/com/workshop/mcp/spec/JsonRpcMessageDeserializer.java`. The class, its fields, and its Javadoc are there. Each method body holds a `// Chapter 02:` comment and a `throw new UnsupportedOperationException(...)`, so the class compiles but every call fails; replace the comment and the `throw` with the code.
 
 The line numbers below are where each method starts in the file as you checked it out. The tasks run from the top of the file down, so every paste pushes the methods below it further down: after your first paste, find each method by its name rather than its number.
 
@@ -25,7 +25,7 @@ Anything that fits none of these is not something this server understands, and t
 
 ## First Implementation Task: Classification
 
-Paste at **line 75** of `JsonRpcMessageDeserializer.java`, inside the `deserialize(String json)` body:
+Paste at **line 76** of `JsonRpcMessageDeserializer.java`, inside the `deserialize(String json)` body:
 
 ```java
 JsonElement tree = JsonParser.parseString(json);
@@ -37,23 +37,28 @@ if (!tree.isJsonObject() || !JSON_RPC_VERSION.equals(tree.getAsJsonObject().get(
     return new Unknown(json);
 }
 JsonObject jsonObject = tree.getAsJsonObject();
-if (jsonObject.has("method")) {
-    // An explicit "id": null is still no id. Testing only for the key
-    // being present classified such a message as a request, and the
-    // server then answered a notification with a null id.
-    JsonElement id = jsonObject.get("id");
-    if (id != null && !id.isJsonNull()) {
-        return gson.fromJson(json, JsonRpcRequest.class);
-    } else {
-        return gson.fromJson(json, JsonRpcNotification.class);
+try {
+    if (jsonObject.has("method")) {
+        // An explicit "id": null is still no id. Testing only for the key
+        // being present classified such a message as a request, and the
+        // server then answered a notification with a null id.
+        JsonElement id = jsonObject.get("id");
+        if (id != null && !id.isJsonNull()) {
+            return gson.fromJson(json, JsonRpcRequest.class);
+        } else {
+            return gson.fromJson(json, JsonRpcNotification.class);
+        }
+    } else if (jsonObject.has("result")) {
+        return gson.fromJson(json, JsonRpcResponse.class);
+    } else if (jsonObject.has("error")) {
+        return gson.fromJson(json, JsonRpcErrorResponse.class);
     }
-} else if (jsonObject.has("result")) {
-    return gson.fromJson(json, JsonRpcResponse.class);
-} else if (jsonObject.has("error")) {
-    return gson.fromJson(json, JsonRpcErrorResponse.class);
-} else {
+} catch (JsonParseException e) {
+    // Well-formed, but a member has the wrong type: an id that is an
+    // object, say. That is an invalid request too, not a parse error.
     return new Unknown(json);
 }
+return new Unknown(json);
 ```
 
 ### Understanding the Code
@@ -68,16 +73,21 @@ if (jsonObject.has("method")) {
    - Nor is an object without `"jsonrpc": "2.0"`. `JSON_RPC_VERSION` is a `JsonPrimitive` holding the string `"2.0"`, and comparing it with `equals` rejects a missing member, `null`, another version, and the *number* `2.0`. Calling `getAsString()` instead would let the number through, because Gson turns it into the string `"2.0"`
    - All of these come back as `Unknown` rather than as an exception. Chapter 03 answers `Unknown` with `-32600` Invalid Request and the exception with `-32700` Parse error, and it can only tell the two apart because they arrive differently
 
-3. **`method` decides the direction**:
+3. **The right shape with the wrong types is still not a message**:
+   - `{"jsonrpc":"2.0","id":{"n":1},"method":"tools/list"}` passes every check above, but an id must be a string or a whole number. `RequestIdTypeAdapter` refuses an object, or a fraction like `1.5`, by throwing `JsonParseException`, and Gson does the same for a `method` that is not a string
+   - That is an invalid request, not a parse error, so the conversion sits inside a `try` that turns the exception into `Unknown`
+   - `parseString` is deliberately *outside* the `try`. `JsonSyntaxException` is a kind of `JsonParseException`, so a `try` around everything would catch text that is not JSON too, and make it look like an invalid request
+
+4. **`method` decides the direction**:
    - A `method` means the other side is asking us to do something, or telling us something if there is no id
    - No `method` means it is an answer. A server on this revision never asks the client anything, so an answer arriving here is unexpected: chapter 03's router logs it and moves on
 
-4. **The `id: null` trap**:
+5. **The `id: null` trap**:
    - `has("id")` returns true for `"id": null`, because the key *is* present — it just has a null value
    - Classifying that as a request means the server dutifully sends back a response with `"id": null`, replying to a notification that wanted no reply
    - So test the value, not the key: `id != null && !id.isJsonNull()`
 
-5. **Unknown preserves the evidence**:
+6. **Unknown preserves the evidence**:
    - Rather than throwing, an unrecognised shape is wrapped in `Unknown` with its original text intact
    - This keeps a malformed client's message visible in the logs instead of vanishing, and lets chapter 03 reply with an error the client can act on
 
@@ -85,23 +95,23 @@ if (jsonObject.has("method")) {
 
 - **Structural typing**: JSON-RPC has no type tag, so the shape of the object *is* the type
 - **Absent vs. null**: two different things in JSON, and conflating them is the classic JSON-RPC bug
-- **Two kinds of bad input**: text that is not JSON throws `JsonSyntaxException`, while JSON that is not a JSON-RPC 2.0 message comes back as `Unknown`. Neither is silently swallowed, and keeping them apart is what lets the server send the right error for each
+- **Two kinds of bad input**: text that is not JSON throws `JsonSyntaxException`, while JSON that is not a JSON-RPC 2.0 message, whether the shape or a member's type is wrong, comes back as `Unknown`. Neither is silently swallowed, and keeping them apart is what lets the server send the right error for each
 
 ## Second Implementation Task: Typed Params
 
-Classification gives you a `JsonRpcRequest`, whose `params()` is a generic `Object`. Each method needs its own params record. Paste at **line 95**, inside the `deserializeParams(JsonRpcRequest request, Class<T> paramsClass)` body:
+Classification gives you a `JsonRpcRequest`, whose `params()` is a generic `Object`. Each method needs its own params record. Paste at **line 96**, inside the `deserializeParams(JsonRpcRequest request, Class<T> paramsClass)` body:
 
 ```java
 return gson.fromJson(gson.toJson(request.params()), paramsClass);
 ```
 
-And the same at **line 115**, inside the `JsonRpcNotification` overload:
+Paste the same line at **line 116**, inside the `deserializeParams(JsonRpcNotification request, Class<T> paramsClass)` body, the overload for notifications:
 
 ```java
 return gson.fromJson(gson.toJson(request.params()), paramsClass);
 ```
 
-Then paste at **line 134**, inside `convert(Object value, Class<T> type)`:
+Then paste at **line 135**, inside `convert(Object value, Class<T> type)`:
 
 ```java
 return value == null ? null : gson.fromJson(gson.toJsonTree(value), type);
@@ -119,7 +129,7 @@ Revision `2026-07-28` removed the `initialize` handshake. There is no longer a m
 
 That block is the envelope, and reading it is how the server knows what it is allowed to do on this call.
 
-Paste at **line 158**, inside the `deserializeEnvelope(JsonRpcRequest request)` body:
+Paste at **line 159**, inside the `deserializeEnvelope(JsonRpcRequest request)` body:
 
 ```java
 JsonObject meta = metaObject(request.params());
@@ -133,7 +143,7 @@ return new RequestEnvelope(
         asString(meta.get(MetaKeys.LOG_LEVEL)));
 ```
 
-And the two private helpers it leans on. Paste at **line 164**, inside `metaObject(Object params)`:
+And the two private helpers it leans on. Paste at **line 165**, inside `metaObject(Object params)`:
 
 ```java
 if (params == null) {
@@ -147,7 +157,7 @@ JsonElement meta = tree.getAsJsonObject().get("_meta");
 return (meta != null && meta.isJsonObject()) ? meta.getAsJsonObject() : null;
 ```
 
-...and at **line 170**, inside `asString(JsonElement element)`:
+Then paste at **line 171**, inside the `asString(JsonElement element)` body:
 
 ```java
 return (element != null && element.isJsonPrimitive()) ? element.getAsString() : null;
@@ -185,12 +195,13 @@ That is what makes the server restartable, load-balanceable, and much easier to 
 ./gradlew chapterTest -Pchapter=02
 ```
 
-The run reports 33 tests. The 21 in `JsonRpcMessageDeserializerTest` cover exactly the methods you just wrote, and they all fail until you start. The other 12 are the `SpecTypesCoverageTest` cases tagged for this chapter, in its `Envelopes`, `RequestIds` and `WireRecords` groups. They check the records and the id adapter you were given, so they pass from the start; if one of them fails, given code has been changed. Failures worth recognising:
+The run reports 35 tests, and 22 of them fail before you start: those are `JsonRpcMessageDeserializerTest`, which covers exactly the methods you just wrote. The other 13 are the `SpecTypesCoverageTest` cases tagged for this chapter, in its `Envelopes`, `RequestIds` and `WireRecords` groups. They check the records and the id adapter you were given, so they pass from the start; if one of them fails, given code has been changed. Failures worth recognising:
 
 - `aMessageWhoseIdIsExplicitlyNullIsStillANotification` — you tested `has("id")` instead of testing the value.
 - `jsonThatIsNotAnObjectIsUnknownRatherThanRejected` — you called `getAsJsonObject()` before checking `isJsonObject()`, so an array or a bare value throws `IllegalStateException` instead of coming back as `Unknown`.
 - `aMessageThatDoesNotSayItIsJsonRpc2IsUnknown` — the version check is missing, or it uses `getAsString()`, which also accepts the number `2.0`.
-- `malformedJsonIsRejected` — something is catching the `JsonSyntaxException` that `parseString` throws. Let it escape.
+- `aMessageWhoseMembersHaveTheWrongTypesIsUnknownRatherThanRejected` — the `try`/`catch` around the conversion is missing, so the `JsonParseException` for an object id escapes as if the text were not JSON.
+- `malformedJsonIsRejected` — something is catching the `JsonSyntaxException` that `parseString` throws, usually a `try` that starts above `parseString`. Let it escape.
 - `anEnvelopeFieldThatIsNotAPrimitiveIsReadAsAbsent` — `asString` is calling `getAsString()` without checking `isJsonPrimitive()` first.
 - `aRequestWithNoParamsHasAnIncompleteEnvelopeRatherThanNone` — `metaObject` is not returning null for absent params, so the null check in `deserializeEnvelope` never fires.
 
@@ -231,7 +242,7 @@ void aTraceparentIsReadOutOfParamsMeta() {
 }
 ```
 
-Logging the value belongs to the router, which arrives in chapter 03. `03-chapter` starts from the reference solution, so you would add the method again there, and then log it where `IORouter.process(JsonRpcRequest message)` begins:
+Logging the value belongs to the router, which arrives in chapter 03. If you merge `03-chapter` into your own code, the method comes with you. If you check `03-chapter` out instead, it starts from the reference solution, so you would add the method again. Either way, log the value where `IORouter.process(JsonRpcRequest message)` begins:
 
 ```java
 String traceparent = deserializer.traceparent(message);
@@ -243,3 +254,5 @@ if (traceparent != null) {
 ## Where this goes next
 
 You now have typed messages, but nothing routes them. Chapter 3 takes the `RequestEnvelope` you just parsed and uses it: checking the protocol version, answering `server/discover`, and dispatching each method to a handler. It also answers the two kinds of bad input differently: `-32700` for the `JsonSyntaxException`, `-32600` for an `Unknown`.
+
+Start it with `./clean-checkout.sh 03-chapter`, or keep your own code: commit it and run `git merge origin/03-chapter`. The README explains both.

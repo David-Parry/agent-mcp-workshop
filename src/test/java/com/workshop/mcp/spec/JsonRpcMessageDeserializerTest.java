@@ -124,6 +124,19 @@ class JsonRpcMessageDeserializerTest {
         }
     }
 
+    @Test
+    void aMessageWhoseMembersHaveTheWrongTypesIsUnknownRatherThanRejected() {
+        // Well-formed JSON with an id that is an object or a fraction, or a
+        // method that is not a string, is an invalid request. Only text that
+        // is not JSON at all is a parse error.
+        for (String json : List.of(
+                "{\"jsonrpc\":\"2.0\",\"id\":{\"n\":1},\"method\":\"tools/list\"}",
+                "{\"jsonrpc\":\"2.0\",\"id\":1.5,\"method\":\"tools/list\"}",
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":{\"name\":\"tools/list\"}}")) {
+            assertEquals(new Unknown(json), deserializer.deserialize(json), json);
+        }
+    }
+
     // --- params ----------------------------------------------------------
 
     @Test

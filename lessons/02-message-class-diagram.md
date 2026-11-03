@@ -140,7 +140,7 @@ classDiagram
 
 ## Reading the diagram
 
-- **Five possible answers from `deserialize`.** The four JSON-RPC shapes, plus `Unknown` for well-formed JSON that is not a JSON-RPC 2.0 message: an array, a bare value, an object without `"jsonrpc": "2.0"`, or an object with none of `method`, `result` and `error`. Text that is not JSON at all throws instead, so chapter 03 can answer the two cases with different errors.
+- **Five possible answers from `deserialize`.** The four JSON-RPC shapes, plus `Unknown` for well-formed JSON that is not a JSON-RPC 2.0 message: an array, a bare value, an object without `"jsonrpc": "2.0"`, an object with none of `method`, `result` and `error`, or one whose members have the wrong types, such as an id that is an object. Text that is not JSON at all throws instead, so chapter 03 can answer the two cases with different errors.
 - **An id is a string or a number, never both.** `RequestId` keeps whichever form arrived, and `RequestIdTypeAdapter` writes it back the same way, because a server must quote an id exactly as the client sent it. `McpGson.create()` is the one place the adapter is registered, so every component that reads or writes JSON shares it.
 - **The envelope is not a params record.** Its keys, such as `io.modelcontextprotocol/protocolVersion`, are not legal Java identifiers, so `deserializeEnvelope` reads them by the names in `MetaKeys` and builds a `RequestEnvelope` by hand.
 - **`traceparent`, `tracestate` and `baggage`** are in `MetaKeys` because the specification reserves them unprefixed for W3C trace context. This server does not read them yet; see the stretch exercise in the [instructions](02-instructions.md).

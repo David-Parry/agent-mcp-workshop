@@ -5,7 +5,8 @@ package com.workshop.mcp.spec;
  * <p>
  * This record is used as a fallback when deserializing JSON data that doesn't match
  * any known message types or structures: an array, a bare value, an object without
- * {@code "jsonrpc": "2.0"}, or one that is none of the four message shapes. It is
+ * {@code "jsonrpc": "2.0"}, one that is none of the four message shapes, or one
+ * whose members have the wrong types, such as an id that is an object. It is
  * well-formed JSON that is not a valid message, which JSON-RPC answers with
  * {@link ErrorCodes#INVALID_REQUEST}. It preserves the raw JSON string for
  * potential future processing or error handling.

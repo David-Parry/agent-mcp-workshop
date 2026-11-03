@@ -50,7 +50,15 @@ public class RequestIdTypeAdapter extends TypeAdapter<RequestId> {
                 yield null;
             }
             case STRING -> RequestId.of(in.nextString());
-            case NUMBER -> RequestId.of(in.nextLong());
+            case NUMBER -> {
+                // A long cannot echo 1.5 back unchanged, and JSON-RPC says an
+                // id should have no fractional part, so such an id is malformed.
+                try {
+                    yield RequestId.of(in.nextLong());
+                } catch (NumberFormatException e) {
+                    throw new JsonParseException("A numeric JSON-RPC id must be a whole number", e);
+                }
+            }
             default -> throw new JsonParseException(
                     "A JSON-RPC id must be a string or a number, but was " + in.peek());
         };
