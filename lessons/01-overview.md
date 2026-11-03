@@ -81,7 +81,8 @@ classDiagram
         -static String DEFAULT_LOG_FILE_NAME
         -static String DEFAULT_LOG_FILE_EXTENSION
         -static LogFileWriter instance
-        -SimpleDateFormat timestampFormat
+        -static DateTimeFormatter FILE_TIMESTAMP_FORMAT
+        -DateTimeFormatter timestampFormat
         -String processId
         -String startupTimestamp
         -PrintWriter logWriter

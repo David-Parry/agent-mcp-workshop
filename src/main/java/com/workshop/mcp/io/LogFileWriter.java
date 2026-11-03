@@ -5,8 +5,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.management.ManagementFactory;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * File-based implementation of the LogFile interface that provides persistent logging capabilities.
@@ -38,9 +38,10 @@ import java.util.Date;
  * the run goes to the same file even if logging happens minutes after
  * startup.</p>
  *
- * <p>Thread Safety: This class is thread-safe for initialization. However, individual
- * logging operations are not synchronized, so concurrent logging from multiple threads
- * may result in interleaved output.</p>
+ * <p>Thread Safety: every method may be called from several threads at once. Writes are
+ * synchronized, because the file is opened by whichever call logs first: unsynchronized,
+ * two threads logging together could each open it and close the other's writer, and the
+ * lines written to the closed one were lost.</p>
  *
  * @author Workshop MCP Team
  * @version 1.0
@@ -63,11 +64,11 @@ public class LogFileWriter implements LogFile {
     /** Singleton instance, marked volatile for thread safety */
     private static volatile LogFileWriter instance;
 
-    /** Date formatter for timestamp generation in log entries */
-    private final SimpleDateFormat timestampFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    /** Date formatter for timestamp generation in log entries; immutable, so threads can share it */
+    private final DateTimeFormatter timestampFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     /** Date formatter for the per-run timestamp embedded in the log file name */
-    private static final SimpleDateFormat FILE_TIMESTAMP_FORMAT = new SimpleDateFormat("yyyyMMdd-HHmmss");
+    private static final DateTimeFormatter FILE_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     /**
      * Process ID resolved once at initialization and cached for subsequent log operations.
@@ -80,7 +81,7 @@ public class LogFileWriter implements LogFile {
      * the log file name. Captured here so every invocation of this run writes
      * to the same file even if the first log message is delayed.
      */
-    private final String startupTimestamp = FILE_TIMESTAMP_FORMAT.format(new Date());
+    private final String startupTimestamp = FILE_TIMESTAMP_FORMAT.format(LocalDateTime.now());
 
     /** PrintWriter for writing log entries to the file */
     private PrintWriter logWriter;
@@ -162,7 +163,7 @@ public class LogFileWriter implements LogFile {
     }
 
     public void log(String message) {
-        String timestamp = timestampFormat.format(new Date());
+        String timestamp = timestampFormat.format(LocalDateTime.now());
         logRaw("[" + timestamp + "] " + message);
     }
 
@@ -175,7 +176,7 @@ public class LogFileWriter implements LogFile {
      *
      * @param message the raw message to log
      */
-    public void logRaw(String message) {
+    public synchronized void logRaw(String message) {
         try {
             if (logWriter == null) {
                 createNewLogFile();
@@ -197,13 +198,13 @@ public class LogFileWriter implements LogFile {
      * @param message the message to log
      * @param exception the exception whose stack trace should be logged
      */
-    public void log(String message, Throwable exception) {
+    public synchronized void log(String message, Throwable exception) {
         try {
             if (logWriter == null) {
                 createNewLogFile();
             }
 
-            String timestamp = timestampFormat.format(new Date());
+            String timestamp = timestampFormat.format(LocalDateTime.now());
             logWriter.println("[" + timestamp + "] " + message);
             exception.printStackTrace(logWriter);
             logWriter.flush();
@@ -215,7 +216,7 @@ public class LogFileWriter implements LogFile {
     /**
      * Close the logger and release resources
      */
-    public void close() {
+    public synchronized void close() {
         PrintWriter closing = logWriter;
         // Cleared before the close is attempted, not after. Leaving the field
         // set when close() threw kept it pointing at a dead writer, and since

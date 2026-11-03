@@ -443,23 +443,24 @@ class LogFileWriterTest {
         startLatch.countDown();
         assertTrue(endLatch.await(10, TimeUnit.SECONDS), "All threads should complete");
         executor.shutdown();
-        
-        // Give a small delay to ensure all writes are flushed
-        Thread.sleep(100);
 
-        // Then
-        Path logsDir = Paths.get("logs");
-        Path logFilePath = Files.list(logsDir)
-                .filter(path -> path.toString().endsWith(".log"))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Log file not found"));
+        // Then every line arrived. The threads all log their first line at
+        // once, which is exactly when the file is being opened.
+        List<String> lines;
+        try (Stream<Path> files = Files.list(Paths.get("logs"))) {
+            lines = files.filter(path -> path.toString().endsWith(".log"))
+                    .flatMap(path -> {
+                        try {
+                            return Files.readAllLines(path).stream();
+                        } catch (IOException e) {
+                            throw new AssertionError("Could not read " + path, e);
+                        }
+                    })
+                    .filter(line -> line.matches("\\[.+] Thread \\d - Message \\d"))
+                    .toList();
+        }
 
-        List<String> lines = Files.readAllLines(logFilePath);
-        
-        // Due to potential race conditions in file writing, we check for at least 90% of messages
-        int expectedMessages = threadCount * messagesPerThread;
-        assertTrue(lines.size() >= (int)(expectedMessages * 0.9), 
-                "Should have at least 90% of messages from all threads. Expected: " + expectedMessages + ", Actual: " + lines.size());
+        assertEquals(threadCount * messagesPerThread, lines.size(), "a line was lost: " + lines);
     }
 
     @Test
