@@ -13,9 +13,9 @@ The first step in building our MCP server is to implement the input reading func
 Paste at **line 143** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `startInputReader()` body:
 
 ```java
-// Claim the running flag in a single atomic step. If we read the flag here and
-// set it further down, two threads could both get past this check and open two
-// Scanners over the same System.in.
+// Claim the running flag in a single atomic step. Reading the flag here
+// and setting it further down would let two threads both get past this
+// point and open two Scanners over the same System.in.
 if (!running.compareAndSet(false, true)) {
     return; // Already running
 }
@@ -206,7 +206,7 @@ All three methods are graded by tests that ship on this branch. Run them:
 ./gradlew chapterTest -Pchapter=01
 ```
 
-Not everything starts red. Before you write anything, 13 of the 58 chapter tests fail, all of them in `IOHandlerImplTest`. `LogFileWriterTest`, the `Server` tests, and 4 of the 17 `IOHandlerImplTest` cases already pass, because they test code this branch gives you, or input that is empty or broken before a line is ever read. When all 58 are green, the transport layer is finished and you can move on to chapter 2.
+The run reports 58 tests, and 13 of them fail before you start, all of them in `IOHandlerImplTest`. `LogFileWriterTest`, the `Server` tests, and 4 of the 17 `IOHandlerImplTest` cases already pass, because they test code this branch gives you, or input that is empty or broken before a line is ever read. When all 58 are green, the transport layer is finished and you can move on to chapter 2.
 
 If you want to see the full failure output for a single test while debugging:
 
@@ -219,3 +219,7 @@ A few failures worth recognising:
 - `testStartInputReader_AlreadyRunning` or `testStartInputReader_ReentrantCall_...` failing usually means the `compareAndSet` guard is missing, so a second call starts a second Scanner.
 - `testListenerExceptionHandling` failing means the `try`/`catch` inside the `publishLine` loop is missing, so one broken listener stops the rest from being notified.
 - `testEmit_*` failing usually means the message was written without going through `gson.toJson`. A `String` has to come out quoted, because what goes on the wire is JSON.
+
+## Where this goes next
+
+The server can now read lines and write JSON, but it cannot tell one message from another. Chapter 2 turns each line into a typed JSON-RPC message. Start it with `./clean-checkout.sh 02-chapter`, or keep your own code: commit it and run `git merge origin/02-chapter`. The README explains both.
