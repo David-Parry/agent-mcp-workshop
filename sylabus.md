@@ -234,31 +234,33 @@ A tool that returns plain text to every client, and carries a page that a host s
 **Branch**: `07-chapter`
 
 ### Objective
-Implement the **`io.modelcontextprotocol/tasks` extension** — turn any expensive `tools/call` into a deferred, pollable, cancellable operation.
+Implement the **`io.modelcontextprotocol/tasks` extension**, Stable in its `2026-07-28` version — turn a slow `tools/call` into an operation the client polls, answers and cancels.
 
 ### What You'll Build
-- Spec records: `Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams`
-- `TaskStore` — framework-free in-memory state machine with status listeners
-- The extension declared under `capabilities.extensions` in the `server/discover` result
-- A `TOOLS_CALL` branch that returns an **unsolicited** `resultType: "task"` handle when the client declared the extension
-- Three request handlers: `tasks/get`, `tasks/update`, `tasks/cancel`
-- One new outbound notification: `notifications/tasks`
+- `TaskStore` — a framework-free, in-memory store: `create`, `complete`, `fail`, `requireInput`, `applyInput`, `awaitInput` and `cancel`
+- `runSearchAsTaskThatAsks` — a search that asks for its directory as the task's `input_required` status
+- The `tasks/get`, `tasks/update` and `tasks/cancel` cases
+- Given, and read first: the records `Task`, `TaskStatus`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams` and `TasksCancelParams`; the extension declared under `capabilities.extensions` in the `server/discover` result; the `tools/call` branch that returns an **unsolicited** `resultType: "task"` handle to a client that declared the extension; and the `-32021` refusal of every task method to a client that did not
 
 ### Key Concepts
 - **The server decides, not the client.** There is no `task: { ttl }` opt-in any more — a server may answer any call with a handle, provided the client declared the extension *on that request*
-- The lifecycle state machine: `working → input_required ⇄ working → completed | failed | cancelled`
+- The lifecycle state machine: `working → input_required ⇄ working → completed | failed | cancelled`, and a terminal task never changes status again
 - Polling replaced blocking: `tasks/result` and `tasks/list` are gone, and the client polls `tasks/get` at `pollIntervalMs`
-- `tasks/update` is the only reason `input_required` exists at the task level — it delivers `inputResponses` to a task that is waiting
-- `ttlMs` / `pollIntervalMs` naming, and the terminal-state rule: a receiver MUST NOT move a terminal task back to `working`
+- A task that needs input asks through its status, and `tasks/update` delivers the `inputResponses`
+- `tasks/update` and `tasks/cancel` are acknowledged with an empty result: answers the task is not waiting for are ignored, and cancelling a finished task leaves it finished
+- `notifications/tasks` goes only to a client that subscribed with `subscriptions/listen`; this server sends none, and the client polls
+- `ttlMs` / `pollIntervalMs` naming, and the TTL is the server's alone
 
 ### Verification
 - The `server/discover` result carries `extensions["io.modelcontextprotocol/tasks"]`
 - `tools/list` shows no `execution` field — `Tool.execution` / `taskSupport` was removed
-- A `tools/call` from a task-declaring client returns `resultType: "task"` in ms
+- A `tools/call` from a task-declaring client returns `resultType: "task"` in milliseconds
 - The same call from a client that did *not* declare the extension runs inline and returns `complete`
 - `tasks/get` reports `working` then `completed`, carrying the result
-- `tasks/cancel` of a terminal task returns JSON-RPC error `-32602`
-- `notifications/tasks` arrives on every status transition
+- A call with no directory reaches `input_required`, and `tasks/update` resumes it
+- `tasks/update` and `tasks/cancel` answer with an empty acknowledgement, and a finished task that is cancelled stays `completed`
+- A task method from a client that did not declare the extension gets `-32021`
+- No `notifications/tasks` arrives for a client that did not subscribe
 
 ### Outcome
 A server that implements the call-now / fetch-later pattern at the protocol level — the same pattern used by production batch APIs and long-running ML jobs.
@@ -324,5 +326,5 @@ By completing this workshop, you'll have:
 - Add additional tools to your server, deciding per call whether each one hands back a task handle
 - Implement custom resources for your domain
 - Create specialized prompts for your workflows
-- Extend task augmentation to `elicitation/create` (Ch 7 covers tools-only as the primary path)
+- Push task status to clients that subscribe with `subscriptions/listen`
 - Share your MCP server with your team
