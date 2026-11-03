@@ -19,12 +19,15 @@ Build the bidirectional I/O infrastructure that enables communication between MC
 
 ### What You'll Build
 - `IOHandlerImpl` — manages input/output streams
-- `LogFileWriter` — thread-safe logging to files
 - Event-driven listener architecture
+
+### What You're Given
+- `LogFileWriter` — thread-safe logging to a per-run file under `logs/`, already written; stdout is reserved for protocol messages
+- `Server` — the lifecycle that registers the router as a listener and exits when stdin closes
 
 ### Key Concepts
 - STDIO-based communication
-- Thread-safe input reading with `Scanner`
+- A blocking read loop on the main thread, with an atomic guard against a second reader
 - Observer pattern for message distribution
 - JSON serialization with Gson
 
@@ -38,32 +41,43 @@ A working transport layer that can read input, publish to listeners, and emit JS
 
 ---
 
-## Chapter 2: JSON-RPC Protocol Review
+## Chapter 2: Reading JSON-RPC Messages
 
 **Branch**: `02-chapter`
 
 ### Objective
-Understand the JSON-RPC 2.0 protocol that MCP uses for all communication.
+Turn each inbound line into a typed JSON-RPC message, and read the stateless envelope every request carries.
 
-### What You'll Learn
-- JSON-RPC request/response structure
-- Message types: Request, Response, Notification, Error
-- MCP's extension of JSON-RPC
-- Capability negotiation concepts
+### What You'll Build
+- `JsonRpcMessageDeserializer` — classification, typed params, and the `params._meta` envelope
+
+### What You're Given
+- The message records (`JsonRpcRequest`, `JsonRpcNotification`, `JsonRpcResponse`, `JsonRpcErrorResponse`, `Unknown`), `RequestEnvelope`, and the capability records it holds
+- `RequestId` and `RequestIdTypeAdapter`, registered once in `McpGson`, so an id goes back out as the string or number it arrived as
+- `MetaKeys` and `ErrorCodes` — the specification's key names and error numbers
 
 ### Key Concepts
-- Stateless request-response pattern
-- Transport-agnostic protocol design
-- Bidirectional communication
-- Structured data exchange with schemas
+- Structural typing: JSON-RPC has no type tag, so the fields present decide the shape
+- `"jsonrpc": "2.0"` is required, and malformed JSON fails differently from well-formed JSON that is not a message, so chapter 3 can answer `-32700` and `-32600`
+- Absent versus null, and the `"id": null` notification trap
+- Requests flow from client to server only: a server MUST NOT initiate one
+- Statelessness: every request re-declares its context in `params._meta`, whose reserved prefixes and unprefixed trace keys the specification defines
+
+### Tasks
+1. Implement `deserialize()` — set aside what is not a message, then classify the four shapes
+2. Implement both `deserializeParams()` overloads and `convert()`
+3. Implement `deserializeEnvelope()` and its helpers `metaObject()` and `asString()`
 
 ### Supporting Materials
-- `02-message-class-diagram.md` — class relationships
+- `02-message-class-diagram.md` — this chapter's classes
 - `02-mcp-message-flow.md` — message sequence diagrams
 - `02-mcp-json-communication-flow-diagram.md` — JSON examples
 
+### Verification
+- `./gradlew chapterTest -Pchapter=02` is green: 35 tests, of which the 22 in `JsonRpcMessageDeserializerTest` start red
+
 ### Outcome
-Understanding of how MCP messages are structured and exchanged.
+Every inbound line becomes either a typed message or a clearly marked non-message, and every request's envelope can be read.
 
 ---
 
@@ -87,11 +101,11 @@ Implement `server/discover` and the per-request envelope that replaced the hands
 ### Tasks
 1. Fill `discoverResult()` and the `server/discover` shortcut (answered before any version check)
 2. Fill `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported`) for an unsupported revision
-3. Build and test with MCP Inspector in modern mode (`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`)
+3. Build and test with MCP Inspector (`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`)
 4. Fill the notification handler using Chapter 2's `deserializeParams` and the existing `NotificationCancelledParams`
 
 ### Verification
-- MCP Inspector connects successfully with `"protocolEra": "modern"`
+- MCP Inspector connects successfully with `"protocolEra": "auto"`, and the first message on the wire is `server/discover`, not `initialize`
 - Discovery completes (green status) — note the **string** id on that first message
 - `initialize` returns `-32601`, checked before the envelope so a legacy client is told the truth
 - A request with no `_meta` returns `-32602`; one declaring `2025-11-25` returns `-32022`
@@ -244,7 +258,7 @@ A server that implements the call-now / fetch-later pattern at the protocol leve
 
 ## Bonus: Agent Chapter — Live LLM Integration & Supervised Workflow
 
-**Branch**: `agent-chapter`
+**Branch**: `complete`, with the lessons in `lessons/agent-instructions.md` and `lessons/bonus-live-llm-instructions.md`
 
 ### Objective
 Connect your MCP server to a real AI coding assistant and use it in conversation, then layer on a Claude Code plugin that supervises a multi-step workflow against the server.
@@ -253,7 +267,7 @@ Connect your MCP server to a real AI coding assistant and use it in conversation
 1. Create / register `mcp.json` for your chosen client
 2. Verify tool discovery
 3. Have real conversations using your tool
-4. Build a Claude Code plugin with four composable skills and a 6-step audit workflow that pauses at an approval checkpoint
+4. Build a Claude Code plugin with four composable skills and a 6-step audit workflow that pauses at an approval checkpoint — note that these are host-installed skills, not the `io.modelcontextprotocol/skills` extension, which serves the same `SKILL.md` artifacts over the protocol instead
 
 ### Supported Clients
 | Client | Configuration Location |
