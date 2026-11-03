@@ -234,7 +234,7 @@ A tool that returns plain text to every client, and carries a page that a host s
 **Branch**: `07-chapter`
 
 ### Objective
-Implement the **`io.modelcontextprotocol/tasks` extension**, Stable in its `2026-07-28` version — turn a slow `tools/call` into an operation the client polls, answers and cancels.
+Implement the **`io.modelcontextprotocol/tasks` extension**, at the Beta stage and headed for core — turn a slow `tools/call` into an operation the client polls, answers and cancels.
 
 ### What You'll Build
 - `TaskStore` — a framework-free, in-memory store: `create`, `complete`, `fail`, `requireInput`, `applyInput`, `awaitInput` and `cancel`
