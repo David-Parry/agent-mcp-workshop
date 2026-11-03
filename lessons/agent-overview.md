@@ -110,7 +110,7 @@ agent-mcp-workshop/
 
 ### How `java-script-runner` Carries Its Own Code
 
-The `java-script-runner` SKILL.md has the full `FileAnalyzer` Java 21 source **embedded directly inside it**. When the `audit` skill reaches Step 3, Claude reads that embedded source, writes it to `/tmp/FileAnalyzer_$$.java`, runs it through the JVM, displays the output, and deletes the temp file. No external `.java` file exists anywhere on disk.
+The `java-script-runner` SKILL.md has the full `FileAnalyzer` source **embedded directly inside it**: an ordinary Java class, which `java FileAnalyzer.java` runs on any JDK from 21 on. When the `audit` skill reaches Step 3, Claude reads that embedded source, writes it to `/tmp/FileAnalyzer_$$.java`, runs it through the JVM, displays the output, and deletes the temp file. No external `.java` file exists anywhere on disk.
 
 This technique — embedding executable source inside a skill's markdown — means the skill is completely self-contained and portable.
 
@@ -179,7 +179,7 @@ graph LR
     C --> D[Launch with start_claude_mcp.sh]
     D --> E[Explore each skill in the plugin]
     E --> F[Run audit as supervised agent]
-    F --> G[Add your own skill to the plugin]
+    F --> G[Stretch: add your own skill]
 
     style A fill:#e0e0e0
     style B fill:#e0e0e0

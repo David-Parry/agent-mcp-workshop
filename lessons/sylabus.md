@@ -275,21 +275,23 @@ A server that implements the call-now / fetch-later pattern at the protocol leve
 Connect your MCP server to a real AI coding assistant and use it in conversation, then layer on a Claude Code plugin that supervises a multi-step workflow against the server.
 
 ### What You'll Do
-1. Create / register `mcp.json` for your chosen client
+1. Register the server with your chosen client, from `lessons/mcp.json`
 2. Verify tool discovery
 3. Have real conversations using your tool
 4. Build a Claude Code plugin with four composable skills and a 6-step audit workflow that pauses at an approval checkpoint — note that these are host-installed skills, not the `io.modelcontextprotocol/skills` extension, which serves the same `SKILL.md` artifacts over the protocol instead
 
 ### Supported Clients
+The client must speak MCP revision `2026-07-28`, because the server refuses the `initialize` handshake of earlier revisions.
+
 | Client | Configuration Location |
 |--------|------------------------|
-| Claude Code | Project `mcp.json` (auto-discovered) |
-| Cursor | Settings → MCP Servers |
+| Claude Code 2.1.292 or later | `./start_claude_mcp.sh`, which passes `lessons/mcp.json` with `--mcp-config` |
+| Cursor | Settings → MCP, once it speaks `2026-07-28` |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
 | Cline | VS Code extension settings |
 
 ### Example Conversations
-- "Search for 'TODO' and tell me which file has the most occurrences"
+- "Search for 'deprecated' and tell me which file has the most occurrences"
 - "Find all files containing 'test' and summarize the testing approach"
 - "Compare occurrences of 'error' vs 'exception' in the codebase"
 

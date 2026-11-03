@@ -25,7 +25,7 @@ Generate a structured markdown report analyzing the distribution and significanc
 When this skill is invoked:
 
 1. Extract the keyword argument
-2. Call `key_word_search(keyword: "<keyword>")`
+2. Call `key_word_search(keyword: "<keyword>", directory: "<absolute path>")`, always passing `directory`: the absolute path of the project's `src/main/java`, or of the project root if it has none. Without it the server stops to ask the user for one.
 3. Group files by their Java package (directory path segment after `java/`)
 4. Calculate the percentage concentration in the top file
 5. Generate a markdown report with: Summary, Distribution by Package, Files Requiring Attention, Recommendation

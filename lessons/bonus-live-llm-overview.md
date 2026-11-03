@@ -4,8 +4,8 @@
 > This was chapter 6 before MCP Apps took that slot. It is not part of the
 > timed workshop, but it is the natural thing to do once the server works:
 > point a real assistant at it and watch a model choose your tool.
-> It predates revision `2026-07-28`, so treat the wiring as current and any
-> protocol detail as historical.
+> It runs on the finished server, and needs a client that speaks revision
+> `2026-07-28`.
 
 ## The Complete Lifecycle: From Code to Conversation
 
@@ -74,23 +74,19 @@ With the MCP Inspector, you manually tested individual tool calls. Now you'll se
 
 ## What Your MCP Server Provides
 
-Your `key_word_search` tool handles the predictable, deterministic work:
+Your `key_word_search` tool handles the predictable, deterministic work. Asked for `deprecated` in `src/main/java`, it answers with one text item per matching file:
 
-```json
-{
-  "keyword": "TODO",
-  "results": [
-    {"file": "src/main.java", "count": 12},
-    {"file": "src/util.java", "count": 5}
-  ]
-}
+```text
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java, keyword_count=2
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/AppMeta.java, keyword_count=2
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/InputRequest.java, keyword_count=1
 ```
 
 ## What the LLM Adds
 
 The AI interprets, explains, and provides context:
 
-> "I found 17 occurrences of 'TODO' across your project. Most are concentrated in `src/main.java` (12 occurrences), which suggests this file may have been written quickly and needs review. Would you like me to analyze the specific TODO comments?"
+> "'deprecated' appears 7 times across 5 files. The two hits in `IORouter.java` are comments about features revision 2026-07-28 deprecates, and the two in `AppMeta.java` explain why it still emits the old flat `ui/resourceUri` key. Would you like me to walk through each one?"
 
 ## Division of Responsibilities
 
@@ -111,12 +107,12 @@ The AI interprets, explains, and provides context:
 
 ## Supported Code Generation Clients
 
-You can use any MCP-compatible client:
+You can use any MCP-compatible client that speaks revision `2026-07-28`; this server refuses the `initialize` handshake that earlier revisions open with.
 
 | Client | MCP Config Location |
 |--------|---------------------|
-| **Claude Code** | `~/.claude/claude_desktop_config.json` or project `mcp.json` |
-| **Cursor** | Settings → MCP Servers |
+| **Claude Code** (2.1.292 or later) | `./start_claude_mcp.sh` passes `lessons/mcp.json` with `--mcp-config`; Claude Code also reads a project `.mcp.json` |
+| **Cursor** | Settings → MCP, once it speaks `2026-07-28`; the version checked speaks `2025-11-25` |
 | **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
 | **Cline** | VS Code extension settings |
 | **Continue** | `~/.continue/config.json` |
@@ -130,24 +126,26 @@ sequenceDiagram
     participant MCP_Config
     participant Your_Server
 
-    You->>LLM_Client: "Find files with the most TODOs"
+    You->>LLM_Client: "Which files mention deprecated?"
     LLM_Client->>MCP_Config: Read mcp.json
     MCP_Config->>Your_Server: Launch java -jar ...
 
+    LLM_Client->>Your_Server: server/discover
+    Your_Server-->>LLM_Client: 2026-07-28, capabilities
     LLM_Client->>Your_Server: List available tools
     Your_Server-->>LLM_Client: key_word_search tool
 
-    LLM_Client->>Your_Server: Call key_word_search("TODO")
+    LLM_Client->>Your_Server: Call key_word_search("deprecated")
     Your_Server->>Your_Server: Scan files, count keywords
     Your_Server-->>LLM_Client: Return frequency data
 
     LLM_Client->>LLM_Client: Interpret results
-    LLM_Client-->>You: "Found 47 TODOs, mostly in API layer..."
+    LLM_Client-->>You: "7 hits in 5 files, mostly notes on deprecated spec features..."
 ```
 
 ## What You'll Do
 
-1. **Configure**: Add your MCP server to your client's `mcp.json`
+1. **Configure**: Point your client at the server, using `lessons/mcp.json`
 2. **Launch**: Start your code generation client
 3. **Converse**: Ask questions that use your tool
 4. **Observe**: Watch the complete lifecycle in action
@@ -165,7 +163,7 @@ Your deterministic tool + AI reasoning = Actionable insights
 ## Next Steps
 
 Follow the instructions to:
-1. Create your `mcp.json` configuration
+1. Read the server configuration in `lessons/mcp.json`
 2. Register it with your chosen client
 3. Have your first live conversation with your MCP server
 

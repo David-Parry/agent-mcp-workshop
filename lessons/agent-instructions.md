@@ -1,4 +1,4 @@
-# Chapter Agent: Running Your MCP Server with a Live LLM
+# Agent Chapter: Running Your MCP Server with a Live LLM
 
 ## What You're Building
 
@@ -7,7 +7,8 @@ In this lesson you will:
 2. Build the `keyword-audit-plugin` step by step — creating the manifest and copying each skill from the reference, reading and understanding each one as you go
 3. Launch in development mode with a single script
 4. Run each skill individually, then run the full supervised audit end-to-end
-5. Write your own skill and add it to the plugin
+
+The Stretch steps at the end have you write a skill of your own.
 
 The reference plugin lives at `lessons/keyword-audit-plugin/`. Your working copy will be at `keyword-audit-plugin/` in the project root — the same two-folder pattern used in earlier chapters.
 
@@ -28,11 +29,30 @@ agent-mcp-workshop/
 
 ---
 
-## Step 1: Create the MCP Server Configuration
+## Before You Start
 
-The `mcp.json` file tells Claude Code how to launch your MCP server process.
+This chapter runs on the finished server. Start from the `complete` branch and build it:
 
-**Action Required**: Create `mcp.json` in the project root:
+```bash
+./clean-checkout.sh complete
+./gradlew clean build
+```
+
+`complete` already contains the finished plugin at `keyword-audit-plugin/`. Remove it, so that you build it yourself in Steps 3 and 4:
+
+```bash
+rm -rf keyword-audit-plugin
+```
+
+You need:
+- **Claude Code 2.1.292 or later.** This server speaks only MCP revision `2026-07-28`, and 2.1.292 is the release that made Claude Code negotiate that revision with local servers on every install. Check with `claude --version`. Leave `MCP_PROTOCOL_NEGOTIATION` unset: set to `legacy`, it makes Claude Code open with `initialize`, which this server refuses.
+- **A JDK from 21 on**, for the server and for the `java-script-runner` skill.
+
+---
+
+## Step 1: Read the MCP Server Configuration
+
+Claude Code needs to know how to launch your server. The project keeps that in one file, `lessons/mcp.json`:
 
 ```json
 {
@@ -41,29 +61,30 @@ The `mcp.json` file tells Claude Code how to launch your MCP server process.
       "command": "java",
       "args": [
         "-jar",
-        "build/libs/agent-mcp-workshop-0.0.1.jar"
+        "{YOUR_BASE}/build/libs/agent-mcp-workshop-0.0.1.jar"
       ],
-      "env": {}
+      "env": {
+      }
     }
   }
 }
 ```
 
-If the JAR doesn't exist yet, build it first:
+`{YOUR_BASE}` stands for the absolute path of your checkout. You don't edit it: `start_claude_mcp.sh` fills it in each time it starts Claude Code.
 
-```bash
-./gradlew clean build
-```
+Claude Code does not read `mcp.json` on its own. It reads `.mcp.json` in a project's root, the servers you add with `claude mcp add`, and any file passed with `--mcp-config`, which is what the script uses.
 
 ---
 
 ## Step 2: Use Your MCP Server in a Live Conversation
 
-Before adding the plugin, verify the MCP tool works on its own. Start Claude Code:
+Before adding the plugin, verify the MCP tool works on its own. Start Claude Code through the project's script:
 
 ```bash
-claude
+./start_claude_mcp.sh
 ```
+
+The script prints `Plugin     : not built yet` and starts Claude Code with only the MCP server. Run `/mcp` and select `workshop`: it should be connected, with `2026-07-28` as its protocol.
 
 Ask:
 ```
@@ -77,10 +98,18 @@ Search for the keyword "import" in this project — which file uses it most?
 ```
 
 ```
-Find all files containing "TODO" and summarize what work remains.
+Which files mention "deprecated", and what is being deprecated?
 ```
 
-Claude calls `key_word_search`, gets back structured data, and interprets it. That's the MCP loop. Now you'll wrap it in a plugin.
+Claude calls `key_word_search`, gets back structured data, and interprets it. The tool answers with one line per matching file:
+
+```text
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java, keyword_count=2
+```
+
+The tool's `directory` argument is optional. If Claude leaves it out, the server asks for a directory instead of searching, and Claude Code shows you that request. Give it an absolute path, or decline, and the server searches its own working directory: the project root, where the script started Claude Code.
+
+That's the MCP loop. Now you'll wrap it in a plugin. Leave Claude Code with `/exit`.
 
 ---
 
@@ -140,9 +169,11 @@ Open `keyword-audit-plugin/skills/keyword-search/SKILL.md`.
 
 **Read `## Instructions for Claude`** — the skill:
 1. Extracts the keyword argument from the invocation
-2. Calls `key_word_search(keyword: "<keyword>")` via the workshop MCP tool
+2. Calls `key_word_search(keyword: "<keyword>", directory: "<absolute path>")` via the workshop MCP tool, passing the project's `src/main/java`
 3. Sorts results descending by count
 4. Formats and displays the result table, highlighting the top 3
+
+Every skill in this plugin passes `directory`. Without it, the server would stop to ask you for a directory, once for every keyword the audit searches.
 
 This is the **data layer** — deterministic search results with no interpretation.
 
@@ -159,7 +190,7 @@ Open `keyword-audit-plugin/skills/keyword-report/SKILL.md`.
 **What it does**: Runs `key_word_search` for a keyword, groups files by Java package, calculates concentration percentages, and produces a shareable markdown report with a concrete recommendation.
 
 **Read `## Instructions for Claude`** — the skill:
-1. Calls `key_word_search` for the keyword
+1. Calls `key_word_search` for the keyword, with the same `directory`
 2. Groups file paths by the package segment after `java/` in the path
 3. Calculates what percentage of all hits are concentrated in the top file
 4. Generates sections: Summary, Distribution by Package, Files Requiring Attention, Recommendation
@@ -176,25 +207,24 @@ cp -r lessons/keyword-audit-plugin/skills/java-script-runner keyword-audit-plugi
 
 Open `keyword-audit-plugin/skills/java-script-runner/SKILL.md`.
 
-**What it does**: Runs `.java` files directly through the JVM without a build step. Its main feature is a `FileAnalyzer` — the full Java 21 source is **embedded directly inside the `SKILL.md`**. When invoked with `--analyze`, Claude writes that source to a temp file, executes it, and cleans up.
+**What it does**: Runs `.java` files directly through the JVM without a build step. Its main feature is a `FileAnalyzer` whose full source is **embedded directly inside the `SKILL.md`**. When invoked with `--analyze`, Claude writes that source to a temp file, executes it, and cleans up.
 
 **Read `## Built-in FileAnalyzer Source`** — the embedded Java:
 - Reads a target file's lines
 - Counts total / code / comment / blank lines
-- Reports keyword frequencies for: `TODO`, `FIXME`, `deprecated`, `import`, `class`
+- Reports keyword frequencies for: `TODO`, `FIXME`, `deprecated`, `import`, `class`, counted the way `key_word_search` counts them
 - Lists the top 5 longest lines
 
-**Two Java 21 features make this work without `javac`**:
-- **JEP 330** (Java 11+): `java MyFile.java` compiles and runs a single source file in one step
-- **JEP 463** (Java 21 preview): `void main(String[] args)` with no surrounding `class {}` — unnamed class
+**One JDK feature makes this work without `javac`**: JEP 330 (Java 11+) lets `java FileAnalyzer.java` compile and run a single source file in one step. FileAnalyzer is an ordinary class with a `public static void main`, so that command runs it on every JDK from 21 on.
 
-The first line `///usr/bin/env java ...` is simultaneously a Unix shebang (executable on Linux/macOS) and valid Java syntax (a comment). The file carries its own launcher.
+Newer JDKs can drop the class as well. A *compact source file* holds a bare `void main()`. It is final in JDK 25 (JEP 512), but before that it was a preview feature (JEP 445 in JDK 21, JEP 463 in JDK 22) that needs `--enable-preview --source <N>` and then runs only on JDK N. The skill knows how to launch both kinds when you hand it a script of your own.
 
-**Read `## Instructions for Claude`** — when `--analyze <path>` is given, Claude:
-1. Writes the embedded source to `/tmp/FileAnalyzer_$$.java` via a Bash heredoc
-2. Runs: `java --enable-preview --source 21 /tmp/FileAnalyzer_$$.java <target-path>`
-3. Displays the full output
-4. Deletes the temp file
+**Read `## Instructions for Claude`** — when `--analyze <path>` is given, Claude runs one Bash command that:
+1. Writes the embedded source to `/tmp/FileAnalyzer_$$.java` via a heredoc
+2. Runs `java /tmp/FileAnalyzer_$$.java <target-path>`
+3. Deletes the temp file
+
+It has to be one command: each Bash call starts a new shell, where `$$` would name a different file. Claude then displays the full output.
 
 This is the **execution layer** — a JVM process that returns a structural profile of a source file. No external `.java` file exists anywhere on disk.
 
@@ -243,22 +273,28 @@ keyword-audit-plugin/
         └── SKILL.md
 ```
 
+Check your copy against the one `complete` ships. This prints nothing when they match:
+
+```bash
+git status --short keyword-audit-plugin
+```
+
 ---
 
 ## Step 5: Launch in Development Mode
 
-The project includes `start_claude_mcp.sh`, which handles everything in one command:
+Start Claude Code through the same script as in Step 2:
 
 ```bash
 ./start_claude_mcp.sh
 ```
 
 The script:
-1. Checks that `keyword-audit-plugin/.claude-plugin/plugin.json` exists (Step 4 must be complete)
-2. Resolves the project root to an absolute path
-3. Builds the JAR if it's missing
-4. Expands `lessons/mcp.json` into `.mcp-resolved.json` with your real path substituted
-5. Starts Claude Code with both MCP server and plugin:
+1. Resolves the project root to an absolute path
+2. Builds the JAR if it's missing
+3. Expands `lessons/mcp.json` into `.mcp-resolved.json` with your real path substituted
+4. Adds the plugin, now that `keyword-audit-plugin/.claude-plugin/plugin.json` exists, and prints its path after `Plugin     :`
+5. Starts Claude Code from the project root with both MCP server and plugin:
 
 ```bash
 claude --mcp-config .mcp-resolved.json --strict-mcp-config \
@@ -279,31 +315,34 @@ Open the **Installed** tab — you should see `keyword-audit-plugin`.
 
 ## Step 6: Run Each Skill
 
-With the plugin loaded, test each skill individually before running the full audit.
+With the plugin loaded, test each skill individually before running the full audit. The finished server has no `TODO` or `FIXME` left in `src/main/java`, so these examples search for `deprecated`. Claude lays out the results in its own words; the files and counts come from the tool and should match.
 
 ### Run keyword-search
 
 ```
-/keyword-audit-plugin:keyword-search TODO
+/keyword-audit-plugin:keyword-search deprecated
 ```
 
 Expected:
 ```
-Keyword: TODO
+Keyword: deprecated
 ─────────────────────────────────────────
-  12  src/main/java/com/workshop/mcp/IORouter.java     ★
-   5  src/main/java/com/workshop/mcp/tools/KeyWordSearch.java
+   2  src/main/java/com/workshop/mcp/IORouter.java
+   2  src/main/java/com/workshop/mcp/spec/AppMeta.java
+   1  src/main/java/com/workshop/mcp/spec/ClientCapabilities.java
+   1  src/main/java/com/workshop/mcp/spec/InputRequest.java
+   1  src/main/java/com/workshop/mcp/spec/builders/AppToolBuilder.java
 ─────────────────────────────────────────
-Total: 17 occurrences across 2 files
+Total: 7 occurrences across 5 files
 ```
 
 ### Run keyword-report
 
 ```
-/keyword-audit-plugin:keyword-report TODO
+/keyword-audit-plugin:keyword-report deprecated
 ```
 
-You'll get a markdown report grouping the same results by Java package, with a percentage concentration and a recommendation.
+You'll get a markdown report grouping the same seven hits by Java package: four in `com.workshop.mcp.spec`, two in `com.workshop.mcp` and one in `com.workshop.mcp.spec.builders`. The top file holds 2 of the 7, about 29%, and the report ends with a recommendation.
 
 ### Run java-script-runner
 
@@ -315,17 +354,26 @@ Claude writes the embedded `FileAnalyzer` to a temp file, runs it, and displays:
 ```
 ════════════════════════════════════════════════════════════
   File Analysis: IORouter.java
-  Path:          /abs/path/.../IORouter.java
+  Path:          /path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java
 ════════════════════════════════════════════════════════════
-  Total lines:         247
-  Code lines:          189
-  Comment lines:        23
-  Blank lines:          35
+  Total lines:         918
+  Code lines:          533
+  Comment lines:       329
+  Blank lines:         56
 
   Keyword Frequency:
-    TODO:          12 occurrences
-    FIXME:          0 occurrences
-    ...
+    TODO:          0 occurrences
+    FIXME:         0 occurrences
+    deprecated:    2 occurrences
+    import:        23 occurrences
+    class:         14 occurrences
+
+  Top 5 Longest Lines:
+    [121 chars]  logger.log("[API][SENT] " + message.method() + " — the tasks extensio...
+    [120 chars]  .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javad...
+    [119 chars]  logger.log("[API][SENT] tasks/update — unknown taskId=" + params.task...
+    [119 chars]  logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.task...
+    [119 chars]  NotificationCancelledParams.class);
 ════════════════════════════════════════════════════════════
 ```
 
@@ -340,32 +388,23 @@ Or with custom keywords:
 /keyword-audit-plugin:audit keywords=[TODO,FIXME,HACK,deprecated]
 ```
 
-**Steps 1–2** — searches run, hotspot identified:
+**Steps 1–2** — searches run for the default keywords, `TODO`, `FIXME` and `deprecated`, and the hotspot is identified:
 ```
-Search complete.
-  TODO        17 occurrences  2 files   Hotspot: IORouter.java (12 hits)
-  FIXME        2 occurrences  1 file    Hotspot: Router.java   (2 hits)
-  deprecated   0 occurrences
+TODO          0 occurrences
+FIXME         0 occurrences
+deprecated    7 occurrences across 5 files
 
-Overall hotspot: IORouter.java — analyzing now...
+Hotspot: IORouter.java (2 hits)
 ```
 
-**Step 3** — FileAnalyzer runs via JVM (structural profile output)
+`IORouter.java` and `AppMeta.java` both have two hits. The skill breaks a tie by total hits across all keywords, then by path order, which puts `IORouter.java` first.
 
-**Step 4** — Claude reads the source and reasons:
-```
-Hotspot Analysis: IORouter.java
-────────────────────────────────────────────────────────────
-IORouter.java is the central JSON-RPC dispatcher for the MCP server.
-Its 12 TODOs are concentrated in the ELICITATION and TASKS handlers —
-the multi-round-trip paths, where the work is stubbed but not yet
-fully implemented. This is planned work, not forgotten debt.
-────────────────────────────────────────────────────────────
-```
+**Step 3** — FileAnalyzer runs via the JVM and prints the profile shown above.
+
+**Step 4** — Claude reads the source and explains the hits. In `IORouter.java` both are comments recording what revision `2026-07-28` deprecates: `roots/list` and `sampling/createMessage` as input requests (SEP-2577), and the `roots` question the search tool used to ask before it took a `directory` argument. They mark migrations already made, not debt left behind.
 
 **Checkpoint** — the agent stops and waits:
 ```
-Audit results and hotspot analysis ready for review.
 Proceed to synthesis? (yes/no)
 ```
 
@@ -375,15 +414,17 @@ Type `yes`. The agent generates a final prioritized audit report and asks if you
 
 ## Troubleshooting
 
-### Script exits with "Plugin not found"
+### The script says `Plugin     : not built yet`
 
-Complete Step 4 first. The script checks for `keyword-audit-plugin/.claude-plugin/plugin.json` before launching.
+Complete Step 4. The script adds `--plugin-dir` only once `keyword-audit-plugin/.claude-plugin/plugin.json` exists.
 
 ### MCP server not found
 ```bash
 ls build/libs/agent-mcp-workshop-0.0.1.jar   # must exist
 ./gradlew clean build                          # rebuild if missing
 ```
+
+If `/mcp` lists `workshop` as failed, read the newest file in `logs/` at the project root; the server writes its log there, not to stderr. A log that ends with `unsupported method 'initialize' (returning -32601)` means Claude Code opened with the legacy handshake: check `claude --version`, and that `MCP_PROTOCOL_NEGOTIATION` is not set to `legacy`.
 
 ### Plugin commands not found
 
@@ -396,14 +437,30 @@ The plugin only loads when Claude Code is launched with `--plugin-dir`. Always u
 ### `java-script-runner` fails
 
 ```bash
-java -version   # must be 11+; 21 for --enable-preview
+java -version   # must be 21 or later
 ```
 
-The `--analyze` flag requires `--enable-preview --source 21`. If you see a version error, upgrade your JDK.
+FileAnalyzer runs with plain `java`, with no preview flags. If you see `invalid source release 21 with --enable-preview`, your plugin has an old copy of the skill: copy it again from `lessons/keyword-audit-plugin/`.
 
 ### Audit stops before the checkpoint
 
-Run `/keyword-audit-plugin:keyword-search TODO` manually. If that fails, the MCP server connection is the issue — check `mcp.json` and confirm the JAR path is correct.
+Run `/keyword-audit-plugin:keyword-search deprecated` manually. If that fails, the MCP server connection is the issue — run `/mcp` to check that `workshop` is connected.
+
+---
+
+## Stretch: Write Your Own Skill
+
+Add a fifth skill to the plugin. Create `keyword-audit-plugin/skills/<name>/SKILL.md` with the same frontmatter as the others (`name` and `description`), a `## Usage` section and a `## Instructions for Claude` section. Restart with `./start_claude_mcp.sh` and run it as `/keyword-audit-plugin:<name>`.
+
+Ideas:
+- `keyword-compare`: search for two keywords and explain where they overlap
+- `keyword-trend`: search the same keyword in `src/main/java` and `src/test/java` and compare the two
+
+Whatever it does, have it pass `directory` to `key_word_search`, as the other skills do.
+
+## Stretch: Serve the Skills over MCP
+
+The plugin ships its skills on disk. The **Skills over MCP** extension (`io.modelcontextprotocol/skills`) ships the same `SKILL.md` files from a server instead: the host finds them with `skills/list` and `skills/get` and reads them with `resources/read` on `skill://` URIs. [agent-overview.md](agent-overview.md) compares the two. Try declaring the extension in your server's `server/discover` and serving `keyword-search` that way.
 
 ---
 
@@ -411,12 +468,12 @@ Run `/keyword-audit-plugin:keyword-search TODO` manually. If that fails, the MCP
 
 | Step | What You Did |
 |------|-------------|
-| Connected MCP server | Registered your JAR with Claude Code via `mcp.json` |
+| Connected MCP server | Started Claude Code with `lessons/mcp.json` through `start_claude_mcp.sh` |
 | Learned skills vs plugins | Skill = single command; Plugin = manifest + namespaced skill bundle |
 | Built the plugin scaffold | Created `keyword-audit-plugin/.claude-plugin/plugin.json` |
 | Copied + read keyword-search | Data layer: MCP tool → sorted file counts |
 | Copied + read keyword-report | Analysis layer: grouped by package, adds recommendations |
-| Copied + read java-script-runner | Execution layer: embedded Java 21 runs via JVM, no build step |
+| Copied + read java-script-runner | Execution layer: embedded Java runs via the JVM, no build step |
 | Copied + read audit | Orchestrator: supervised 6-step agent with checkpoint |
 | Launched with dev script | `start_claude_mcp.sh` → `--plugin-dir ./keyword-audit-plugin` |
 | Ran full audit | Search → JVM analysis → read source → reason → checkpoint → synthesize |

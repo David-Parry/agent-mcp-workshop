@@ -1,8 +1,8 @@
-# Chapter 06: Running Your MCP Server with a Live LLM
+# Bonus: Running Your MCP Server with a Live LLM
 
 > **Bonus appendix — running against a live LLM.**
 > Follows on from [bonus-live-llm-overview.md](bonus-live-llm-overview.md).
-> Use `lessons/mcp.json`, which already sets `"protocolEra": "auto"`.
+> It runs on the finished server, on the `complete` branch.
 
 ## From Inspector to Real Conversations
 
@@ -11,15 +11,26 @@ In this lesson, you'll register your newly written MCP server with your favorite
 ## Prerequisites
 
 Before starting, ensure you have:
-- Your MCP server built and tested (from previous lessons)
-- The JAR file at `build/libs/agent-mcp-workshop-0.0.1.jar`
-- A code generation client that supports MCP (Claude Code, Cursor, Windsurf, Cline, etc.)
+- The finished server, built. The JAR lands at `build/libs/agent-mcp-workshop-0.0.1.jar`:
+  ```bash
+  ./clean-checkout.sh complete
+  ./gradlew clean build
+  ```
+- A code generation client that speaks MCP revision `2026-07-28`
 
-## Step 1: Create the MCP Server Configuration
+This server speaks no other revision. A client that only knows an earlier one opens with `initialize`, and the server refuses it:
 
-The `mcp.json` file tells your code generation client how to launch your MCP server.
+```text
+{"jsonrpc":"2.0","id":0,"error":{"code":-32601,"message":"Method not found: initialize. This server only supports protocol versions without the initialize handshake: 2026-07-28","data":{"supported":["2026-07-28"]}}}
+```
 
-**Action Required**: Create a file called `mcp.json` in the root directory of your project:
+- **Claude Code** speaks `2026-07-28` from version 2.1.292.
+- **Cursor** does not yet. The Cursor checked for this workshop bundles MCP SDK 1.25.1, whose newest revision is `2025-11-25`, so its `initialize` gets that `-32601`.
+- For any other client, look for `2026-07-28` in its release notes.
+
+## Step 1: The MCP Server Configuration
+
+The project keeps the launch configuration in one file, `lessons/mcp.json`:
 
 ```json
 {
@@ -28,13 +39,16 @@ The `mcp.json` file tells your code generation client how to launch your MCP ser
       "command": "java",
       "args": [
         "-jar",
-        "build/libs/agent-mcp-workshop-0.0.1.jar"
+        "{YOUR_BASE}/build/libs/agent-mcp-workshop-0.0.1.jar"
       ],
-      "env": {}
+      "env": {
+      }
     }
   }
 }
 ```
+
+`{YOUR_BASE}` stands for the absolute path of your checkout. Replace it when you copy the entry into a client's own configuration.
 
 ### Understanding the Configuration
 
@@ -46,31 +60,34 @@ The `mcp.json` file tells your code generation client how to launch your MCP ser
 | `args` | Command-line arguments to pass |
 | `env` | Environment variables (empty for now) |
 
+`inspector/config.json` also sets `protocolEra` and `modernLogLevel`. Those are MCP Inspector settings. Claude Code negotiates the revision itself and never reads them, so `lessons/mcp.json` leaves them out.
+
 ## Step 2: Register with Your Code Generation Client
 
 Choose your client and follow the appropriate setup:
 
 ### Option A: Claude Code
 
-Claude Code automatically discovers `mcp.json` files in your project directory. Simply:
+Claude Code does not read `mcp.json`. It reads `.mcp.json` in the project root, the servers you add with `claude mcp add`, and files passed with `--mcp-config`. `claude_desktop_config.json` belongs to Claude Desktop, not Claude Code.
 
-1. Ensure `mcp.json` is in your project root
-2. Open Claude Code in your project directory
-3. The server will be available automatically
+The project's script passes `lessons/mcp.json` with your path filled in:
 
-To verify, you can ask Claude Code: "What MCP tools are available?"
+```bash
+./start_claude_mcp.sh
+```
+
+It writes the expanded file to `.mcp-resolved.json`, starts Claude Code from the project root with `--mcp-config .mcp-resolved.json`, and deletes the file when Claude Code exits. Run `/mcp` to check that `workshop` is connected.
 
 ### Option B: Cursor
 
-1. Open Cursor Settings
-2. Navigate to **MCP Servers** section
-3. Add a new server with:
-   - **Name**: `workshop`
-   - **Command**: `java`
-   - **Args**: `-jar /full/path/to/build/libs/agent-mcp-workshop-0.0.1.jar`
+Not yet: Cursor opens with `initialize`, which this server refuses, so the connection fails. The Stretch at the end shows what the server would need to accept such clients. Once Cursor speaks `2026-07-28`, add the server under **Settings → MCP** with:
+- **Name**: `workshop`
+- **Command**: `java`
+- **Args**: `-jar /full/path/to/build/libs/agent-mcp-workshop-0.0.1.jar`
 
 ### Option C: Windsurf
 
+If your Windsurf speaks `2026-07-28`:
 1. Edit `~/.codeium/windsurf/mcp_config.json`
 2. Add your server configuration:
 ```json
@@ -86,7 +103,7 @@ To verify, you can ask Claude Code: "What MCP tools are available?"
 
 ### Option D: Other Clients
 
-Most MCP-compatible clients use a similar `mcp.json` format. Consult your client's documentation for the specific configuration location.
+Most MCP-compatible clients take the same `mcpServers` entry. Copy the one from `lessons/mcp.json`, replace `{YOUR_BASE}`, and put it where your client's documentation says.
 
 ## Step 3: Verify Your Server is Running
 
@@ -102,6 +119,8 @@ Or:
 
 You should see `key_word_search` listed among the available tools.
 
+Behind that answer, the client sent `server/discover` and then asked for the tool list: the methods you built in chapters 03 and 04. The server's log shows both. It writes one file per run to `logs/` in its working directory, which `start_claude_mcp.sh` makes the project root.
+
 ## Step 4: Use Your MCP Server in Conversation
 
 Now for the exciting part—using your tool in a real conversation!
@@ -115,7 +134,7 @@ Search for the keyword "mcp" in this project and tell me which file has the most
 
 ### Analysis Request
 ```
-Find all files containing "TODO" and summarize what work remains to be done.
+Which files in src/main/java mention "deprecated", and what is being deprecated?
 ```
 
 ### Comparative Query
@@ -123,11 +142,21 @@ Find all files containing "TODO" and summarize what work remains to be done.
 Compare the occurrence of "test" vs "spec" across the codebase. What does this tell us about the testing approach?
 ```
 
+Each call returns one line per matching file: its absolute path and how often the keyword appears in it. The analysis request gets five such lines, among them:
+
+```text
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java, keyword_count=2
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/AppMeta.java, keyword_count=2
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/InputRequest.java, keyword_count=1
+```
+
+The tool's `directory` argument is optional. If the model leaves it out, the server asks for a directory before it searches, and a client that renders forms, as Claude Code does, shows you that request. Give it an absolute path, or decline, and the server searches its own working directory.
+
 ## Step 5: Observe the Complete Lifecycle
 
 As you interact with the LLM, observe what happens:
 
-1. **Tool Discovery**: The LLM knows about your `key_word_search` tool
+1. **Tool Discovery**: The client calls `server/discover` and lists your tools, so the LLM knows about `key_word_search`
 2. **Decision Making**: The LLM decides when your tool is useful
 3. **Tool Invocation**: Your MCP server receives the request
 4. **Data Return**: Your server returns structured results
@@ -154,22 +183,29 @@ You can use this prompt to guide more structured interactions with your MCP serv
 
 If your client can't find the server:
 - Verify the JAR file exists: `ls build/libs/agent-mcp-workshop-0.0.1.jar`
-- Check the path in `mcp.json` is correct
+- If you wrote the client's configuration by hand, check that the JAR path in it is absolute
 - Rebuild if needed: `./gradlew clean build`
 
-### Server Won't Start
+### Server Won't Start or Won't Connect
 
-If the server fails to launch:
-- Test manually: `java -jar build/libs/agent-mcp-workshop-0.0.1.jar`
-- Check for Java errors in your client's logs
-- Ensure Java is in your PATH
+Test the server without a client. `inspector/modern-probe.sh` talks to it over stdio the way a `2026-07-28` client does and prints every answer:
+
+```bash
+./inspector/modern-probe.sh
+```
+
+The first line is the discovery result, and it includes `"supportedVersions":["2026-07-28"]`. If the probe works but your client does not, look in the server's log for `unsupported method 'initialize'`: the client speaks an earlier revision.
 
 ### Tool Not Working
 
 If the tool returns errors:
 - Review the MCP Inspector tests from previous lessons
 - Check that your tool handles edge cases
-- Look at your server's stderr output for errors
+- Read the server's log, `logs/agent-mcp-workshop-<PID>-<timestamp>.log` in its working directory. The server writes nothing to stderr.
+
+## Stretch: Accept Older Clients
+
+Cursor, and any client still on `2025-11-25`, opens with `initialize`. Teach the server to answer it the legacy way: reply with an `initialize` result, accept `notifications/initialized`, and serve that client's requests without the per-request `_meta` envelope. Keep `server/discover` for `2026-07-28` clients, so one server speaks both revisions. The `-32601` refusal of `initialize` in `IORouter` is where the legacy path would start.
 
 ## What You've Accomplished
 
@@ -179,7 +215,7 @@ By completing this lesson, you've experienced the full MCP development lifecycle
 |-------|--------------|
 | **Build** | Created an MCP server with a custom tool |
 | **Test** | Verified functionality with MCP Inspector |
-| **Configure** | Set up `mcp.json` for your client |
+| **Configure** | Pointed your client at the server with `lessons/mcp.json` |
 | **Deploy** | Registered with your code generation client |
 | **Use** | Had real conversations powered by your tool |
 

@@ -36,15 +36,13 @@ When this skill is invoked:
 
 1. **Parse arguments**: check for `keywords=[...]`; default to `[TODO, FIXME, deprecated]`
 
-2. **Step 1 — Search**: apply the `/keyword-audit-plugin:keyword-search` skill logic for each keyword sequentially — call `key_word_search(keyword: "<keyword>")` via the workshop MCP tool; record every file path and count per keyword
+2. **Step 1 — Search**: apply the `/keyword-audit-plugin:keyword-search` skill logic for each keyword sequentially — call `key_word_search(keyword: "<keyword>", directory: "<absolute path>")` via the workshop MCP tool, always passing the same `directory` that skill uses, so the server never stops mid-audit to ask for one; record every file path and count per keyword
 
-3. **Step 2 — Identify Hotspot**: find the single file with the highest individual keyword count across all searches; record its absolute path
+3. **Step 2 — Identify Hotspot**: find the single file with the highest individual keyword count across all searches; record its absolute path. If several files share that count, take the one with the most hits across all keywords, and if they still tie, the first in path order
 
 4. **Step 3 — Analyze Hotspot**: apply the `/keyword-audit-plugin:java-script-runner` skill logic with `--analyze <hotspot-absolute-path>`:
-   - Write the embedded FileAnalyzer Java source to `/tmp/FileAnalyzer_$$.java`
-   - Run: `java --enable-preview --source 21 /tmp/FileAnalyzer_$$.java <hotspot-path>`
+   - In one Bash command, write the embedded FileAnalyzer Java source to `/tmp/FileAnalyzer_$$.java`, run `java` on it with the hotspot path, and delete it
    - Display the full analysis output
-   - Delete the temp file
 
 5. **Step 4 — Read and Reason**: use the `Read` tool to read the hotspot file's full source. Cross-reference with the FileAnalyzer output and reason about WHY this file has the most occurrences:
    - What is the file's role (router, dispatcher, model, utility)?
