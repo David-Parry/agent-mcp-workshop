@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Timeout;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -259,11 +261,11 @@ class IOHandlerImplTest {
     }
 
     @Test
-    void testStopRunning() throws InterruptedException {
-        // Given
-        String testInput = "Line 1\nLine 2\nLine 3\n";
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(testInput.getBytes());
-        System.setIn(inputStream);
+    void testStopRunning() throws Exception {
+        // Given: a pipe rather than a byte array, so the reader cannot hit end
+        // of input and stop on its own before isRunning() is checked.
+        PipedOutputStream feed = new PipedOutputStream();
+        System.setIn(new PipedInputStream(feed));
 
         CountDownLatch latch = new CountDownLatch(1);
         Consumer<String> listener = line -> latch.countDown();
@@ -271,15 +273,19 @@ class IOHandlerImplTest {
 
         // When
         Thread readerThread = Thread.ofVirtual().start(() -> ioHandler.startInputReader());
-        
+        feed.write("Line 1\n".getBytes());
+        feed.flush();
+
         assertTrue(latch.await(2, TimeUnit.SECONDS)); // Wait for at least one line
         assertTrue(ioHandler.isRunning());
-        
+
         ioHandler.stopRunning();
+        feed.close();
         readerThread.join(1000);
 
         // Then
         assertFalse(ioHandler.isRunning());
+        assertFalse(readerThread.isAlive());
     }
 
     @Test

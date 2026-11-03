@@ -101,7 +101,7 @@
         </div>
 
         <div class="highlight-box">
-            <strong>Critical Rule:</strong> Never write anything to <code>System.out</code> except JSON-RPC messages. All debugging and logging must go to a file. Writing non-JSON to stdout breaks the protocol connection immediately.
+            <strong>Critical Rule:</strong> Never write anything to <code>System.out</code> except JSON-RPC messages. Logs go to stderr, which the spec allows, or to a file, which is what this server does. Writing non-JSON to stdout breaks the protocol connection immediately.
         </div>
 
         <h3>IOHandler — The Communication Hub</h3>
@@ -111,18 +111,27 @@
             <div class="msg-card">
                 <h4>📥 Input Reading</h4>
                 <pre>public void startInputReader() {
-    Scanner scanner = new Scanner(System.in);
-    running.set(true);
-    while (running.get()) {
-        if (!scanner.hasNextLine()) {
-            running.set(false); break;
+    if (!running.compareAndSet(false, true)) {
+        return; // already reading
+    }
+    try (Scanner scanner = new Scanner(System.in)) {
+        try {
+            while (running.get()) {
+                if (!scanner.hasNextLine()) {
+                    running.set(false); break;
+                }
+                String line = scanner.nextLine();
+                logger.log("[API][RECEIVED]" + line);
+                publishLine(line); // → listeners
+            }
+        } finally {
+            stopRunning();
         }
-        String line = scanner.nextLine();
-        logger.log("[API][RECEIVED]" + line);
-        publishLine(line); // → listeners
+    } catch (Exception e) {
+        logger.log("Fatal error in startInputReader: ", e);
     }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">Runs on a dedicated thread. Publishes each JSON line to all registered listeners via the Observer pattern.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">A blocking read loop — <code>Server.start()</code> calls it on the main thread after registering the router as a listener, and it returns when stdin closes. <code>compareAndSet</code> claims the reader in one step, so a second call cannot open a second Scanner. Each line goes to every registered listener via the Observer pattern. (Trimmed: the inner catch that logs before rethrowing.)</p>
             </div>
             <div class="msg-card">
                 <h4>📤 Output Emission</h4>
@@ -130,9 +139,9 @@
     String text = gson.toJson(message);
     logger.log("[API][SENT]: " + text);
     writer.println(text);
-    writer.flush(); // immediate
+    writer.flush(); // auto-flush already did; belt and braces
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">Serializes any Java object to JSON via Gson. Immediately flushes — MCP clients expect real-time responses.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Serializes any Java object to JSON via Gson — compact, so one message is one line. The writer was built with auto-flush, so <code>println</code> sends the line as soon as it is written.</p>
             </div>
         </div>
 

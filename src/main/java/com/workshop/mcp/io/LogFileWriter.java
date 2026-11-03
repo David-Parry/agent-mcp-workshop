@@ -12,8 +12,13 @@ import java.util.Date;
  * File-based implementation of the LogFile interface that provides persistent logging capabilities.
  *
  * <p>This class implements a singleton pattern to ensure a single logging instance across the application.
- * It creates process-specific log files in a dedicated logs directory and handles log file creation,
- * rotation, and cleanup automatically.</p>
+ * It creates one log file per run in a dedicated logs directory. Nothing rotates or deletes old
+ * files; each run simply starts its own.</p>
+ *
+ * <p>A file, not stderr, is a choice this server makes. The stdio transport reserves stdout for
+ * protocol messages and lets a server log to stderr, but what a client does with stderr varies
+ * from showing it to discarding it. A file is somewhere you can {@code tail -f} whichever client
+ * launched the process.</p>
  *
  * <p>Key features:
  * <ul>
@@ -133,11 +138,12 @@ public class LogFileWriter implements LogFile {
     }
 
     /**
-     * Create a new log file with a PID-specific name. If the file already exists,
-     * archive the previous one by appending a timestamp before starting a new
-     * log for the current process.
+     * Opens this run's log file, named for the PID and the startup timestamp.
+     * The file is opened in append mode, so one that already exists is added
+     * to rather than replaced. If the logs directory cannot be written, the
+     * same name is used under the system temp directory instead.
      *
-     * @throws IOException If there's an error creating the log file
+     * @throws IOException If neither location can be written
      */
     private void createNewLogFile() throws IOException {
         if (logWriter != null) {

@@ -101,7 +101,7 @@
         </div>
 
         <div class="highlight-box">
-            <strong>Critical Rule:</strong> Never write anything to <code>System.out</code> except JSON-RPC messages. All debugging and logging must go to a file. Writing non-JSON to stdout breaks the protocol connection immediately.
+            <strong>Critical Rule:</strong> Never write anything to <code>System.out</code> except JSON-RPC messages. Logs go to stderr, which the spec allows, or to a file, which is what this server does. Writing non-JSON to stdout breaks the protocol connection immediately.
         </div>
 
         <h3>IOHandler — The Communication Hub</h3>
@@ -111,18 +111,27 @@
             <div class="msg-card">
                 <h4>📥 Input Reading</h4>
                 <pre>public void startInputReader() {
-    Scanner scanner = new Scanner(System.in);
-    running.set(true);
-    while (running.get()) {
-        if (!scanner.hasNextLine()) {
-            running.set(false); break;
+    if (!running.compareAndSet(false, true)) {
+        return; // already reading
+    }
+    try (Scanner scanner = new Scanner(System.in)) {
+        try {
+            while (running.get()) {
+                if (!scanner.hasNextLine()) {
+                    running.set(false); break;
+                }
+                String line = scanner.nextLine();
+                logger.log("[API][RECEIVED]" + line);
+                publishLine(line); // → listeners
+            }
+        } finally {
+            stopRunning();
         }
-        String line = scanner.nextLine();
-        logger.log("[API][RECEIVED]" + line);
-        publishLine(line); // → listeners
+    } catch (Exception e) {
+        logger.log("Fatal error in startInputReader: ", e);
     }
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">A blocking read loop — <code>Server.start()</code> calls it on the main thread after registering the router as a listener. Publishes each JSON line to all registered listeners via the Observer pattern.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">A blocking read loop — <code>Server.start()</code> calls it on the main thread after registering the router as a listener, and it returns when stdin closes. <code>compareAndSet</code> claims the reader in one step, so a second call cannot open a second Scanner. Each line goes to every registered listener via the Observer pattern. (Trimmed: the inner catch that logs before rethrowing.)</p>
             </div>
             <div class="msg-card">
                 <h4>📤 Output Emission</h4>
@@ -130,9 +139,9 @@
     String text = gson.toJson(message);
     logger.log("[API][SENT]: " + text);
     writer.println(text);
-    writer.flush(); // immediate
+    writer.flush(); // auto-flush already did; belt and braces
 }</pre>
-                <p style="font-size:13px;color:var(--muted);margin-top:8px">Serializes any Java object to JSON via Gson. Immediately flushes — MCP clients expect real-time responses.</p>
+                <p style="font-size:13px;color:var(--muted);margin-top:8px">Serializes any Java object to JSON via Gson — compact, so one message is one line. The writer was built with auto-flush, so <code>println</code> sends the line as soon as it is written.</p>
             </div>
         </div>
 
@@ -276,10 +285,10 @@
             <li><strong>Open <code>src/main/java/com/workshop/mcp/io/IOHandlerImpl.java</code></strong> — this class is the entire transport layer. Point out the collaborators at the top: the auto-flush <code>PrintWriter</code> over System.out, the <code>running</code> AtomicBoolean, the <code>lineListeners</code> CopyOnWriteArrayList, and the Gson instance.</li>
             <li><strong>Walk <code>startInputReader()</code></strong> — the Scanner loop over <code>System.in</code>. Trace the happy path: <code>hasNextLine()</code> → <code>nextLine()</code> → log <code>[API][RECEIVED]</code> → <code>publishLine(line)</code>. Then trace the shutdown path: stream closes → <code>running.set(false)</code> → <code>stopRunning()</code> in the finally block.</li>
             <li><strong>Walk <code>publishLine()</code></strong> — the observer pattern in six lines. Each listener call is wrapped in its own try-catch so one faulty listener never breaks the others. The router registers itself as a listener; the transport never knows what messages mean.</li>
-            <li><strong>Walk <code>emit()</code></strong> — <code>gson.toJson()</code>, log <code>[API][SENT]</code>, <code>println</code>, explicit <code>flush()</code>. Emphasize the flush: MCP clients expect real-time line-delimited responses.</li>
-            <li><strong>Open <code>LogFileWriter.java</code></strong> — show that all logging goes to a PID-named file, never stdout. Reinforce the critical rule from the card above: stdout is protocol-only.</li>
+            <li><strong>Walk <code>emit()</code></strong> — <code>gson.toJson()</code>, log <code>[API][SENT]</code>, <code>println</code>. Point out that the writer auto-flushes on <code>println</code>, so the explicit <code>flush()</code> is belt and braces; what matters is that every message leaves as one complete line.</li>
+            <li><strong>Open <code>LogFileWriter.java</code></strong> — show that all logging goes to a PID-named file, never stdout. Reinforce the critical rule from the card above: stdout is protocol-only. The spec's own log channel is stderr; the file is this server's choice, so there is always something to <code>tail -f</code>.</li>
             <li><strong>Build and test:</strong> in the terminal run <code>./gradlew clean build</code>. Open <code>IOHandlerImplTest.java</code> and show the tests exercising the reader loop and emit path passing.</li>
-            <li><strong>Prove it end to end:</strong> run <code>java -jar build/libs/agent-mcp-workshop-0.0.1.jar</code>, paste a raw JSON-RPC line (e.g. a ping request) into stdin, and show the JSON response come back on stdout plus both <code>[API][RECEIVED]</code> and <code>[API][SENT]</code> entries in the log file.</li>
+            <li><strong>Prove it end to end:</strong> run <code>java -jar build/libs/agent-mcp-workshop-0.0.1.jar</code>, paste this line into stdin, and show the discovery result come back on stdout plus both <code>[API][RECEIVED]</code> and <code>[API][SENT]</code> entries in the log file:<br><code>{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}</code><br>Do not reach for <code>ping</code>: this revision removed it, so it comes back as <code>-32601</code>.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> the transport is dumb on purpose — it moves lines and knows nothing about MCP. Everything protocol-aware lives behind the listener boundary. Next we look at what those lines contain: JSON-RPC 2.0, then the full session flow on the <a href="flow-diagram.html" style="color:var(--accent)">Flow Diagram</a>.</p>
     </div>

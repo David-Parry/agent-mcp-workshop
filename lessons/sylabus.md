@@ -19,12 +19,15 @@ Build the bidirectional I/O infrastructure that enables communication between MC
 
 ### What You'll Build
 - `IOHandlerImpl` — manages input/output streams
-- `LogFileWriter` — thread-safe logging to files
 - Event-driven listener architecture
+
+### What You're Given
+- `LogFileWriter` — thread-safe logging to a per-run file under `logs/`, already written; stdout is reserved for protocol messages
+- `Server` — the lifecycle that registers the router as a listener and exits when stdin closes
 
 ### Key Concepts
 - STDIO-based communication
-- Thread-safe input reading with `Scanner`
+- A blocking read loop on the main thread, with an atomic guard against a second reader
 - Observer pattern for message distribution
 - JSON serialization with Gson
 

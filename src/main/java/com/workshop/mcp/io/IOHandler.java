@@ -14,8 +14,9 @@ import java.util.function.Consumer;
  * </ul>
  * </p>
  * 
- * <p>Implementations of this interface should be thread-safe, as input reading typically
- * occurs on a separate thread while output operations may be called from multiple threads.</p>
+ * <p>Implementations of this interface should be thread-safe. Input is read on whichever thread
+ * calls {@link #startInputReader()}, while {@link #emit(Object)} may be called from other threads
+ * too — the task workers, for instance.</p>
  * 
  * @author Workshop MCP Team
  * @version 1.0
@@ -63,8 +64,8 @@ public interface IOHandler {
     /**
      * Starts the input reader to begin processing input.
      * 
-     * <p>This method typically starts a separate thread or process to continuously read
-     * from the input source and notify registered listeners. If the reader is already
+     * <p>This method blocks the calling thread, reading from the input source and
+     * notifying registered listeners as each line arrives. If the reader is already
      * running, implementations should handle this gracefully (e.g., by returning
      * immediately without starting a new reader).</p>
      * 

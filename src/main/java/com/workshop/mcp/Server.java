@@ -20,8 +20,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </ul>
  * </p>
  * <p>
- * The server uses a polling mechanism to monitor the I/O handler's state and coordinates
- * shutdown through a {@link CountDownLatch} to ensure all resources are properly cleaned up.
+ * {@link #start()} blocks in the I/O handler's input reader for as long as stdin is open.
+ * When the reader returns, {@link #keepRunning()} sees the handler has stopped and shuts
+ * down, coordinating with the shutdown hook through a {@link CountDownLatch} so cleanup
+ * happens once.
  * </p>
  * 
  * @see IOHandler
@@ -77,13 +79,13 @@ public class Server {
      * <ol>
      *   <li>Registers the router as a line listener with the I/O handler</li>
      *   <li>Installs a JVM shutdown hook for graceful termination</li>
-     *   <li>Starts the asynchronous input reader</li>
-     *   <li>Enters the main server loop via {@link #keepRunning()}</li>
+     *   <li>Runs the input reader, which blocks this thread until stdin closes</li>
+     *   <li>Hands over to {@link #keepRunning()}, which shuts the server down</li>
      * </ol>
      * </p>
      * <p>
      * If any exception occurs during startup, the server will attempt to stop gracefully
-     * and exit with status code 0.
+     * and exit with status code 1.
      * </p>
      * <p>
      * This method blocks until the server is shut down either by:
@@ -111,7 +113,7 @@ public class Server {
                     shutdownLatch.countDown();
                 }
             }));
-            // Start the async input reader
+            // Blocks until stdin closes or the reader is stopped.
             this.io.startInputReader();
             keepRunning();
         } catch (Exception e) {
@@ -156,20 +158,14 @@ public class Server {
      * </ul>
      * </p>
      * <p>
-     * The method will exit and terminate the JVM with {@code System.exit(0)} when:
-     * <ul>
-     *   <li>The I/O handler reports it is no longer running</li>
-     *   <li>The shutdown latch is triggered (counts down to zero)</li>
-     *   <li>The thread is interrupted</li>
-     * </ul>
+     * The method terminates the JVM with {@code System.exit(0)} when the I/O handler
+     * reports it is no longer running or the shutdown latch is triggered, and with
+     * {@code System.exit(1)} if the thread is interrupted while it waits.
      * </p>
      * <p>
      * Thread safety is ensured through the use of {@link AtomicBoolean} for the
      * shutdown flag and proper synchronization via the {@link CountDownLatch}.
      * </p>
-     * 
-     * @throws InterruptedException if the thread is interrupted while waiting on the latch
-     *         (caught and handled internally with graceful shutdown)
      */
     void keepRunning() {
         try {

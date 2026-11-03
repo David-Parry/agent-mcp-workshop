@@ -10,8 +10,10 @@ The Model Context Protocol (MCP) requires a reliable transport mechanism to exch
 
 - **Bidirectional Communication**: Reading input streams and writing output streams
 - **JSON Message Format**: All messages are serialized as JSON for interoperability
-- **Event-Driven Architecture**: Using listeners and callbacks for asynchronous message handling
+- **Event-Driven Architecture**: Using listeners, so the code that reads a line never needs to know what handles it
 - **Robust Logging**: Comprehensive logging for debugging and monitoring
+
+The transport is **stdio**: the client launches the server as a child process, writes requests to its standard input, and reads responses from its standard output, one JSON message per line. The specification reserves stdout for MCP messages alone and lets a server write log text to stderr.
 
 ## Architecture Overview
 
@@ -21,7 +23,7 @@ The current codebase implements a clean, interface-driven architecture with clea
 
 1. **IOHandler Interface & Implementation**
    - Manages bidirectional I/O operations
-   - Handles input reading on separate threads
+   - Reads standard input on the thread that starts it, blocking until the input closes
    - Publishes events to registered listeners
    - Emits JSON-formatted output messages
 
@@ -81,9 +83,10 @@ classDiagram
         -static LogFileWriter instance
         -SimpleDateFormat timestampFormat
         -String processId
+        -String startupTimestamp
         -PrintWriter logWriter
         +static getInstance() LogFile
-        -static getDefaultLogFileName(String logDir, String processId) String
+        -static getDefaultLogFileName(String logDir, String processId, String startupTimestamp) String
         -initialize()
         -createNewLogFile()
         +log(String message)
@@ -108,17 +111,17 @@ classDiagram
 
 ```mermaid
 sequenceDiagram
-    participant Client
     participant System.in
     participant IOHandlerImpl
     participant Scanner
     participant Listeners
+    participant Router
     participant LogFileWriter
     participant System.out
 
-    Note over IOHandlerImpl: startInputReader() called
+    Note over IOHandlerImpl: startInputReader() called on the main thread
+    IOHandlerImpl->>IOHandlerImpl: running.compareAndSet(false, true)
     IOHandlerImpl->>Scanner: Create Scanner(System.in)
-    IOHandlerImpl->>IOHandlerImpl: running.set(true)
     
     loop While running
         Scanner->>System.in: hasNextLine()
@@ -137,8 +140,8 @@ sequenceDiagram
         end
     end
 
-    Note over IOHandlerImpl: emit(message) called
-    Client->>IOHandlerImpl: emit(message)
+    Note over Router: a listener answers a line
+    Router->>IOHandlerImpl: emit(message)
     IOHandlerImpl->>IOHandlerImpl: gson.toJson(message)
     IOHandlerImpl->>LogFileWriter: log("[API][SENT]: " + json)
     IOHandlerImpl->>System.out: println(json)
@@ -154,34 +157,46 @@ The `IOHandlerImpl` class is the heart of our transport layer. Let's examine its
 #### Thread Safety
 - Uses `CopyOnWriteArrayList` for thread-safe listener management
 - `AtomicBoolean` for safe state management across threads
-- Separate input reader thread prevents blocking
+- There is no reader thread: `Server.start()` calls `startInputReader()` on the main thread, which blocks there until the input closes. Other threads do write, though: from Chapter 7, task workers call `emit` while the main thread is still reading.
 
 #### Input Processing
 ```java
 public void startInputReader() {
-    if (running.get()) {
+    if (!running.compareAndSet(false, true)) {
         return; // Already running
     }
-    
+
     try (Scanner scanner = new Scanner(System.in)) {
-        running.set(true);
-        while (running.get()) {
-            if (!scanner.hasNextLine()) {
-                running.set(false);
-                break;
+        try {
+            while (running.get()) {
+                if (!scanner.hasNextLine()) {
+                    running.set(false);
+                    break;
+                }
+                String line = scanner.nextLine();
+                logger.log("[API][RECEIVED]" + line);
+                publishLine(line);
             }
-            String line = scanner.nextLine();
-            logger.log("[API][RECEIVED]" + line);
-            publishLine(line);
+            logger.log("Input stream closed.");
+        } catch (Exception e) {
+            if (running.get()) {
+                logger.log("Error while reading next line from input reader: ", e);
+            }
+            throw e;
+        } finally {
+            stopRunning();
         }
+    } catch (Exception e) {
+        logger.log("Fatal error in startInputReader: ", e);
+        stopRunning();
     }
 }
 ```
 
 Key aspects:
-- Non-blocking design using a dedicated thread
-- Graceful shutdown handling
-- Comprehensive error handling and logging
+- Blocks the calling thread until standard input closes, which is the server's signal to exit
+- `compareAndSet` claims the reader in one atomic step, so a second call cannot open a second Scanner
+- A read failure is logged and ends the loop the same way a closed input does
 - Event publication to all registered listeners
 
 #### Output Handling
@@ -195,8 +210,8 @@ public void emit(Object message) {
 ```
 
 Features:
-- Automatic JSON serialization using Gson
-- Immediate flushing for real-time communication
+- Automatic JSON serialization using Gson, compact, so a message is always one line
+- The writer auto-flushes on `println`, so each message leaves as soon as it is written
 - Logging of all outbound messages
 
 ### LogFileWriter - Robust Logging Infrastructure
@@ -225,6 +240,11 @@ public static LogFile getInstance() {
 #### Error Resilience
 - Logging failures don't propagate to the application
 - Graceful degradation when file system is unavailable
+
+#### Why a file, and not stderr
+The specification's own answer for stdio logging is stderr: a server may write log text there, and the client decides what to do with it. The protocol-level alternative, `notifications/message`, is deprecated on `2026-07-28`, and its migration note points stdio servers at stderr or OpenTelemetry.
+
+Logging to a file is a choice this server makes on top of that. What a client does with stderr varies, from showing it in a panel to discarding it, but a file in `logs/` is somewhere you can `tail -f` whichever client launched the process. Either way the rule that matters is the same: nothing but MCP messages on stdout.
 
 ### Router Interface - The Extension Point
 
@@ -277,7 +297,7 @@ The beauty of this architecture is that the transport concerns are completely se
 
 1. **The transport layer is protocol-agnostic** - It simply moves JSON messages between processes
 2. **Event-driven design enables flexibility** - Multiple components can react to incoming messages
-3. **Robust error handling is crucial** - Network I/O is inherently unreliable
+3. **Robust error handling is crucial** - A client can close stdin at any moment, and the reader treats that as the signal to shut down
 4. **Logging is your friend** - Comprehensive logging makes debugging distributed systems possible
 5. **Thread safety matters** - Concurrent I/O requires careful synchronization
 
