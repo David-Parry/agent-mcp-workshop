@@ -1314,8 +1314,11 @@ def main():
     if lesson_kws.exists() and n < 5:
         lesson_kws.write_text(keyword_search_ch4(lesson_kws.read_text()))
 
-    gradle = ROOT / "build.gradle"
-    gradle.write_text(restrict_test_tags(disable_jacoco(gradle.read_text()), n))
+    # Chapter 07 finishes on complete's code, so it keeps complete's build:
+    # every test, and the coverage gate the finished server has to meet.
+    if n < 7:
+        gradle = ROOT / "build.gradle"
+        gradle.write_text(restrict_test_tags(disable_jacoco(gradle.read_text()), n))
 
     for test in [
         ROOT / "src/test/java/com/workshop/mcp/IORouterTest.java",
