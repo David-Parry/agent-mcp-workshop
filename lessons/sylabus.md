@@ -258,7 +258,7 @@ A server that implements the call-now / fetch-later pattern at the protocol leve
 
 ## Bonus: Agent Chapter — Live LLM Integration & Supervised Workflow
 
-**Branch**: `agent-chapter`
+**Branch**: `complete`, with the lessons in `lessons/agent-instructions.md` and `lessons/bonus-live-llm-instructions.md`
 
 ### Objective
 Connect your MCP server to a real AI coding assistant and use it in conversation, then layer on a Claude Code plugin that supervises a multi-step workflow against the server.

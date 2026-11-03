@@ -1097,17 +1097,30 @@ python3 {HARNESS} --chapter {chapter}
     if n < 7:
         next_section = f'''### Next chapter (`{nxt}`)
 
-When **this** chapter's tests are green, check out `{nxt}` — that is the following lesson, not this one:
+When **this** chapter's tests are green, move on to `{nxt}`, the following lesson. There are two ways.
+
+**Start from the reference.** `{nxt}` already contains the solutions for chapters 1–{n}, so this discards your work on purpose:
 
 ```bash
 ./clean-checkout.sh {nxt}
 ```
 
-That discards uncommitted work on purpose: `{nxt}` already contains the solutions for chapters 1–{n}.'''
+**Keep your own code.** Commit it, then merge the next chapter into it:
+
+```bash
+git add -A
+git commit -m "Finish chapter {chapter}"
+git fetch origin
+git merge origin/{nxt}
+```
+
+The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`.'''
     else:
         next_section = '''### After this chapter
 
-When **this** chapter's tests are green, `complete` is the finished server with this lesson filled in:
+When **this** chapter's tests are green, the server is finished. If you followed every handout as written, `git diff origin/complete -- src` prints nothing: your code is `complete`'s.
+
+The agent chapter and the bonus start from `complete`, where their lessons are:
 
 ```bash
 ./clean-checkout.sh complete
@@ -1131,7 +1144,7 @@ Follow [00-setup.md](00-setup.md) and run `./verification.sh` from **`trunk`**. 
 
 ## How the workshop is organised
 
-Each chapter is a git branch. The branch contains the server **as far as this lesson**, with this chapter's methods emptied out, plus the tests that grade them. Later chapters' code is not here.
+Each chapter is a git branch. The branch contains the server **as far as this lesson**, with this chapter's methods emptied out, plus the tests that grade them. Later chapters' code is not here. Every chapter branch is the one before it with that chapter solved, so you can check the next chapter out or merge it into your own work.
 
 ### This chapter (`{chapter}-chapter`)
 

@@ -83,6 +83,16 @@ Each chapter is a branch. After `./verification.sh` passes on `trunk`, start the
 
 That branch contains the server as far as Chapter 1, with this chapter's methods emptied out. Later chapters' code is not there yet. When Chapter N is green, `./clean-checkout.sh 0(N+1)-chapter` — that discards uncommitted work on purpose, because the next branch already contains the solutions for 1..N.
 
+To keep your own code from chapter to chapter instead, work on a branch of your own and merge each chapter into it. Start it on `trunk`:
+
+```bash
+git switch -c my-work
+git fetch origin
+git merge origin/01-chapter
+```
+
+When Chapter N is green, commit (`git add -A && git commit -m "Finish chapter 0N"`) and run `git merge origin/0(N+1)-chapter`. Every chapter branch is the one before it with that chapter solved, so the merge brings in the reference solution and the next chapter's empty methods. It is clean if you wrote the methods as the handouts give them; where you wrote something differently, git stops with a conflict that you resolve by keeping your version or taking the reference (`git checkout --theirs -- <file>`).
+
 Check your work with **this** chapter's number (`01` on `01-chapter`, `02` on `02-chapter`, and so on):
 
 ```bash

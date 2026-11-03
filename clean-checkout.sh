@@ -22,10 +22,10 @@ if [ $# -ne 1 ]; then
     echo "  $0 07-chapter"
     echo
     echo "Other:"
-    echo "  $0 complete       # the finished server"
-    echo "  $0 agent-chapter  # optional bonus chapter"
+    echo "  $0 complete       # the finished server, and the agent and bonus chapters"
     echo
     echo "WARNING: this discards all uncommitted and untracked work."
+    echo "To keep your own code instead, commit it and run: git merge origin/<branch>"
     exit 1
 fi
 
@@ -48,7 +48,7 @@ git checkout -f -B "$BRANCH" "origin/$BRANCH"
 git clean -fdx
 
 echo "Now on '$BRANCH'."
-if [[ "$BRANCH" == *-chapter && "$BRANCH" != agent-chapter ]]; then
+if [[ "$BRANCH" == *-chapter ]]; then
     echo "This chapter's lesson is in lessons/. Later chapters are not on this branch."
     echo "Check your work with: ./gradlew chapterTest -Pchapter=${BRANCH%%-chapter}"
 else
