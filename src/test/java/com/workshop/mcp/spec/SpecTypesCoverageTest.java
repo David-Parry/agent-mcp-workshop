@@ -140,7 +140,7 @@ class SpecTypesCoverageTest {
         @Test
         void theCodesThisRevisionAddedSitInItsReservedRange() {
             // 2026-07-28 partitioned the server-error range: -32000 to -32019
-            // stays implementation-defined, -32020 down is the specification's.
+            // is legacy and closed to new codes, -32020 down is the specification's.
             assertEquals(-32020, ErrorCodes.HEADER_MISMATCH);
             assertEquals(-32021, ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY);
             assertEquals(-32022, ErrorCodes.UNSUPPORTED_PROTOCOL_VERSION);

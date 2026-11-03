@@ -400,11 +400,13 @@ logger.log("[API][SENT]: " + text);     // Every outgoing message
 This creates a complete trace of the STDIO communication:
 
 ```
-[2024-01-15 10:23:45] [API][RECEIVED]{"jsonrpc":"2.0","method":"tools/list","id":5}
-[2024-01-15 10:23:45] [API][SENT]: {"jsonrpc":"2.0","id":5,"result":{"tools":[{"name":"key_word_search","description":"Searches for a specified keyword...","inputSchema":{...}}]}}
-[2024-01-15 10:23:46] [API][RECEIVED]{"jsonrpc":"2.0","method":"tools/call","params":{"name":"key_word_search","arguments":{"keyword":"TODO"}},"id":6}
-[2024-01-15 10:23:47] [API][SENT]: {"jsonrpc":"2.0","id":6,"result":{"content":[{"text":"/src/main/java/Server.java, keyword_count=3","type":"text"}]}}
+[2026-11-03 16:00:50.438] [API][RECEIVED]{"jsonrpc":"2.0","method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true}},"io.modelcontextprotocol/clientInfo":{"name":"inspector-cli","version":"2.5.0"}}},"id":5}
+[2026-11-03 16:00:50.468] [API][SENT]: {"jsonrpc":"2.0","id":5,"result":{"resultType":"complete","tools":[{"name":"key_word_search","description":"Searches for a specified keyword...","inputSchema":{...},"_meta":{...}}],"ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}
+[2026-11-03 16:00:51.070] [API][RECEIVED]{"jsonrpc":"2.0","method":"tools/call","params":{"name":"key_word_search","arguments":{"keyword":"deprecated","directory":"src/main/java/com/workshop/mcp/spec"},"_meta":{...}},"id":6}
+[2026-11-03 16:00:51.107] [API][SENT]: {"jsonrpc":"2.0","id":6,"result":{"resultType":"complete","content":[{"text":"/Users/davidparry/.../mcp/spec/builders/AppToolBuilder.java, keyword_count\u003d1","type":"text"},{"text":"/Users/davidparry/.../mcp/spec/ClientCapabilities.java, keyword_count\u003d1","type":"text"},{"text":"/Users/davidparry/.../mcp/spec/InputRequest.java, keyword_count\u003d1","type":"text"},{"text":"/Users/davidparry/.../mcp/spec/AppMeta.java, keyword_count\u003d2","type":"text"}],"isError":false,"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}
 ```
+
+The `\u003d` is an `=`: Gson escapes `=`, `<` and `>` by default, and any JSON parser reads them back as the same characters. Each reply also carries the server's identity in `_meta`, because there is no handshake to state it once, and the cacheable `tools/list` reply carries cache hints that the `tools/call` reply does not.
 
 This trace can be replayed for testing, analyzed for performance, or used to debug protocol issues—something much harder with framework-heavy implementations.
 
@@ -412,11 +414,16 @@ This trace can be replayed for testing, analyzed for performance, or used to deb
 case RESOURCES_LIST -> {
     ResourcesListResultBuilder builder = ResourcesListResultBuilder
             .builder()
-            .withResources(JavadocResources.loadAllHtmlResourcesFromFolder(
-                "javadoc/com/workshop/mcp/spec"
-            ))
-            .withNextCursor("pageNext");
-    success(message.id(), builder.build());
+            .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
+            .addResource(ResourceBuilder.builder()
+                    .withUri(KEYWORD_APP_URI)
+                    .withName("Keyword Search App")
+                    .withDescription("Interactive keyword search results dashboard")
+                    .withMimeType(Resource.MIME_TYPE_UI_APP)
+                    .build());
+    ResourcesListResult result = builder.build();
+    success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
+                                                  LIST_TTL_MILLIS, CacheScope.PUBLIC));
 }
 ```
 
@@ -424,6 +431,9 @@ The JavadocResources class shows sophisticated resource handling:
 
 ```java
 public static String readResourceContent(String resourcePath) throws IOException {
+    if (!resourcePath.endsWith(".html") || resourcePath.contains("..")) {
+        throw new IOException("Resource not found: " + resourcePath);
+    }
     try (InputStream inputStream = JavadocResources.class.getClassLoader()
                                                          .getResourceAsStream(resourcePath)) {
         if (inputStream == null) {
@@ -438,11 +448,11 @@ public static String readResourceContent(String resourcePath) throws IOException
 }
 ```
 
-This approach allows servers to bundle and serve documentation, configurations, or any other static content directly from the JAR file—all transmitted as JSON over STDIO. When a client requests a resource:
+The first check keeps a client to the bundled pages: a uri that is not an `.html` page, or that climbs out with `..`, is refused as if it were missing. This approach allows servers to bundle and serve documentation, configurations, or any other static content directly from the JAR file—all transmitted as JSON over STDIO. When a client requests a resource:
 
 ```
-→ {"jsonrpc":"2.0","method":"resources/read","params":{"uri":"javadoc/com/workshop/mcp/spec/Tool.html"},"id":10}
-← {"jsonrpc":"2.0","id":10,"result":{"contents":[{"uri":"javadoc/com/workshop/mcp/spec/Tool.html","mimeType":"text/html","text":"<!DOCTYPE HTML>..."}]}}
+→ {"jsonrpc":"2.0","method":"resources/read","params":{"uri":"javadoc/com/workshop/mcp/spec/Tool.html","_meta":{...}},"id":10}
+← {"jsonrpc":"2.0","id":10,"result":{"resultType":"complete","contents":[{"uri":"javadoc/com/workshop/mcp/spec/Tool.html","mimeType":"text/html","text":"\u003c!DOCTYPE HTML\u003e..."}],"ttlMs":60000,"cacheScope":"public","_meta":{"io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}
 ```
 
 The entire HTML document is embedded in the JSON response, properly escaped and transmitted as a single line. This demonstrates STDIO's flexibility—it can handle everything from simple method calls to large content transfers.
@@ -457,8 +467,7 @@ case PROMPTS_LIST -> {
             .builder()
             .withPrompt("search_keyword",
                         "Creates a prompt, to search for a word using the key_word_search tool.")
-            .withPromptArgument("keyword", "The word to search for", true)
-            .withNextCursor("nextPage");
+            .withPromptArgument("keyword", "The word to search for", true);
     PromptsListResult result = builder.build();
     success(message.id(), new PromptsListResult(result.prompts(), result.nextCursor(),
                                                 LIST_TTL_MILLIS, CacheScope.PUBLIC));
@@ -469,14 +478,19 @@ When retrieving a prompt, the server can provide intelligent guidance:
 
 ```java
 case PROMPTS_GET -> {
-    PromptsGetParams params = deserializer.deserializeParams(
-        message, PromptsGetParams.class
-    );
-    PromptsGetResultBuilder builder = PromptsGetResultBuilder
-            .builder()
-            .withDescription("keyword")
-            .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
-    success(message.id(), builder.build());
+    PromptsGetParams params = deserializer.deserializeParams(message, PromptsGetParams.class);
+    String keyword = params.arguments() == null ? null : params.arguments().get("keyword");
+    if (!"search_keyword".equals(params.name())) {
+        error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown prompt: " + params.name());
+    } else if (keyword == null || keyword.isBlank()) {
+        error(message.id(), ErrorCodes.INVALID_PARAMS, "Missing required argument: keyword");
+    } else {
+        PromptsGetResultBuilder builder = PromptsGetResultBuilder
+                .builder()
+                .withDescription("keyword")
+                .addTextMessage("user", KEY_WORD_MESSAGE, params.arguments());
+        success(message.id(), builder.build());
+    }
 }
 ```
 
@@ -489,12 +503,17 @@ private void process(JsonRpcNotification message) {
     UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
     switch (uniqueKey) {
         case NOTIFICATION_CANCELLED -> {
-            NotificationCancelledParams params = deserializer.deserializeParams(
-                message, NotificationCancelledParams.class
-            );
-            logger.log("Notification cancelled reason " + params.reason());
+            NotificationCancelledParams params = deserializer.deserializeParams(message,
+                                                                                NotificationCancelledParams.class);
+            // There is never an in-flight request to abandon: this server
+            // answers every request before returning, and its one
+            // long-lived request, subscriptions/listen, is closed as it is
+            // acknowledged. So the cancellation is recorded and nothing else.
+            logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
+                       + " reason=" + params.reason());
         }
-        default -> logger.log("Unhandled notification method: " + uniqueKey);
+        default -> logger.log("[API][RECEIVED] unhandled notification method: " + message.method()
+                              + " for message: " + message);
     }
 }
 ```
@@ -527,7 +546,7 @@ public class Server {
         } catch (Exception e) {
             logger.log("Error in main method", e);
             stop();
-            System.exit(0);
+            exit(1);
         }
     }
 }
@@ -551,12 +570,19 @@ Java records provide immutable, self-documenting protocol structures. Note `Requ
 
 ### 2. Builder Pattern for Complex Responses
 ```java
-DiscoverResult result = DiscoverResultBuilder.builder()
-    .withDefaultCapabilities()
-    .withInstructions("Searches a project for a keyword.")
-    .withCacheHints(60_000L, CacheScope.PUBLIC)
-    .withDefaultServerInfo()
-    .build();
+DiscoverResultBuilder builder = DiscoverResultBuilder
+        .builder()
+        .withDefaultCapabilities()
+        .withExtension(MetaKeys.UI_EXTENSION, Map.of())
+        .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
+                          + "for one over a Multi Round-Trip Request, and searches its own working "
+                          + "directory if the client offers nothing.")
+        .withCacheHints(LIST_TTL_MILLIS, CacheScope.PUBLIC)
+        .withDefaultServerInfo();
+if (TASK_HANDLES_ENABLED) {
+    builder.withTasksExtension();
+}
+return builder.build();
 ```
 
 Builders ensure valid, complete responses while maintaining readability.
@@ -570,7 +596,7 @@ public enum UniqueKeys {
     
     public static UniqueKeys fromValue(String value) {
         for (UniqueKeys key : UniqueKeys.values()) {
-            if (key.value.equalsIgnoreCase(value)) {
+            if (key.value.equals(value)) {
                 return key;
             }
         }
@@ -579,7 +605,7 @@ public enum UniqueKeys {
 }
 ```
 
-This approach provides type-safe method handling with built-in validation.
+This approach provides type-safe method handling with built-in validation. The match is exact, because JSON-RPC method names are case-sensitive: `Tools/List` is not a method this server has, and it gets `-32601`.
 
 ## Why Building Without Frameworks Matters
 
