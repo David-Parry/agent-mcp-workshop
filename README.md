@@ -65,7 +65,7 @@ Red means keep going; green means move on.
 ./gradlew clean build
 ```
 
-This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`, which is what `mcp.json` and `inspector/config.json` point at.
+This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`, which is what `lessons/mcp.json` and `inspector/config.json` point at.
 
 ## Feedback
 
