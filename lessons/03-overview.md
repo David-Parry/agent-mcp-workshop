@@ -77,7 +77,7 @@ The **sequence diagram** shows the cancellation notification flow where the clie
 
 Students will:
 - Build the project using Gradle
-- Use the MCP Inspector (v2.5.0) with the workshop's `auto` era, which probes `server/discover` before it would fall back to `initialize`
+- Use the MCP Inspector (v2.5.0) with the workshop's `modern` era, which pins `2026-07-28` and sends `server/discover` with no fallback to `initialize`
 - Open the Resources tab and read its `Method not found` error to understand capability advertising vs. implementation
 - Send malformed requests on purpose with `inspector/modern-probe.sh`
 

@@ -177,7 +177,7 @@ return envelope;
 
 Everything so far is a part. This task wires the parts together, in the order the checks must run.
 
-`process(JsonRpcRequest message)` starts at **line 159**. Its first line, which works out `uniqueKey`, and the `switch` at the end are already there. Between them is a `// Chapter 03:` comment; replace it with these lines:
+Paste at **line 162** of `IORouter.java`, inside `process(JsonRpcRequest message)`. The method starts at **line 159**. Its first line, which works out `uniqueKey`, and the `switch` at the end are already there. Replace the `// Chapter 03:` comment between them with these lines:
 
 ```java
 // Method existence is settled before the envelope is looked at.
@@ -255,7 +255,7 @@ This compiles, runs every test on the branch, and packages the server at `build/
 
 ### Step 2: Check the Inspector configuration
 
-Open `inspector/config.json` and confirm `"protocolEra": "auto"` is a **direct sibling of `command` and `args`**, inside the `workshop` entry. Nested anywhere else the key is ignored, and the Inspector falls back to its default era, `legacy`: it sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for.
+Open `inspector/config.json` and confirm `"protocolEra": "modern"` is a **direct sibling of `command` and `args`**, inside the `workshop` entry. Nested anywhere else the key is ignored, and the Inspector falls back to its default era, `legacy`: it sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for.
 
 The era decides what the first message on the wire is:
 
@@ -265,7 +265,7 @@ The era decides what the first message on the wire is:
 | `auto` | Probe `server/discover` first, fall back to `initialize` on any non-modern outcome. |
 | `modern` | Pin exactly `2026-07-28`. No fallback, so a non-modern server fails loudly. |
 
-The workshop ships `auto`, so the probe goes out first and your server answers it. Switch to `modern` for a stricter check: a server that cannot answer `server/discover` then fails at once instead of quietly being retried with the handshake.
+The workshop ships `modern`. That pins the Inspector to `2026-07-28` and sends `server/discover` with no fallback. A server that cannot answer discovery fails at once, instead of being retried with the `initialize` handshake the way `auto` would.
 
 `inspector/run.sh` pins the Inspector version:
 
