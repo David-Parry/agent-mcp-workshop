@@ -6,7 +6,7 @@ This chapter is where bytes become messages. You will implement `JsonRpcMessageD
 
 Open `src/main/java/com/workshop/mcp/spec/JsonRpcMessageDeserializer.java`. The class, its fields, and its Javadoc are there. Each method body holds a `// Chapter 02:` comment and a `throw new UnsupportedOperationException(...)`, so the class compiles but every call fails; replace the comment and the `throw` with the code.
 
-The line numbers below are where each method starts in the file as you checked it out. The tasks run from the top of the file down, so every paste pushes the methods below it further down: after your first paste, find each method by its name rather than its number.
+Each line number is the `// Chapter 02:` comment inside that method at the moment you reach the task. The first is from the file as you checked it out. Every paste changes the length of the file, and the later numbers already include the pastes above them. Replace that comment and the `throw`.
 
 ## The four shapes
 
@@ -25,7 +25,7 @@ Anything that fits none of these is not something this server understands, and t
 
 ## First Implementation Task: Classification
 
-Paste at **line 76** of `JsonRpcMessageDeserializer.java`, inside the `deserialize(String json)` body:
+Paste at **line 77** of `JsonRpcMessageDeserializer.java`, inside the `deserialize(String json)` body:
 
 ```java
 JsonElement tree = JsonParser.parseString(json);
@@ -99,19 +99,19 @@ return new Unknown(json);
 
 ## Second Implementation Task: Typed Params
 
-Classification gives you a `JsonRpcRequest`, whose `params()` is a generic `Object`. Each method needs its own params record. Paste at **line 96**, inside the `deserializeParams(JsonRpcRequest request, Class<T> paramsClass)` body:
+Classification gives you a `JsonRpcRequest`, whose `params()` is a generic `Object`. Each method needs its own params record. Paste at **line 125**, inside the `deserializeParams(JsonRpcRequest request, Class<T> paramsClass)` body:
 
 ```java
 return gson.fromJson(gson.toJson(request.params()), paramsClass);
 ```
 
-Paste the same line at **line 116**, inside the `deserializeParams(JsonRpcNotification request, Class<T> paramsClass)` body, the overload for notifications:
+Paste the same line at **line 143**, inside the `deserializeParams(JsonRpcNotification request, Class<T> paramsClass)` body, the overload for notifications:
 
 ```java
 return gson.fromJson(gson.toJson(request.params()), paramsClass);
 ```
 
-Then paste at **line 135**, inside `convert(Object value, Class<T> type)`:
+Then paste at **line 160**, inside `convert(Object value, Class<T> type)`:
 
 ```java
 return value == null ? null : gson.fromJson(gson.toJsonTree(value), type);
@@ -129,7 +129,7 @@ Revision `2026-07-28` removed the `initialize` handshake. There is no longer a m
 
 That block is the envelope, and reading it is how the server knows what it is allowed to do on this call.
 
-Paste at **line 159**, inside the `deserializeEnvelope(JsonRpcRequest request)` body:
+Paste at **line 182**, inside the `deserializeEnvelope(JsonRpcRequest request)` body:
 
 ```java
 JsonObject meta = metaObject(request.params());
@@ -143,7 +143,7 @@ return new RequestEnvelope(
         asString(meta.get(MetaKeys.LOG_LEVEL)));
 ```
 
-And the two private helpers it leans on. Paste at **line 165**, inside `metaObject(Object params)`:
+And the two private helpers it leans on. Paste at **line 194**, inside `metaObject(Object params)`:
 
 ```java
 if (params == null) {
@@ -157,7 +157,7 @@ JsonElement meta = tree.getAsJsonObject().get("_meta");
 return (meta != null && meta.isJsonObject()) ? meta.getAsJsonObject() : null;
 ```
 
-Then paste at **line 171**, inside the `asString(JsonElement element)` body:
+Then paste at **line 206**, inside the `asString(JsonElement element)` body:
 
 ```java
 return (element != null && element.isJsonPrimitive()) ? element.getAsString() : null;
@@ -242,7 +242,7 @@ void aTraceparentIsReadOutOfParamsMeta() {
 }
 ```
 
-Logging the value belongs to the router, which arrives in chapter 03. If you merge `03-chapter` into your own code, the method comes with you. If you check `03-chapter` out instead, it starts from the reference solution, so you would add the method again. Either way, log the value where `IORouter.process(JsonRpcRequest message)` begins:
+Logging the value belongs to the router, and this chapter's `IORouter` cannot do it. The only method here is `route(String message)`. Chapter 03 replaces that stub and adds `private void process(JsonRpcRequest message)`, which `route` reaches through `answer`. On `03-chapter` that method begins at line 159. Merge `origin/03-chapter` or check that branch out, then log at the start of `process`, before `UniqueKeys.fromValue`:
 
 ```java
 String traceparent = deserializer.traceparent(message);
