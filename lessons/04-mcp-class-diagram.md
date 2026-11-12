@@ -321,7 +321,7 @@ classDiagram
 ## Key Class Groups in Lesson 4
 
 ### Errors
-- **JsonRpcErrorResponse** / **JsonRpcError**: The answer to a request the server cannot serve. In this chapter that is `-32602` for an unknown tool, an unknown prompt, a missing required prompt argument, and an empty or unreadable resource uri, whose `data` names the uri
+- **JsonRpcErrorResponse** / **JsonRpcError**: The answer to a request the server cannot serve. In this chapter that is `-32602` for an unknown tool, an unknown prompt, a missing required prompt argument, and an empty or unreadable resource uri. Only the unreadable uri's error carries `data`, naming the uri
 
 ### Resource Classes
 - **Resource**: A single documentation file with URI, name, description, MIME type, and optional annotations

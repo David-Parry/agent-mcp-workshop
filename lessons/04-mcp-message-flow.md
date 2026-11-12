@@ -75,7 +75,7 @@ sequenceDiagram
     Client->>Server: resources/read (request)
     Note right of Client: Empty or unknown URI
     Server-->>Client: error -32602
-    Note right of Server: "Resource not found",<br/>with the uri in data
+    Note right of Server: Unknown: "Resource not found",<br/>with the uri in data.<br/>Empty: "resources/read requires a uri"
     
     Client->>Server: prompts/get (request)
     Note right of Client: Unknown prompt, or no keyword

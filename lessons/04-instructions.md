@@ -19,7 +19,7 @@ The line numbers below are where each `case` sits in the file as you checked it 
 **Action Required**: open `src/main/java/com/workshop/mcp/resources/JavadocResources.java` and read it. Three things in it shape the handlers you write next:
 
 - The Javadoc pages are in `src/main/resources/javadoc/`, which is bundled into the JAR, so the helper reads them with `getResourceAsStream()` rather than from the filesystem.
-- `loadAllHtmlResourcesFromFolder` builds the list from a listing generated at build time, because a JAR has no directory to list.
+- `loadAllHtmlResourcesFromFolder` builds the list from `html-files.txt`, a listing committed beside the pages, because a JAR has no directory to list. The `syncSpecJavadoc` Gradle task regenerates it; `build` does not.
 - `readResourceContent` throws an `IOException` for a page that is not there. It also refuses anything that is not an `.html` page, or that contains `..`: the uri comes straight from the client, and the classpath holds the server's own classes too.
 
 ### Step 2: Fill the resource handlers
@@ -85,7 +85,7 @@ The schema has a required `keyword` and an optional `directory`. In this chapter
 
 ### Step 2: Fill the tools handlers
 
-**Action Required**: paste into the empty cases in `IORouter.java`:
+**Action Required**: paste the following over the empty cases in `IORouter.java`:
 - `TOOLS_LIST` — **line 208**
 - `TOOLS_CALL` — **line 211**
 
@@ -120,7 +120,7 @@ case TOOLS_CALL -> {
 }
 ```
 
-`TOOLS_LIST` uses `ToolsListResultBuilder`, not `AppToolBuilder`. There is no `_meta` URI on the tool yet.
+`TOOLS_LIST` uses `ToolsListResultBuilder`. There is no `_meta` URI on the tool yet: Chapter 6 adds one, with an `AppToolBuilder` that is not on this branch.
 
 `directoryArgument` is already on the class. It reads `arguments.directory` and treats blank as absent.
 
@@ -158,7 +158,7 @@ Neither rule bites this workshop's two-string schema. Both bite the moment someo
 
 ### Step 1: Fill the prompt handlers
 
-**Action Required**: paste into the empty cases in `IORouter.java`:
+**Action Required**: paste the following over the empty cases in `IORouter.java`:
 - `PROMPTS_LIST` — **line 202**
 - `PROMPTS_GET` — **line 205**
 
@@ -200,7 +200,7 @@ case PROMPTS_GET -> {
 
 Completion suggests values for a prompt argument while the user types it.
 
-**Action Required**: paste into the empty `COMPLETION_COMPLETE` case in `IORouter.java` — **line 223**:
+**Action Required**: paste the following over the empty `COMPLETION_COMPLETE` case in `IORouter.java` — **line 223** as you checked it out, line 294 once Parts 1 to 3 are in:
 
 ```java
 case COMPLETION_COMPLETE -> {
@@ -223,7 +223,7 @@ case COMPLETION_COMPLETE -> {
 
 Both extra branches matter:
 
-- **`argument == null`**: calling `.name()` on it throws out of the router and the client waits forever. A `-32602` is something the client can act on.
+- **`argument == null`**: calling `.name()` on it throws a `NullPointerException`, which `answer` turns into `-32603`: an internal error that blames the server for the client's mistake. A `-32602` tells the client what to fix.
 - **The `else`**: without it, a completion for any other argument name falls out of the switch with no reply. The prompt has no other argument, so the answer is an empty list.
 
 `total` and `hasMore` travel inside `completion`, beside the values they describe. `total` may be larger than the number of values sent, and `hasMore` says whether more exist beyond them. All three are sent here, so `hasMore` is false.
@@ -253,6 +253,8 @@ Then build everything and drive the built server the way a client would. The har
 python3 lessons/presentation-3hr/verify/harness.py --chapter 04
 ```
 
+`./inspector/modern-probe.sh`, from Chapter 3, now gets results where it got `-32601`: `tools/list`, `resources/templates/list` and `prompts/list` answer with `ttlMs` and `cacheScope`, and its `tools/call` without a directory comes back with `isError: true`.
+
 ## Try It in the MCP Inspector
 
 ```bash
@@ -260,7 +262,7 @@ cd inspector
 ./run.sh
 ```
 
-`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
+`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`, as in Chapter 3: the Inspector sends `server/discover` and never falls back to `initialize`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
 
 Turn on the switch on the `workshop` card to connect. The Inspector fetches every list as soon as discovery completes, so each tab is filled when you open it.
 
