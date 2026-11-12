@@ -31,8 +31,8 @@ CHAPTER_TITLES = {
 
 CHAPTER_BLURBS = {
     "01": "reading stdio, publishing lines, and emitting JSON",
-    "02": "classifying requests, notifications, responses and errors",
-    "03": "`server/discover`, the `_meta` envelope, `RequestId`",
+    "02": "classifying requests, notifications, responses and errors, and reading the `params._meta` envelope",
+    "03": "`server/discover`, the `_meta` envelope, `subscriptions/listen`",
     "04": "the keyword-search tool and Javadoc resources",
     "05": "asking the client a question when a directory is missing",
     "06": "shipping a UI with your tool",
@@ -851,10 +851,15 @@ def keyword_search_ch4(text):
 
 def disable_jacoco(text):
     return text.replace(
-        """check {
+        """// Coverage is verified as part of `check`, so a regression fails the build
+// rather than quietly showing up in a report nobody opened. The report is
+// built alongside it so there is something to read when it does fail.
+check {
     dependsOn jacocoTestReport, jacocoTestCoverageVerification
 }""",
-        """check {
+        """// On `complete`, coverage is verified as part of `check`, so a regression
+// fails the build rather than quietly showing up in a report nobody opened.
+check {
     // Coverage is a property of the finished server on `complete`, not of a chapter in progress.
 }""",
     )
@@ -1137,6 +1142,7 @@ def write_readme(chapter: str):
     nxt = f"{n + 1:02d}-chapter" if n < 7 else "complete"
     title = CHAPTER_TITLES[chapter]
     blurb = CHAPTER_BLURBS[chapter]
+    solved = "chapter 1" if n == 1 else f"chapters 1–{n}"
     harness_section = "" if n < 3 else f'''
 Once the tests are green, drive the built server the way a client would. The harness starts the JAR, talks JSON-RPC to it over stdio, and checks the protocol behaviour every chapter up to this one has built:
 
@@ -1150,7 +1156,7 @@ python3 {HARNESS} --chapter {chapter}
 
 When **this** chapter's tests are green, move on to `{nxt}`, the following lesson. There are two ways.
 
-**Start from the reference.** `{nxt}` already contains the solutions for chapters 1–{n}, so this discards your work on purpose:
+**Start from the reference.** `{nxt}` already contains the solutions for {solved}, so this discards your work on purpose:
 
 ```bash
 ./clean-checkout.sh {nxt}
@@ -1165,7 +1171,7 @@ git fetch origin
 git merge origin/{nxt}
 ```
 
-The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`.'''
+The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`. If git reports a modify/delete conflict instead, the next branch deleted that file, such as a `lessons/{chapter}-*.md` handout you edited, and `--theirs` has nothing to take: run `git rm <file>` to accept the deletion, then `git commit --no-edit`.'''
     else:
         next_section = '''### After this chapter
 
@@ -1182,7 +1188,8 @@ The agent chapter and the bonus start from `complete`, where their lessons are:
 >
 > The work this chapter covers is waiting for you; earlier chapters are already
 > written, and later chapters are not on this branch. Your instructions are in
-> [lessons/{chapter}-instructions.md](lessons/{chapter}-instructions.md),
+> [lessons/{chapter}-instructions.md](lessons/{chapter}-instructions.md), the background is in
+> [lessons/{chapter}-overview.md](lessons/{chapter}-overview.md),
 > and you are finished when `./gradlew chapterTest -Pchapter={chapter}` is green.
 
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
@@ -1224,7 +1231,7 @@ Red means keep going; green means this chapter is done. `./gradlew test` on this
 
 This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`''' + (
         ", which is what `inspector/config.json` points at." if n >= 3 else "."
-    ) + '''
+    ) + ''' `build` also runs the tests, so until this chapter is green it ends in BUILD FAILED; `./gradlew shadowJar` builds the JAR without them.
 
 ## Feedback
 

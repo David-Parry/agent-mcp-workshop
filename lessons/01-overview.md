@@ -4,6 +4,8 @@
 
 This chapter introduces the foundational transport layer for the Model Context Protocol (MCP) implementation. The code we're examining represents the essential plumbing that enables bidirectional communication between MCP servers and clients. This transport layer is what we'll be building upon throughout this workshop.
 
+On this branch, the three `IOHandlerImpl` methods described below, `startInputReader()`, `publishLine()` and `emit()`, have empty bodies: you write them by following [01-instructions.md](01-instructions.md).
+
 ## What is MCP Transport?
 
 The Model Context Protocol (MCP) requires a reliable transport mechanism to exchange messages between servers and clients. Our implementation focuses on:
@@ -105,7 +107,7 @@ classDiagram
     IOHandler <|.. IOHandlerImpl : implements
     LogFile <|.. LogFileWriter : implements
     IOHandlerImpl --> LogFile : uses
-    IOHandlerImpl --> "1..*" Consumer : notifies
+    IOHandlerImpl --> "0..*" Consumer : notifies
 ```
 
 ## Message Flow Diagram

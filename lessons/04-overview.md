@@ -27,7 +27,7 @@ The Resources feature allows servers to expose various types of content that cli
   - Deserializes `ReadResourceParam` to get the requested resource URI
   - Reads HTML content from the classpath using `JavadocResources.readResourceContent()`
   - Returns the content with appropriate MIME type (`text/html`)
-  - Answers an empty uri, or one it cannot read, with `-32602` and the uri in `data`, never with empty `contents`
+  - Answers an empty uri with `-32602`, and one it cannot read with `-32602` and the uri in `data`, never with empty `contents`
 
 ### 2. **Tools Capability Implementation**
 Tools provide executable functionality that clients can discover and invoke:
@@ -81,7 +81,7 @@ success(message.id(), new ResourcesListResult(result.resources(), result.nextCur
 - **`ttlMs`** is a freshness hint, analogous to HTTP `Cache-Control: max-age`. It must be `>= 0`. It is *not* a polling interval — a client checks freshness when it needs the data, not on a timer.
 - **`cacheScope`** is `"public"` or `"private"`. `"public"` says the result holds nothing user-specific, so a shared gateway may serve it to **any** caller — including across authorization contexts. These javadoc resources are identical for everyone, so `"public"` is right here. A per-user filtered list would not be, and `cacheScope` is a visibility *hint*, never an access control.
 
-Interim `input_required` results carry no hints at all, and results produced by an MRTR retry — anything arriving with `inputResponses` or `requestState` — **MUST NOT** be cached, because the inputs that shaped them are not part of the cache key.
+From Chapter 5 a server can also answer `input_required`, asking the client a question before it finishes. Those interim results carry no hints at all, and results produced by the retried call, a Multi Round-Trip Request (MRTR) — anything arriving with `inputResponses` or `requestState` — **MUST NOT** be cached, because the inputs that shaped them are not part of the cache key.
 
 #### Each page caches independently
 

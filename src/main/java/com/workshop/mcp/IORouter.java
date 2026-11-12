@@ -314,8 +314,8 @@ public class IORouter implements Router {
             case TASKS_GET -> {
                 TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
                 // A missing taskId is answered like an unknown one. Read into
-                // the store, a null id would throw out of the router and leave
-                // the client waiting for a reply that never comes.
+                // the store, a null id would throw, and the client would get
+                // -32603 for a mistake in its own request.
                 TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
                 if (detail == null) {
                     logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");

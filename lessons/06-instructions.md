@@ -4,7 +4,7 @@
 
 In this lesson `key_word_search` gets a page of its own. A host that renders **MCP Apps** shows the page beside the tool's result. Every other client sees the same tool, calls it the same way and reads the same text, so nothing the tool already does changes.
 
-MCP Apps is an official extension, `io.modelcontextprotocol/ui`, and it is **Stable**: its specification is revision `2026-01-26`. It adds no methods to the protocol. A tool points at a page with `_meta.ui.resourceUri`, the page is an ordinary resource at a `ui://` address, and the host reads it with `resources/read`.
+MCP Apps is an official extension, `io.modelcontextprotocol/ui`, and it is **Stable**: its specification is revision `2026-01-26`. It adds no methods between client and server. A tool points at a page with `_meta.ui.resourceUri`, the page is an ordinary resource at a `ui://` address, and the host reads it with `resources/read`.
 
 The records, the router wiring and the page are already on this branch. You write three methods:
 
@@ -12,7 +12,7 @@ The records, the router wiring and the page are already on this branch. You writ
 2. `AppToolBuilder.withResourceUri`, which stores that address
 3. `AppToolBuilder.build`, which refuses an incomplete tool and builds the rest
 
-The line numbers below are where each method sits in the file as you checked it out. Every paste pushes what is below it further down, so after your first paste in a file, find each one by its name rather than its number.
+The line numbers below are where each method sits in the file as you checked it out. Every paste moves what is below it, so after your first paste in a file, find each one by its name rather than its number.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/apps/overview](https://modelcontextprotocol.io/extensions/apps/overview), and the specification itself at [https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 
@@ -44,7 +44,7 @@ public record AppMeta(
 ) {
 ```
 
-**The address goes on the wire twice**: nested, as `ui.resourceUri`, and flat, as `ui/resourceUri`. The shape suggests the wrong answer about which one is current, because every other `_meta` key you have met is a flat, slash-namespaced one. The nested key is the canonical one. The MCP Apps specification marks the flat key **deprecated**, says it "will be removed before GA", and names `_meta.ui.resourceUri` as its replacement.
+**The address goes on the wire twice**: nested, as `ui.resourceUri`, and flat, as `ui/resourceUri`. The shape suggests the wrong answer about which one is current, because every other `_meta` key you have met is flat, and most are slash-namespaced. The nested key is the canonical one. The MCP Apps specification marks the flat key **deprecated**, says it "will be removed before GA", and names `_meta.ui.resourceUri` as its replacement.
 
 This server sends both, for the same reason clients still declare `roots`: hosts built against the older spelling still read it, and a deprecated field keeps working until it is removed. A host should read the nested key first. The MCP Inspector does, and falls back to the flat key only when the nested one is missing.
 
@@ -108,7 +108,7 @@ public AppToolBuilder withResourceUri(String resourceUri) {
 
 ### Step 3: Fill `build`
 
-**Action Required**: fill `build` at **line 139** of `AppToolBuilder.java`:
+**Action Required**: fill `build` at **line 139** of `AppToolBuilder.java`, which is line 138 once `withResourceUri` is filled:
 
 ```java
 public AppTool build() {
@@ -131,15 +131,15 @@ public AppTool build() {
 #### What to notice
 
 1. **The protocol requires two of these four, and the builder requires all four.** A tool must have a `name` and an `inputSchema`. The schema MUST be a JSON Schema object, never `null`, even for a tool that takes no arguments: such a tool sends `{"type":"object","additionalProperties":false}`, or at least an object with no properties. The protocol leaves `description` optional, but a model picks tools by their descriptions, so this builder insists on one. The `resourceUri` is what makes this an `AppTool` at all.
-2. **The checks run in this order on purpose.** The tests leave the schema out when they test a missing name or page, and expect to hear about what they left out first.
-3. **Failing at startup is the kind failure.** An `AppTool` with no page claims a UI it does not have: the host fetches nothing, shows nothing and reports nothing. An exception the first time `tools/list` is answered is far easier to find.
+2. **The checks run in this order on purpose.** The tests leave the schema out when they test a missing or blank name, description or page, and expect to hear about what they left out first.
+3. **Failing loudly is the kind failure.** An `AppTool` with no page claims a UI it does not have: the host fetches nothing, shows nothing and reports nothing. An exception the first time `tools/list` is answered is far easier to find.
 4. **`build` calls `AppMeta.of`**, so no call site can fill one key and forget the other.
 
 ---
 
 ## Part 3: Read the Router Wiring
 
-Nothing in `IORouter.java` needs writing in this chapter. Read the four places that use what you just wrote, in `src/main/java/com/workshop/mcp/IORouter.java`.
+Nothing in `IORouter.java` needs writing in this chapter. Read the four places that wire the page in, in `src/main/java/com/workshop/mcp/IORouter.java`. `TOOLS_LIST` is the one that calls what you just wrote.
 
 ### `discoverResult` declares the extension
 
@@ -196,7 +196,7 @@ open src/main/resources/lesson/mcp-app.html
 
 On Linux use `xdg-open`, and on Windows `start`, with the same path.
 
-What you see is a **demo**. The banner says so: the page never talks to the host, the rows are sample data, and **Search** only filters them by file name. A real MCP App talks to its host over `postMessage`. The host hands the page the tool's arguments and result as `ui/notifications/tool-input` and `ui/notifications/tool-result`, and the page can ask the host to call a tool for it with `tools/call`. Making this page do that is the first stretch below.
+What you see is a **demo**. The banner says so: the page never talks to the host, the rows are sample data, and **Search** only filters them by file path. A real MCP App talks to its host over `postMessage`. The host hands the page the tool's arguments and result as `ui/notifications/tool-input` and `ui/notifications/tool-result`, and the page can ask the host to call a tool for it with `tools/call`. Making this page do that is the first stretch below.
 
 The page also loads nothing from outside itself: its script and styles are inline, and it uses system fonts. That matters because a host gives a page a strict Content Security Policy unless the resource declares otherwise. Inline scripts and styles are allowed, and every network request and outside script is blocked.
 
@@ -210,7 +210,7 @@ The page also loads nothing from outside itself: its script and styles are inlin
 
 The run reports 17 tests, and 13 of them fail before you start: 9 in `AppToolBuilderTest`, 3 in `IORouterTest` and 1 in `SpecTypesCoverageTest`. Two of the `IORouterTest` failures are Chapter 4 tests that read `tools/list`, which your builder now builds, so they run again here. The other 4 tests pass already, because the router's wiring is given: the extension is declared, the page is listed and read, and every method the router accepts is still answered. Failures worth recognising:
 
-- `anAppToolWritesItsResourceUriUnderBothMetaKeys` — `of` fills one key and not the other, or `build` makes its `AppMeta` some other way.
+- `anAppToolWritesItsResourceUriUnderBothMetaKeys` — `of` fills one key and not the other, or `build` makes its `AppMeta` some other way. `appToolsCarryTheResourceUriUnderBothMetaKeys` fails with it, without a `-32603`, because the reply is missing the same key.
 - `anAppToolWithoutANameIsRejected` or `anAppToolWithoutADescriptionIsRejected` — the check is missing, or its message differs from the snippet's.
 - `aBlankNameIsRefusedJustLikeAMissingOne`, `aBlankDescriptionIsRefusedJustLikeAMissingOne` or `aBlankResourceUriIsRefusedJustLikeAMissingOne` — the check tests for `null` and misses `isBlank()`.
 - `anAppToolWithoutAResourceUriIsRejected` — `build` lets a tool with no page through, or checks the schema first. This test leaves the schema out too, and expects to hear about the page.

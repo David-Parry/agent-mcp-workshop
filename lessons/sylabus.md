@@ -33,8 +33,11 @@ Build the bidirectional I/O infrastructure that enables communication between MC
 
 ### Tasks
 1. Implement `startInputReader()` — read lines from `System.in`
-2. Implement `publishLine()` — distribute input to listeners
-3. Implement `emit()` — send JSON responses to `System.out`
+2. Implement `emit()` — send JSON responses to `System.out`
+3. Implement `publishLine()` — distribute input to listeners
+
+### Verification
+- `./gradlew chapterTest -Pchapter=01` is green: 58 tests, of which 13 in `IOHandlerImplTest` start red
 
 ### Outcome
 A working transport layer that can read input, publish to listeners, and emit JSON responses.
@@ -89,7 +92,7 @@ Every inbound line becomes either a typed message or a clearly marked non-messag
 Implement `server/discover` and the per-request envelope that replaced the handshake.
 
 ### What You'll Build
-- Fill `discoverResult()`, `envelopeFor()`, the request prelude, and the notification handler — those methods are empty; the types (`RequestId`, `McpGson`, `NotificationCancelledParams`) are already on the branch
+- Fill `acknowledgeSubscription()`, `discoverResult()`, `envelopeFor()`, the request prelude, and the notification handler — those methods are empty; the types (`RequestId`, `McpGson`, `NotificationCancelledParams`) are already on the branch
 
 ### Key Concepts
 - Statelessness: revision `2026-07-28` deleted `initialize`, `notifications/initialized`, and `ping`
@@ -99,13 +102,14 @@ Implement `server/discover` and the per-request envelope that replaced the hands
 - STDIO discipline (never write debug output to stdout)
 
 ### Tasks
-1. Fill `discoverResult()` and the `server/discover` shortcut (answered before any version check)
-2. Fill `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported`) for an unsupported revision
-3. Build and test with MCP Inspector (`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`)
-4. Fill the notification handler using Chapter 2's `deserializeParams` and the existing `NotificationCancelledParams`
+1. Fill `acknowledgeSubscription()` — acknowledge `subscriptions/listen` with what the server honors, then close the stream
+2. Fill `discoverResult()` and the `server/discover` shortcut (answered before any version check)
+3. Fill `envelopeFor()` — `-32602` for an incomplete envelope, `-32022` (with `data.supported` and `data.requested`) for an unsupported revision
+4. Build and test with MCP Inspector (`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`)
+5. Fill the notification handler using Chapter 2's `deserializeParams` and the existing `NotificationCancelledParams`
 
 ### Verification
-- MCP Inspector connects successfully with `"protocolEra": "auto"`, and the first message on the wire is `server/discover`, not `initialize`
+- MCP Inspector connects successfully with `"protocolEra": "modern"`, and the first message on the wire is `server/discover`, not `initialize`
 - Discovery completes (green status) — note the **string** id on that first message
 - `initialize` returns `-32601`, checked before the envelope so a legacy client is told the truth
 - A request with no `_meta` returns `-32602`; one declaring `2025-11-25` returns `-32022`
@@ -181,7 +185,7 @@ See where extensions are declared, though this chapter declares none, then ask t
 - `requestState` comes back from the client, which can rewrite it, so it holds only the stage; the keyword comes back with the retried call's arguments
 - An empty `"elicitation":{}` declares form, as it did before there were modes
 - Always leave a one-hop path — MRTR is optional for clients, so the directory is also an optional tool argument
-- Removed (SEP-2575) is not deprecated (SEP-2577): `initialize` and its family are physically gone, whereas roots, sampling, and logging still work and are still declared by clients — this server just does not build on them
+- Removed (SEP-2575) is not deprecated (SEP-2577): `initialize` and its family are physically gone, whereas roots, sampling, and logging still work, and clients keep declaring roots and sampling — this server just does not build on them
 
 ### Verification
 - The `server/discover` result still has **no** UI or tasks extension — those are Chapters 6 and 7
@@ -305,7 +309,7 @@ Your MCP server running with a live LLM, and a supervised plugin demonstrating s
 | Chapter | Topic | Key Deliverable |
 |---------|-------|-----------------|
 | 1 | Transport Layer | Line-oriented I/O with event publishing |
-| 2 | Protocol Review | Understanding of JSON-RPC and MCP |
+| 2 | Reading JSON-RPC Messages | `JsonRpcMessageDeserializer`: the four shapes, typed params and the `_meta` envelope |
 | 3 | Discovery & Routing | Working `server/discover` and envelope validation |
 | 4 | Resources, Tools, Prompts | Three core capabilities wired up |
 | 5 | Extensions & Round Trips | Namespaced extensions + Multi Round-Trip Requests |

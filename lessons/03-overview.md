@@ -34,7 +34,7 @@ This workshop builds a stdio server, so the rest of the revision's transport wor
 - **Sessions are gone.** The `Mcp-Session-Id` header was removed outright. A server that needs state across calls mints an explicit handle and takes it back as an ordinary tool argument — the same move the tasks extension makes with `taskId`. One consequence is that list endpoints no longer vary per connection.
 - **The GET notification stream is gone**, replaced by `subscriptions/listen` — the same method we implement here, so this part does transfer.
 - **Stream resumability is gone.** `Last-Event-ID` and SSE event IDs were removed. A broken response stream loses the in-flight request, and the client must reissue it under a **new** request id rather than resuming.
-- **Two request headers became mandatory** on POST: `Mcp-Method` and `Mcp-Name`, mirroring the JSON-RPC body so intermediaries can route and rate-limit without parsing it. A header that disagrees with the body is `-32020` — the one error code in our table a stdio server can never emit. Relatedly, a tool may annotate an argument with `x-mcp-header` to have the client mirror its value into an `Mcp-Param-*` header.
+- **Two request headers became mandatory** on POST: `Mcp-Method` and `Mcp-Name`, mirroring the JSON-RPC body so intermediaries can route and rate-limit without parsing it. A header that disagrees with the body is `-32020` — the one code in `ErrorCodes` a stdio server can never emit. Relatedly, a tool may annotate an argument with `x-mcp-header` to have the client mirror its value into an `Mcp-Param-*` header.
 - **Cancellation differs.** On modern Streamable HTTP, cancelling means closing that request's own response stream. Over stdio it is still `notifications/cancelled`, which is what we implement.
 - **Authorization moved too** — authorization servers should return RFC 9207's `iss` and clients must validate it, client credentials are bound to the issuer that minted them, and Dynamic Client Registration is now deprecated in favour of Client ID Metadata Documents. None of it applies here: a stdio server takes credentials from its environment rather than following the authorization framework at all.
 
@@ -42,7 +42,7 @@ This workshop builds a stdio server, so the rest of the revision's transport wor
 
 ### 1. **The `server/discover` Handler**
 
-As shown in the **sequence diagram**, discovery is answered before anything else:
+As shown in the **sequence diagram**, discovery is the first exchange:
 - The client sends `server/discover`, often with a **string** id such as `"server-discover-probe-1"`
 - The server replies with `resultType`, `supportedVersions`, `capabilities`, `instructions`, the cache hints `ttlMs` and `cacheScope`, and its identity under `_meta["io.modelcontextprotocol/serverInfo"]`. `resultType` is required on every result, and so are the cache hints on a result that can be cached
 - This is answered whatever version it names — a client calls discovery precisely to learn which versions the server speaks, so rejecting it for guessing wrong would be circular. It must still carry the required envelope
@@ -51,7 +51,7 @@ The **class diagram** shows `DiscoverResultBuilder` constructing a `DiscoverResu
 
 ### 2. **Envelope Parsing and Validation**
 
-Where the old lesson had a ping handler, this one has the check that replaced it:
+Every request, discovery included, is checked before it is routed:
 - `RequestEnvelope` is read from `params._meta` on every request
 - A missing or incomplete envelope is `-32602`
 - A revision this server does not speak is `-32022`, and the error `data` must carry both `requested` and `supported` so the client knows what to renegotiate to
@@ -77,7 +77,7 @@ The **sequence diagram** shows the cancellation notification flow where the clie
 
 Students will:
 - Build the project using Gradle
-- Use the MCP Inspector (v2.5.0) with the workshop's `auto` era, which probes `server/discover` before it would fall back to `initialize`
+- Use the MCP Inspector (v2.5.0) with the workshop's `modern` era, which pins `2026-07-28` and sends `server/discover` with no fallback to `initialize`
 - Open the Resources tab and read its `Method not found` error to understand capability advertising vs. implementation
 - Send malformed requests on purpose with `inspector/modern-probe.sh`
 
@@ -101,7 +101,7 @@ The **class diagram** reveals the overall architecture:
 
 4. **Error Handling Philosophy**: the workshop keeps protocol-level errors narrow and deliberate. `-32700`, `-32600`, `-32601`, `-32602`, `-32603` and `-32022` each mean one specific thing, and a client can diagnose every one of them from the error alone.
 
-5. **Message Routing Pattern**: `IORouter` uses pattern matching with switch expressions to route message types (`JsonRpcRequest`, `JsonRpcNotification`, and so on) to the right handlers.
+5. **Message Routing Pattern**: `IORouter` uses pattern matching in a `switch` to route message types (`JsonRpcRequest`, `JsonRpcNotification`, and so on) to the right handlers.
 
 ## What Students Will Achieve
 

@@ -233,9 +233,9 @@ test {
 //     ./gradlew chapterTest -Pchapter=03
 //
 // It runs only the tests tagged for that chapter, so the failures a student
-// sees are about the code they are currently writing. Running the full `test`
-// task on a chapter branch reports failures from every chapter not yet
-// reached, which buries the ones that matter.
+// sees are about the code they are currently writing. The full `test` task on
+// a chapter branch runs every chapter reached so far, which buries this
+// chapter's results among the earlier ones.
 //
 // This deliberately skips the coverage gate. Coverage is a property of the
 // finished server, not of a chapter in progress.

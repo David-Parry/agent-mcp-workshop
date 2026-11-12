@@ -15,7 +15,7 @@ You write four things:
 3. `handleKeywordSearch`, that method
 4. `elicitedDirectory`, which reads the user's answer back
 
-The line numbers below are where each method and case sits in the file as you checked it out. Every paste pushes what is below it further down, so after your first paste in a file, find each one by its name rather than its number.
+Each bold line number below is the line of the method's signature, or of the case label, in the file as you checked it out. A method's `// Chapter 05:` comment is on the line after it. Each paste changes the length of the code it replaces, so what is below it moves up or down: where a target has moved by the time you reach it, its new line follows in parentheses, and finding it by its name always works.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/overview](https://modelcontextprotocol.io/extensions/overview)
 
@@ -111,7 +111,7 @@ public static SearchContinuation awaitingDirectory() {
 }
 ```
 
-Fill `encode` at **line 64**:
+Fill `encode` at **line 64** (line 62 once `awaitingDirectory` is in):
 
 ```java
 public String encode() {
@@ -120,7 +120,7 @@ public String encode() {
 }
 ```
 
-Fill `decode` at **line 81**:
+Fill `decode` at **line 81** (line 78 once the two above are in):
 
 ```java
 public static SearchContinuation decode(String requestState) {
@@ -175,7 +175,7 @@ case TOOLS_CALL -> {
 
 ### Step 2: Resolve the directory, asking if necessary
 
-**Action Required**: fill `handleKeywordSearch` at **line 416** of `IORouter.java`:
+**Action Required**: fill `handleKeywordSearch` at **line 416** of `IORouter.java` (line 406 once Step 1's case is in):
 
 ```java
 private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
@@ -244,7 +244,7 @@ Everything about it follows from having no session:
 
 ### Step 3: Read the answer back
 
-**Action Required**: fill `elicitedDirectory` at **line 458** of `IORouter.java`:
+**Action Required**: fill `elicitedDirectory` at **line 458** of `IORouter.java` (line 493 once Steps 1 and 2 are in):
 
 ```java
 private String elicitedDirectory(Object inputResponse) {
@@ -277,7 +277,8 @@ The interim result, with the server asking:
        "params":{"mode":"form","message":"…","requestedSchema":{ … }}
      }
    },
-   "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9"}}
+   "requestState":"eyJzdGFnZSI6ImRpcmVjdG9yeSJ9",
+   "_meta":{"io.modelcontextprotocol/serverInfo":{ … }}}}
 ```
 
 The embedded request has **no `jsonrpc` and no `id`**. It is data describing a question, named by its `method` and matched up by the key it sits under. The `requestState` decodes to `{"stage":"directory"}`, and that is all of it.
@@ -329,7 +330,7 @@ That is the difference between modelling a protocol and modelling *your use* of 
 
 ### Removed and deprecated are different things
 
-`2026-07-28` does both, and the code treats them differently.
+`2026-07-28` does both, and the code treats them differently. Each change below is named by its SEP (a Specification Enhancement Proposal, the numbered form every change to the specification takes).
 
 **Removed** means gone, answering `-32601` (SEP-2575): `initialize`, `notifications/initialized`, `ping`, `logging/setLevel`, `resources/subscribe`, `resources/unsubscribe`, `notifications/roots/list_changed`, `notifications/elicitation/complete`, `tasks/result` and `tasks/list`. On HTTP the session headers, `Mcp-Session-Id` and `Last-Event-ID`, went with them. Tasks moved to the `io.modelcontextprotocol/tasks` extension, which is Chapter 7.
 
@@ -353,7 +354,7 @@ The two policies land differently on the same feature. `notifications/roots/list
 ./gradlew chapterTest -Pchapter=05
 ```
 
-The run reports 36 tests, and 27 of them fail before you start: 9 in `SearchContinuationTest` and 18 in `IORouterTest`. The other 9 pass already. 4 cover given code, the form `ElicitationBuilder` builds and how `InputRequiredResult` files its question, and 5 pass because Chapter 4's `TOOLS_CALL` case already answers them. Keep those 5 passing when you replace that case. Failures worth recognising:
+The run reports 36 tests, and 27 of them fail before you start: 9 in `SearchContinuationTest` and 18 in `IORouterTest`. The other 9 pass already. 5 cover given code: `ElicitationBuilder` and the form it builds, how a retry's `ToolCallParams` finds an answer under the key the server chose, and that `KeyWordSearch` keeps no state between calls. The other 4 pass because Chapter 4's `TOOLS_CALL` case already answers them. Keep those 4 passing when you replace that case. Failures worth recognising:
 
 - `awaitingDirectoryCarriesOnlyTheDirectoryStage` — the state carries more than the stage, such as the keyword.
 - `anEncodedContinuationIsUnpaddedUrlSafeBase64` — `encode` uses `getEncoder()`, or keeps the padding.
@@ -404,7 +405,7 @@ cd inspector
 ./run.sh
 ```
 
-`inspector/config.json` already has `"protocolEra": "auto"` as a sibling of `command`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
+`inspector/config.json` already has `"protocolEra": "modern"` as a sibling of `command`, as in Chapter 3: the Inspector sends `server/discover` and never falls back to `initialize`. Do not nest it anywhere else, or the Inspector drops back to its `legacy` default and opens with `initialize`.
 
 ### Discovery
 - Turn on the switch on the `workshop` card, and expand the `server/discover` entry in the message log. There is no `initialize` anywhere in the log.
@@ -415,7 +416,7 @@ cd inspector
 - Open the **Tools** tab and call `key_word_search` with the keyword `java` and **no** `directory`.
 - The first answer is `resultType: "input_required"` carrying `inputRequests.search_directory`. The embedded request has no `id`: this is a result, not a request.
 - The Inspector shows the form as an **Elicitation Request**. Paste an absolute path and submit; it re-sends `tools/call` under a **new id**, with `inputResponses` and the echoed `requestState`. The log groups both calls under one **MRTR** entry, as Round 1 and Round 2.
-- **Decline the form once.** The search still returns, now rooted at the server's working directory, and `isError` is `false`. That directory is `inspector/`, where `run.sh` started the server. The search skips its `logs/`, so `java` is found only in the few files there, such as `config.json`; a keyword that appears only under `src/` comes back as **Empty result**.
+- **Decline the form once.** The search still returns, now rooted at the server's working directory, and `isError` is `false`. That directory is `inspector/`, where `run.sh` started the server. The search skips its `logs/`, so `java` is found only in the few files there, such as `config.json`; a keyword that appears only under `src/` comes back as **Empty result**. Nothing else ran in between, so the Inspector adds these two calls to the same **MRTR** entry, as Round 3 and Round 4.
 - Call it once more **with** a `directory` argument. The round trip disappears entirely.
 
 ## Stretch: Ask with a URL

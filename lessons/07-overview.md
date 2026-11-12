@@ -188,6 +188,7 @@ By the end of this chapter you will have:
 
 - Stopping the work when a task is cancelled
 - Pushing `notifications/tasks` to a client that subscribes with `subscriptions/listen`
+- Reporting progress in `statusMessage`, since the extension rules out `notifications/progress` for tasks
 - Persisting tasks beyond process lifetime, and expiring them after their TTL
 - Authorization-context binding (the workshop is stdio-only, with no auth)
 - Multiple concurrent tasks per client and any fairness policy between them

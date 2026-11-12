@@ -8,7 +8,7 @@
       ],
       "env": {
       },
-      "protocolEra": "auto",
+      "protocolEra": "modern",
       "modernLogLevel": "off"
     }
   }

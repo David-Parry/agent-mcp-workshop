@@ -99,7 +99,7 @@ sequenceDiagram
 
 2. **Every Request Carries Its Own Envelope**:
    - `params._meta` re-declares `protocolVersion` and `clientCapabilities` on **every** request — both required
-   - `clientInfo` and `logLevel` are optional; with no `logLevel` the server must not emit `notifications/message`. Logging over the protocol is deprecated under SEP-2577, like roots and sampling, and this server never sends it: its log goes to a file
+   - `clientInfo` and `logLevel` are optional; with no `logLevel` the server must not emit `notifications/message`. Logging over the protocol is deprecated under SEP-2577 (a Specification Enhancement Proposal, the numbered form every change to the specification takes), like roots and sampling, and this server never sends it: its log goes to a file
    - `traceparent`, `tracestate`, and `baggage` may also appear, carrying W3C trace context for OpenTelemetry. They are the only reserved `_meta` keys with no `io.modelcontextprotocol/` prefix — an explicit exception to the naming rule. This server ignores them
    - Capability-dependent behaviour is therefore decided per request, not once at startup
 
