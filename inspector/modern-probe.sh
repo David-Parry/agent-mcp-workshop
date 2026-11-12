@@ -25,7 +25,8 @@ META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelc
   echo "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"tools/list\",\"params\":{$META}}"
   echo "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/templates/list\",\"params\":{$META}}"
   echo "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"prompts/list\",\"params\":{$META}}"
-  # First attempt: no directory, so the server should answer input_required.
+  # No directory: -32601 on chapter 03, a tool error on 04, input_required on
+  # 05 and 06, and a task handle from 07, because META declares the tasks extension.
   echo "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{$META,\"name\":\"key_word_search\",\"arguments\":{\"keyword\":\"record\"}}}"
   # Legacy handshake must now be refused, naming the revisions that would work.
   echo "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"initialize\",\"params\":{$META}}"

@@ -32,7 +32,7 @@ Read the top of `IORouter.java`, down to `process(JsonRpcRequest message)`. It i
 
 5. **`INBOUND_METHODS` is the list of methods this chapter answers**: `server/discover` and `subscriptions/listen`. Everything else is `-32601` until a later chapter adds it. `UniqueKeys.fromValue` matches method names exactly, because they are case-sensitive: `SERVER/DISCOVER` is not a method.
 
-`RequestId`, `McpGson` and `RequestEnvelope` are from chapter 02. New on this branch is `ProgressToken`: `MetaInfo`, the `_meta` record that params carry, reads `progressToken` as one, and like a `RequestId` it may be a string or an integer.
+`RequestId`, `McpGson` and `RequestEnvelope` are from chapter 02. New on this branch is `ProgressToken`: `MetaInfo`, the `_meta` record that chapter 04's params records carry, reads `progressToken` as one, and like a `RequestId` it may be a string or an integer.
 
 ## First Implementation Task: Subscriptions
 
@@ -130,7 +130,7 @@ return DiscoverResultBuilder
 
 2. **`supportedVersions`** is how a client learns what to put in its envelope on every later request. This server lists one, `2026-07-28`.
 
-3. **Capabilities**: prompts, resources, tools and completions, none of them with `listChanged`. **This server advertises them before it can serve them.** The handlers arrive in chapter 04, and until then each of those methods is `-32601`.
+3. **Capabilities**: prompts, resources, tools and completions, with `listChanged` false on the three lists. **This server advertises them before it can serve them.** The handlers arrive in chapter 04, and until then each of those methods is `-32601`.
 
 4. **Cache hints are required**: `ttlMs` and `cacheScope` let a client reuse the answer instead of asking again, and `cacheScope: "public"` lets a shared cache hand the same answer to other clients. That is why this answer is built from fixed configuration and nothing a long-running server would have accumulated. `LIST_TTL_MILLIS` is one minute: long enough that a client is not re-asking on every keystroke, short enough that a restart is noticed.
 
@@ -177,7 +177,7 @@ return envelope;
 
 Everything so far is a part. This task wires the parts together, in the order the checks must run.
 
-Paste at **line 162** of `IORouter.java`, inside `process(JsonRpcRequest message)`. The method starts at **line 159**. Its first line, which works out `uniqueKey`, and the `switch` at the end are already there. Replace the `// Chapter 03:` comment between them with these lines:
+Paste at line 162 of `IORouter.java`, inside `process(JsonRpcRequest message)`, which starts at **line 159**. Its first line, which works out `uniqueKey`, and the `switch` at the end are already there. Replace the `// Chapter 03:` comment between them with these lines:
 
 ```java
 // Method existence is settled before the envelope is looked at.
@@ -263,9 +263,9 @@ The era decides what the first message on the wire is:
 |-----|------------------------------------|
 | `legacy` | **The default.** Plain `initialize`, no probing. |
 | `auto` | Probe `server/discover` first, fall back to `initialize` on any non-modern outcome. |
-| `modern` | Pin exactly `2026-07-28`. No fallback, so a non-modern server fails loudly. |
+| `modern` | **What the workshop ships.** Probe `server/discover` pinned to exactly `2026-07-28`. No fallback, so a non-modern server fails loudly. |
 
-The workshop ships `modern`. That pins the Inspector to `2026-07-28` and sends `server/discover` with no fallback. A server that cannot answer discovery fails at once, instead of being retried with the `initialize` handshake the way `auto` would.
+The workshop ships `modern`, so the first message on the wire is that `server/discover` probe, pinned to `2026-07-28`, with no fallback. A server that cannot answer discovery fails at once, instead of being retried with the `initialize` handshake the way `auto` would.
 
 `inspector/run.sh` pins the Inspector version:
 

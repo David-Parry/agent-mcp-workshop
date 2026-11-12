@@ -1,10 +1,11 @@
 # Agent MCP Workshop
 
-> **You are on `03-chapter`: Discovery and Routing** — `server/discover`, the `_meta` envelope, `RequestId`.
+> **You are on `03-chapter`: Discovery and Routing** — `server/discover`, the `_meta` envelope, `subscriptions/listen`.
 >
 > The work this chapter covers is waiting for you; earlier chapters are already
 > written, and later chapters are not on this branch. Your instructions are in
-> [lessons/03-instructions.md](lessons/03-instructions.md),
+> [lessons/03-instructions.md](lessons/03-instructions.md), the background is in
+> [lessons/03-overview.md](lessons/03-overview.md),
 > and you are finished when `./gradlew chapterTest -Pchapter=03` is green.
 
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
@@ -55,7 +56,7 @@ git fetch origin
 git merge origin/04-chapter
 ```
 
-The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`.
+The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`. If git reports a modify/delete conflict instead, the next branch deleted that file, such as a `lessons/03-*.md` handout you edited, and `--theirs` has nothing to take: run `git rm <file>` to accept the deletion, then `git commit --no-edit`.
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
 
@@ -70,7 +71,7 @@ The merge brings in this chapter's reference solution and the next chapter's emp
 ./gradlew clean build
 ```
 
-This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`, which is what `inspector/config.json` points at.
+This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`, which is what `inspector/config.json` points at. `build` also runs the tests, so until this chapter is green it ends in BUILD FAILED; `./gradlew shadowJar` builds the JAR without them.
 
 ## Feedback
 
