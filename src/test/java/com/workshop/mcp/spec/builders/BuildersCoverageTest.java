@@ -124,7 +124,10 @@ class BuildersCoverageTest {
                     .withDescription("Searches for a keyword.")
                     .withResourceUri("ui://keyword-search/mcp-app.html");
 
-            assertThrows(IllegalStateException.class, builder::build);
+            // The schema is missing too, and build() refuses that as well, so
+            // only the message shows that the blank name was caught first.
+            assertEquals("name is required for AppTool",
+                         assertThrows(IllegalStateException.class, builder::build).getMessage());
         }
 
         @Test
@@ -144,7 +147,8 @@ class BuildersCoverageTest {
                     .withDescription(" ")
                     .withResourceUri("ui://keyword-search/mcp-app.html");
 
-            assertThrows(IllegalStateException.class, builder::build);
+            assertEquals("description is required for AppTool",
+                         assertThrows(IllegalStateException.class, builder::build).getMessage());
         }
 
         @Test
@@ -164,7 +168,8 @@ class BuildersCoverageTest {
                     .withDescription("Searches for a keyword.")
                     .withResourceUri("  ");
 
-            assertThrows(IllegalStateException.class, builder::build);
+            assertTrue(assertThrows(IllegalStateException.class, builder::build)
+                               .getMessage().startsWith("resourceUri is required for AppTool"));
         }
     }
 

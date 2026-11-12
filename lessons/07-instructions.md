@@ -38,7 +38,7 @@ public record Task(
 
 - **`taskId`** is a random UUID. There is no session to tie a task to, so the id is all that stops one client reading another's task. That is why it must be unguessable, and why the extension has no `tasks/list`.
 - **`status`** is one of the five values in `TaskStatus`: `working`, `input_required`, `completed`, `failed` and `cancelled`. The last three are **terminal**: once a task reaches one, its status never changes again.
-- **`ttlMs`** is how long the server keeps the task, and **`pollIntervalMs`** how often it would like to be asked. Both are the server's choice. The extension gives a client no way to ask for a different TTL.
+- **`ttlMs`** is how long the server says it will keep the task, and **`pollIntervalMs`** how often it would like to be asked. Both are the server's choice. The extension gives a client no way to ask for a different TTL. This server keeps every task until it stops, even past its TTL, as the last stretch explains.
 
 `TaskResult` is how a task looks on the wire, and it has two shapes:
 
@@ -390,8 +390,8 @@ private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, Reque
 case TASKS_GET -> {
     TasksGetParams params = deserializer.deserializeParams(message, TasksGetParams.class);
     // A missing taskId is answered like an unknown one. Read into
-    // the store, a null id would throw out of the router and leave
-    // the client waiting for a reply that never comes.
+    // the store, a null id would throw, and the client would get
+    // -32603 for a mistake in its own request.
     TaskResult detail = params.taskId() == null ? null : taskStore.detail(params.taskId());
     if (detail == null) {
         logger.log("[API][SENT] tasks/get — unknown taskId=" + params.taskId() + " (returning -32602)");
@@ -434,7 +434,7 @@ case TASKS_CANCEL -> {
 
 #### What to notice
 
-1. **An unknown task id is `-32602` Invalid params**, and a missing one is answered the same way. Read into the store, a `null` id would throw out of the router, and the client would wait for a reply that never comes.
+1. **An unknown task id is `-32602` Invalid params**, and a missing one is answered the same way. Read into the store, a `null` id would throw a `NullPointerException`. The router's `answer` would still reply, but with `-32603` Internal error, which tells the client the server broke when the mistake was in its request.
 2. **`tasks/update` and `tasks/cancel` answer with an empty result**, `{"resultType":"complete"}` and the `_meta` every result carries. The extension calls this an acknowledgement: it says the request arrived, not what it did to the task. A client that wants to know polls `tasks/get`. After a cancel it need not, and the extension lets it forget the task at once.
 3. **Neither refuses a task that has moved on.** An answer the task is not waiting for is ignored, and so is a cancel of a finished task, so a client never gets an error for a race it could not see.
 
@@ -446,7 +446,7 @@ case TASKS_CANCEL -> {
 ./gradlew chapterTest -Pchapter=07
 ```
 
-The run reports 74 tests, and 58 of them fail before you start: 23 in `IORouterTest` and 35 in `TaskStoreTest`. The other 16 pass already. Seven are the given parts of the router: the extension is declared, the test hook that interrupts a task's thread behaves, and a client without the extension never gets a handle and is refused the task methods and a listen for task status. Any other listen is acknowledged, with no task ids agreed to. Four check what the store does with an id it does not know, which an empty method already gets right, and five check the task types in `spec`. Failures worth recognising:
+The run reports 74 tests, and 58 of them fail before you start: 23 in `IORouterTest` and 35 in `TaskStoreTest`. The other 16 pass already. Seven are the given parts of the router: the extension is declared, the test hook that interrupts a task's thread behaves, and a client without the extension never gets a handle and is refused the task methods and a listen for task status. Any other listen is acknowledged, with no task ids agreed to. Four check what `get`, `detail`, `complete` and `fail` do with an id the store does not know: the first two are given, and the other two, still empty, already do nothing. Five check the task types in `spec`. Failures worth recognising:
 
 - `createStartsATaskInWorkingStatus` or `createGeneratesAnUnguessableIdPerTask` — `create` still throws, or builds its task some other way. Almost every router test fails with it, because no task can be created.
 - `completeIsIgnoredOnceTheTaskIsTerminal` or `failIsIgnoredOnceTheTaskIsTerminal` — the terminal check is missing, so a finished task changed its status.
@@ -454,7 +454,7 @@ The run reports 74 tests, and 58 of them fail before you start: 23 in `IORouterT
 - `awaitInputReturnsNullWhenTheWaitExpires` or `awaitInputReturnsNullWhenTheTaskIsCancelledWhileWaiting` — the wait ignores its deadline, or returns an empty answer for a task cancelled while it waited.
 - `cancellingAFinishedTaskLeavesItAsItWas` or `aSecondCancelChangesNothing` — `cancel` changes a task that has already finished.
 - `aTaskAsksForItsDirectoryAsAStatusAndResumesOnTasksUpdate` — the task never reaches `input_required`, or never resumes after `tasks/update`.
-- `cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt` — the `isTerminal` check after the wait is missing, so a cancelled task searched anyway.
+- `cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt` — a task cancelled while it waits for input never shows `cancelled`: the `TASKS_CANCEL` case is still empty, or `cancel` left the task as it was.
 - `aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking` — the `catch` is missing from `runSearchAsTaskThatAsks`, so the task stays in `working`.
 - `everyMethodTheServerAcceptsIsActuallyAnswered` — one of the three cases is still empty.
 - `theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId` — a case reads a missing `taskId` into the store.
@@ -462,12 +462,16 @@ The run reports 74 tests, and 58 of them fail before you start: 23 in `IORouterT
 
 A router test that fails with `task never reached …` polled for 20 seconds for a status that never came, usually because one of the store's methods is still empty.
 
+No chapter test catches a missing `isTerminal` check after the wait. `complete` ignores a cancelled task, so the status and result still come out right, but the task searches anyway: the server's log shows `nothing was offered, using the working directory` straight after `no answer arrived for search_directory`. The coverage check in `./gradlew clean build`, below, does catch it, because `isTerminal` is then never called.
+
 Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
 ```bash
 ./gradlew clean build
 python3 lessons/presentation-3hr/verify/harness.py --chapter 07
 ```
+
+On this branch, `build` also runs the coverage check the finished server has to pass. If the tests are green but it stops with `Rule violated for class …`, some code in that class is never run by any test, so compare the class with the handout's code.
 
 Last, walk one task through by hand. `inspector/modern-tasks.sh` sends each request, reads the answer and uses the task id in it for the next. It calls the tool without a directory, polls until the task asks, answers with the tool's own source directory, polls until the task completes, and then cancels it. Finally come two requests that are refused: one from a client that left the extension off, and one for a task that was never created:
 
@@ -507,14 +511,14 @@ If you open the Inspector before the tests pass, what goes wrong tells you what 
 ### A task that asks
 - Clear the `directory` and click **Execute Tool** again. The Inspector sends the empty field as `""`, which the tool treats as no directory at all.
 - The handle comes back as before, and the first poll finds the task in `input_required`. The Inspector shows the form from its `inputRequests`, with a note that the answer goes back through `tasks/update`, not a retry.
-- Enter a directory and click **Submit**. The **Protocol** panel shows the `tasks/update` and its empty acknowledgement, and the next poll finds the task `completed`.
+- Enter a directory and click **Submit** within a minute. After that the task stops waiting and searches the server's working directory, as Part 3 explains, and the Inspector, which does not poll while the form is open, still shows `input_required`. The **Protocol** panel shows the `tasks/update` and its empty acknowledgement, and the next poll finds the task `completed`.
 
 ### A task that is cancelled
 - Run it once more without a directory, and click **Cancel** in the form this time. The Inspector sends `tasks/cancel`, and the server acknowledges it. The server's log in `inspector/logs/` shows the waiting thread waking with `no answer arrived for search_directory` and stopping without a search.
 - The **Tools** tab reports `Pending request aborted`, because the Inspector stopped waiting for a result. **Tasks** moves the task under **Completed**, marked cancelled. The Inspector marks it from the acknowledgement alone and does not poll again, which the extension allows, so the panel keeps the status message of the last poll.
 
 ### The Run as task switch
-- Turn on **Run as task** and run a search with a directory. The Inspector adds `"task":{"ttl":60000}` to the call, the opt-in of the `2025-11-25` specification that the extension removed. The server ignores it, as the extension requires: the call is answered as before, and the task's TTL is still 300000ms.
+- Turn on **Run as task** and run a search with a directory. The Inspector adds `"task":{"ttl":60000}` to the call, the opt-in of the `2025-11-25` specification that the extension removed. The server ignores it, as the extension requires: the call is answered as before, and the handle in **Protocol** still says `"ttlMs": 300000`. Read the TTL there: once this task completes, **Tasks** lists it from a record the Inspector keeps itself, with `"ttl": null`.
 
 ## Stretch: Stop the work when a task is cancelled
 

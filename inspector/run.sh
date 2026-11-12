@@ -9,4 +9,5 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+# config.json pins protocolEra to modern: 2026-07-28, no fallback to initialize.
 npx @modelcontextprotocol/inspector@2.5.0 --web --catalog config.json

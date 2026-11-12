@@ -4,7 +4,8 @@
 >
 > The work this chapter covers is waiting for you; earlier chapters are already
 > written, and later chapters are not on this branch. Your instructions are in
-> [lessons/07-instructions.md](lessons/07-instructions.md),
+> [lessons/07-instructions.md](lessons/07-instructions.md), the background is in
+> [lessons/07-overview.md](lessons/07-overview.md),
 > and you are finished when `./gradlew chapterTest -Pchapter=07` is green.
 
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
@@ -59,7 +60,7 @@ The agent chapter and the bonus start from `complete`, where their lessons are:
 ./gradlew clean build
 ```
 
-This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`, which is what `inspector/config.json` points at.
+This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`, which is what `inspector/config.json` points at. `build` also runs the tests, so until this chapter is green it ends in BUILD FAILED; `./gradlew shadowJar` builds the JAR without them.
 
 ## Feedback
 
