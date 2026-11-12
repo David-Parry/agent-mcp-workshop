@@ -1,8 +1,8 @@
-# Chapter 01: Starting the Input Reader
+# Chapter 01: The Transport Layer
 
 This chapter fills the three methods that make `IOHandlerImpl` a transport: one reads lines from standard input, one writes JSON to standard output, and one hands each line it reads to whoever is listening.
 
-The line numbers below are where each method sits in `IOHandlerImpl.java` as you checked it out. The tasks run from the bottom of the file up, so pasting one method never moves a method you have not reached yet. Each empty body holds a single `// Chapter 01:` comment; replace it with the code.
+The line numbers below are where each method sits in `IOHandlerImpl.java` as you checked it out. The tasks run from the bottom of the file up, so pasting one method never moves a method you have not reached yet. Each empty body holds a single `// Chapter 01:` comment, on the line after the method's signature; replace it with the code.
 
 ## First Implementation Task: Reading Standard Input
 
@@ -10,7 +10,7 @@ The first step in building our MCP server is to implement the input reading func
 
 ### Code to Add to IOHandlerImpl
 
-Paste at **line 143** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `startInputReader()` body:
+Fill `startInputReader()` at **line 143** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`: replace the `// Chapter 01:` comment on line 144 with this code:
 
 ```java
 // Claim the running flag in a single atomic step. Reading the flag here
@@ -94,7 +94,7 @@ The `emit` method is responsible for sending JSON-formatted responses back to th
 
 ### Code to Add to the IOHandlerImpl
 
-Paste at **line 111** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `emit(Object message)` body:
+Fill `emit(Object message)` at **line 111** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`: replace the `// Chapter 01:` comment on line 112 with this code:
 
 ```java
 String text = gson.toJson(message);
@@ -152,7 +152,7 @@ The last piece is the `publishLine` method, which distributes received input lin
 
 ### Code to Add to the IOHandlerImpl
 
-Paste at **line 96** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`, inside the empty `publishLine(String line)` body:
+Fill `publishLine(String line)` at **line 96** of `src/main/java/com/workshop/mcp/io/IOHandlerImpl.java`: replace the `// Chapter 01:` comment on line 97 with this code:
 
 ```java
 for (Consumer<String> listener : lineListeners) {
@@ -208,15 +208,15 @@ All three methods are graded by tests that ship on this branch. Run them:
 
 The run reports 58 tests, and 13 of them fail before you start, all of them in `IOHandlerImplTest`. `LogFileWriterTest`, the `Server` tests, and 4 of the 17 `IOHandlerImplTest` cases already pass, because they test code this branch gives you, or input that is empty or broken before a line is ever read. When all 58 are green, the transport layer is finished and you can move on to chapter 2.
 
-If you want to see the full failure output for a single test while debugging:
+Each failure already prints its full stack trace. To rerun a single test while debugging, name it with `--tests`; the summary line then counts only that test, so the chapter is done only when a run without `--tests` shows all 58:
 
 ```bash
-./gradlew chapterTest -Pchapter=01 --info
+./gradlew chapterTest -Pchapter=01 --tests 'IOHandlerImplTest.testEmit_WithStringMessage'
 ```
 
 A few failures worth recognising:
 
-- `testStartInputReader_AlreadyRunning` or `testStartInputReader_ReentrantCall_...` failing usually means the `compareAndSet` guard is missing, so a second call starts a second Scanner.
+- `testStartInputReader_ReentrantCall_...` failing usually means the `compareAndSet` guard is missing, so a second call starts a second Scanner.
 - `testListenerExceptionHandling` failing means the `try`/`catch` inside the `publishLine` loop is missing, so one broken listener stops the rest from being notified.
 - `testEmit_*` failing usually means the message was written without going through `gson.toJson`. A `String` has to come out quoted, because what goes on the wire is JSON.
 

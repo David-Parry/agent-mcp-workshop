@@ -4,7 +4,8 @@
 >
 > The work this chapter covers is waiting for you; earlier chapters are already
 > written, and later chapters are not on this branch. Your instructions are in
-> [lessons/01-instructions.md](lessons/01-instructions.md),
+> [lessons/01-instructions.md](lessons/01-instructions.md), the background is in
+> [lessons/01-overview.md](lessons/01-overview.md),
 > and you are finished when `./gradlew chapterTest -Pchapter=01` is green.
 
 Build a Java implementation of the Model Context Protocol from scratch, one chapter at a time, on revision `2026-07-28` — the stateless revision that removed the `initialize` handshake.
@@ -33,7 +34,7 @@ Red means keep going; green means this chapter is done. `./gradlew test` on this
 
 When **this** chapter's tests are green, move on to `02-chapter`, the following lesson. There are two ways.
 
-**Start from the reference.** `02-chapter` already contains the solutions for chapters 1–1, so this discards your work on purpose:
+**Start from the reference.** `02-chapter` already contains the solutions for chapter 1, so this discards your work on purpose:
 
 ```bash
 ./clean-checkout.sh 02-chapter
@@ -48,7 +49,7 @@ git fetch origin
 git merge origin/02-chapter
 ```
 
-The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`.
+The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`. If git reports a modify/delete conflict instead, the next branch deleted that file, such as a `lessons/01-*.md` handout you edited, and `--theirs` has nothing to take: run `git rm <file>` to accept the deletion, then `git commit --no-edit`.
 
 > **Careful:** `clean-checkout.sh` runs `git clean -fdx`, which deletes every untracked and ignored file — your work in progress, IDE settings, and build output included. Commit or copy anything you want to keep before switching chapters.
 
@@ -63,7 +64,7 @@ The merge brings in this chapter's reference solution and the next chapter's emp
 ./gradlew clean build
 ```
 
-This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`.
+This produces the server JAR at `build/libs/agent-mcp-workshop-0.0.1.jar`. `build` also runs the tests, so until this chapter is green it ends in BUILD FAILED; `./gradlew shadowJar` builds the JAR without them.
 
 ## Feedback
 
