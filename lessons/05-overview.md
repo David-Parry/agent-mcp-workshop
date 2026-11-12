@@ -57,7 +57,7 @@ Note what is **absent**: the pre-`2026-07-28` top-level `tasks` slot is gone. Ta
 
 ## The Extension Lifecycle
 
-Before the list of extensions, the thing to know about any one of them: **every extension sits at one of three stages**, and the stage tells you how much you can lean on it (SEP-3392).
+Before the list of extensions, the thing to know about any one of them: **every extension sits at one of three stages**, and the stage tells you how much you can lean on it (SEP-3392; a SEP is a Specification Enhancement Proposal, the numbered form every change to the specification takes).
 
 | Stage | What can change | What you can expect |
 |-------|-----------------|---------------------|
@@ -156,12 +156,12 @@ Three details worth pausing on:
 
 `hasElicitation`, `hasSampling`, and the `roots` set were the session, and there is no session. Nor are there negative request-id constants (`ELICITATION_REQUEST_ID = -4000L`), which existed to match responses to requests the server had sent.
 
-Capability questions are answered per request instead. Only one of the old flags becomes a predicate: the server never asks for roots or sampling, so those two have no question left to answer.
+Capability questions are answered per request instead. Of those three, only `hasElicitation` becomes a predicate: the server never asks for roots or sampling, so those two have no question left to answer. The tasks flag that Chapter 7 reads becomes one too.
 
 | Question | Old | New |
 |----------|-----|-----|
 | Can the client show a form? | `hasElicitation` | `envelope.supportsElicitationForm()` |
-| Can the client poll a task? | `hasTasks` | `envelope.supportsTasks()` |
+| Can the client poll a task? | `hasTasks` | `envelope.supportsTasks()` (Chapter 7) |
 
 A client that declares an empty `"elicitation":{}` names no mode, and that means form: it is how clients declared elicitation before there were modes to name.
 
@@ -174,9 +174,9 @@ The server asks its question in one request and reads the answer off another, wi
 The `TOOLS_CALL` case from Chapter 4 ends a call without a directory in a tool error. Its last branch now calls `handleKeywordSearch`, which runs in a single pass: read what arrived, decide, answer. There is no "send, wait, resume". The exchange advances because the *client* calls again.
 
 Its ordering matters:
-1. An explicit `directory` argument settles it outright — the **one-hop path**
-2. Otherwise read whatever the round trip answered, with `elicitedDirectory`
-3. Otherwise ask the user with a form — once, which is what the stage is for
+1. An explicit `directory` argument is searched without asking anything — the **one-hop path**
+2. On a retry, the directory the user answered with, read by `elicitedDirectory`, is searched, alongside any argument
+3. With neither, ask the user with a form — once, which is what the stage is for
 4. Otherwise search the server's own working directory
 
 ## Important Learning Points
