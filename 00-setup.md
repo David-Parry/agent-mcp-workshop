@@ -94,7 +94,7 @@ git fetch origin
 git merge origin/01-chapter
 ```
 
-When Chapter N is green, commit (`git add -A && git commit -m "Finish chapter 0N"`) and run `git merge origin/0(N+1)-chapter`. Every chapter branch is the one before it with that chapter solved, so the merge brings in the reference solution and the next chapter's empty methods. It is clean if you wrote the methods as the handouts give them; where you wrote something differently, git stops with a conflict that you resolve by keeping your version or taking the reference (`git checkout --theirs -- <file>`).
+When Chapter N is green, commit (`git add -A && git commit -m "Finish chapter 0N"`), then run `git fetch origin` and `git merge origin/0(N+1)-chapter`. Every chapter branch is the one before it with that chapter solved, so the merge brings in the reference solution and the next chapter's empty methods. It is clean if you wrote the methods as the handouts give them; where you wrote something differently, git stops with a conflict that you resolve by keeping your version or taking the reference (`git checkout --theirs -- <file>`). A file the next branch deletes, such as a lesson handout you edited, conflicts as modify/delete instead: `git rm` it to accept the deletion.
 
 Check your work with **this** chapter's number (`01` on `01-chapter`, `02` on `02-chapter`, and so on):
 
