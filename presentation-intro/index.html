@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent MCP Workshop — Introduction</title>
+    <script>
+        (function () {
+            var saved = localStorage.getItem('mcp-pres-theme');
+            if (saved) document.documentElement.setAttribute('data-theme', saved);
+        })();
+    </script>
+    <style>
+        :root {
+            --bg: #0b1020; --fg: #e6e9ef; --muted: #9aa4b2; --card: #141a2e; --accent: #7aa2f7;
+            --orange: #ff9e64; --red: #f7768e; --purple: #bb9af7; --green: #9ece6a;
+            --line: #1f2740; --hover: #1f2740; --glow: rgba(122, 162, 247, .14);
+            --code-bg: #0c1328; --code-fg: #d3d9e8; --code-key: #7dcfff; --code-str: #9ece6a; --code-num: #ff9e64;
+            --on-accent: #0b1020; --shadow: 0 10px 30px rgba(0, 0, 0, .25);
+        }
+        [data-theme="light"] {
+            --bg: #f5f7fa; --fg: #1e293b; --muted: #64748b; --card: #ffffff; --accent: #2563eb;
+            --orange: #d97706; --red: #dc2626; --purple: #7c3aed; --green: #16a34a;
+            --line: #d1d5db; --hover: #e5e7eb; --glow: rgba(37, 99, 235, .08);
+            --code-bg: #eef2f7; --code-fg: #374151; --code-key: #0369a1; --code-str: #15803d; --code-num: #b45309;
+            --on-accent: #ffffff; --shadow: 0 10px 30px rgba(0, 0, 0, .06);
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: var(--bg); color: var(--fg); overflow: hidden; line-height: 1.5;
+            font-family: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .slide {
+            position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; margin: -360px 0 0 -640px;
+            transform: scale(var(--scale, 1)); display: none; flex-direction: column;
+            padding: 64px 80px 88px; overflow: hidden;
+            background: radial-gradient(900px 520px at 0% 0%, var(--glow), transparent 70%), var(--bg);
+        }
+        .slide.active { display: flex; }
+        .slide-foot {
+            position: absolute; left: 80px; right: 80px; bottom: 30px;
+            display: flex; justify-content: space-between; color: var(--muted); font-size: 15px;
+        }
+
+        h1, h2, h3 { margin: 0; line-height: 1.15; }
+        h2 { font-size: 46px; letter-spacing: -.01em; margin-bottom: 40px; }
+        h3 { font-size: 26px; color: var(--accent); margin-bottom: 10px; }
+        p, li { font-size: 22px; }
+        .eyebrow {
+            margin: 0 0 10px; color: var(--purple); font-size: 18px; font-weight: 700;
+            letter-spacing: .14em; text-transform: uppercase;
+        }
+        code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        code { background: var(--code-bg); color: var(--code-key); padding: 2px 8px; border-radius: 6px; font-size: .9em; }
+        pre {
+            margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--line);
+            border-radius: 12px; padding: 14px 20px; font-size: 18px; line-height: 1.5;
+        }
+        pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+        .card {
+            background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+            box-shadow: var(--shadow); padding: 30px 32px;
+        }
+        .card p { margin: 0; color: var(--muted); font-size: 22px; }
+        .card ul { margin: 0; padding-left: 22px; }
+        .card li { font-size: 22px; margin: 10px 0; }
+        .card li::marker { color: var(--accent); }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+        /* Title */
+        .slide-title { flex-direction: row; align-items: center; gap: 48px; padding-bottom: 64px; }
+        .title-text { flex: 1; }
+        .slide-title h1 { font-size: 80px; letter-spacing: -.02em; margin: 4px 0 20px; }
+        .slide-title h1 span { color: var(--accent); }
+        .lede { margin: 0 0 28px; color: var(--muted); font-size: 24px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+        .chip {
+            border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+            padding: 5px 16px; font-size: 17px; font-weight: 600;
+        }
+        .chip.accent { border-color: var(--accent); color: var(--accent); }
+        .byline { display: flex; align-items: center; gap: 14px; margin-top: 40px; }
+        .byline img {
+            width: 56px; height: 56px; border-radius: 50%; object-fit: cover; object-position: 50% 15%;
+            border: 2px solid var(--line);
+        }
+        .byline strong { display: block; font-size: 20px; }
+        .byline span { color: var(--muted); font-size: 17px; }
+        .wire { flex: none; width: 612px; margin: 0; }
+        .wire figcaption { color: var(--muted); font-size: 16px; margin-bottom: 10px; }
+        .wire pre { font-size: 15px; padding: 20px 24px; box-shadow: var(--shadow); }
+        .wire .k { color: var(--code-key); }
+        .wire .s { color: var(--code-str); }
+        .wire .n { color: var(--code-num); }
+
+        /* Instructor */
+        .about { flex: 1; display: grid; grid-template-columns: 300px 1fr 240px; gap: 48px; align-items: center; }
+        .portrait {
+            display: block; width: 300px; height: 450px; border-radius: 22px;
+            border: 1px solid var(--line); box-shadow: var(--shadow);
+        }
+        .about h2 { font-size: 56px; margin-bottom: 8px; }
+        .role { margin: 0 0 22px; color: var(--accent); font-size: 24px; font-weight: 600; }
+        .bio { margin: 0; line-height: 1.55; }
+        .qr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .qr img { display: block; width: 220px; height: 220px; background: #fff; border-radius: 16px; padding: 4px; }
+        [data-theme="light"] .qr img { border: 1px solid var(--line); }
+        .qr figcaption { font-size: 20px; font-weight: 600; text-align: center; }
+        .qr figcaption span { display: block; color: var(--muted); font-size: 16px; font-weight: 400; }
+
+        /* Objective */
+        .statement { font-size: 50px; margin-bottom: 48px; max-width: 1080px; }
+        .statement em { font-style: normal; color: var(--accent); }
+
+        /* Outcomes */
+        .outcomes { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+        .outcomes li { border-left: 4px solid var(--accent); }
+        .outcomes li:nth-child(2) { border-left-color: var(--green); }
+        .outcomes li:nth-child(3) { border-left-color: var(--purple); }
+        .outcomes li:nth-child(4) { border-left-color: var(--orange); }
+        .badge {
+            display: inline-block; vertical-align: middle; margin-left: 8px; padding: 1px 8px;
+            border: 1px solid var(--orange); border-radius: 6px; color: var(--orange);
+            font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+        }
+
+        /* Worked example */
+        .example { display: grid; grid-template-columns: 1fr 170px 1fr; align-items: stretch; }
+        .example .card { border-top-width: 4px; }
+        .example .what { border-top-color: var(--green); }
+        .example .why { border-top-color: var(--purple); }
+        .tag {
+            margin: 0 0 6px; color: var(--muted); font-size: 16px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase;
+        }
+        .example .card .note { margin-top: 14px; color: var(--fg); font-weight: 600; }
+        .bridge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; }
+        .bridge strong { color: var(--accent); font-size: 26px; }
+        .bridge small { color: var(--muted); font-size: 15px; text-align: center; line-height: 1.35; }
+        .arrow { position: relative; width: 100%; height: 2px; background: var(--accent); }
+        .arrow::before, .arrow::after {
+            content: ""; position: absolute; top: -6px; border: 7px solid transparent;
+        }
+        .arrow::before { left: -6px; border-right-color: var(--accent); border-left-width: 0; }
+        .arrow::after { right: -6px; border-left-color: var(--accent); border-right-width: 0; }
+
+        /* Get ready */
+        .ready { display: grid; grid-template-columns: 1fr 240px; gap: 56px; align-items: center; }
+        .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 24px; }
+        .steps li { counter-increment: step; display: grid; grid-template-columns: 44px 1fr; gap: 18px; align-items: start; }
+        .steps li::before {
+            content: counter(step); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+            background: var(--accent); color: var(--on-accent); font-size: 20px; font-weight: 800;
+        }
+        .steps p { margin: 4px 0 10px; font-size: 24px; }
+
+        /* Controls */
+        .controls {
+            position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 10;
+            display: flex; align-items: center; gap: 6px; padding: 6px;
+            background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+            box-shadow: var(--shadow); transition: opacity .3s;
+        }
+        .controls button {
+            font: inherit; font-size: 14px; color: var(--accent); background: transparent; cursor: pointer;
+            border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+        }
+        .controls button:hover { background: var(--hover); }
+        .count { min-width: 64px; text-align: center; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+        body.idle .controls:not(:focus-within) { opacity: 0; pointer-events: none; }
+
+        @media print {
+            @page { size: 1280px 720px; margin: 0; }
+            html, body { height: auto; overflow: visible; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .slide {
+                display: flex !important; position: relative; left: auto; top: auto; margin: 0; transform: none;
+                break-after: page; page-break-after: always;
+            }
+            .slide:last-of-type { break-after: auto; page-break-after: auto; }
+            .controls { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <section class="slide slide-title" aria-label="Agent MCP Workshop">
+        <div class="title-text">
+            <p class="eyebrow">A hands&#8209;on workshop</p>
+            <h1>Agent <span>MCP</span> Workshop</h1>
+            <p class="lede">Build a Model Context Protocol server from scratch in Java, and learn how AI agents and tools really talk.</p>
+            <div class="chips">
+                <span class="chip">Java 21</span>
+                <span class="chip accent">MCP 2026&#8209;07&#8209;28</span>
+                <span class="chip">Instructor&#8209;led</span>
+            </div>
+            <div class="byline">
+                <img src="assets/david-parry.png" alt="" />
+                <div><strong>David Parry</strong><span>Principal Architect · davidparry.com</span></div>
+            </div>
+        </div>
+        <figure class="wire">
+            <figcaption>One request on the wire, pretty&#8209;printed</figcaption>
+<pre><code>{
+  <span class="k">"jsonrpc"</span>: <span class="s">"2.0"</span>,
+  <span class="k">"id"</span>: <span class="n">7</span>,
+  <span class="k">"method"</span>: <span class="s">"tools/call"</span>,
+  <span class="k">"params"</span>: {
+    <span class="k">"name"</span>: <span class="s">"key_word_search"</span>,
+    <span class="k">"arguments"</span>: { <span class="k">"keyword"</span>: <span class="s">"mcp"</span> },
+    <span class="k">"_meta"</span>: {
+      <span class="k">"io.modelcontextprotocol/protocolVersion"</span>: <span class="s">"2026-07-28"</span>,
+      <span class="k">"io.modelcontextprotocol/clientCapabilities"</span>: {}
+    }
+  }
+}</code></pre>
+        </figure>
+    </section>
+
+    <section class="slide" aria-label="Meet your instructor">
+        <p class="eyebrow">Your instructor</p>
+        <div class="about">
+            <img class="portrait" src="assets/david-parry.png" alt="Illustrated portrait of David Parry" />
+            <div>
+                <h2>David Parry</h2>
+                <p class="role">Principal Architect</p>
+                <p class="bio">I architect and build agentic systems for the enterprise. Grounded in systems thinking, I turn tangled business problems into autonomous, planning&#8209;driven agents that reason, adapt, and ship real outcomes in production.</p>
+            </div>
+            <figure class="qr">
+                <img src="assets/davidparry-com-qr.png" alt="QR code that opens davidparry.com" />
+                <figcaption>davidparry.com<span>Scan to connect</span></figcaption>
+            </figure>
+        </div>
+        <footer class="slide-foot"><span>Agent MCP Workshop</span><span class="slide-num"></span></footer>
+    </section>
+
+    <section class="slide" aria-label="The objective">
+        <p class="eyebrow">The objective</p>
+        <h2 class="statement">Understand how AI agents and tools talk — <em>at the wire level</em> — by building the server yourself.</h2>
+        <div class="grid3">
+            <div class="card">
+                <h3>The protocol, not a framework</h3>
+                <p>No MCP SDK. You write the code that reads, routes and answers each JSON&#8209;RPC message, in plain Java.</p>
+            </div>
+            <div class="card">
+                <h3>The current revision</h3>
+                <p>MCP 2026&#8209;07&#8209;28 is stateless: no handshake, and every request declares its own context.</p>
+            </div>
+            <div class="card">
+                <h3>Done means green</h3>
+                <p>Every step comes with tests, and red turns green when your code is right.</p>
+            </div>
+        </div>
+        <footer class="slide-foot"><span>Agent MCP Workshop</span><span class="slide-num"></span></footer>
+    </section>
+
+    <section class="slide" aria-label="What you'll leave with">
+        <p class="eyebrow">What you'll leave with</p>
+        <h2>A working MCP server you wrote yourself, and the understanding behind it</h2>
+        <ul class="outcomes">
+            <li class="card">
+                <h3>Your own server, in Java</h3>
+                <p>Transport, message parsing and routing, written by you with no MCP framework or SDK.</p>
+            </li>
+            <li class="card">
+                <h3>The core protocol</h3>
+                <p>Discovery, the per&#8209;request envelope, and tools, resources and prompts.</p>
+            </li>
+            <li class="card">
+                <h3>The newest pieces</h3>
+                <p>Multi round&#8209;trip requests, MCP Apps and tasks, all on revision 2026&#8209;07&#8209;28.</p>
+            </li>
+            <li class="card">
+                <h3>A live assistant <span class="badge">Bonus</span></h3>
+                <p>Your server inside a real AI coding assistant, plus a supervised, multi&#8209;step agent workflow.</p>
+            </li>
+        </ul>
+        <footer class="slide-foot"><span>Agent MCP Workshop</span><span class="slide-num"></span></footer>
+    </section>
+
+    <section class="slide" aria-label="The worked example">
+        <p class="eyebrow">The worked example</p>
+        <h2>“Which files use this keyword most — and why?”</h2>
+        <div class="example">
+            <div class="card what">
+                <p class="tag">The MCP tool · the what</p>
+                <h3><code>key_word_search</code></h3>
+                <ul>
+                    <li>Walks a directory tree</li>
+                    <li>Counts every occurrence</li>
+                    <li>Skips binary and hidden files</li>
+                    <li>Returns structured results</li>
+                </ul>
+                <p class="note">Deterministic, reliable, fast.</p>
+            </div>
+            <div class="bridge">
+                <strong>MCP</strong>
+                <div class="arrow"></div>
+                <small>JSON&#8209;RPC<br />over stdio</small>
+            </div>
+            <div class="card why">
+                <p class="tag">The AI agent · the why</p>
+                <h3>Your assistant</h3>
+                <ul>
+                    <li>Takes your high&#8209;level question</li>
+                    <li>Calls the tool</li>
+                    <li>Analyzes the results</li>
+                    <li>Explains why the hotspots are there</li>
+                </ul>
+                <p class="note">Reasoning, context, insight.</p>
+            </div>
+        </div>
+        <footer class="slide-foot"><span>Agent MCP Workshop</span><span class="slide-num"></span></footer>
+    </section>
+
+    <section class="slide" aria-label="How the workshop works">
+        <p class="eyebrow">How it works</p>
+        <h2>Instructor&#8209;led · hands&#8209;on</h2>
+        <div class="grid2">
+            <div class="card">
+                <h3>The format</h3>
+                <ul>
+                    <li>You write the code; the reasoning behind it is discussed live</li>
+                    <li>Tests, and a harness that drives your server the way a real client would, tell you when each part is done</li>
+                    <li>Each chapter starts from the reference solutions of the ones before it, so falling behind never strands you</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Who it's for</h3>
+                <ul>
+                    <li>Developers comfortable with Java and JSON</li>
+                    <li>No prior MCP experience needed</li>
+                    <li>Bring a laptop with Git, JDK 21+, Node.js 22+ and Python 3</li>
+                </ul>
+            </div>
+        </div>
+        <footer class="slide-foot"><span>Agent MCP Workshop</span><span class="slide-num"></span></footer>
+    </section>
+
+    <section class="slide" aria-label="Get ready">
+        <p class="eyebrow">Before you arrive</p>
+        <h2>Get your machine ready</h2>
+        <div class="ready">
+            <ol class="steps">
+                <li>
+                    <div>
+                        <p>Clone the repository</p>
+                        <pre><code>git clone https://github.com/David-Parry/agent-mcp-workshop.git</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <div>
+                        <p>Follow <code>00-setup.md</code> and run the checks</p>
+                        <pre><code>cd agent-mcp-workshop
+./verification.sh</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <div><p>Every check passes? You're ready for the first session.</p></div>
+                </li>
+            </ol>
+            <figure class="qr">
+                <img src="assets/davidparry-com-qr.png" alt="QR code that opens davidparry.com" />
+                <figcaption>davidparry.com<span>Questions before the day?</span></figcaption>
+            </figure>
+        </div>
+        <footer class="slide-foot"><span>Agent MCP Workshop</span><span class="slide-num"></span></footer>
+    </section>
+</main>
+
+<nav class="controls" aria-label="Slide controls">
+    <button type="button" id="prev" aria-label="Previous slide">←</button>
+    <span class="count" id="count" aria-live="polite"></span>
+    <button type="button" id="next" aria-label="Next slide">→</button>
+    <button type="button" id="theme-toggle">Light</button>
+</nav>
+
+<script>
+    (function () {
+        var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+        var count = document.getElementById('count');
+        var toggle = document.getElementById('theme-toggle');
+        var current = 0;
+        var idleTimer;
+
+        slides.forEach(function (slide, i) {
+            var num = slide.querySelector('.slide-num');
+            if (num) num.textContent = (i + 1) + ' / ' + slides.length;
+        });
+
+        function show(i) {
+            current = Math.max(0, Math.min(slides.length - 1, i));
+            slides.forEach(function (slide, j) { slide.classList.toggle('active', j === current); });
+            count.textContent = (current + 1) + ' / ' + slides.length;
+            if (location.hash !== '#' + (current + 1)) history.replaceState(null, '', '#' + (current + 1));
+        }
+
+        function fromHash() {
+            var n = parseInt(location.hash.slice(1), 10);
+            return isNaN(n) ? 0 : n - 1;
+        }
+
+        function fit() {
+            var scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+            document.documentElement.style.setProperty('--scale', scale);
+        }
+
+        function themeLabel() {
+            toggle.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? 'Dark' : 'Light';
+        }
+
+        function wake() {
+            document.body.classList.remove('idle');
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(function () { document.body.classList.add('idle'); }, 2500);
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.altKey || e.ctrlKey || e.metaKey) return;
+            if (e.target.closest && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
+            switch (e.key) {
+                case 'ArrowRight': case 'ArrowDown': case 'PageDown': show(current + 1); break;
+                case ' ': show(e.shiftKey ? current - 1 : current + 1); break;
+                case 'ArrowLeft': case 'ArrowUp': case 'PageUp': show(current - 1); break;
+                case 'Home': show(0); break;
+                case 'End': show(slides.length - 1); break;
+                default: return;
+            }
+            e.preventDefault();
+        });
+
+        document.getElementById('prev').addEventListener('click', function () { show(current - 1); });
+        document.getElementById('next').addEventListener('click', function () { show(current + 1); });
+        toggle.addEventListener('click', function () {
+            var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('mcp-pres-theme', next);
+            themeLabel();
+        });
+
+        window.addEventListener('hashchange', function () { show(fromHash()); });
+        window.addEventListener('resize', fit);
+        document.addEventListener('mousemove', wake);
+        document.addEventListener('pointerdown', wake);
+
+        fit();
+        themeLabel();
+        show(fromHash());
+        wake();
+    })();
+</script>
+</body>
+</html>
