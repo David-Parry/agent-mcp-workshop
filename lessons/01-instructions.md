@@ -220,6 +220,19 @@ A few failures worth recognising:
 - `testListenerExceptionHandling` failing means the `try`/`catch` inside the `publishLine` loop is missing, so one broken listener stops the rest from being notified.
 - `testEmit_*` failing usually means the message was written without going through `gson.toJson`. A `String` has to come out quoted, because what goes on the wire is JSON.
 
+### See the logs
+
+Once all 58 are green, look at what the transport wrote along the way. Run `IOHandlerImplTest` on its own, then print the log it leaves in `logs/`:
+
+```bash
+./gradlew chapterTest -Pchapter=01 --tests 'IOHandlerImplTest' --rerun
+cat logs/agent-mcp-workshop-*.log
+```
+
+This is only meant to show the initial part of the application starting. So far the server is just its transport layer, so the log has an `[API][RECEIVED]` line for each line read, an `[API][SENT]:` line for each message written, and `Input stream closed.` when a reader finishes. The stack traces in it are expected: some tests hand the reader a broken input stream, or register a listener that throws, to check the failure is logged instead of taking the server down.
+
+Run `IOHandlerImplTest` on its own because a full run can delete the log before you read it: `LogFileWriterTest` runs in the same JVM, and after each of its tests it removes every `agent-mcp-workshop-*` file from `logs/`, not just its own. `--rerun` makes Gradle run the tests even when nothing has changed since your last run; without it the task is reported UP-TO-DATE, nothing runs, and no new log is written.
+
 ## Where this goes next
 
 The server can now read lines and write JSON, but it cannot tell one message from another. Chapter 2 turns each line into a typed JSON-RPC message. Start it with `./clean-checkout.sh 02-chapter`, or keep your own code: commit it and run `git merge origin/02-chapter`. The README explains both.
