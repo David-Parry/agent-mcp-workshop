@@ -243,6 +243,21 @@ Then drive the built server the way a client would. The harness starts the JAR a
 python3 lessons/presentation-3hr/verify/harness.py --chapter 03
 ```
 
+### See the logs
+
+Once all 49 are green, look at what the router wrote along the way. Run `IORouterTest` on its own, then print the newest log in `logs/`:
+
+```bash
+./gradlew chapterTest -Pchapter=03 --tests 'IORouterTest' --rerun
+cat "$(ls -t logs/agent-mcp-workshop-*.log | head -n 1)"
+```
+
+This is only meant to show the router at work. `IORouterTest` is the only test in this chapter that writes to the log. It swaps the transport for a fake that records what the router sends, so every line comes from `IORouter`, and none of the raw lines `IOHandlerImpl` logs as they come in and go out are here. There is a line for every decision the router made: `server/discover — advertised [2026-07-28]` for each discovery it answered, `acknowledging` and then `closing immediately` for each subscription, an `[API][RECEIVED]` line for each message it recorded instead of answering, and for each one it turned away, the reason and the code it sent back, such as `unsupported method 'initialize' (returning -32601)` or `incomplete _meta envelope (returning -32602)`.
+
+Two lines look like failures and are expected. The `-32603` comes from a test that makes the first write of an answer fail, to check the client still gets a reply with its id. The `params do not fit` line ends with Gson's own message, which puts a troubleshooting link on a line of its own. The `notifications/cancelled` line from the second task is not in this file, because the notification tests give the router a log of their own to read back; Step 5 of the Inspector run below shows it in `inspector/logs/`.
+
+Use `chapterTest` here, not `./gradlew test`, because the full run deletes the log: it includes chapter 01's `LogFileWriterTest`, which removes every `agent-mcp-workshop-*` file from `logs/` after each of its tests. This chapter's tests delete nothing, so `logs/` keeps a file for every run, including the one the harness's server wrote; `ls -t` lists the newest first, and `head -n 1` keeps only that one. `--rerun` makes Gradle run the tests even when nothing has changed since your last run; without it the task is reported UP-TO-DATE, nothing runs, and no new log is written.
+
 ## Try It in the MCP Inspector
 
 ### Step 1: Build
