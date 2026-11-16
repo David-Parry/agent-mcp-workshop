@@ -29,6 +29,8 @@ The Resources feature allows servers to expose various types of content that cli
   - Returns the content with appropriate MIME type (`text/html`)
   - Answers an empty uri with `-32602`, and one it cannot read with `-32602` and the uri in `data`, never with empty `contents`
 
+Javadoc is only one kind of content worth exposing this way. Another good use case is a database schema and all its metadata: its tables, their columns and types, primary and foreign keys, indexes, constraints, and the comments on each. Exposed as one resource per table, it gives a model what it needs to write queries that fit the database, while running them stays the job of a tool.
+
 ### 2. **Tools Capability Implementation**
 Tools provide executable functionality that clients can discover and invoke:
 
