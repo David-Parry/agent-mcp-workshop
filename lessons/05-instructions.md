@@ -25,7 +25,7 @@ Each bold line number below is the line of the method's signature, or of the cas
 
 ### Step 1: Read `discoverResult`
 
-**Action Required**: open `src/main/java/com/workshop/mcp/IORouter.java` and read `discoverResult()`. It is already written:
+**Action Required**: open `src/main/java/com/workshop/mcp/IORouter.java` and read `discoverResult()` at **line 388**. It is already written:
 
 ```java
 private DiscoverResult discoverResult() {
