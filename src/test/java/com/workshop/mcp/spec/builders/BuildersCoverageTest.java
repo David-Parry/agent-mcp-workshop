@@ -61,7 +61,7 @@ class BuildersCoverageTest {
     class AppToolBuilderTest {
 
         @Test
-        void anAppToolWritesItsResourceUriUnderBothMetaKeys() {
+        void anAppToolWritesItsResourceUriUnderTheNestedMetaKey() {
             AppTool tool = AppToolBuilder.builder()
                     .withName("key_word_search")
                     .withDescription("Searches for a keyword.")
@@ -73,7 +73,6 @@ class BuildersCoverageTest {
             assertEquals("Searches for a keyword.", tool.description());
             assertEquals(List.of("keyword"), tool.inputSchema().required());
             assertEquals("ui://keyword-search/mcp-app.html", tool._meta().ui().resourceUri());
-            assertEquals("ui://keyword-search/mcp-app.html", tool._meta().resourceUri());
             assertNull(tool._meta().ui().visibility());
         }
 

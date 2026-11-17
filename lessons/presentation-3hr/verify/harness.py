@@ -978,13 +978,12 @@ def s_mcp_apps(c):
     tool = (c.expect_result(1).get("tools") or [{}])[0]
 
     meta = tool.get("_meta") or {}
-    # The nested key is canonical. The flat one is deprecated by the MCP Apps
-    # extension and due for removal before GA, but older hosts still read it,
-    # so this server emits both and they must agree.
     if (meta.get("ui") or {}).get("resourceUri") != APP_URI:
         raise Failure(f"tool _meta.ui.resourceUri wrong: {tool}")
-    if meta.get("ui/resourceUri") != APP_URI:
-        raise Failure(f"the deprecated flat _meta['ui/resourceUri'] key must still agree: {tool}")
+    # The flat key is deprecated by the MCP Apps extension in favour of the
+    # nested one, and this server does not send it.
+    if "ui/resourceUri" in meta:
+        raise Failure(f"the deprecated flat _meta['ui/resourceUri'] key should not be sent: {tool}")
 
     # Removed from tools/list: its taskSupport hint forced a warmup call.
     for gone in ("execution", "taskSupport"):

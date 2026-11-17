@@ -92,23 +92,17 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>Record Components:</dt>
-<dd><code><span id="param-ui">ui</span></code> - the nested UI metadata, the canonical form</dd>
-<dd><code><span id="param-resourceUri">resourceUri</span></code> - the same URI under the deprecated flat <code>ui/resourceUri</code> key</dd>
+<dd><code><span id="param-ui">ui</span></code> - the nested UI metadata</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">AppMeta</span>(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">AppMeta</span>(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">The <code>_meta</code> block that links a tool to its MCP App UI.
  <p>
- The nested <code>ui.resourceUri</code> is the canonical form. The flat
- <code>ui/resourceUri</code> is <strong>deprecated</strong> by the MCP Apps
- extension and is scheduled for removal before GA, but hosts in the wild
- still read one or the other depending on their vintage, so this record
- emits both and keeps them in step. Write new hosts against the nested key.
- </p>
- <p>
- The flat key contains a slash and so cannot be a Java identifier; it is
- mapped with <code>SerializedName</code>.
+ The page's address sits under <code>ui.resourceUri</code>. The MCP Apps
+ extension also defines a flat <code>ui/resourceUri</code> key and marks it
+ <strong>deprecated</strong> in favour of the nested one, so this record
+ does not emit it.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -132,8 +126,7 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.UiMeta,java.lang.String)" class="member-name-link">AppMeta</a><wbr>(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(com.workshop.mcp.spec.UiMeta)" class="member-name-link">AppMeta</a><wbr>(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates an instance of a <code>AppMeta</code> record class.</div>
 </div>
@@ -164,21 +157,16 @@ loadScripts(document, 'script');</script>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#of(java.lang.String)" class="member-name-link">of</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
-<div class="block">Creates the metadata block for an app resource, filling both keys.</div>
+<div class="block">Creates the metadata block for an app resource.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resourceUri()" class="member-name-link">resourceUri</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Returns the value of the <a href="#param-resourceUri"><code>resourceUri</code></a> record component.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#ui()" class="member-name-link">ui</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#ui()" class="member-name-link">ui</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-ui"><code>ui</code></a> record component.</div>
 </div>
 </div>
@@ -199,15 +187,13 @@ loadScripts(document, 'script');</script>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.UiMeta,java.lang.String)">
+<section class="detail" id="&lt;init&gt;(com.workshop.mcp.spec.UiMeta)">
 <h3>AppMeta</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">AppMeta</span><wbr><span class="parameters">(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui,
- <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">AppMeta</span><wbr><span class="parameters">(<a href="UiMeta.html" title="class in com.workshop.mcp.spec">UiMeta</a>&nbsp;ui)</span></div>
 <div class="block">Creates an instance of a <code>AppMeta</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>ui</code> - the value for the <a href="#param-ui"><code>ui</code></a> record component</dd>
-<dd><code>resourceUri</code> - the value for the <a href="#param-resourceUri"><code>resourceUri</code></a> record component</dd>
 </dl>
 </section>
 </li>
@@ -223,7 +209,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="of(java.lang.String)">
 <h3>of</h3>
 <div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a></span>&nbsp;<span class="element-name">of</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)</span></div>
-<div class="block">Creates the metadata block for an app resource, filling both keys.</div>
+<div class="block">Creates the metadata block for an app resource.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>resourceUri</code> - the <code>ui://</code> URI of the app's HTML resource</dd>
@@ -281,18 +267,6 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <a href="#param-ui"><code>ui</code></a> record component</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="resourceUri()">
-<h3>resourceUri</h3>
-<div class="member-signature"><span class="annotations">@SerializedName("ui/resourceUri")
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">resourceUri</span>()</div>
-<div class="block">Returns the value of the <a href="#param-resourceUri"><code>resourceUri</code></a> record component.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>the value of the <a href="#param-resourceUri"><code>resourceUri</code></a> record component</dd>
 </dl>
 </section>
 </li>

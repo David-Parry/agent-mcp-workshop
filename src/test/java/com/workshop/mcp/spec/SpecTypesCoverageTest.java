@@ -460,7 +460,7 @@ class SpecTypesCoverageTest {
             assertEquals(ResultType.COMPLETE, defaults.resultType());
             assertEquals(CacheScope.DEFAULT_TTL_MS, defaults.ttlMs());
             assertEquals(CacheScope.PRIVATE, defaults.cacheScope());
-            assertEquals("ui://keyword-search/mcp-app.html", defaults.tools().get(0)._meta().resourceUri());
+            assertEquals("ui://keyword-search/mcp-app.html", defaults.tools().get(0)._meta().ui().resourceUri());
         }
 
         @Test
