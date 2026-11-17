@@ -278,7 +278,7 @@ class IORouterTest {
 
     @Test
     @Tag("chapter06")
-    void appToolsCarryTheResourceUriUnderBothMetaKeys() {
+    void appToolsCarryTheResourceUriUnderTheNestedMetaKeyOnly() {
         router.route("""
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
 
@@ -287,7 +287,7 @@ class IORouterTest {
                 .getAsJsonObject("_meta");
         String expected = "ui://keyword-search/mcp-app.html";
         assertEquals(expected, meta.getAsJsonObject("ui").get("resourceUri").getAsString());
-        assertEquals(expected, meta.get("ui/resourceUri").getAsString());
+        assertNull(meta.get("ui/resourceUri"), "the deprecated flat key must not be sent");
     }
 
     @Test
