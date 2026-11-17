@@ -225,7 +225,7 @@ A server that asks for what it needs, exactly when it needs it, without ever sen
 Give the existing tool a page of its own, which a host that supports MCP Apps renders inside the conversation.
 
 ### What You'll Build
-- `AppMeta.of` — the page's address under both the canonical `_meta.ui.resourceUri` and the deprecated flat `ui/resourceUri`
+- `AppMeta.of` — the page's address under `_meta.ui.resourceUri`
 - `AppToolBuilder.withResourceUri(...)` and `build()`, which refuses a tool with no name, description, page or input schema — there is no `withExecution` / `taskSupport`
 - Given, and read first: the records `UiMeta`, `AppMeta`, `AppTool` and `AppToolsListResult`; the router's `io.modelcontextprotocol/ui` declaration; the `TOOLS_LIST`, `RESOURCES_LIST` and `RESOURCES_READ` cases that send the tool and serve `ui://keyword-search/mcp-app.html` from the classpath; and the demo page itself
 
@@ -242,7 +242,7 @@ Give the existing tool a page of its own, which a host that supports MCP Apps re
 - `./gradlew chapterTest -Pchapter=06` is green: 17 tests, of which 13 start red (9 in `AppToolBuilderTest`, a nested class in `BuildersCoverageTest`; 3 in `IORouterTest`; 1 in `SpecTypesCoverageTest`)
 - The harness passes: `python3 lessons/presentation-3hr/verify/harness.py --chapter 06`
 - The `server/discover` result declares `"io.modelcontextprotocol/ui": {}`
-- `tools/list` returns the tool with both `_meta.ui.resourceUri` and `_meta["ui/resourceUri"]`
+- `tools/list` returns the tool with `_meta.ui.resourceUri`
 - `resources/list` advertises the `ui://` URI
 - `resources/read` returns the HTML under `text/html;profile=mcp-app`
 - The Inspector's Apps tab lists `key_word_search`; give it a `keyword` and a `directory`, and **Open App** renders the demo page with its sample rows whatever you searched for — the real result is the `tools/call` reply in the Protocol panel
