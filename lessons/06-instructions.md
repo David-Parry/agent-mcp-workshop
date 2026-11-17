@@ -45,7 +45,9 @@ The address sits one level down, at `_meta.ui.resourceUri`. The specification al
 
 ### Step 3: Read `AppTool` and `AppToolsListResult`
 
-`AppTool` is `Tool` with one more component, `_meta`. Gson writes a field name as it is, so the key in the JSON is `_meta`, which is what the protocol requires.
+**Action Required**: open `src/main/java/com/workshop/mcp/spec/AppTool.java`. Its fully qualified name is `com.workshop.mcp.spec.AppTool`.
+
+`AppTool` is `Tool` with one more component, `_meta`. That `Tool` is the record `com.workshop.mcp.spec.Tool`, not the interface `com.workshop.mcp.tools.Tool` that `KeyWordSearch` implements. Gson writes a field name as it is, so the key in the JSON is `_meta`, which is what the protocol requires.
 
 `AppToolsListResult` is `ToolsListResult` for a list of `AppTool`. The two tool records are unrelated types, so a `List<Tool>` cannot hold an `AppTool`. It carries the same `resultType`, `ttlMs` and `cacheScope` as every other list result.
 
