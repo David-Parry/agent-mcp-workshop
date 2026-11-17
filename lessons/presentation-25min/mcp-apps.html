@@ -101,16 +101,15 @@
 }</pre>
         <p style="color:var(--muted);font-size:13px">Empty: the extension's one setting, <code>mimeTypes</code>, is the host's, sent in each request's client capabilities.</p>
 
-        <h3>2. Point the tool at its UI via <code>_meta</code> &mdash; under <em>both</em> keys</h3>
+        <h3>2. Point the tool at its UI via <code>_meta</code></h3>
 <pre>{
   "name": "key_word_search",
   "inputSchema": { ... },
   "_meta": {
-    "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" },
-    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
+    "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" }
   }
 }</pre>
-        <p style="color:var(--muted);font-size:13px">The nested <code>ui.resourceUri</code> and the flat <code>ui/resourceUri</code> hold the same value. The nested one is canonical; the flat one is <strong>deprecated</strong> and will be removed before GA. Hosts read one or the other depending on their vintage, so <code>AppMeta.of(...)</code> mirrors the value into both.</p>
+        <p style="color:var(--muted);font-size:13px">The specification also defines a flat <code>ui/resourceUri</code> key and marks it <strong>deprecated</strong> in favour of the nested <code>ui.resourceUri</code>, so <code>AppMeta.of(...)</code> writes only the nested one.</p>
 
         <h3>3. Serve that URI as HTML with the app MIME type</h3>
 <pre>ui://keyword-search/mcp-app.html
@@ -138,7 +137,7 @@
     <section class="card">
         <h2>What Happens at Runtime</h2>
         <div class="flow-steps">
-            <div class="flow-step"><span class="step-num">1</span><div>Host calls <code>tools/list</code> and sees <code>_meta.ui.resourceUri</code> (or the flat <code>_meta["ui/resourceUri"]</code>).</div></div>
+            <div class="flow-step"><span class="step-num">1</span><div>Host calls <code>tools/list</code> and sees <code>_meta.ui.resourceUri</code>.</div></div>
             <div class="flow-step"><span class="step-num">2</span><div>Host preloads the HTML with <code>resources/read</code> &mdash; before the tool is ever called.</div></div>
             <div class="flow-step"><span class="step-num">3</span><div>User asks a question; host calls <code>tools/call</code> as normal.</div></div>
             <div class="flow-step"><span class="step-num">4</span><div>Host renders the preloaded HTML in a sandboxed iframe and hands it the tool result over <code>postMessage</code>.</div></div>

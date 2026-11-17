@@ -158,7 +158,7 @@
 }</pre>
         <p>On revision <code>2026-07-28</code> this moved out of the <code>experimental</code> map into the dedicated <code>extensions</code> slot, and the identifier is <code>io.modelcontextprotocol/ui</code>. The settings object is empty: MCP Apps defines one setting, <code>mimeTypes</code>, and it is the <em>host's</em> — the page types it can render, declared in the client capabilities of each request. Clients read the server's declaration from the <code>server/discover</code> result and cache it; if the extension is absent, the app never appears and the tool still works normally.</p>
 
-        <h3>2. Add _meta to your tool definition — under both keys</h3>
+        <h3>2. Add _meta to your tool definition</h3>
         <pre>{
   "name": "key_word_search",
   "description": "Searches for a keyword across all project files.",
@@ -166,14 +166,13 @@
   "_meta": {
     "ui": {
       "resourceUri": "ui://keyword-search/mcp-app.html"
-    },
-    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
+    }
   }
 }</pre>
         <div class="key-concept" style="margin-top:14px">
-            <strong>Yes, the same URI twice.</strong> The nested <code>_meta.ui.resourceUri</code> is the canonical form. The flat <code>_meta["ui/resourceUri"]</code> is <strong>deprecated</strong> by the MCP Apps extension and is marked for removal before GA. Hosts in the wild still read one or the other depending on their vintage, so a server that wants to be rendered by both emits both. They must always agree.
+            <strong>One key, nested.</strong> The address goes under <code>_meta.ui.resourceUri</code>. The specification also defines a flat <code>_meta["ui/resourceUri"]</code> key and marks it <strong>deprecated</strong> in favour of the nested one, so this server does not send it.
         </div>
-        <p style="color:var(--muted);font-size:13px">This is transitional, and worth telling the class as much — in the direction that may surprise them. The <em>nested</em> key is the one the extension standardised on; the flat key is the legacy spelling, formally deprecated and due for removal before GA. We emit it anyway, because hosts shipped against it and a deprecated field keeps working for its whole transition. Write new code against <code>ui.resourceUri</code> and treat the flat key the way we treat <code>roots</code>: still on the wire, not something to build on.</p>
+        <p style="color:var(--muted);font-size:13px">If someone has read the spec and asks about the flat key: hosts that read only it were written against drafts from before MCP Apps reached Stable on <code>2026-01-26</code>, and the MCP Inspector, like the <code>@modelcontextprotocol/ext-apps</code> SDK it is built on, reads the nested key first. The spec's deprecation notice still talks about a GA release. That line predates the Stable release, and Stable is the last stage an extension has.</p>
 
         <h3>3. Serve the HTML when the host requests it</h3>
         <pre>// IORouter, case RESOURCES_READ:
@@ -202,7 +201,7 @@ ReadResourceResult result = ReadResourceResultBuilder.builder()
                 <span class="step-num">2</span>
                 <div class="step-content">
                     <h4>Host calls tools/list</h4>
-                    <p>Sees <code>key_word_search</code> carries a UI resource uri in <code>_meta</code> — under whichever of the two keys it happens to read. Preloads the UI resource. Note the result is cacheable, so on a warm host this step may not hit the wire at all.</p>
+                    <p>Sees <code>key_word_search</code> carries a UI resource uri in <code>_meta.ui.resourceUri</code>. Preloads the UI resource. Note the result is cacheable, so on a warm host this step may not hit the wire at all.</p>
                 </div>
             </div>
             <div class="flow-step">
@@ -241,11 +240,11 @@ ReadResourceResult result = ReadResourceResultBuilder.builder()
         <div class="three-col">
             <div class="feature-card">
                 <h4>UiMeta</h4>
-                <p>Holds the <code>resourceUri</code> pointing to the HTML resource at the <code>ui://</code> URI. This is the nested half of the pair.</p>
+                <p>Holds the <code>resourceUri</code> pointing to the HTML resource at the <code>ui://</code> URI.</p>
             </div>
             <div class="feature-card">
                 <h4>AppMeta</h4>
-                <p>The <code>_meta</code> object on a tool definition. Carries <code>UiMeta</code> as <code>ui</code> — the canonical key — <em>and</em> the deprecated flat <code>ui/resourceUri</code> string, kept in sync by construction so the two can never disagree.</p>
+                <p>The <code>_meta</code> object on a tool definition. Carries <code>UiMeta</code> as <code>ui</code>.</p>
             </div>
             <div class="feature-card">
                 <h4>AppTool + AppToolBuilder</h4>
@@ -326,12 +325,12 @@ ReadResourceResult result = ReadResourceResultBuilder.builder()
         <h3>Chapter 6 Live: The Keyword Search Dashboard</h3>
         <p style="color:var(--muted);font-size:14px">Switch to the IDE with <code>lessons/06-instructions.md</code> open as the script.</p>
         <ol class="demo-steps">
-            <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (which emits it <em>twice</em>, nested as <code>ui</code> and flat as the deprecated <code>ui/resourceUri</code>), and <code>AppTool</code>. Ask the class to spot the duplication before you explain it; someone always assumes it is a bug. Then ask which of the two is the deprecated one — most will guess the nested key, and it is the other way round.</li>
-            <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>. One call, both keys: the duplication is impossible to get wrong from the outside.</li>
+            <li><strong>Open the three spec records</strong> in <code>src/main/java/com/workshop/mcp/spec/</code> — <code>UiMeta</code> (just a <code>resourceUri</code>), <code>AppMeta</code> (which nests it as <code>ui</code>), and <code>AppTool</code>. Ask the class which spelling the spec deprecated: the nested <code>ui.resourceUri</code>, or a flat <code>ui/resourceUri</code> like every other <code>_meta</code> key they have met. Most will guess the nested key, and it is the other way round, which is why this server sends only <code>ui</code>.</li>
+            <li><strong>Show <code>AppToolBuilder</code></strong> in <code>spec/builders/</code> — the same fluent pattern as every other builder, plus <code>withResourceUri("ui://keyword-search/mcp-app.html")</code>, which <code>build</code> hands to <code>AppMeta.of</code>.</li>
             <li><strong>Point at what is missing from <code>AppTool</code></strong> — there is no <code>execution</code> field any more. Tie it back to Ch 7: the client no longer decides about tasks, so the hint that fed that decision went with it.</li>
             <li><strong>Open <code>src/main/resources/lesson/mcp-app.html</code> directly in the browser</strong> — the standalone dashboard with sample data. Point at the comments explaining where <code>app.ontoolresult</code> and <code>app.callServerTool</code> would take over in a real host.</li>
             <li><strong>Walk the four places in <code>IORouter</code> the app touches</strong> — all already wired on the branch, so this is reading, not typing: the empty <code>io.modelcontextprotocol/ui</code> declaration in <code>server/discover</code>, <code>AppToolsListResult</code> from TOOLS_LIST, the page listed in RESOURCES_LIST as <em>Keyword Search App</em>, and the RESOURCES_READ branch serving it with MIME type <code>text/html;profile=mcp-app</code>.</li>
-            <li><strong>In the Inspector:</strong> open the <code>tools/list</code> reply in the <strong>Protocol</strong> panel and show both <code>_meta</code> keys side by side — the Tools tab shows the arguments, not the <code>_meta</code>. <strong>Resources tab:</strong> <em>Keyword Search App</em> is listed beside the Javadoc pages; read it and show the MIME type.</li>
+            <li><strong>In the Inspector:</strong> open the <code>tools/list</code> reply in the <strong>Protocol</strong> panel and show <code>_meta.ui.resourceUri</code> — the Tools tab shows the arguments, not the <code>_meta</code>. <strong>Resources tab:</strong> <em>Keyword Search App</em> is listed beside the Javadoc pages; read it and show the MIME type.</li>
             <li><strong>Apps tab:</strong> it appears because a tool has a <code>_meta.ui.resourceUri</code>, and lists <code>key_word_search</code> under <strong>MCP Apps (1)</strong>. Give it a keyword and a directory and click <strong>Open App</strong>: the Inspector calls the tool and renders the page in its sandbox. The page shows its sample rows whatever you searched for; the real result is the <code>tools/call</code> reply in the Protocol panel, sent to the page as well, which does not listen.</li>
         </ol>
         <p style="color:var(--muted);font-size:13px;margin-top:12px"><strong>What the audience should observe:</strong> MCP Apps are still just a tool plus a resource plus <code>_meta</code> — no new protocol machinery, and the statelessness migration barely touched them. What did change is bookkeeping: a different extension slot, a second copy of the uri, and one field fewer on the tool. Hosts that don't support Apps ignore <code>_meta</code> and the tool keeps working as text.</p>

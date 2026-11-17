@@ -25,8 +25,7 @@ package com.workshop.mcp.spec;
  *   "_meta": {
  *     "ui": {
  *       "resourceUri": "ui://keyword-search/mcp-app.html"
- *     },
- *     "ui/resourceUri": "ui://keyword-search/mcp-app.html"
+ *     }
  *   }
  * }
  * }</pre>

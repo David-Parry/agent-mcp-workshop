@@ -8,7 +8,7 @@ MCP Apps is an official extension, `io.modelcontextprotocol/ui`, and it is **Sta
 
 The records, the router wiring and the page are already on this branch. You write three methods:
 
-1. `AppMeta.of`, which writes the page's address under both of the keys hosts read
+1. `AppMeta.of`, which writes the page's address under `ui.resourceUri`
 2. `AppToolBuilder.withResourceUri`, which stores that address
 3. `AppToolBuilder.build`, which refuses an incomplete tool and builds the rest
 
@@ -38,17 +38,10 @@ A tool marked `["app"]` alone is one the model never sees, such as the tool behi
 **Action Required**: open `src/main/java/com/workshop/mcp/spec/AppMeta.java`:
 
 ```java
-public record AppMeta(
-        UiMeta ui,
-        @SerializedName("ui/resourceUri") String resourceUri
-) {
+public record AppMeta(UiMeta ui) {
 ```
 
-**The address goes on the wire twice**: nested, as `ui.resourceUri`, and flat, as `ui/resourceUri`. The shape suggests the wrong answer about which one is current, because every other `_meta` key you have met is flat, and most are slash-namespaced. The nested key is the canonical one. The MCP Apps specification marks the flat key **deprecated**, says it "will be removed before GA", and names `_meta.ui.resourceUri` as its replacement.
-
-This server sends both, for the same reason clients still declare `roots`: hosts built against the older spelling still read it, and a deprecated field keeps working until it is removed. A host should read the nested key first. The MCP Inspector does, and falls back to the flat key only when the nested one is missing.
-
-The flat key contains a slash, which no Java identifier can, so `@SerializedName` renames the component on the way out. Chapter 2 met the same problem with the `_meta` envelope keys, and read them out of the JSON tree by hand.
+The address sits one level down, at `_meta.ui.resourceUri`. The specification also defines a flat `_meta["ui/resourceUri"]` key and marks it **deprecated** in favour of this one, so this server does not send it. Hosts that read only the flat key were written against drafts from before MCP Apps reached Stable. The MCP Inspector, like the SDK it is built on, reads the nested key first.
 
 ### Step 3: Read `AppTool` and `AppToolsListResult`
 
@@ -71,8 +64,7 @@ This is the tool the server sends in `tools/list` once you are done:
     "required": ["keyword"]
   },
   "_meta": {
-    "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" },
-    "ui/resourceUri": "ui://keyword-search/mcp-app.html"
+    "ui": { "resourceUri": "ui://keyword-search/mcp-app.html" }
   }
 }
 ```
@@ -85,15 +77,15 @@ Everything but `_meta` is the tool from Chapters 4 and 5, `directory` and all. A
 
 ### Step 1: Fill `AppMeta.of`
 
-**Action Required**: fill `of` at **line 36** of `src/main/java/com/workshop/mcp/spec/AppMeta.java`:
+**Action Required**: fill `of` at **line 25** of `src/main/java/com/workshop/mcp/spec/AppMeta.java`:
 
 ```java
 public static AppMeta of(String resourceUri) {
-    return new AppMeta(new UiMeta(resourceUri, null), resourceUri);
+    return new AppMeta(new UiMeta(resourceUri, null));
 }
 ```
 
-Use `of` rather than the constructor everywhere: it is what keeps the two keys in step.
+Use `of` rather than the constructor everywhere, so every tool's `ui` block is built the same way.
 
 ### Step 2: Fill `withResourceUri`
 
@@ -108,7 +100,7 @@ public AppToolBuilder withResourceUri(String resourceUri) {
 
 ### Step 3: Fill `build`
 
-**Action Required**: fill `build` at **line 139** of `AppToolBuilder.java`, which is line 138 once `withResourceUri` is filled:
+**Action Required**: fill `build` at **line 136** of `AppToolBuilder.java`, which is line 135 once `withResourceUri` is filled:
 
 ```java
 public AppTool build() {
@@ -133,7 +125,7 @@ public AppTool build() {
 1. **The protocol requires two of these four, and the builder requires all four.** A tool must have a `name` and an `inputSchema`. The schema MUST be a JSON Schema object, never `null`, even for a tool that takes no arguments: such a tool sends `{"type":"object","additionalProperties":false}`, or at least an object with no properties. The protocol leaves `description` optional, but a model picks tools by their descriptions, so this builder insists on one. The `resourceUri` is what makes this an `AppTool` at all.
 2. **The checks run in this order on purpose.** The tests leave the schema out when they test a missing or blank name, description or page, and expect to hear about what they left out first.
 3. **Failing loudly is the kind failure.** An `AppTool` with no page claims a UI it does not have: the host fetches nothing, shows nothing and reports nothing. An exception the first time `tools/list` is answered is far easier to find.
-4. **`build` calls `AppMeta.of`**, so no call site can fill one key and forget the other.
+4. **`build` calls `AppMeta.of`**, so no call site builds the `ui` block by hand.
 
 ---
 
@@ -210,14 +202,14 @@ The page also loads nothing from outside itself: its script and styles are inlin
 
 The run reports 17 tests, and 13 of them fail before you start: 9 in `AppToolBuilderTest`, 3 in `IORouterTest` and 1 in `SpecTypesCoverageTest`. Two of the `IORouterTest` failures are Chapter 4 tests that read `tools/list`, which your builder now builds, so they run again here. The other 4 tests pass already, because the router's wiring is given: the extension is declared, the page is listed and read, and every method the router accepts is still answered. Failures worth recognising:
 
-- `anAppToolWritesItsResourceUriUnderBothMetaKeys` — `of` fills one key and not the other, or `build` makes its `AppMeta` some other way. `appToolsCarryTheResourceUriUnderBothMetaKeys` fails with it, without a `-32603`, because the reply is missing the same key.
+- `anAppToolWritesItsResourceUriUnderTheNestedMetaKey` — `of` leaves `ui.resourceUri` empty, or `build` makes its `AppMeta` some other way. `appToolsCarryTheResourceUriUnderTheNestedMetaKeyOnly` fails with it, without a `-32603`, because the reply is missing the same key.
 - `anAppToolWithoutANameIsRejected` or `anAppToolWithoutADescriptionIsRejected` — the check is missing, or its message differs from the snippet's.
 - `aBlankNameIsRefusedJustLikeAMissingOne`, `aBlankDescriptionIsRefusedJustLikeAMissingOne` or `aBlankResourceUriIsRefusedJustLikeAMissingOne` — the check tests for `null` and misses `isBlank()`.
 - `anAppToolWithoutAResourceUriIsRejected` — `build` lets a tool with no page through, or checks the schema first. This test leaves the schema out too, and expects to hear about the page.
 - `anAppToolWithoutAnInputSchemaIsRejected` — `build` lets a tool with no schema through.
 - `anAppToolAcceptsAPreBuiltInputSchema` — `build` copies or rebuilds the schema instead of passing on the one it was given.
-- `anAppToolsListIsCompleteAndUnshareableUnlessToldOtherwise` — `AppMeta.of` still throws, or leaves the flat key empty.
-- `appToolsCarryTheResourceUriUnderBothMetaKeys`, `cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot` or `anInputSchemaWritesOnlyJsonSchemaKeywords` — `tools/list` answered `-32603`, because something you wrote threw. The log file says what.
+- `anAppToolsListIsCompleteAndUnshareableUnlessToldOtherwise` — `AppMeta.of` still throws, or leaves `ui.resourceUri` empty.
+- `appToolsCarryTheResourceUriUnderTheNestedMetaKeyOnly`, `cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot` or `anInputSchemaWritesOnlyJsonSchemaKeywords` — `tools/list` answered `-32603`, because something you wrote threw. The log file says what.
 
 Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
@@ -234,7 +226,7 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_me
 
 ```text
 {"jsonrpc":"2.0","id":1,"result":{…"extensions":{"io.modelcontextprotocol/ui":{}}},…}}
-{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","tools":[{"name":"key_word_search",…,"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"},"ui/resourceUri":"ui://keyword-search/mcp-app.html"}}],"ttlMs":60000,"cacheScope":"public",…}}
+{"jsonrpc":"2.0","id":2,"result":{"resultType":"complete","tools":[{"name":"key_word_search",…,"_meta":{"ui":{"resourceUri":"ui://keyword-search/mcp-app.html"}}}],"ttlMs":60000,"cacheScope":"public",…}}
 ```
 
 This client declared nothing, and still got the tool with its page. That is the choice Part 3 describes.
@@ -250,7 +242,7 @@ Turn on the switch on the `workshop` card to connect. The Inspector speaks `2026
 
 ### The wiring
 - The **Protocol** panel on the right lists every message. Open the `server/discover` reply: `extensions` now holds `"io.modelcontextprotocol/ui": {}`.
-- Open the `tools/list` reply. `key_word_search` carries `_meta`, with the address under both keys. The **Tools** tab shows the tool's arguments but not its `_meta`.
+- Open the `tools/list` reply. `key_word_search` carries `_meta`, with the address under `ui.resourceUri`. The **Tools** tab shows the tool's arguments but not its `_meta`.
 - In the **Resources** tab, `Keyword Search App` is listed beside the Javadoc pages. Read it: the HTML comes back under `text/html;profile=mcp-app`.
 
 ### The app

@@ -78,7 +78,7 @@ Your `key_word_search` tool handles the predictable, deterministic work. Asked f
 
 ```text
 /path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java, keyword_count=2
-/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/AppMeta.java, keyword_count=2
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/AppMeta.java, keyword_count=1
 /path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/InputRequest.java, keyword_count=1
 ```
 
@@ -86,7 +86,7 @@ Your `key_word_search` tool handles the predictable, deterministic work. Asked f
 
 The AI interprets, explains, and provides context:
 
-> "'deprecated' appears 7 times across 5 files. The two hits in `IORouter.java` are comments about features revision 2026-07-28 deprecates, and the two in `AppMeta.java` explain why it still emits the old flat `ui/resourceUri` key. Would you like me to walk through each one?"
+> "'deprecated' appears 5 times across 4 files. The two hits in `IORouter.java` are comments about features revision 2026-07-28 deprecates, and the one in `AppMeta.java` explains why it does not send the old flat `ui/resourceUri` key. Would you like me to walk through each one?"
 
 ## Division of Responsibilities
 
