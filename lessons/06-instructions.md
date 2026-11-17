@@ -124,7 +124,7 @@ public AppTool build() {
 
 #### What to notice
 
-1. **The protocol requires two of these four, and the builder requires all four.** A tool must have a `name` and an `inputSchema`. The schema MUST be a JSON Schema object, never `null`, even for a tool that takes no arguments: such a tool sends `{"type":"object","additionalProperties":false}`, or at least an object with no properties. The protocol leaves `description` optional, but a model picks tools by their descriptions, so this builder insists on one. The `resourceUri` is what makes this an `AppTool` at all.
+1. **The protocol requires two of these four, `name` and `inputSchema`, and the builder requires all four.** The schema MUST be a JSON Schema object, never `null`, even for a tool that takes no arguments: such a tool sends `{"type":"object","additionalProperties":false}`, or at least an object with no properties. The protocol leaves `description` optional, but a model picks tools by their descriptions, so this builder insists on one. The `resourceUri` is what makes this an `AppTool` at all.
 2. **The checks run in this order on purpose.** The tests leave the schema out when they test a missing or blank name, description or page, and expect to hear about what they left out first.
 3. **Failing loudly is the kind failure.** An `AppTool` with no page claims a UI it does not have: the host fetches nothing, shows nothing and reports nothing. An exception the first time `tools/list` is answered is far easier to find.
 4. **`build` calls `AppMeta.of`**, so no call site builds the `ui` block by hand.
