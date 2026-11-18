@@ -65,7 +65,7 @@ Before the list of extensions, the thing to know about any one of them: **every 
 | **Beta** | Anything, but breaking changes should be rare, batched, and announced | Real usage is welcome. Breaking changes are documented in a changelog. |
 | **Stable** | Only with a new core protocol revision | Behavior is fixed for the revision you negotiated. A published revision is immutable. |
 
-An extension starts Experimental and **must** pass through Beta. From Beta it either settles at Stable or a Standards Track SEP promotes it into the core specification. Each Beta extension declares its intended destination — Stable or Core — and that intent can change while it is in Beta.
+An extension starts Experimental and **must** pass through Beta, unless the Core Maintainers waive that by a recorded vote. From Beta it either settles at Stable or a Standards Track SEP promotes it into the core specification. Each Beta extension declares its intended destination — Stable or Core — and that intent can change while it is in Beta.
 
 Two consequences worth holding on to:
 
@@ -74,7 +74,7 @@ Two consequences worth holding on to:
 
 ## Official Extensions
 
-Official extensions live in the MCP GitHub organization in repositories prefixed `ext-`, and the directory holding the spec (`specification/beta/`, `specification/stable/`) is what records the stage.
+Official extensions live in the MCP GitHub organization in repositories prefixed `ext-`, and the directory holding the spec (`specification/beta/`, `specification/stable/`) is meant to record the stage. Repositories that predate the lifecycle, `ext-tasks` among them, have not moved to that layout yet, so the [extensions overview](https://modelcontextprotocol.io/extensions/overview) is the reference for each extension's stage, and the table below follows it.
 
 | Extension | Identifier | Stage | What it does |
 |-----------|-----------|-------|--------------|

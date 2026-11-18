@@ -153,7 +153,7 @@
             </tbody>
         </table>
 
-        <p style="margin-top:14px">An extension starts Experimental and <strong>must</strong> pass through Beta. From there it either settles at Stable, or a Standards Track SEP promotes it into the core specification — and each Beta extension states which of the two it is aiming for.</p>
+        <p style="margin-top:14px">An extension starts Experimental and <strong>must</strong> pass through Beta, unless the Core Maintainers waive that by a recorded vote. From there it either settles at Stable, or a Standards Track SEP promotes it into the core specification — and each Beta extension states which of the two it is aiming for.</p>
 
         <div class="key-concept">
             <strong>The identifier never changes with the stage.</strong> <code>io.modelcontextprotocol/tasks</code> is the same string at Beta as it is the day it lands in core. Even a breaking change keeps it; a <code>-v2</code> suffix shows up only when old and new behaviour have to coexist inside one protocol revision. So you cannot read maturity off the identifier — you have to go and look.
@@ -166,7 +166,7 @@
 
     <section class="card">
         <h2>The Official Extensions</h2>
-        <p>Official extensions live in the MCP GitHub organisation under repositories prefixed <code>ext-</code>. The directory holding the spec — <code>specification/beta/</code>, <code>specification/stable/</code> — is the authoritative record of the stage.</p>
+        <p>Official extensions live in the MCP GitHub organisation under repositories prefixed <code>ext-</code>. The directory holding the spec — <code>specification/beta/</code>, <code>specification/stable/</code> — is meant to record the stage, but repositories that predate the lifecycle, <code>ext-tasks</code> among them, have not moved to that layout yet. Until they do, the extensions overview on modelcontextprotocol.io is the reference, and this table follows it.</p>
 
         <table>
             <thead><tr><th>Extension</th><th>Repository</th><th>Stage</th><th>What it does</th></tr></thead>
