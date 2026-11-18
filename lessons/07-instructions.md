@@ -12,7 +12,7 @@ The records, the extension's declaration, the decision to answer with a handle a
 2. `runSearchAsTaskThatAsks` in `IORouter`, the search that asks for its directory as the task's status
 3. The three cases that answer `tasks/get`, `tasks/update` and `tasks/cancel`
 
-The line numbers below are where each method sits in the file as you checked it out. Every paste pushes what is below it further down, so after your first paste in a file, find each one by its name rather than its number.
+Each bold line number below is where the method or case sits in the file as you checked it out. Every paste pushes what is below it further down, so where one has moved by the time you reach it, its new line follows in parentheses, with your earlier pastes in. Finding it by its name always works.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/tasks/overview](https://modelcontextprotocol.io/extensions/tasks/overview), and the specification itself at [https://github.com/modelcontextprotocol/ext-tasks/blob/main/specification/2026-07-28/tasks.md](https://github.com/modelcontextprotocol/ext-tasks/blob/main/specification/2026-07-28/tasks.md)
 
@@ -162,7 +162,7 @@ The task is in the map before `create` returns, so a `tasks/get` for its id reso
 
 ### Step 2: Fill `complete` and `fail`
 
-**Action Required**: fill `complete` at **line 103** of `TaskStore.java`:
+**Action Required**: fill `complete` at **line 103** of `TaskStore.java` (line 113 after your earlier pastes):
 
 ```java
 public void complete(String taskId, Object result) {
@@ -184,7 +184,7 @@ public void complete(String taskId, Object result) {
 }
 ```
 
-**Action Required**: fill `fail` at **line 114** of `TaskStore.java`:
+**Action Required**: fill `fail` at **line 114** of `TaskStore.java` (line 138 after your earlier pastes):
 
 ```java
 public void fail(String taskId, String reason) {
@@ -215,7 +215,7 @@ public void fail(String taskId, String reason) {
 
 These three carry the question a task asks.
 
-**Action Required**: fill `requireInput` at **line 128** of `TaskStore.java`:
+**Action Required**: fill `requireInput` at **line 128** of `TaskStore.java` (line 166 after your earlier pastes):
 
 ```java
 public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) {
@@ -236,7 +236,7 @@ public Task requireInput(String taskId, Map<String, InputRequest> inputRequests)
 }
 ```
 
-**Action Required**: fill `applyInput` at **line 151** of `TaskStore.java`:
+**Action Required**: fill `applyInput` at **line 151** of `TaskStore.java` (line 200 after your earlier pastes):
 
 ```java
 public Task applyInput(String taskId, Map<String, Object> inputResponses) {
@@ -268,7 +268,7 @@ public Task applyInput(String taskId, Map<String, Object> inputResponses) {
 }
 ```
 
-**Action Required**: fill `awaitInput` at **line 182** of `TaskStore.java`:
+**Action Required**: fill `awaitInput` at **line 182** of `TaskStore.java` (line 253 after your earlier pastes):
 
 ```java
 public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
@@ -306,7 +306,7 @@ public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
 
 ### Step 4: Fill `cancel`
 
-**Action Required**: fill `cancel` at **line 202** of `TaskStore.java`:
+**Action Required**: fill `cancel` at **line 202** of `TaskStore.java` (line 293 after your earlier pastes):
 
 ```java
 public Task cancel(String taskId) {
