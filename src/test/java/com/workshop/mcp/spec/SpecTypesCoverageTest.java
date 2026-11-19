@@ -395,6 +395,34 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter06")
+        @Tag("stretch")
+        void appsAreRenderedOnlyForAHostThatNamesTheAppMimeType() {
+            assertTrue(envelope(null, declaringUi(Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP))))
+                               .supportsMcpApps());
+            assertFalse(envelope(null, declaringUi(Map.of("mimeTypes", List.of("text/html")))).supportsMcpApps(),
+                        "a host that renders other kinds of page is not sent this one");
+            assertFalse(envelope(null, declaringUi(Map.of("mimeTypes", Resource.MIME_TYPE_UI_APP)))
+                                .supportsMcpApps(), "mimeTypes is a list");
+            assertFalse(envelope(null, declaringUi(Map.of())).supportsMcpApps());
+            assertFalse(envelope(null, declaringUi("yes")).supportsMcpApps());
+            assertFalse(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsMcpApps());
+            assertFalse(envelope(null, capabilities()).supportsMcpApps());
+            assertFalse(envelope(null, null).supportsMcpApps());
+        }
+
+        @Test
+        @Tag("chapter06")
+        @Tag("stretch")
+        void anExtensionsSettingsAreReadBackAsDeclared() {
+            Map<String, Object> settings = Map.of("mimeTypes", List.of(Resource.MIME_TYPE_UI_APP));
+
+            assertEquals(settings, declaringUi(settings).extension(MetaKeys.UI_EXTENSION));
+            assertNull(declaringUi(settings).extension(MetaKeys.TASKS_EXTENSION));
+            assertNull(capabilities().extension(MetaKeys.UI_EXTENSION));
+        }
+
+        @Test
         @Tag("chapter07")
         void tasksSupportIsReadFromExtensionsRatherThanARetiredTopLevelSlot() {
             assertTrue(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsTasks());
@@ -772,6 +800,10 @@ class SpecTypesCoverageTest {
 
     private static ClientCapabilities declaring(String extension) {
         return new ClientCapabilities(null, Map.of(extension, Map.of()));
+    }
+
+    private static ClientCapabilities declaringUi(Object settings) {
+        return new ClientCapabilities(null, Map.of(MetaKeys.UI_EXTENSION, settings));
     }
 
     private static InputSchema inputSchema() {

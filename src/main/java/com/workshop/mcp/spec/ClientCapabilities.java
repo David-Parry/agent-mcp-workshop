@@ -50,4 +50,14 @@ public record ClientCapabilities(
     public boolean hasExtension(String identifier) {
         return extensions != null && extensions.containsKey(identifier);
     }
+
+    /**
+     * The settings the client declared for an extension on this request.
+     *
+     * @param identifier the extension identifier, e.g. {@link MetaKeys#UI_EXTENSION}
+     * @return the settings as parsed JSON, or null when the extension was not declared
+     */
+    public Object extension(String identifier) {
+        return extensions == null ? null : extensions.get(identifier);
+    }
 }

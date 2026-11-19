@@ -1,6 +1,7 @@
 package com.workshop.mcp.spec;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The stateless lifecycle envelope carried in {@code params._meta} on every
@@ -94,5 +95,22 @@ public record RequestEnvelope(
      */
     public boolean supportsTasks() {
         return clientCapabilities != null && clientCapabilities.hasExtension(MetaKeys.TASKS_EXTENSION);
+    }
+
+    /**
+     * Reports whether the client can render an MCP App page on this request.
+     * <p>
+     * Declaring the UI extension is not enough on its own: a host lists the
+     * content types it can render in the extension's {@code mimeTypes}, and
+     * a page is {@link Resource#MIME_TYPE_UI_APP}.
+     * </p>
+     *
+     * @return true when the UI extension lists {@code text/html;profile=mcp-app}
+     */
+    public boolean supportsMcpApps() {
+        return clientCapabilities != null
+               && clientCapabilities.extension(MetaKeys.UI_EXTENSION) instanceof Map<?, ?> ui
+               && ui.get("mimeTypes") instanceof List<?> mimeTypes
+               && mimeTypes.contains(Resource.MIME_TYPE_UI_APP);
     }
 }

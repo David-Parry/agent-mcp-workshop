@@ -5,6 +5,7 @@ import com.workshop.mcp.spec.AppTool;
 import com.workshop.mcp.spec.InputSchema;
 import com.workshop.mcp.spec.UiMeta;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -44,6 +45,7 @@ public class AppToolBuilder {
     private InputSchema inputSchema;
     private Map<String, Object> outputSchema;
     private String resourceUri;
+    private List<String> visibility;
 
     /**
      * Private constructor to enforce use of the static factory method.
@@ -139,6 +141,18 @@ public class AppToolBuilder {
     }
 
     /**
+     * Restricts who may invoke the tool. Without it, hosts let both the agent
+     * and the page call the tool.
+     *
+     * @param visibility {@code "model"}, {@code "app"}, or both
+     * @return this builder instance for method chaining
+     */
+    public AppToolBuilder withVisibility(String... visibility) {
+        this.visibility = List.of(visibility);
+        return this;
+    }
+
+    /**
      * Builds and returns the configured {@link AppTool}.
      * <p>
      * The resource URI is written under {@code _meta.ui.resourceUri}.
@@ -160,6 +174,7 @@ public class AppToolBuilder {
         if (inputSchema == null) {
             throw new IllegalStateException("inputSchema is required for AppTool, even one that takes no arguments");
         }
-        return new AppTool(name, description, inputSchema, outputSchema, AppMeta.of(resourceUri));
+        return new AppTool(name, description, inputSchema, outputSchema,
+                           visibility == null ? AppMeta.of(resourceUri) : AppMeta.of(resourceUri, visibility));
     }
 }

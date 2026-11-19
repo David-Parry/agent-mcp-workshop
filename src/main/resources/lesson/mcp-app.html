@@ -9,28 +9,25 @@
   HOW THIS FITS INTO MCP APPS
   ──────────────────────────
   1. The host calls your "key_word_search" tool
-  2. Your server returns the text result (the keyword matches)
+  2. Your server returns the result: a text line per file, and the same rows
+     as structuredContent
   3. Because the tool has _meta.ui.resourceUri set, the host also fetches
      this HTML resource and renders it here in an iframe
-  4. The app receives the tool result via the MCP Apps postMessage protocol
-     and updates the UI accordingly
+  4. The page and the host talk JSON-RPC 2.0 over postMessage:
 
-  IN A REAL MCP APP
-  ─────────────────
-  The UI communicates with the host through a JSON-RPC postMessage protocol.
-  You would use the App class from @modelcontextprotocol/ext-apps:
+       page → host   ui/initialize                  (request; the host answers with its context)
+       page → host   ui/notifications/initialized   (once that answer arrives)
+       host → page   ui/notifications/tool-input    (the arguments the tool was called with)
+       host → page   ui/notifications/tool-result   (the tool's result)
+       page → host   tools/call                     (Search and Recent; the host forwards it to the server)
+       page → host   ui/notifications/size-changed  (so the host can size the iframe)
 
-    import { App } from "@modelcontextprotocol/ext-apps";
-    const app = new App({ name: "Keyword Search App", version: "1.0.0" });
-    app.connect();                           // establish postMessage channel
-    app.ontoolresult = (result) => { ... };  // receive the initial tool result
-    app.callServerTool({ name: "key_word_search", arguments: { keyword } }); // call back
+  The App class in @modelcontextprotocol/ext-apps does the same work. It is
+  not used here because a host's default Content Security Policy blocks
+  scripts from other origins, and inlining a library would bury the protocol.
 
-  FOR THIS LESSON
-  ────────────────
-  This file is a standalone demo. It uses mock data so you can open it directly
-  in a browser and understand the UI pattern without needing the full MCP host.
-  The postMessage communication is shown as comments where it would appear.
+  Opened straight from disk, there is no host to talk to, so the page shows
+  sample rows instead and says so.
 -->
 <html lang="en">
 <head>
@@ -39,29 +36,43 @@
   <title>Keyword Search Results</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+
+    :root {
+      --bg: #f8f9fa;
+      --panel: #ffffff;
+      --text: #212529;
+      --muted: #868e96;
+      --border: #dee2e6;
+      --accent: #339af0;
+      --accent-strong: #1c7ed6;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #1a1b1e;
+      --panel: #25262b;
+      --text: #e9ecef;
+      --muted: #909296;
+      --border: #373a40;
+    }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f8f9fa;
-      color: #212529;
+      background: var(--bg);
+      color: var(--text);
       padding: 16px;
-      min-height: 100vh;
     }
 
     .header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       padding-bottom: 12px;
-      border-bottom: 1px solid #dee2e6;
+      border-bottom: 1px solid var(--border);
     }
 
-    .header h1 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #343a40;
-    }
+    .header h1 { font-size: 16px; font-weight: 600; }
 
     .badge {
       background: #e7f5ff;
@@ -73,45 +84,42 @@
       border: 1px solid #74c0fc;
     }
 
-    .search-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
+    .status { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+    .search-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 
     .search-bar input {
-      flex: 1;
+      flex: 1 1 160px;
       padding: 8px 12px;
-      border: 1px solid #ced4da;
+      border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 14px;
+      background: var(--panel);
+      color: var(--text);
       outline: none;
-      transition: border-color 0.15s;
     }
 
-    .search-bar input:focus {
-      border-color: #339af0;
-      box-shadow: 0 0 0 3px rgba(51, 154, 240, 0.1);
-    }
+    .search-bar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(51, 154, 240, 0.15); }
 
-    .search-bar button {
+    button {
       padding: 8px 16px;
-      background: #339af0;
+      background: var(--accent);
       color: white;
       border: none;
       border-radius: 6px;
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.15s;
     }
 
-    .search-bar button:hover { background: #1c7ed6; }
-    .search-bar button:disabled { background: #adb5bd; cursor: not-allowed; }
+    button:hover { background: var(--accent-strong); }
+    button:disabled { background: #adb5bd; cursor: not-allowed; }
+    button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    button.link { padding: 2px 8px; font-size: 12px; }
 
     .summary {
-      background: white;
-      border: 1px solid #dee2e6;
+      background: var(--panel);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px 16px;
       margin-bottom: 16px;
@@ -120,34 +128,26 @@
     }
 
     .stat { text-align: center; }
-    .stat-value { font-size: 24px; font-weight: 700; color: #339af0; }
-    .stat-label { font-size: 11px; color: #868e96; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); word-break: break-all; }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
 
     .results-list { display: flex; flex-direction: column; gap: 8px; }
 
     .result-card {
-      background: white;
-      border: 1px solid #dee2e6;
+      background: var(--panel);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px 16px;
-      transition: box-shadow 0.15s;
     }
-
-    .result-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 
     .result-path {
       font-family: "SF Mono", "Fira Code", monospace;
       font-size: 13px;
-      color: #495057;
       margin-bottom: 6px;
       word-break: break-all;
     }
 
-    .result-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .result-meta { display: flex; align-items: center; gap: 12px; }
 
     .count-pill {
       background: #fff3bf;
@@ -157,41 +157,16 @@
       padding: 2px 10px;
       border-radius: 20px;
       border: 1px solid #ffd43b;
+      white-space: nowrap;
     }
 
-    .bar-wrap {
-      flex: 1;
-      height: 6px;
-      background: #f1f3f5;
-      border-radius: 3px;
-      overflow: hidden;
-    }
+    .bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #339af0, #74c0fc); border-radius: 3px; }
 
-    .bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #339af0, #74c0fc);
-      border-radius: 3px;
-      transition: width 0.4s ease;
-    }
+    .message { text-align: center; padding: 32px 20px; color: var(--muted); font-size: 14px; }
+    .message.error { color: #e03131; }
 
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #adb5bd;
-    }
-
-    .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
-    .empty-state p { font-size: 14px; }
-
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #339af0;
-      font-size: 14px;
-    }
-
-    /* MCP Apps protocol note — shown in standalone/demo mode only */
-    .demo-notice {
+    .notice {
       background: #fff9db;
       border: 1px solid #ffd43b;
       border-radius: 8px;
@@ -200,6 +175,10 @@
       font-size: 12px;
       color: #5c3d11;
     }
+
+    .recent-item { display: flex; align-items: center; gap: 12px; }
+    .recent-item .what { flex: 1; font-size: 13px; word-break: break-all; }
+    .recent-item .when { font-size: 11px; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -207,37 +186,23 @@
   <div class="header">
     <h1>Keyword Search Results</h1>
     <span class="badge">MCP App</span>
+    <span class="status" id="status">Connecting…</span>
   </div>
 
-  <!--
-    DEMO NOTICE: In a real MCP App this banner would not be shown.
-    The UI would receive its initial data from the host via:
-      app.ontoolresult = (result) => renderResults(result);
-    instead of using the mock data below.
-  -->
-  <div class="demo-notice" id="demo-notice">
-    <strong>Lesson Demo Mode:</strong> this page never talks to the host. The rows
-    are sample data, and Search only filters them by file path. In a real MCP App,
-    results arrive from the host via postMessage when your
-    <code>key_word_search</code> tool is called.
+  <div class="notice" id="demo-notice" hidden>
+    <strong>Opened outside a host:</strong> there is no host to talk to, so the rows are
+    sample data and Search only filters them by file path. Inside an MCP host, the rows
+    come from your <code>key_word_search</code> tool.
   </div>
 
-  <div class="search-bar">
-    <input
-      type="text"
-      id="keyword-input"
-      placeholder='Enter a keyword (e.g. "mcp", "spec", "Test")…'
-      value="mcp"
-    />
-    <!--
-      In a real MCP App this button calls back to the server:
-        app.callServerTool({ name: "key_word_search", arguments: { keyword } })
-      Here we just filter the mock data client-side for the demo.
-    -->
-    <button id="search-btn" onclick="runSearch()">Search</button>
-  </div>
+  <form class="search-bar" id="search-form">
+    <input type="text" id="keyword-input" placeholder="Keyword" aria-label="Keyword" />
+    <input type="text" id="directory-input" placeholder="Directory (absolute path)" aria-label="Directory" />
+    <button type="submit" id="search-btn">Search</button>
+    <button type="button" id="recent-btn" class="secondary">Recent</button>
+  </form>
 
-  <div id="summary" class="summary" style="display:none">
+  <div id="summary" class="summary" hidden>
     <div class="stat">
       <div class="stat-value" id="total-files">0</div>
       <div class="stat-label">Files with matches</div>
@@ -253,25 +218,16 @@
   </div>
 
   <div id="results-container" class="results-list">
-    <div class="empty-state">
-      <p>Enter a keyword above and click Search.</p>
-    </div>
+    <div class="message">Waiting for the search result…</div>
   </div>
 
   <script>
-    /*
-     * MOCK DATA — represents what your key_word_search tool would return.
-     *
-     * In a real MCP App the data flows like this:
-     *
-     *   1. Host calls key_word_search("mcp")
-     *   2. Your Java server returns:
-     *        { content: [{ type: "text", text: "/path/to/IORouter.java, keyword_count=14" }, ...] }
-     *   3. Host pushes the result to this iframe:
-     *        app.ontoolresult = (result) => renderResults(parseResult(result));
-     *   4. This UI updates without any page reload or tab switch.
-     */
-    const MOCK_DATA = [
+    const PROTOCOL_VERSION = "2026-01-26";
+    const SEARCH_TOOL = "key_word_search";
+    const RECENT_TOOL = "recent_searches";
+    const IN_HOST = window.parent !== window;
+
+    const SAMPLE_ROWS = [
       { file: "src/main/java/com/workshop/mcp/IORouter.java",        count: 14 },
       { file: "src/main/java/com/workshop/mcp/spec/UniqueKeys.java", count: 9  },
       { file: "src/main/java/com/workshop/mcp/spec/Tool.java",       count: 6  },
@@ -280,48 +236,223 @@
       { file: "lessons/06-overview.md",                              count: 2  },
       { file: "README.md",                                           count: 1  },
     ];
+    const SAMPLE_RECENT = [
+      { keyword: "mcp", directories: ["/sample/project"], totalMatches: 40, searchedAt: "2026-11-18T12:00:00Z" },
+    ];
 
-    function runSearch() {
-      const keyword = document.getElementById("keyword-input").value.trim();
-      if (!keyword) return;
+    const $ = (id) => document.getElementById(id);
 
-      /*
-       * REAL MCP APP: replace the next line with:
-       *
-       *   const result = await app.callServerTool({
-       *     name: "key_word_search",
-       *     arguments: { keyword }
-       *   });
-       *   const rows = parseToolResult(result);
-       */
-      const rows = MOCK_DATA.filter(r => r.file.toLowerCase().includes(keyword.toLowerCase()));
+    // ---------------------------------------------------------------- the bridge
 
-      renderResults(keyword, rows);
+    let nextId = 1;
+    const pending = new Map();
+
+    function send(message) {
+      // A sandboxed page has an opaque origin, so the host's origin cannot be
+      // named here; replies are accepted only from the parent window.
+      window.parent.postMessage(message, "*");
     }
 
-    function renderResults(keyword, rows) {
-      const maxCount = rows.length > 0 ? Math.max(...rows.map(r => r.count)) : 1;
-      const totalHits = rows.reduce((s, r) => s + r.count, 0);
+    function request(method, params) {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          if (pending.delete(id)) reject(new Error(method + " got no answer"));
+        }, 60000);
+        pending.set(id, { resolve, reject, timer });
+        send({ jsonrpc: "2.0", id, method, params });
+      });
+    }
 
-      // Update summary
-      document.getElementById("total-files").textContent   = rows.length;
-      document.getElementById("total-hits").textContent    = totalHits;
-      document.getElementById("keyword-display").textContent = `"${keyword}"`;
-      document.getElementById("summary").style.display     = "flex";
+    function notify(method, params) {
+      send({ jsonrpc: "2.0", method, params });
+    }
 
-      const container = document.getElementById("results-container");
+    function respond(id, result) {
+      send({ jsonrpc: "2.0", id, result });
+    }
 
-      if (rows.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <p>No files found containing "<strong>${escHtml(keyword)}</strong>".</p>
-          </div>`;
+    window.addEventListener("message", (event) => {
+      if (event.source !== window.parent) return;
+      const message = event.data;
+      if (!message || message.jsonrpc !== "2.0") return;
+      if (message.method === undefined) {
+        const waiter = pending.get(message.id);
+        if (!waiter) return;
+        pending.delete(message.id);
+        clearTimeout(waiter.timer);
+        if (message.error) {
+          waiter.reject(new Error(message.error.message || "error " + message.error.code));
+        } else {
+          waiter.resolve(message.result);
+        }
         return;
       }
+      fromHost(message);
+    });
 
-      container.innerHTML = rows
+    function fromHost(message) {
+      const params = message.params || {};
+      switch (message.method) {
+        case "ui/notifications/tool-input":
+          showInput(params.arguments || {});
+          break;
+        case "ui/notifications/tool-result":
+          showResult(params);
+          break;
+        case "ui/notifications/tool-cancelled":
+          showMessage("The search was cancelled.");
+          break;
+        case "ui/notifications/host-context-changed":
+          applyContext(params);
+          break;
+        case "ui/resource-teardown":
+        case "ping":
+          respond(message.id, {});
+          break;
+        default:
+          if (message.id !== undefined) {
+            send({ jsonrpc: "2.0", id: message.id,
+                   error: { code: -32601, message: "Method not found: " + message.method } });
+          }
+      }
+    }
+
+    async function connect() {
+      try {
+        const result = await request("ui/initialize", {
+          protocolVersion: PROTOCOL_VERSION,
+          appInfo: { name: "Keyword Search App", version: "1.0.0" },
+          appCapabilities: {},
+        }) || {};
+        applyContext(result.hostContext || {});
+        setStatus("Connected to " + ((result.hostInfo && result.hostInfo.name) || "the host"));
+        notify("ui/notifications/initialized", {});
+        reportSize();
+      } catch (error) {
+        setStatus("The host did not answer: " + error.message);
+      }
+    }
+
+    function applyContext(context) {
+      if (context.theme === "dark" || context.theme === "light") {
+        document.documentElement.dataset.theme = context.theme;
+      }
+    }
+
+    function reportSize() {
+      let last = "";
+      const report = () => {
+        const size = {
+          width: Math.ceil(document.documentElement.scrollWidth),
+          height: Math.ceil(document.body.getBoundingClientRect().height),
+        };
+        if (JSON.stringify(size) === last) return;
+        last = JSON.stringify(size);
+        notify("ui/notifications/size-changed", size);
+      };
+      new ResizeObserver(report).observe(document.body);
+      report();
+    }
+
+    // ---------------------------------------------------------------- the page
+
+    function setStatus(text) {
+      $("status").textContent = text;
+    }
+
+    function setBusy(busy) {
+      $("search-btn").disabled = busy;
+      $("recent-btn").disabled = busy;
+    }
+
+    function showInput(args) {
+      if (typeof args.keyword === "string") $("keyword-input").value = args.keyword;
+      if (typeof args.directory === "string") $("directory-input").value = args.directory;
+      showMessage("Searching for “" + ($("keyword-input").value || "…") + "”…");
+    }
+
+    function showResult(result, keyword) {
+      if (result.resultType === "task") {
+        showMessage("The host is running this search as task " + result.taskId
+                    + ". Its result arrives through the host.");
+        return;
+      }
+      if (result.resultType === "input_required") {
+        showMessage("The server needs to know where to search. Fill in the directory and search again.");
+        return;
+      }
+      const text = (result.content || [])
+          .filter((item) => item.type === "text").map((item) => item.text).join("\n");
+      if (result.isError) {
+        showMessage(text || "The search failed.", true);
+        return;
+      }
+      const structured = result.structuredContent;
+      if (structured && Array.isArray(structured.files)) {
+        renderRows(structured.keyword, structured.files.map((f) => ({ file: f.path, count: f.count })));
+        return;
+      }
+      const rows = [];
+      for (const line of text.split("\n")) {
+        const match = /^(.*), keyword_count=(\d+)$/.exec(line);
+        if (match) rows.push({ file: match[1], count: Number(match[2]) });
+      }
+      renderRows(keyword || $("keyword-input").value.trim(), rows);
+    }
+
+    async function runSearch() {
+      const keyword = $("keyword-input").value.trim();
+      const directory = $("directory-input").value.trim();
+      if (!keyword) return;
+      if (!IN_HOST) {
+        renderRows(keyword, SAMPLE_ROWS.filter((r) => r.file.toLowerCase().includes(keyword.toLowerCase())));
+        return;
+      }
+      const args = { keyword };
+      if (directory) args.directory = directory;
+      setBusy(true);
+      showMessage("Searching for “" + keyword + "”…");
+      try {
+        showResult(await request("tools/call", { name: SEARCH_TOOL, arguments: args }) || {}, keyword);
+      } catch (error) {
+        showMessage(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function showRecent() {
+      let searches = SAMPLE_RECENT;
+      if (IN_HOST) {
+        setBusy(true);
+        try {
+          const result = await request("tools/call", { name: RECENT_TOOL, arguments: {} }) || {};
+          searches = (result.structuredContent && result.structuredContent.searches) || [];
+        } catch (error) {
+          showMessage(error.message, true);
+          return;
+        } finally {
+          setBusy(false);
+        }
+      }
+      renderRecent(searches);
+    }
+
+    function renderRows(keyword, rows) {
+      const maxCount = rows.length > 0 ? Math.max(...rows.map((r) => r.count)) : 1;
+      $("total-files").textContent = rows.length;
+      $("total-hits").textContent = rows.reduce((sum, r) => sum + r.count, 0);
+      $("keyword-display").textContent = "“" + (keyword || "") + "”";
+      $("summary").hidden = false;
+
+      if (rows.length === 0) {
+        showMessage("No files contain “" + (keyword || "") + "”.");
+        return;
+      }
+      $("results-container").innerHTML = rows
         .sort((a, b) => b.count - a.count)
-        .map(row => `
+        .map((row) => `
           <div class="result-card">
             <div class="result-path">${escHtml(row.file)}</div>
             <div class="result-meta">
@@ -334,23 +465,56 @@
         .join("");
     }
 
-    function escHtml(s) {
-      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    function renderRecent(searches) {
+      $("summary").hidden = true;
+      if (searches.length === 0) {
+        showMessage("No searches yet.");
+        return;
+      }
+      $("results-container").innerHTML = searches.map((search, index) => `
+          <div class="result-card recent-item">
+            <div class="what">
+              <strong>${escHtml(search.keyword || "(no keyword)")}</strong>
+              in ${escHtml((search.directories || []).join(", "))}
+              <span class="count-pill">${search.totalMatches} match${search.totalMatches !== 1 ? "es" : ""}</span>
+              <div class="when">${escHtml(search.searchedAt || "")}</div>
+            </div>
+            <button type="button" class="link" data-index="${index}">Run again</button>
+          </div>`).join("");
+      $("results-container").querySelectorAll("button[data-index]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const search = searches[Number(button.dataset.index)];
+          $("keyword-input").value = search.keyword || "";
+          $("directory-input").value = (search.directories || [])[0] || "";
+          runSearch();
+        });
+      });
     }
 
-    /*
-     * AUTO-RUN on load so the demo is immediately useful when opened standalone.
-     *
-     * In a real MCP App this would instead be:
-     *
-     *   const app = new App({ name: "Keyword Search App", version: "1.0.0" });
-     *   app.connect();
-     *   app.ontoolresult = (result) => {
-     *     const rows = parseToolResult(result);
-     *     renderResults(currentKeyword, rows);
-     *   };
-     */
-    window.addEventListener("DOMContentLoaded", () => runSearch());
+    function showMessage(text, isError) {
+      $("results-container").innerHTML =
+          `<div class="message${isError ? " error" : ""}">${escHtml(text)}</div>`;
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    $("search-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      runSearch();
+    });
+    $("recent-btn").addEventListener("click", showRecent);
+
+    if (IN_HOST) {
+      connect();
+    } else {
+      $("demo-notice").hidden = false;
+      setStatus("Not in a host");
+      $("keyword-input").value = "mcp";
+      runSearch();
+    }
   </script>
 
 </body>

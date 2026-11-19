@@ -13,6 +13,7 @@ import com.workshop.mcp.spec.MetaKeys;
 import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
 import com.workshop.mcp.tools.KeyWordSearch;
+import com.workshop.mcp.tools.RecentSearches;
 import com.workshop.mcp.tools.SearchContinuation;
 import com.workshop.mcp.tools.StateSigner;
 import org.junit.jupiter.api.AfterEach;
@@ -85,6 +86,15 @@ class IORouterTest {
             "_meta":{
               "io.modelcontextprotocol/protocolVersion":"2026-07-28",
               "io.modelcontextprotocol/clientCapabilities":{"elicitation":{"url":{}}}
+            }""";
+
+    /** A host that can render MCP Apps, the only kind of client listed the app tools. */
+    private static final String UI_META = """
+            "_meta":{
+              "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities":{
+                "extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}
+              }
             }""";
 
     /** The key every router here signs {@code requestState} with, so a test can seal a state it accepts. */
@@ -309,7 +319,8 @@ class IORouterTest {
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
         JsonObject toolsList = io.only().getAsJsonObject("result");
         assertTrue(toolsList.get("ttlMs").getAsLong() >= 0);
-        assertEquals(CacheScope.PUBLIC, toolsList.get("cacheScope").getAsString());
+        assertEquals(CacheScope.PRIVATE, toolsList.get("cacheScope").getAsString(),
+                     "the list depends on whether the caller can render apps, so it is not shared");
 
         io.clear();
         router.route("""
@@ -325,7 +336,7 @@ class IORouterTest {
     @Tag("chapter06")
     void appToolsCarryTheResourceUriUnderTheNestedMetaKeyOnly() {
         router.route("""
-                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(UI_META));
 
         JsonObject meta = io.only().getAsJsonObject("result")
                 .getAsJsonArray("tools").get(0).getAsJsonObject()
@@ -333,6 +344,85 @@ class IORouterTest {
         String expected = "ui://keyword-search/mcp-app.html";
         assertEquals(expected, meta.getAsJsonObject("ui").get("resourceUri").getAsString());
         assertNull(meta.get("ui/resourceUri"), "the deprecated flat key must not be sent");
+    }
+
+    @Test
+    @Tag("chapter06")
+    @Tag("stretch")
+    void aClientThatCannotRenderAppsIsListedThePlainSearchTool() {
+        String otherPages = """
+                "_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{
+                    "extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html"]}}
+                  }
+                }""";
+        for (String meta : List.of(FULL_META, otherPages)) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(meta));
+
+            JsonArray tools = io.only().getAsJsonObject("result").getAsJsonArray("tools");
+            assertEquals(1, tools.size(), meta);
+            JsonObject tool = tools.get(0).getAsJsonObject();
+            assertEquals("key_word_search", tool.get("name").getAsString());
+            assertNull(tool.get("_meta"), "a page the client cannot render is not offered: " + meta);
+            assertTrue(tool.has("outputSchema"), "the structured content is still described");
+        }
+    }
+
+    @Test
+    @Tag("chapter06")
+    @Tag("stretch")
+    void aHostThatRendersAppsIsAlsoListedTheAppOnlyHistoryTool() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(UI_META));
+
+        JsonArray tools = io.only().getAsJsonObject("result").getAsJsonArray("tools");
+        assertEquals(2, tools.size());
+        JsonObject search = tools.get(0).getAsJsonObject().getAsJsonObject("_meta").getAsJsonObject("ui");
+        assertNull(search.get("visibility"), "the search stays callable by the model");
+        JsonObject recent = tools.get(1).getAsJsonObject();
+        assertEquals(RecentSearches.TOOL_NAME, recent.get("name").getAsString());
+        assertEquals("object", recent.getAsJsonObject("inputSchema").get("type").getAsString());
+        JsonObject ui = recent.getAsJsonObject("_meta").getAsJsonObject("ui");
+        assertEquals("ui://keyword-search/mcp-app.html", ui.get("resourceUri").getAsString());
+        assertEquals(JsonParser.parseString("[\"app\"]"), ui.get("visibility"));
+    }
+
+    @Test
+    @Tag("chapter06")
+    @Tag("stretch")
+    void recentSearchesListsTheSearchesThatRanNewestFirst(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        Files.writeString(directory.resolve("a.txt"), "record needle record");
+
+        router.route(recentSearchesCall(1, UI_META));
+        assertEquals("No searches yet.", io.only().getAsJsonObject("result").getAsJsonArray("content")
+                .get(0).getAsJsonObject().get("text").getAsString());
+
+        for (String keyword : List.of("record", "needle")) {
+            router.route("""
+                    {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{%s,"name":"key_word_search",
+                      "arguments":{"keyword":"%s","directory":"%s"}}}""".formatted(UI_META, keyword, directory));
+        }
+        io.clear();
+        router.route(recentSearchesCall(3, FULL_META));
+
+        JsonArray searches = io.only().getAsJsonObject("result").getAsJsonObject("structuredContent")
+                .getAsJsonArray("searches");
+        assertEquals(2, searches.size(), "visibility is for the host to enforce; any caller is answered");
+        JsonObject newest = searches.get(0).getAsJsonObject();
+        assertEquals("needle", newest.get("keyword").getAsString());
+        assertEquals(1, newest.get("totalMatches").getAsInt());
+        assertEquals(directory.toString(), newest.getAsJsonArray("directories").get(0).getAsString());
+        assertEquals("record", searches.get(1).getAsJsonObject().get("keyword").getAsString());
+    }
+
+    private static String recentSearchesCall(int id, String meta) {
+        return """
+                {"jsonrpc":"2.0","id":%d,"method":"tools/call","params":{%s,"name":"recent_searches",
+                  "arguments":{}}}""".formatted(id, meta);
     }
 
     @Test

@@ -110,6 +110,21 @@ class BuildersCoverageTest {
         }
 
         @Test
+        @Tag("stretch")
+        void anAppOnlyToolNamesWhoMayCallIt() {
+            AppTool tool = AppToolBuilder.builder()
+                    .withName("recent_searches")
+                    .withDescription("Lists recent searches.")
+                    .withInputSchema(schema -> { })
+                    .withResourceUri("ui://keyword-search/mcp-app.html")
+                    .withVisibility("app")
+                    .build();
+
+            assertEquals(List.of("app"), tool._meta().ui().visibility());
+            assertTrue(McpGson.create().toJson(tool).contains("\"visibility\":[\"app\"]"));
+        }
+
+        @Test
         void anAppToolWithoutAnInputSchemaIsRejected() {
             // The specification requires the schema even of a tool that takes
             // no arguments; such a tool sends an object schema with no

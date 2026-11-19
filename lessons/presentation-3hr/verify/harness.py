@@ -95,6 +95,8 @@ TASK_CLIENT_WITH_FORMS = {"elicitation": {"form": {}, "url": {}},
 NO_CAPABILITIES = {}
 # A client that can open a URL but cannot show a form.
 URL_ONLY = {"elicitation": {"url": {}}}
+# A host that can render MCP Apps. Only this kind of client is listed the app tools.
+UI_HOST = {"extensions": {UI_EXTENSION: {"mimeTypes": [APP_MIME_TYPE]}}}
 
 # The key the keyword-search tool answers its directory question under.
 KEY_DIRECTORY = "search_directory"
@@ -1267,12 +1269,17 @@ def s_mcp_apps(c):
     if extensions[UI_EXTENSION] != {}:
         raise Failure(f"{UI_EXTENSION} should be declared with no settings: {extensions[UI_EXTENSION]}")
 
-    c.request(1, "tools/list")
-    tool = (c.expect_result(1).get("tools") or [{}])[0]
+    c.request(1, "tools/list", capabilities=UI_HOST)
+    listed = c.expect_result(1)
+    tool = (listed.get("tools") or [{}])[0]
 
     meta = tool.get("_meta") or {}
     if (meta.get("ui") or {}).get("resourceUri") != APP_URI:
         raise Failure(f"tool _meta.ui.resourceUri wrong: {tool}")
+    # The list now depends on who asks, so a shared cache must not hand one
+    # client's list to another.
+    if listed.get("cacheScope") != "private":
+        raise Failure(f"a tools/list that varies by caller must be cached as private: {listed}")
     # The flat key is deprecated by the MCP Apps extension in favour of the
     # nested one, and this server does not send it.
     if "ui/resourceUri" in meta:
@@ -1295,6 +1302,43 @@ def s_mcp_apps(c):
         raise Failure(f"reading the app resource should keep the mime type: {contents}")
     if "<html" not in (contents.get("text") or "").lower():
         raise Failure("the app resource did not return HTML")
+
+    # A client that cannot render the page is listed the search without it.
+    c.request(4, "tools/list")
+    plain = c.expect_result(4).get("tools") or []
+    if len(plain) != 1 or "_meta" in plain[0]:
+        raise Failure(f"a client without {UI_EXTENSION} mimeTypes should get the plain tool: {plain}")
+
+
+@scenario("app_only_tool", "mcp-apps", chapter=6)
+def s_app_only_tool(c):
+    c.request(1, "tools/list", capabilities=UI_HOST)
+    tools = {t.get("name"): t for t in c.expect_result(1).get("tools") or []}
+    recent = tools.get("recent_searches")
+    if recent is None:
+        raise Failure(f"a UI host should be listed recent_searches: {sorted(tools)}")
+    ui = (recent.get("_meta") or {}).get("ui") or {}
+    if ui.get("visibility") != ["app"] or ui.get("resourceUri") != APP_URI:
+        raise Failure(f"recent_searches should be visible to the app only: {recent}")
+    if "visibility" in ((tools["key_word_search"].get("_meta") or {}).get("ui") or {}):
+        raise Failure("the search itself must stay callable by the model")
+
+    c.request(2, "tools/list")
+    if [t.get("name") for t in c.expect_result(2).get("tools") or []] != ["key_word_search"]:
+        raise Failure("a client that cannot render the page should not be listed its tools")
+
+    directory = make_keyword_dir("needleword", 2)
+    c.request(3, "tools/call", {"name": "key_word_search",
+                                "arguments": {"keyword": "needleword", "directory": directory}},
+              capabilities=UI_HOST)
+    require_result_type(c.expect_result(3), "complete", "a search with a directory")
+
+    c.request(4, "tools/call", {"name": "recent_searches", "arguments": {}}, capabilities=UI_HOST)
+    searches = (c.expect_result(4).get("structuredContent") or {}).get("searches") or []
+    if not searches or searches[0].get("keyword") != "needleword" or searches[0].get("totalMatches") != 2:
+        raise Failure(f"recent_searches should list the search that just ran: {searches}")
+    if searches[0].get("directories") != [directory]:
+        raise Failure(f"the history should say where the search looked: {searches[0]}")
 
 
 # ---------------------------------------------------------------- runner

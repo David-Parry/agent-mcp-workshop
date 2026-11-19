@@ -15,6 +15,7 @@ import com.workshop.mcp.tasks.TaskStore;
 import com.workshop.mcp.tools.ElicitationPages;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.KeywordCompletions;
+import com.workshop.mcp.tools.RecentSearches;
 import com.workshop.mcp.tools.SearchContinuation;
 import com.workshop.mcp.tools.SearchQuestions;
 import com.workshop.mcp.tools.StateSigner;
@@ -138,6 +139,7 @@ public class IORouter implements Router {
     private ScheduledExecutorService listChangedTimer;
     private final StateSigner stateSigner;
     private final ElicitationPages pages;
+    private final RecentSearches recentSearches;
 
     public IORouter(IOHandler io) {
         this(io, Settings.defaults());
@@ -163,6 +165,7 @@ public class IORouter implements Router {
         this.stateSigner = StateSigner.withKey(stateKey != null ? stateKey : StateSigner.randomKey(), clock,
                                                StateSigner.DEFAULT_LIFETIME);
         this.pages = new ElicitationPages(settings.elicitationPort(), clock, StateSigner.DEFAULT_LIFETIME);
+        this.recentSearches = new RecentSearches(clock);
     }
 
     public void route(String message) {
@@ -328,25 +331,49 @@ public class IORouter implements Router {
                 }
             }
             case TOOLS_LIST -> {
+                // The page goes only to a host that can render it, so two
+                // callers can be sent different lists. A list that varies by
+                // caller must not be cached as public.
                 KeyWordSearch keyWordSearch = new KeyWordSearch();
-                AppTool appTool = AppToolBuilder.builder()
-                        .withName(keyWordSearch.name())
-                        .withDescription(keyWordSearch.description())
-                        .withInputSchema(keyWordSearch.schema())
-                        .withOutputSchema(keyWordSearch.outputSchema())
-                        .withResourceUri(KEYWORD_APP_URI)
-                        .build();
-                success(message.id(), new AppToolsListResult(List.of(appTool), LIST_TTL_MILLIS, CacheScope.PUBLIC));
+                if (envelope.supportsMcpApps()) {
+                    AppTool appTool = AppToolBuilder.builder()
+                            .withName(keyWordSearch.name())
+                            .withDescription(keyWordSearch.description())
+                            .withInputSchema(keyWordSearch.schema())
+                            .withOutputSchema(keyWordSearch.outputSchema())
+                            .withResourceUri(KEYWORD_APP_URI)
+                            .build();
+                    AppTool recent = AppToolBuilder.builder()
+                            .withName(RecentSearches.TOOL_NAME)
+                            .withDescription(RecentSearches.DESCRIPTION)
+                            .withInputSchema(RecentSearches.schema())
+                            .withResourceUri(KEYWORD_APP_URI)
+                            .withVisibility("app")
+                            .build();
+                    success(message.id(), new AppToolsListResult(List.of(appTool, recent), LIST_TTL_MILLIS,
+                                                                 CacheScope.PRIVATE));
+                } else {
+                    Tool tool = new ToolsListResultBuilder.ToolBuilder()
+                            .withName(keyWordSearch.name())
+                            .withDescription(keyWordSearch.description())
+                            .withInputSchema(keyWordSearch.schema())
+                            .withOutputSchema(keyWordSearch.outputSchema())
+                            .build();
+                    success(message.id(), new ToolsListResult(List.of(tool), LIST_TTL_MILLIS, CacheScope.PRIVATE));
+                }
             }
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
                 KeyWordSearch keyWordSearch = new KeyWordSearch();
-                if (!keyWordSearch.name().equals(toolCallParams.name())) {
+                if (keyWordSearch.name().equals(toolCallParams.name())) {
+                    handleKeywordSearch(message.id(), toolCallParams, envelope);
+                } else if (RecentSearches.TOOL_NAME.equals(toolCallParams.name())) {
+                    logger.log("[API][SENT] tools/call — recent_searches");
+                    success(message.id(), recentSearches.result());
+                } else {
                     logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                                + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
-                } else {
-                    handleKeywordSearch(message.id(), toolCallParams, envelope);
                 }
             }
             case TASKS_GET -> {
@@ -814,8 +841,17 @@ public class IORouter implements Router {
             success(requestId, TaskResult.handle(task));
             runToolAsTask(task.taskId(), resolved, directories);
         } else {
-            success(requestId, new KeyWordSearch().call(resolved, directories));
+            success(requestId, search(resolved, directories));
         }
+    }
+
+    /**
+     * Runs the keyword search and remembers it for {@code recent_searches}.
+     */
+    private ToolCallResult search(ToolCallParams resolved, Set<String> directories) {
+        ToolCallResult result = new KeyWordSearch().call(resolved, directories);
+        recentSearches.record(directories, result);
+        return result;
     }
 
     /**
@@ -990,7 +1026,7 @@ public class IORouter implements Router {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Thread.sleep(4000L);
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
+                ToolCallResult result = search(params, directories);
                 taskStore.complete(taskId, result);
                 logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
             } catch (InterruptedException ie) {
@@ -1039,7 +1075,7 @@ public class IORouter implements Router {
                                + directory);
                 }
 
-                ToolCallResult result = new KeyWordSearch().call(
+                ToolCallResult result = search(
                         resolvedCall(params, keyword != null ? keyword : answers.keyword()), Set.of(directory));
                 taskStore.complete(taskId, result);
                 logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
