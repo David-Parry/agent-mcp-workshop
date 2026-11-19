@@ -125,6 +125,18 @@ public enum UniqueKeys {
     NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED("notifications/subscriptions/acknowledged"),
 
     /**
+     * Notification telling an open {@code subscriptions/listen} stream that the
+     * tool list changed, so the client should fetch {@code tools/list} again.
+     * <p>
+     * Sent only on a stream whose acknowledgement agreed to
+     * {@code toolsListChanged}, and only by a server that advertised
+     * {@code tools.listChanged}. Like everything on a stream, it carries
+     * {@link MetaKeys#SUBSCRIPTION_ID}.
+     * </p>
+     */
+    NOTIFICATIONS_TOOLS_LIST_CHANGED("notifications/tools/list_changed"),
+
+    /**
      * Method for polling a task's current state (tasks extension).
      * Returns the {@link Task} snapshot without blocking.
      */

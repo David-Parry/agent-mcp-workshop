@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.workshop.mcp.spec.Message.KEY_WORD_MESSAGE;
 import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
@@ -122,14 +125,27 @@ public class IORouter implements Router {
      * this map is how {@link #interruptTaskWorker} still can.
      */
     private final ConcurrentHashMap<String, Thread> taskWorkers = new ConcurrentHashMap<>();
+    private final Settings settings;
+    private final StreamRegistry streams = new StreamRegistry();
+    /** Started by the first stream that asks for tool-list changes. */
+    private ScheduledExecutorService listChangedTimer;
 
     public IORouter(IOHandler io) {
-        this(io, LogFileWriter.getInstance());
+        this(io, Settings.defaults());
+    }
+
+    public IORouter(IOHandler io, Settings settings) {
+        this(io, LogFileWriter.getInstance(), settings);
     }
 
     IORouter(IOHandler io, LogFile logger) {
+        this(io, logger, Settings.defaults());
+    }
+
+    IORouter(IOHandler io, LogFile logger, Settings settings) {
         this.logger = logger;
         this.io = io;
+        this.settings = settings;
     }
 
     public void route(String message) {
@@ -421,8 +437,34 @@ public class IORouter implements Router {
                     success(message.id(), new CompletionCompleteBuilder().total(0).hasMore(false).build());
                 }
             }
-            case SUBSCRIPTIONS_LISTEN -> acknowledgeSubscription(message);
+            case SUBSCRIPTIONS_LISTEN -> {
+                if (!settings.requireFormForListen() || requireFormElicitation(message, envelope)) {
+                    acknowledgeSubscription(message);
+                }
+            }
         }
+    }
+
+    /**
+     * Refuses a request from a client that cannot show a form, naming the
+     * capability it would have to declare.
+     * <p>
+     * Only reached when {@link Settings#requireFormForListen()} is on: nothing
+     * in this server truly needs a form, and degrading is better than
+     * refusing. {@code -32021} is for when there is nothing to degrade to.
+     * </p>
+     *
+     * @return true when the client can show a form and the request may go on
+     */
+    private boolean requireFormElicitation(JsonRpcRequest message, RequestEnvelope envelope) {
+        if (envelope.supportsElicitationForm()) {
+            return true;
+        }
+        logger.log("[API][SENT] " + message.method() + " — the client cannot show a form (returning -32021)");
+        error(message.id(), ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY,
+              "This request needs a client that can show a form",
+              Map.of("requiredCapabilities", Map.of("elicitation", Map.of("form", Map.of()))));
+        return false;
     }
 
     /**
@@ -490,7 +532,7 @@ public class IORouter implements Router {
      * Builds the {@code server/discover} answer.
      * <p>
      * A client, or a shared cache, may reuse this answer, so it is derived
-     * entirely from static configuration.
+     * entirely from configuration fixed at startup.
      * </p>
      *
      * @return the discovery result
@@ -498,7 +540,13 @@ public class IORouter implements Router {
     private DiscoverResult discoverResult() {
         DiscoverResultBuilder builder = DiscoverResultBuilder
                 .builder()
-                .withDefaultCapabilities()
+                .withCapabilities(new ServerCapabilities(
+                        null, null,
+                        new Capability(null, null),
+                        new Capability(false, null),
+                        new Capability(false, false),
+                        new Capability(settings.announcesListChanges(), null),
+                        null))
                 .withExtension(MetaKeys.UI_EXTENSION, Map.of())
                 .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
                                   + "for one over a Multi Round-Trip Request, and searches its own working "
@@ -718,12 +766,15 @@ public class IORouter implements Router {
             case NOTIFICATION_CANCELLED -> {
                 NotificationCancelledParams params = deserializer.deserializeParams(message,
                                                                                     NotificationCancelledParams.class);
-                // There is never an in-flight request to abandon: this server
-                // answers every request before returning, and its one
-                // long-lived request, subscriptions/listen, is closed as it is
-                // acknowledged. So the cancellation is recorded and nothing else.
+                // Every other request is answered before this server reads the
+                // next line, so the only request a cancellation can still find
+                // unanswered is a listen stream held open. A cancelled request
+                // is never answered, so the stream is forgotten, not closed.
                 logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
                            + " reason=" + params.reason());
+                if (streams.forget(params.requestId())) {
+                    logger.log("[API][RECEIVED] subscriptions/listen — the client closed stream " + params.requestId());
+                }
             }
             default -> logger.log("[API][RECEIVED] unhandled notification method: " + message.method()
                                   + " for message: " + message);
@@ -740,7 +791,8 @@ public class IORouter implements Router {
     }
 
     /**
-     * Opens a {@code subscriptions/listen} stream, and closes it again.
+     * Opens a {@code subscriptions/listen} stream, and holds it open if there
+     * is anything to send on it.
      * <p>
      * A stream lasts as long as its listen request is unanswered: on stdio the
      * request stays open for the life of the subscription, while notifications
@@ -753,12 +805,10 @@ public class IORouter implements Router {
      * <p>
      * The acknowledgment reports the intersection of what the client asked for
      * and what this server advertised, so the client is never left waiting on
-     * a notification that will not come. This server advertises no
-     * {@code listChanged} support and no resource subscriptions — its tool,
-     * prompt, and resource lists are fixed — so that intersection is always
-     * empty and the stream is closed as soon as it is acknowledged rather than
-     * held open to deliver nothing. A server with something to say would keep
-     * the id and answer later instead.
+     * a notification that will not come. When that intersection is empty the
+     * stream is closed as soon as it is acknowledged rather than held open to
+     * deliver nothing. Otherwise its id is kept, and the request is answered
+     * only when the server ends the stream in {@link #close()}.
      * </p>
      * <p>
      * The close is an ordinary {@code complete} result for the listen request,
@@ -782,8 +832,75 @@ public class IORouter implements Router {
                 UniqueKeys.NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED.getValue(),
                 SubscriptionsAcknowledgedParams.of(message.id(), honored)));
 
-        logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
-        success(message.id(), SubscriptionsListenResult.closing(message.id()));
+        if (honored.isEmpty()) {
+            logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
+            success(message.id(), SubscriptionsListenResult.closing(message.id()));
+            return;
+        }
+        streams.open(message.id(), honored);
+        logger.log("[API][SENT] subscriptions/listen — holding stream " + message.id() + " open");
+        startListChangedTimer();
+    }
+
+    /**
+     * Starts the timer that stands in for a tool list that changes.
+     * <p>
+     * This server's tool list is fixed, so for the exercise every open stream
+     * that asked for tool-list changes is told the list changed once per
+     * {@link Settings#listChangedIntervalMillis()}. A client that hears it
+     * re-fetches {@code tools/list}.
+     * </p>
+     */
+    private synchronized void startListChangedTimer() {
+        if (listChangedTimer != null) {
+            return;
+        }
+        long interval = settings.listChangedIntervalMillis();
+        listChangedTimer = Executors.newSingleThreadScheduledExecutor(
+                Thread.ofVirtual().name("list-changed").factory());
+        listChangedTimer.scheduleAtFixedRate(this::announceToolListChange, interval, interval,
+                                             TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Tells every stream that asked that the tool list changed.
+     * <p>
+     * A scheduled task that throws is never run again, so a failure to write
+     * one notification is logged and the next tick tries again.
+     * </p>
+     */
+    private void announceToolListChange() {
+        try {
+            for (RequestId stream : streams.listeningForToolListChanges()) {
+                logger.log("[API][SENT] notifications/tools/list_changed — stream " + stream);
+                io.emit(new JsonRpcNotification(
+                        JSON_RPC_VERSION,
+                        UniqueKeys.NOTIFICATIONS_TOOLS_LIST_CHANGED.getValue(),
+                        Map.of("_meta", Map.of(MetaKeys.SUBSCRIPTION_ID, stream))));
+            }
+        } catch (RuntimeException e) {
+            logger.log("[API][SENT] notifications/tools/list_changed failed: " + e);
+        }
+    }
+
+    /**
+     * Ends every stream this server is holding open, answering each listen
+     * request with a closing result, and stops the timer.
+     */
+    @Override
+    public void close() {
+        ScheduledExecutorService timer;
+        synchronized (this) {
+            timer = listChangedTimer;
+            listChangedTimer = null;
+        }
+        if (timer != null) {
+            timer.shutdownNow();
+        }
+        for (RequestId stream : streams.closeAll()) {
+            logger.log("[API][SENT] subscriptions/listen — the server is closing stream " + stream);
+            success(stream, SubscriptionsListenResult.closing(stream));
+        }
     }
 
     /**

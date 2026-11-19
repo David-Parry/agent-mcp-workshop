@@ -99,6 +99,26 @@ class ServerTest {
             // Then
             verify(mockIOHandler).stopRunning();
         }
+
+        @Test
+        @Tag("stretch")
+        @DisplayName("Should let the router close what it holds open before the IOHandler stops")
+        void stop_ClosesTheRouterFirst() {
+            server.stop();
+
+            InOrder order = inOrder(mockRouter, mockIOHandler);
+            order.verify(mockRouter).close();
+            order.verify(mockIOHandler).stopRunning();
+        }
+
+        @Test
+        @Tag("stretch")
+        @DisplayName("A router that holds nothing open closes without doing anything")
+        void aRouterClosesQuietlyByDefault() {
+            Router router = message -> { };
+
+            Assertions.assertDoesNotThrow(router::close);
+        }
         
         @Test
         @DisplayName("Should handle null IOHandler gracefully")

@@ -18,9 +18,11 @@ META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelc
 
 {
   echo "{\"jsonrpc\":\"2.0\",\"id\":\"server-discover-probe-1\",\"method\":\"server/discover\",\"params\":{$META}}"
-  # Acknowledged, then closed at once: this server's lists never change.
+  # Acknowledged and held open, because the server announces tool-list
+  # changes on a timer (WORKSHOP_LIST_CHANGED_MS, every 30 seconds by default).
   echo "{\"jsonrpc\":\"2.0\",\"id\":\"listen:0\",\"method\":\"subscriptions/listen\",\"params\":{$META,\"notifications\":{\"toolsListChanged\":true}}}"
-  # A client ends a stream by cancelling its listen request; the server logs it.
+  # A client ends a stream by cancelling its listen request. A cancelled
+  # request is never answered, so listen:0 gets no result: the server forgets it.
   echo '{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":"listen:0","reason":"probe finished"}}'
   echo "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"tools/list\",\"params\":{$META}}"
   echo "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/templates/list\",\"params\":{$META}}"

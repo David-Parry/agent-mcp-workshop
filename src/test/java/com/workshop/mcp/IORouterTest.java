@@ -13,6 +13,7 @@ import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.SearchContinuation;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,11 @@ class IORouterTest {
     void setUp() {
         io = new CapturingIOHandler();
         router = new IORouter(io);
+    }
+
+    @AfterEach
+    void tearDown() {
+        router.close();
     }
 
     // --- server/discover -----------------------------------------------
@@ -146,6 +152,19 @@ class IORouterTest {
 
         JsonObject capabilities = io.only().getAsJsonObject("result").getAsJsonObject("capabilities");
         assertNull(capabilities.get("tasks"), "tasks moved out of capabilities and into extensions");
+        assertTrue(capabilities.getAsJsonObject("tools").get("listChanged").getAsBoolean(),
+                   "the list-changed timer is on by default, so a client may hold a stream open for it");
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void withTheListChangedTimerOffNoListChangesAreAdvertised() {
+        router = new IORouter(io, new RecordingLog(), new Settings(0L, false));
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject capabilities = io.only().getAsJsonObject("result").getAsJsonObject("capabilities");
         assertFalse(capabilities.getAsJsonObject("tools").get("listChanged").getAsBoolean(),
                     "advertising listChanged would make clients hold a subscription open for nothing");
     }
@@ -869,9 +888,7 @@ class IORouterTest {
     @Test
     @Tag("chapter03")
     void aSubscriptionIsAcknowledgedAndClosedWithItsSubscriptionId() {
-        router.route("""
-                {"jsonrpc":"2.0","id":"listen:0","method":"subscriptions/listen",
-                 "params":{%s,"notifications":{"toolsListChanged":true}}}""".formatted(FULL_META));
+        router.route(listen("listen:0", "{\"resourcesListChanged\":true}"));
 
         // The acknowledgment must be tagged, or the client waits forever with
         // no error and no timeout.
@@ -880,14 +897,125 @@ class IORouterTest {
         assertEquals("listen:0", acknowledged.getAsJsonObject("params")
                 .getAsJsonObject("_meta").get(MetaKeys.SUBSCRIPTION_ID).getAsString());
 
-        // Nothing was honored, because this server advertises no listChanged
-        // support, so the stream closes rather than dangling.
+        // Nothing was honored, because this server's resource list never
+        // changes, so the stream closes rather than dangling.
         assertTrue(acknowledged.getAsJsonObject("params").getAsJsonObject("notifications").isEmpty());
 
         JsonObject close = io.responses().get(0);
         assertEquals("listen:0", close.get("id").getAsString());
         assertEquals("listen:0", close.getAsJsonObject("result")
                 .getAsJsonObject("_meta").get(MetaKeys.SUBSCRIPTION_ID).getAsString());
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void aStreamThatAskedForToolListChangesIsHeldOpenAndToldWhenTheListChanges() throws InterruptedException {
+        router = new IORouter(io, new RecordingLog(), new Settings(50L, false));
+        router.route(listen("listen:open", "{\"toolsListChanged\":true,\"resourcesListChanged\":true}"));
+
+        JsonObject agreed = io.notifications().get(0).getAsJsonObject("params").getAsJsonObject("notifications");
+        assertEquals(JsonParser.parseString("{\"toolsListChanged\":true}"), agreed,
+                     "only what the server advertised is agreed");
+        assertTrue(io.responses().isEmpty(), "a stream with something to say is not closed");
+
+        JsonObject changed = awaitNotification("notifications/tools/list_changed");
+        assertEquals("listen:open", changed.getAsJsonObject("params")
+                .getAsJsonObject("_meta").get(MetaKeys.SUBSCRIPTION_ID).getAsString());
+        assertTrue(io.responses().isEmpty(), "telling the stream something does not end it");
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void aStreamTheClientCancelsIsForgottenWithoutAnAnswer() throws InterruptedException {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, new Settings(50L, false));
+        router.route(listen("listen:gone", "{\"toolsListChanged\":true}"));
+        awaitNotification("notifications/tools/list_changed");
+
+        router.route("""
+                {"jsonrpc":"2.0","method":"notifications/cancelled",
+                 "params":{"requestId":"listen:gone","reason":"the user closed the panel"}}""");
+        // A tick already under way when the cancel arrived may still land.
+        Thread.sleep(150L);
+        io.clear();
+        Thread.sleep(250L);
+
+        assertTrue(io.notifications().isEmpty(), "a forgotten stream is told nothing more: " + io.notifications());
+        assertTrue(io.responses().isEmpty(), "a cancelled request is never answered");
+        assertTrue(log.logged("the client closed stream", "listen:gone"), log.lines.toString());
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void theServerClosesEveryStreamItHoldsWhenItStops() {
+        router = new IORouter(io, new RecordingLog(), new Settings(60_000L, false));
+        router.route(listen("listen:a", "{\"toolsListChanged\":true}"));
+        router.route(listen("listen:b", "{\"toolsListChanged\":true}"));
+        assertTrue(io.responses().isEmpty());
+
+        router.close();
+
+        List<JsonObject> closes = io.responses();
+        assertEquals(Set.of("listen:a", "listen:b"),
+                     Set.copyOf(closes.stream().map(close -> close.get("id").getAsString()).toList()));
+        for (JsonObject close : closes) {
+            assertEquals(close.get("id").getAsString(), close.getAsJsonObject("result")
+                    .getAsJsonObject("_meta").get(MetaKeys.SUBSCRIPTION_ID).getAsString(),
+                         "a close without its subscription id reads as a dropped connection");
+        }
+
+        io.clear();
+        router.close();
+        assertTrue(io.responses().isEmpty(), "a stream is closed once");
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void aListChangeThatFailsToSendDoesNotStopTheTimer() throws InterruptedException {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, new Settings(50L, false));
+        router.route(listen("listen:flaky", "{\"toolsListChanged\":true}"));
+        io.failNextEmit();
+
+        awaitNotification("notifications/tools/list_changed");
+        assertTrue(log.logged("notifications/tools/list_changed failed", "the write failed"), log.lines.toString());
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void withTheListChangedTimerOffAStreamAskingForToolChangesIsClosedAtOnce() {
+        router = new IORouter(io, new RecordingLog(), new Settings(0L, false));
+        router.route(listen("listen:off", "{\"toolsListChanged\":true}"));
+
+        assertTrue(io.notifications().get(0).getAsJsonObject("params").getAsJsonObject("notifications").isEmpty());
+        assertEquals("listen:off", io.only().get("id").getAsString());
+    }
+
+    @Test
+    @Tag("chapter03")
+    @Tag("stretch")
+    void withFormsRequiredAListenFromAClientThatCannotShowOneIsMissingACapability() {
+        router = new IORouter(io, new RecordingLog(), new Settings(0L, true));
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:no-form","method":"subscriptions/listen","params":{"_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{}}}}""");
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, error.get("code").getAsInt());
+        assertEquals(JsonParser.parseString("{\"elicitation\":{\"form\":{}}}"),
+                     error.getAsJsonObject("data").get("requiredCapabilities"),
+                     "requiredCapabilities is shaped like the ClientCapabilities the client should send");
+
+        io.clear();
+        router.route(listen("listen:form", "{}"));
+        assertEquals("notifications/subscriptions/acknowledged", io.notifications().get(0).get("method").getAsString());
+        assertEquals("listen:form", io.only().get("id").getAsString());
     }
 
     @Test
@@ -1683,6 +1811,26 @@ class IORouterTest {
     }
 
     // --- helpers -------------------------------------------------------
+
+    private static String listen(String id, String notifications) {
+        return """
+                {"jsonrpc":"2.0","id":"%s","method":"subscriptions/listen",
+                 "params":{%s,"notifications":%s}}""".formatted(id, FULL_META, notifications);
+    }
+
+    /** Waits for a notification the router sends from another thread. */
+    private JsonObject awaitNotification(String method) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5_000L;
+        while (System.currentTimeMillis() < deadline) {
+            for (JsonObject notification : io.notifications()) {
+                if (method.equals(notification.get("method").getAsString())) {
+                    return notification;
+                }
+            }
+            Thread.sleep(10L);
+        }
+        throw new AssertionError("no " + method + " arrived; got " + io.notifications());
+    }
 
     private static String read(int id, String uri) {
         return """

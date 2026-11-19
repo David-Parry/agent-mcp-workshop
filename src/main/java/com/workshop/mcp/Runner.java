@@ -9,7 +9,8 @@ public class Runner {
 
     public static void main(String[] args) {
         IOHandler io = new IOHandlerImpl();
-        Server server = new Server(io,new IORouter(io), new CountDownLatch(1));
+        Server server = new Server(io, new IORouter(io, Settings.fromEnvironment(System.getenv())),
+                                   new CountDownLatch(1));
         server.start();
     }
 }

@@ -128,6 +128,7 @@ public class Server {
      * <p>
      * This method:
      * <ul>
+     *   <li>Lets the router close what it holds open (if not null)</li>
      *   <li>Signals the I/O handler to stop processing (if not null)</li>
      *   <li>Logs the shutdown event</li>
      *   <li>Closes the logger to ensure all log entries are flushed</li>
@@ -139,6 +140,9 @@ public class Server {
      * </p>
      */
     void stop() {
+        if (router != null) {
+            router.close();
+        }
         if (io != null) {
             io.stopRunning();
         }

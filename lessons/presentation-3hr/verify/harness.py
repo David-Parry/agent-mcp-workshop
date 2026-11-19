@@ -141,13 +141,14 @@ class Failure(Exception):
 class Client:
     """One server process plus a background stdout reader."""
 
-    def __init__(self):
+    def __init__(self, env=None):
         self.proc = subprocess.Popen(
             ["java", "-jar", find_jar()],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             cwd=REPO_ROOT,
+            env={**os.environ, **(env or {})},
             text=True,
             bufsize=1,
         )
@@ -309,10 +310,14 @@ def require_result_type(result, expected, label):
 SCENARIOS = []
 
 
-def scenario(name, topic, chapter):
-    """Register a check; chapter is the first branch whose server can pass it."""
+def scenario(name, topic, chapter, env=None):
+    """Register a check; chapter is the first branch whose server can pass it.
+
+    env is added to the server's environment, for the runtime switches the
+    stretch goals read at startup.
+    """
     def wrap(fn):
-        SCENARIOS.append((name, topic, chapter, fn))
+        SCENARIOS.append((name, topic, chapter, fn, env or {}))
         return fn
     return wrap
 
@@ -379,9 +384,28 @@ def s_capability_shape(c):
     if "subscribe" not in (capabilities.get("resources") or {}):
         raise Failure(f"resources.subscribe should still be declared: {capabilities}")
 
-    # This server's lists are fixed, so it must not invite a listen stream.
+    # The stretch server announces tool-list changes on a timer, so it invites
+    # a listen stream for them. Its prompt and resource lists stay fixed.
+    if (capabilities.get("tools") or {}).get("listChanged") is not True:
+        raise Failure(f"tools.listChanged should be true while the timer is on: {capabilities}")
+    if (capabilities.get("resources") or {}).get("listChanged") is not False:
+        raise Failure(f"resources.listChanged should be false on this server: {capabilities}")
+
+
+@scenario("list_changed_off", "capabilities", chapter=3, env={"WORKSHOP_LIST_CHANGED_MS": "0"})
+def s_list_changed_off(c):
+    # With the timer off the server has nothing to announce, so it advertises
+    # nothing and a stream asking for tool changes closes at once.
+    c.request("probe", "server/discover")
+    capabilities = c.expect_result("probe")["capabilities"]
     if (capabilities.get("tools") or {}).get("listChanged") is not False:
-        raise Failure(f"tools.listChanged should be false on this server: {capabilities}")
+        raise Failure(f"tools.listChanged should be false with the timer off: {capabilities}")
+
+    c.request("listen:off", "subscriptions/listen", {"notifications": {"toolsListChanged": True}})
+    ack = c.expect_notification("notifications/subscriptions/acknowledged")
+    if (ack.get("params") or {}).get("notifications") != {}:
+        raise Failure(f"nothing should be agreed with the timer off: {ack}")
+    c.expect_result("listen:off")
 
 
 # ------------------------------------------------- The per-request envelope
@@ -730,7 +754,7 @@ def s_directory_argument(c):
 
 # ------------------------------------------------- Subscriptions
 
-@scenario("subscriptions", "capabilities, flow-diagram", chapter=3)
+@scenario("subscriptions", "capabilities, flow-diagram", chapter=3, env={"WORKSHOP_LIST_CHANGED_MS": "200"})
 def s_subscriptions(c):
     listen_id = "listen:0"
     c.request(listen_id, "subscriptions/listen", {"notifications": {
@@ -745,26 +769,64 @@ def s_subscriptions(c):
     if (ack_params.get("_meta") or {}).get(META_SUBSCRIPTION_ID) != listen_id:
         raise Failure(f"the acknowledgment must carry _meta.{META_SUBSCRIPTION_ID}: {ack}")
 
-    # This server advertises no listChanged support, so nothing is honored and
-    # the stream closes rather than dangling.
-    if ack_params.get("notifications") != {}:
-        raise Failure(f"nothing should be honored on this server: {ack}")
+    # Only what the server advertised is agreed: tool-list changes, which the
+    # timer announces, and not resource-list changes, which never happen.
+    if ack_params.get("notifications") != {"toolsListChanged": True}:
+        raise Failure(f"only toolsListChanged should be agreed: {ack}")
 
-    close = c.expect_response(listen_id)
+    # The stream stays open, and the timer tells it the tool list changed.
+    changed = c.expect_notification("notifications/tools/list_changed", timeout=5.0)
+    if ((changed.get("params") or {}).get("_meta") or {}).get(META_SUBSCRIPTION_ID) != listen_id:
+        raise Failure(f"a stream notification must carry _meta.{META_SUBSCRIPTION_ID}: {changed}")
+
+    # A stream asking only for what the server never sends is closed at once.
+    closed_id = "listen:1"
+    c.request(closed_id, "subscriptions/listen", {"notifications": {"resourcesListChanged": True}})
+    ack = c.expect_notification("notifications/subscriptions/acknowledged",
+                                lambda m: m["params"]["_meta"].get(META_SUBSCRIPTION_ID) == closed_id)
+    if ack["params"].get("notifications") != {}:
+        raise Failure(f"nothing should be agreed for resource-list changes: {ack}")
+    close = c.expect_response(closed_id)
     if "result" not in close:
         raise Failure(f"a graceful close is a result, not an error: {close}")
     require_result_type(close["result"], "complete", "the subscription close")
-    if (close["result"].get("_meta") or {}).get(META_SUBSCRIPTION_ID) != listen_id:
+    if (close["result"].get("_meta") or {}).get(META_SUBSCRIPTION_ID) != closed_id:
         raise Failure(f"the close result must carry the same subscriptionId: {close}")
     # Every result names the server, not only discover's.
     if ((close["result"].get("_meta") or {}).get(META_SERVER_INFO) or {}).get("name") != "agent-mcp-workshop":
         raise Failure(f"the close result should carry _meta.{META_SERVER_INFO} too: {close}")
 
     # A client tears a stream down by naming the listen id; requestId is
-    # required on notifications/cancelled now.
+    # required on notifications/cancelled now. A cancelled request is never
+    # answered, so the open stream is forgotten rather than closed.
     c.notify("notifications/cancelled", {"requestId": listen_id, "reason": "user navigated away"})
     if not c.log_contains(f"notifications/cancelled requestId={listen_id} reason=user navigated away"):
         raise Failure("the cancellation naming the listen request was never deserialized")
+    if not c.log_contains(f"the client closed stream {listen_id}"):
+        raise Failure("the cancelled stream was not forgotten")
+    time.sleep(0.5)
+    with c.cond:
+        c.inbox.clear()
+    time.sleep(0.6)
+    with c.cond:
+        late = [m for m in c.inbox if m.get("method") == "notifications/tools/list_changed" or m.get("id") == listen_id]
+    if late:
+        raise Failure(f"a cancelled stream should hear nothing more: {late}")
+
+
+@scenario("require_form_for_listen", "capabilities, protocol", chapter=3,
+          env={"WORKSHOP_REQUIRE_FORM_FOR_LISTEN": "true", "WORKSHOP_LIST_CHANGED_MS": "0"})
+def s_require_form_for_listen(c):
+    # -32021 is for a request the server cannot serve without something the
+    # client did not declare; data.requiredCapabilities says what.
+    c.request("listen:no-form", "subscriptions/listen", capabilities=NO_CAPABILITIES)
+    error = c.expect_error("listen:no-form", MISSING_REQUIRED_CLIENT_CAPABILITY)
+    if (error.get("data") or {}).get("requiredCapabilities") != {"elicitation": {"form": {}}}:
+        raise Failure(f"requiredCapabilities should name elicitation.form: {error}")
+
+    c.request("listen:form", "subscriptions/listen", capabilities=FORMS_ONLY)
+    c.expect_notification("notifications/subscriptions/acknowledged")
+    c.expect_result("listen:form")
 
 
 # ------------------------------------------------- Tasks extension
@@ -1007,19 +1069,19 @@ def s_mcp_apps(c):
 # ---------------------------------------------------------------- runner
 
 def run(names):
-    order = {name: (topic, fn) for name, topic, _, fn in SCENARIOS}
+    order = {name: (topic, fn, env) for name, topic, _, fn, env in SCENARIOS}
     if names == ["all"]:
-        names = [name for name, _, _, _ in SCENARIOS]
+        names = [name for name, _, _, _, _ in SCENARIOS]
     unknown = [n for n in names if n not in order]
     if unknown:
         print(f"unknown scenario(s): {unknown}; available: {list(order)}")
         return 2
     failures = 0
     for name in names:
-        topic, fn = order[name]
+        topic, fn, env = order[name]
         client = None
         try:
-            client = Client()
+            client = Client(env)
             fn(client)
             print(f"[PASS] {name} ({topic})")
         except Failure as e:
@@ -1040,7 +1102,7 @@ def reached(chapter_arg):
         print(f"There is no harness for chapter {chapter_arg}: it starts at 03, the first "
               "chapter whose server answers requests, and ends at 07.")
         sys.exit(2)
-    return [name for name, _, first, _ in SCENARIOS if first <= chapter]
+    return [name for name, _, first, _, _ in SCENARIOS if first <= chapter]
 
 
 if __name__ == "__main__":
@@ -1049,6 +1111,6 @@ if __name__ == "__main__":
         sys.exit(run(reached(args[1])))
     if not args:
         print(__doc__)
-        print("scenarios:", " ".join(name for name, _, _, _ in SCENARIOS))
+        print("scenarios:", " ".join(name for name, _, _, _, _ in SCENARIOS))
         sys.exit(2)
     sys.exit(run(args))
