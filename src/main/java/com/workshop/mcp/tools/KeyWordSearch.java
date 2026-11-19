@@ -18,7 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -89,10 +91,46 @@ public class KeyWordSearch implements Tool {
     }
 
     /**
+     * The JSON Schema of the search's {@code structuredContent}: the keyword,
+     * the total count, and one entry per file.
+     *
+     * @return a JSON Schema object describing {@link SearchOutput}
+     */
+    public Map<String, Object> outputSchema() {
+        Map<String, Object> file = ordered(
+                "type", "object",
+                "properties", ordered(
+                        "path", ordered("type", "string", "description", "the absolute path of the file"),
+                        "count", ordered("type", "integer", "description", "occurrences in this file")),
+                "required", List.of("path", "count"));
+        return ordered(
+                "type", "object",
+                "properties", ordered(
+                        "keyword", ordered("type", "string", "description", "the keyword searched for"),
+                        "totalMatches", ordered("type", "integer", "description", "occurrences across every file"),
+                        "files", ordered("type", "array", "items", file)),
+                "required", List.of("keyword", "totalMatches", "files"));
+    }
+
+    /** A map that keeps its insertion order, so the schema goes on the wire the same way every run. */
+    private static Map<String, Object> ordered(Object... keysAndValues) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            map.put((String) keysAndValues[i], keysAndValues[i + 1]);
+        }
+        return map;
+    }
+
+    /**
      * Runs the search.
      * <p>
      * The router only calls this once it has at least one directory, so an
      * empty set means the resolution logic upstream let something through.
+     * </p>
+     * <p>
+     * A successful result carries the matches twice: as text, one line per
+     * file, which is what a model reads, and as {@code structuredContent}
+     * matching {@link #outputSchema()}. An error result carries text only.
      * </p>
      *
      * @param toolCallParams the call parameters, whose {@code keyword} argument drives the search
@@ -107,8 +145,9 @@ public class KeyWordSearch implements Tool {
             builder.addTextContent("No search directory was resolved for this call.");
             builder.asError();
         } else {
-            List<ContentItem> contentItems = searchKeywordInDirectories(directories, keyword);
-            builder.withContent(contentItems);
+            List<SearchOutput.FileMatch> matches = findMatches(directories, keyword);
+            builder.withContent(asContent(matches));
+            builder.withStructuredContent(SearchOutput.of(keyword, matches));
         }
         return builder.build();
     }
@@ -122,7 +161,26 @@ public class KeyWordSearch implements Tool {
      * @return List of ContentItem objects containing file paths and keyword counts
      */
     public List<ContentItem> searchKeywordInDirectories(Set<String> rootDirectories, String keyword) {
-        List<ContentItem> results = new ArrayList<>();
+        return asContent(findMatches(rootDirectories, keyword));
+    }
+
+    private static List<ContentItem> asContent(List<SearchOutput.FileMatch> matches) {
+        List<ContentItem> content = new ArrayList<>();
+        for (SearchOutput.FileMatch match : matches) {
+            content.add(new ContentItem(match.path() + ", keyword_count=" + match.count(), "text"));
+        }
+        return content;
+    }
+
+    /**
+     * Searches for a keyword across multiple root directories.
+     *
+     * @param rootDirectories the root directory paths to search
+     * @param keyword         the keyword to search for in files
+     * @return one entry per file that held the keyword, with how often it did
+     */
+    public List<SearchOutput.FileMatch> findMatches(Set<String> rootDirectories, String keyword) {
+        List<SearchOutput.FileMatch> results = new ArrayList<>();
 
         if (keyword == null || keyword.trim().isEmpty()) {
             return results;
@@ -169,8 +227,7 @@ public class KeyWordSearch implements Tool {
                             try {
                                 int count = searchInFile(file, searchKeyword);
                                 if (count > 0) {
-                                    results.add(new ContentItem(file.toAbsolutePath() + ", keyword_count=" + count,
-                                                                "text"));
+                                    results.add(new SearchOutput.FileMatch(file.toAbsolutePath().toString(), count));
                                 }
                             } catch (IOException e) {
                                 logger.log("Error searching in file: " + file, e);

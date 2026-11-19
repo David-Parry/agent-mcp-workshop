@@ -1,6 +1,7 @@
 package com.workshop.mcp.tools;
 
 import com.workshop.mcp.spec.ContentItem;
+import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.ToolCallParams;
 import com.workshop.mcp.spec.ToolCallResult;
 import org.junit.jupiter.api.Tag;
@@ -79,6 +80,57 @@ class KeyWordSearchTest {
         assertFalse(result.isError());
         assertEquals(1, result.content().size());
         assertTrue(result.content().get(0).text().endsWith("keyword_count=1"));
+    }
+
+    // --- structured content ---------------------------------------------
+
+    @Test
+    @Tag("stretch")
+    void aSuccessfulCallCarriesItsMatchesAsStructuredContentToo() throws IOException {
+        write("one.txt", KEYWORD + " " + KEYWORD);
+        write("two.txt", KEYWORD);
+
+        ToolCallResult result = tool.call(params(KEYWORD), Set.of(root.toString()));
+
+        SearchOutput output = (SearchOutput) result.structuredContent();
+        assertEquals(KEYWORD, output.keyword());
+        assertEquals(3, output.totalMatches());
+        assertEquals(Set.of(root.toRealPath().resolve("one.txt").toString(), root.toRealPath().resolve("two.txt").toString()),
+                     Set.copyOf(output.files().stream().map(SearchOutput.FileMatch::path).toList()));
+        assertEquals(result.content().size(), output.files().size(), "the text and the structure say the same thing");
+    }
+
+    @Test
+    @Tag("stretch")
+    void aMissingKeywordIsReportedAsAnEmptyOneBecauseTheSchemaRequiresAString() {
+        Map<String, String> noKeyword = new HashMap<>();
+        ToolCallResult result = tool.call(new ToolCallParams(null, "key_word_search", noKeyword, null, null),
+                                          Set.of(root.toString()));
+
+        SearchOutput output = (SearchOutput) result.structuredContent();
+        assertEquals("", output.keyword());
+        assertEquals(0, output.totalMatches());
+        assertEquals(List.of(), output.files());
+    }
+
+    @Test
+    @Tag("stretch")
+    void aToolErrorCarriesNoStructuredContent() {
+        assertNull(tool.call(params(KEYWORD), Set.of()).structuredContent());
+    }
+
+    @Test
+    @Tag("stretch")
+    void theOutputSchemaGoesOnTheWireInTheSameOrderEveryRun() {
+        assertEquals("{\"type\":\"object\",\"properties\":{"
+                     + "\"keyword\":{\"type\":\"string\",\"description\":\"the keyword searched for\"},"
+                     + "\"totalMatches\":{\"type\":\"integer\",\"description\":\"occurrences across every file\"},"
+                     + "\"files\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{"
+                     + "\"path\":{\"type\":\"string\",\"description\":\"the absolute path of the file\"},"
+                     + "\"count\":{\"type\":\"integer\",\"description\":\"occurrences in this file\"}},"
+                     + "\"required\":[\"path\",\"count\"]}}},"
+                     + "\"required\":[\"keyword\",\"totalMatches\",\"files\"]}",
+                     McpGson.create().toJson(tool.outputSchema()));
     }
 
     // --- the keyword ------------------------------------------------------

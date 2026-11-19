@@ -5,6 +5,7 @@ import com.workshop.mcp.spec.AppTool;
 import com.workshop.mcp.spec.InputSchema;
 import com.workshop.mcp.spec.UiMeta;
 
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -41,12 +42,26 @@ public class AppToolBuilder {
     private String name;
     private String description;
     private InputSchema inputSchema;
+    private Map<String, Object> outputSchema;
     private String resourceUri;
 
     /**
      * Private constructor to enforce use of the static factory method.
      */
     private AppToolBuilder() {
+    }
+
+    /**
+     * Declares the JSON Schema the tool's {@code structuredContent} matches.
+     * Optional; a tool that declares one must return matching structured
+     * content on every successful result.
+     *
+     * @param outputSchema a JSON Schema object
+     * @return this builder instance for method chaining
+     */
+    public AppToolBuilder withOutputSchema(Map<String, Object> outputSchema) {
+        this.outputSchema = outputSchema;
+        return this;
     }
 
     /**
@@ -145,6 +160,6 @@ public class AppToolBuilder {
         if (inputSchema == null) {
             throw new IllegalStateException("inputSchema is required for AppTool, even one that takes no arguments");
         }
-        return new AppTool(name, description, inputSchema, AppMeta.of(resourceUri));
+        return new AppTool(name, description, inputSchema, outputSchema, AppMeta.of(resourceUri));
     }
 }

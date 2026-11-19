@@ -6,6 +6,7 @@ import com.workshop.mcp.spec.ToolsListResult;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -143,11 +144,25 @@ public class ToolsListResultBuilder {
         private String name;
         private String description;
         private InputSchema inputSchema;
+        private Map<String, Object> outputSchema;
 
         /**
          * Creates a new ToolBuilder instance.
          */
         public ToolBuilder() {
+        }
+
+        /**
+         * Declares the JSON Schema the tool's {@code structuredContent} matches.
+         * Optional; a tool that declares one must return matching structured
+         * content on every successful result.
+         *
+         * @param outputSchema a JSON Schema object
+         * @return this builder instance for method chaining
+         */
+        public ToolBuilder withOutputSchema(Map<String, Object> outputSchema) {
+            this.outputSchema = outputSchema;
+            return this;
         }
 
         /**
@@ -212,7 +227,7 @@ public class ToolsListResultBuilder {
             if (inputSchema == null) {
                 throw new IllegalStateException("inputSchema is required for Tool, even one that takes no arguments");
             }
-            return new Tool(name, description, inputSchema);
+            return new Tool(name, description, inputSchema, outputSchema);
         }
     }
 }

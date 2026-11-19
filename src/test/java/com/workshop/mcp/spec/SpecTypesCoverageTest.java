@@ -666,6 +666,49 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter04")
+        @Tag("stretch")
+        void aResourcesListRequestMayNameThePageItWants() {
+            ResourcesListParams first = McpGson.create().fromJson("{}", ResourcesListParams.class);
+            ResourcesListParams next = new ResourcesListParams(new MetaInfo(ProgressToken.of(7)), "b2Zmc2V0PTIw");
+
+            assertNull(first.cursor(), "an absent cursor asks for the first page");
+            assertNull(first._meta());
+            assertEquals("b2Zmc2V0PTIw", next.cursor());
+            assertEquals(ProgressToken.of(7), next._meta().progressToken());
+        }
+
+        @Test
+        @Tag("chapter04")
+        @Tag("stretch")
+        void onlyAToolThatReturnsStructuredContentDeclaresAnOutputSchema() {
+            Map<String, Object> outputSchema = Map.of("type", "object");
+
+            assertNull(tool().outputSchema());
+            assertNull(appTool().outputSchema());
+            assertEquals(outputSchema, new Tool("t", "d", inputSchema(), outputSchema).outputSchema());
+            assertEquals(outputSchema, new AppTool("t", "d", inputSchema(), outputSchema,
+                                                   AppMeta.of("ui://t/app.html")).outputSchema());
+        }
+
+        @Test
+        @Tag("chapter04")
+        @Tag("stretch")
+        void aToolResultCarriesStructuredContentOnlyWhenGivenSome() {
+            ToolCallResult plain = new ToolCallResult(ResultType.COMPLETE, List.of(), false);
+            ToolCallResult structured = new ToolCallResult(ResultType.COMPLETE, List.of(), false, Map.of("n", 1));
+            ToolCallResult failed = new ToolCallResult(List.of(), true);
+
+            assertEquals(ResultType.COMPLETE, failed.resultType());
+            assertTrue(failed.isError());
+            assertNull(failed.structuredContent());
+            assertNull(plain.structuredContent());
+            assertEquals(Map.of("n", 1), structured.structuredContent());
+            assertFalse(McpGson.create().toJson(plain).contains("structuredContent"),
+                        "an absent structuredContent is left off the wire");
+        }
+
+        @Test
         @Tag("chapter02")
         void aCancellationNamesTheRequestItAbandons() {
             NotificationCancelledParams cancelled =

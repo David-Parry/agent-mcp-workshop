@@ -7,15 +7,18 @@ import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
 import com.workshop.mcp.resources.JavadocResources;
+import com.workshop.mcp.resources.Pagination;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
 import com.workshop.mcp.tasks.TaskStore;
 
 import com.workshop.mcp.tools.KeyWordSearch;
+import com.workshop.mcp.tools.KeywordCompletions;
 import com.workshop.mcp.tools.SearchContinuation;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -316,6 +319,7 @@ public class IORouter implements Router {
                         .withName(keyWordSearch.name())
                         .withDescription(keyWordSearch.description())
                         .withInputSchema(keyWordSearch.schema())
+                        .withOutputSchema(keyWordSearch.outputSchema())
                         .withResourceUri(KEYWORD_APP_URI)
                         .build();
                 success(message.id(), new AppToolsListResult(List.of(appTool), LIST_TTL_MILLIS, CacheScope.PUBLIC));
@@ -375,17 +379,25 @@ public class IORouter implements Router {
                 }
             }
             case RESOURCES_LIST -> {
-                ResourcesListResultBuilder builder = ResourcesListResultBuilder
-                        .builder()
-                        .withResources(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"))
-                        .addResource(ResourceBuilder.builder()
+                // The app comes first so that a host looking for it finds it
+                // on the first page without following the cursor.
+                List<Resource> all = new ArrayList<>();
+                all.add(ResourceBuilder.builder()
                                 .withUri(KEYWORD_APP_URI)
                                 .withName("Keyword Search App")
                                 .withDescription("Interactive keyword search results dashboard")
                                 .withMimeType(Resource.MIME_TYPE_UI_APP)
                                 .build());
-                ResourcesListResult result = builder.build();
-                success(message.id(), new ResourcesListResult(result.resources(), result.nextCursor(),
+                all.addAll(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"));
+                String cursor = deserializer.deserializeParams(message, ResourcesListParams.class).cursor();
+                Pagination.Page<Resource> page = Pagination.page(all, cursor);
+                if (page == null) {
+                    logger.log("[API][SENT] resources/list — a cursor this server never issued (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Invalid cursor", Map.of("cursor", cursor));
+                    return;
+                }
+                // Every page of one list carries the same cacheScope.
+                success(message.id(), new ResourcesListResult(page.items(), page.nextCursor(),
                                                               LIST_TTL_MILLIS, CacheScope.PUBLIC));
             }
             case RESOURCES_TEMPLATES_LIST -> {
@@ -429,10 +441,7 @@ public class IORouter implements Router {
                     logger.log("[API][SENT] completion/complete — no argument to complete (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "completion/complete requires an argument");
                 } else if ("keyword".equals(argument.name())) {
-                    // Simulating a keyword search completion
-                    CompletionCompleteBuilder response = CompletionCompleteBuilder.withValue("java");
-                    response.value("the").value("and").total(3).hasMore(false);
-                    success(message.id(), response.build());
+                    success(message.id(), new KeywordCompletions().complete(argument.value()));
                 } else {
                     success(message.id(), new CompletionCompleteBuilder().total(0).hasMore(false).build());
                 }

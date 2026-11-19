@@ -1,5 +1,7 @@
 package com.workshop.mcp.spec;
 
+import java.util.Map;
+
 /**
  * Represents a tool that declares MCP App UI capability via {@code _meta.ui.resourceUri}.
  * <p>
@@ -38,10 +40,11 @@ package com.workshop.mcp.spec;
  * server per request.
  * </p>
  *
- * @param name        the unique identifier for the tool
- * @param description a human-readable description of what the tool does
- * @param inputSchema the schema defining the tool's input parameters
- * @param _meta       UI metadata that declares the resource URI for the interactive app
+ * @param name         the unique identifier for the tool
+ * @param description  a human-readable description of what the tool does
+ * @param inputSchema  the schema defining the tool's input parameters
+ * @param outputSchema the JSON Schema of the tool's {@code structuredContent}, or null when it returns none
+ * @param _meta        UI metadata that declares the resource URI for the interactive app
  *
  * @see Tool
  * @see AppMeta
@@ -52,5 +55,18 @@ public record AppTool(
         String name,
         String description,
         InputSchema inputSchema,
+        Map<String, Object> outputSchema,
         AppMeta _meta
-) {}
+) {
+    /**
+     * Creates an app tool whose results carry no structured content.
+     *
+     * @param name        the unique identifier for the tool
+     * @param description what the tool does
+     * @param inputSchema the schema defining the tool's input parameters
+     * @param _meta       UI metadata that declares the resource URI for the interactive app
+     */
+    public AppTool(String name, String description, InputSchema inputSchema, AppMeta _meta) {
+        this(name, description, inputSchema, null, _meta);
+    }
+}

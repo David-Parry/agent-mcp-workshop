@@ -1,6 +1,7 @@
 package com.workshop.mcp.spec.builders;
 
 import com.workshop.mcp.spec.ContentItem;
+import com.workshop.mcp.spec.ResultType;
 import com.workshop.mcp.spec.ToolCallResult;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.List;
 public class ToolCallResultBuilder {
     private List<ContentItem> content = new ArrayList<>();
     private boolean isError = false;
+    private Object structuredContent;
 
     /**
      * Private constructor to enforce the use of the static builder method.
@@ -89,6 +91,18 @@ public class ToolCallResultBuilder {
     }
 
     /**
+     * Sets the result as an object matching the tool's {@code outputSchema},
+     * sent beside the text content rather than instead of it.
+     *
+     * @param structuredContent anything that serializes to a JSON object
+     * @return this builder instance for method chaining
+     */
+    public ToolCallResultBuilder withStructuredContent(Object structuredContent) {
+        this.structuredContent = structuredContent;
+        return this;
+    }
+
+    /**
      * Sets whether this result represents an error.
      * 
      * @param isError true if this is an error result, false otherwise
@@ -118,6 +132,6 @@ public class ToolCallResultBuilder {
      * @return a new ToolCallResult instance with the configured content and error status
      */
     public ToolCallResult build() {
-        return new ToolCallResult(content, isError);
+        return new ToolCallResult(ResultType.COMPLETE, content, isError, structuredContent);
     }
 }

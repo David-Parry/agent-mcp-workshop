@@ -588,13 +588,94 @@ def s_unknown_names(c):
         c.request(40 + i, method, params)
         c.expect_error(40 + i, code=INVALID_PARAMS)
 
-    # A client pages until nextCursor is absent. This server has one page and
+    # A client pages until nextCursor is absent. prompts/list has one page and
     # ignores the cursor it is sent, so offering one would loop the client.
-    for i, method in enumerate(("prompts/list", "resources/list")):
-        c.request(50 + i, method)
-        result = c.expect_result(50 + i)
-        if "nextCursor" in result:
-            raise Failure(f"{method} has one page and must not offer a nextCursor: {result.get('nextCursor')}")
+    c.request(50, "prompts/list")
+    result = c.expect_result(50)
+    if "nextCursor" in result:
+        raise Failure(f"prompts/list has one page and must not offer a nextCursor: {result.get('nextCursor')}")
+
+
+@scenario("resource_paging", "capabilities, protocol", chapter=4)
+def s_resource_paging(c):
+    # resources/list is cut into pages of 20 joined by opaque cursors.
+    uris, scopes, cursor, page = [], set(), None, 0
+    while True:
+        params = {} if cursor is None else {"cursor": cursor}
+        c.request(70 + page, "resources/list", params)
+        result = c.expect_result(70 + page)
+        resources = result.get("resources") or []
+        if len(resources) > 20:
+            raise Failure(f"page {page} has {len(resources)} entries; pages hold 20")
+        uris.extend(r["uri"] for r in resources)
+        scopes.add(result.get("cacheScope"))
+        page += 1
+        if "nextCursor" not in result:
+            break
+        cursor = result["nextCursor"]
+        if cursor.isdigit():
+            raise Failure(f"a cursor should be opaque, not a bare offset: {cursor!r}")
+    if page < 2:
+        raise Failure(f"the resource list should span several pages, got {page}")
+    if len(uris) != len(set(uris)):
+        raise Failure("an entry appeared on more than one page")
+    if APP_URI not in uris[:20]:
+        raise Failure("the app should be on the first page, where a host finds it without paging")
+    if len(scopes) != 1:
+        raise Failure(f"every page of one list must carry the same cacheScope: {scopes}")
+
+    # A cursor the server never issued is an error, not the first page again.
+    # The empty string is a valid cursor in general, but not one this server issues.
+    for i, bogus in enumerate(("", "not-a-cursor")):
+        c.request(90 + i, "resources/list", {"cursor": bogus})
+        c.expect_error(90 + i, code=INVALID_PARAMS)
+
+
+@scenario("completion_prefix", "capabilities", chapter=4)
+def s_completion_prefix(c):
+    def complete(id_, typed):
+        c.request(id_, "completion/complete", {
+            "ref": {"type": "ref/prompt", "name": "search_keyword"},
+            "argument": {"name": "keyword", "value": typed},
+        })
+        return c.expect_result(id_)["completion"]
+
+    for i, typed in enumerate(("re", "RE")):
+        completion = complete(100 + i, typed)
+        values = completion.get("values") or []
+        if not values or not all(v.lower().startswith("re") for v in values):
+            raise Failure(f"only words starting with {typed!r} should be offered: {values}")
+        if completion.get("total") != len(values) or completion.get("hasMore") is not False:
+            raise Failure(f"total should count the matches, and nothing is left over: {completion}")
+
+    nothing = complete(102, "zzz")
+    if nothing.get("values") != [] or nothing.get("total") != 0:
+        raise Failure(f"a prefix nothing starts with should offer nothing: {nothing}")
+
+
+@scenario("structured_content", "extensions", chapter=4)
+def s_structured_content(c):
+    c.request(110, "tools/list")
+    tool = c.expect_result(110)["tools"][0]
+    schema = tool.get("outputSchema") or {}
+    if schema.get("type") != "object" or set(schema.get("required") or []) != {"keyword", "totalMatches", "files"}:
+        raise Failure(f"key_word_search should declare an object outputSchema: {schema}")
+
+    directory = make_keyword_dir(occurrences=3)
+    with open(os.path.join(directory, "second.txt"), "w") as f:
+        f.write("needleword\n")
+    c.request(111, "tools/call", {"name": "key_word_search",
+                                  "arguments": {"keyword": "needleword", "directory": directory}},
+              capabilities=NO_CAPABILITIES)
+    result = c.expect_result(111)
+    structured = result.get("structuredContent") or {}
+    files = structured.get("files") or []
+    if structured.get("keyword") != "needleword" or structured.get("totalMatches") != 4 or len(files) != 2:
+        raise Failure(f"structuredContent should hold the keyword, the total and one entry per file: {structured}")
+    if any(set(f) != {"path", "count"} for f in files):
+        raise Failure(f"each file entry is a path and a count: {files}")
+    if len(result.get("content") or []) != 2:
+        raise Failure(f"the text content a model reads should still be there: {result.get('content')}")
 
 
 # ------------------------------------------------- Multi Round-Trip Requests

@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
+import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.CacheScope;
 import com.workshop.mcp.spec.ErrorCodes;
 import com.workshop.mcp.spec.McpGson;
@@ -26,6 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -307,6 +310,44 @@ class IORouterTest {
         String expected = "ui://keyword-search/mcp-app.html";
         assertEquals(expected, meta.getAsJsonObject("ui").get("resourceUri").getAsString());
         assertNull(meta.get("ui/resourceUri"), "the deprecated flat key must not be sent");
+    }
+
+    @Test
+    @Tag("chapter04")
+    @Tag("stretch")
+    void theSearchToolDeclaresTheShapeOfItsStructuredContent() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject outputSchema = io.only().getAsJsonObject("result")
+                .getAsJsonArray("tools").get(0).getAsJsonObject()
+                .getAsJsonObject("outputSchema");
+        assertEquals("object", outputSchema.get("type").getAsString());
+        assertEquals(JsonParser.parseString("[\"keyword\",\"totalMatches\",\"files\"]"), outputSchema.get("required"));
+        assertEquals("array", outputSchema.getAsJsonObject("properties").getAsJsonObject("files")
+                .get("type").getAsString());
+    }
+
+    @Test
+    @Tag("chapter04")
+    @Tag("stretch")
+    void aSearchReturnsItsMatchesAsStructuredContentBesideTheText(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        Files.writeString(directory.resolve("a.txt"), "record record");
+        Files.writeString(directory.resolve("b.txt"), "a record");
+
+        router.route("""
+                {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{%s,"name":"key_word_search",
+                  "arguments":{"keyword":"record","directory":"%s"}}}""".formatted(FULL_META, directory));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(2, result.getAsJsonArray("content").size(), "the text a model reads is still there");
+        JsonObject structured = result.getAsJsonObject("structuredContent");
+        assertEquals("record", structured.get("keyword").getAsString());
+        assertEquals(3, structured.get("totalMatches").getAsInt());
+        assertEquals(2, structured.getAsJsonArray("files").size());
+        JsonObject file = structured.getAsJsonArray("files").get(0).getAsJsonObject();
+        assertEquals(Set.of("path", "count"), file.keySet());
     }
 
     @Test
@@ -1288,14 +1329,11 @@ class IORouterTest {
     @Tag("chapter04")
     void aListThatFitsOnOnePageOffersNoCursorToANextOne() {
         // A client follows nextCursor until it is absent. This server ignores
-        // the cursor it is sent, so offering one would page it in a loop.
-        for (String method : List.of("prompts/list", "resources/list")) {
-            io.clear();
-            router.route("""
-                    {"jsonrpc":"2.0","id":23,"method":"%s","params":{%s}}""".formatted(method, FULL_META));
+        // the cursor prompts/list is sent, so offering one would page it in a loop.
+        router.route("""
+                {"jsonrpc":"2.0","id":23,"method":"prompts/list","params":{%s}}""".formatted(FULL_META));
 
-            assertNull(io.only().getAsJsonObject("result").get("nextCursor"), method + " offered a second page");
-        }
+        assertNull(io.only().getAsJsonObject("result").get("nextCursor"), "prompts/list offered a second page");
     }
 
     @Test
@@ -1319,10 +1357,55 @@ class IORouterTest {
 
         JsonArray resources = io.only().getAsJsonObject("result").getAsJsonArray("resources");
         assertTrue(resources.size() > 1, "the javadoc pages plus the app: " + resources.size());
-        assertTrue(resources.asList().stream()
-                           .anyMatch(r -> "ui://keyword-search/mcp-app.html"
-                                   .equals(r.getAsJsonObject().get("uri").getAsString())),
-                   "the app must be listed beside the javadoc");
+        assertEquals("ui://keyword-search/mcp-app.html", resources.get(0).getAsJsonObject().get("uri").getAsString(),
+                     "the app leads the first page, so a host finds it without paging");
+    }
+
+    @Test
+    @Tag("chapter04")
+    @Tag("stretch")
+    void resourcesListIsServedInPagesOfTwentyJoinedByOpaqueCursors() {
+        Set<String> uris = new LinkedHashSet<>();
+        Set<String> scopes = new HashSet<>();
+        String cursor = null;
+        int pages = 0;
+        do {
+            io.clear();
+            String params = cursor == null ? FULL_META : FULL_META + ",\"cursor\":\"" + cursor + "\"";
+            router.route("""
+                    {"jsonrpc":"2.0","id":%d,"method":"resources/list","params":{%s}}""".formatted(pages, params));
+            JsonObject result = io.only().getAsJsonObject("result");
+            JsonArray resources = result.getAsJsonArray("resources");
+            assertTrue(resources.size() <= 20, "page " + pages + " has " + resources.size() + " entries");
+            resources.forEach(resource -> assertTrue(uris.add(resource.getAsJsonObject().get("uri").getAsString()),
+                                                     "an entry appeared on two pages: " + resource));
+            scopes.add(result.get("cacheScope").getAsString());
+            cursor = result.has("nextCursor") ? result.get("nextCursor").getAsString() : null;
+            pages++;
+        } while (cursor != null);
+
+        int expected = JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec").size() + 1;
+        assertEquals(expected, uris.size(), "every javadoc page plus the app, each exactly once");
+        assertEquals((expected + 19) / 20, pages);
+        assertEquals(Set.of(CacheScope.PUBLIC), scopes, "every page of a list carries the same cacheScope");
+    }
+
+    @Test
+    @Tag("chapter04")
+    @Tag("stretch")
+    void aCursorThisServerNeverIssuedIsInvalidParamsRatherThanTheFirstPage() {
+        String offsetSeven = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("offset=7".getBytes(StandardCharsets.UTF_8));
+        for (String cursor : List.of("", "page-2", offsetSeven)) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":24,"method":"resources/list","params":{%s,"cursor":"%s"}}"""
+                                 .formatted(FULL_META, cursor));
+
+            JsonObject error = io.onlyError();
+            assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt(), "'" + cursor + "'");
+            assertEquals(cursor, error.getAsJsonObject("data").get("cursor").getAsString());
+        }
     }
 
     @Test
@@ -1403,11 +1486,23 @@ class IORouterTest {
 
         JsonObject result = io.only().getAsJsonObject("result");
         JsonObject completion = result.getAsJsonObject("completion");
-        assertEquals(3, completion.getAsJsonArray("values").size());
-        assertEquals(3, completion.get("total").getAsInt());
-        assertFalse(completion.get("hasMore").getAsBoolean(), "all three were sent, so there are no more");
+        assertTrue(completion.getAsJsonArray("values").size() > 1);
+        assertEquals(completion.getAsJsonArray("values").size(), completion.get("total").getAsInt());
+        assertFalse(completion.get("hasMore").getAsBoolean(), "every match was sent, so there are no more");
         assertNull(result.get("total"), "total belongs inside completion");
         assertNull(result.get("hasMore"), "hasMore belongs inside completion");
+    }
+
+    @Test
+    @Tag("chapter04")
+    @Tag("stretch")
+    void completingTheKeywordOffersOnlyWordsThatStartWithWhatWasTyped() {
+        router.route(complete(28, "keyword"));
+
+        JsonArray values = io.only().getAsJsonObject("result").getAsJsonObject("completion").getAsJsonArray("values");
+        assertTrue(values.asList().stream().allMatch(value -> value.getAsString().startsWith("j")),
+                   "the user typed 'j': " + values);
+        assertTrue(values.asList().stream().anyMatch(value -> "java".equals(value.getAsString())));
     }
 
     @Test

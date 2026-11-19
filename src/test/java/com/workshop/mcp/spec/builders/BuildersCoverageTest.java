@@ -90,6 +90,23 @@ class BuildersCoverageTest {
                     .build();
 
             assertSame(schema, tool.inputSchema());
+            assertNull(tool.outputSchema(), "a tool with no structured content declares no output schema");
+        }
+
+        @Test
+        @Tag("stretch")
+        void anAppToolMayDeclareTheShapeOfItsStructuredContent() {
+            Map<String, Object> outputSchema = Map.of("type", "object");
+
+            AppTool tool = AppToolBuilder.builder()
+                    .withName("key_word_search")
+                    .withDescription("Searches for a keyword.")
+                    .withInputSchema(schema -> { })
+                    .withOutputSchema(outputSchema)
+                    .withResourceUri("ui://keyword-search/mcp-app.html")
+                    .build();
+
+            assertSame(outputSchema, tool.outputSchema());
         }
 
         @Test
@@ -903,6 +920,21 @@ class BuildersCoverageTest {
             assertTrue(ToolCallResultBuilder.builder().withError(true).build().isError());
             assertFalse(ToolCallResultBuilder.builder().asError().withError(false).build().isError());
         }
+
+        @Test
+        @Tag("stretch")
+        void structuredContentTravelsBesideTheTextRatherThanInsteadOfIt() {
+            Map<String, Object> structured = Map.of("totalMatches", 3);
+
+            ToolCallResult result = ToolCallResultBuilder.builder()
+                    .addTextContent("/srv/a.txt, keyword_count=3")
+                    .withStructuredContent(structured)
+                    .build();
+
+            assertSame(structured, result.structuredContent());
+            assertEquals(1, result.content().size());
+            assertNull(ToolCallResultBuilder.builder().build().structuredContent());
+        }
     }
 
     // --- ToolsListResultBuilder ----------------------------------------
@@ -976,6 +1008,22 @@ class BuildersCoverageTest {
                     .build();
 
             assertSame(schema, tool.inputSchema());
+            assertNull(tool.outputSchema());
+        }
+
+        @Test
+        @Tag("stretch")
+        void aToolMayDeclareTheShapeOfItsStructuredContent() {
+            Map<String, Object> outputSchema = Map.of("type", "object");
+
+            Tool tool = new ToolsListResultBuilder.ToolBuilder()
+                    .withName("search")
+                    .withDescription("Search for items")
+                    .withInputSchema(schema -> { })
+                    .withOutputSchema(outputSchema)
+                    .build();
+
+            assertSame(outputSchema, tool.outputSchema());
         }
 
         @Test
