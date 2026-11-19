@@ -262,6 +262,21 @@ class JsonRpcMessageDeserializerTest {
                 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":"2026-07-28"}}"""));
     }
 
+    // --- trace context --------------------------------------------------
+
+    @Test
+    @Tag("stretch")
+    void aTraceparentIsReadOutOfParamsMeta() {
+        JsonRpcRequest traced = request("""
+                {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{
+                  "traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}}}""");
+        JsonRpcRequest untraced = request("""
+                {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}""");
+
+        assertEquals("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", deserializer.traceparent(traced));
+        assertNull(deserializer.traceparent(untraced));
+    }
+
     // --- helpers ------------------------------------------------------------
 
     private JsonRpcRequest request(String json) {

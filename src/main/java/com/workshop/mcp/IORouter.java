@@ -218,6 +218,10 @@ public class IORouter implements Router {
     }
 
     private void process(JsonRpcRequest message) {
+        String traceparent = deserializer.traceparent(message);
+        if (traceparent != null) {
+            logger.log("[API][RECEIVED] " + message.method() + " traceparent=" + traceparent);
+        }
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
 
         // Method existence is settled before the envelope is looked at.

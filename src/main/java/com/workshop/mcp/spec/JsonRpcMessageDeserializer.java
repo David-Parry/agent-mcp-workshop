@@ -190,6 +190,17 @@ public class JsonRpcMessageDeserializer {
                 asString(meta.get(MetaKeys.LOG_LEVEL)));
     }
 
+    /**
+     * Reads the W3C trace context a caller may send in {@code params._meta}.
+     *
+     * @param request the request to read
+     * @return the {@code traceparent} value, or {@code null} when the caller sent none
+     */
+    public String traceparent(JsonRpcRequest request) {
+        JsonObject meta = metaObject(request.params());
+        return meta == null ? null : asString(meta.get(MetaKeys.TRACEPARENT));
+    }
+
     private JsonObject metaObject(Object params) {
         if (params == null) {
             return null;

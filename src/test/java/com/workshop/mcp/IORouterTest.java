@@ -1112,6 +1112,22 @@ class IORouterTest {
 
     @Test
     @Tag("chapter03")
+    @Tag("stretch")
+    void aCallersTraceparentIsLoggedSoTheRequestCanBeFollowedAcrossServers() {
+        RecordingLog log = new RecordingLog();
+        new IORouter(io, log).route("""
+                {"jsonrpc":"2.0","id":"traced","method":"server/discover","params":{"_meta":{
+                  "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+                  "io.modelcontextprotocol/clientCapabilities":{},
+                  "traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"}}}""");
+
+        assertTrue(io.only().has("result"));
+        assertTrue(log.logged("server/discover", "traceparent=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"),
+                   "the trace the caller named should be in the log: " + log.lines);
+    }
+
+    @Test
+    @Tag("chapter03")
     void anUnrecognisedNotificationIsIgnoredRatherThanRejected() {
         // Notifications carry no id, so there is nobody to send -32601 to.
         RecordingLog log = new RecordingLog();
