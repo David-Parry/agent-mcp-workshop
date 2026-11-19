@@ -17,11 +17,13 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -56,6 +58,61 @@ public class KeyWordSearch implements Tool {
      * keyword it is asked for and would otherwise match each search.
      */
     private static final Set<String> SKIPPED_DIRECTORIES = Set.of("logs", "build", ".git", ".gradle");
+
+    /**
+     * Told how far a search has got, after each file it reads.
+     */
+    @FunctionalInterface
+    public interface Progress {
+
+        /** Hears nothing, for a search nobody is waiting on. */
+        Progress NONE = (searched, total) -> { };
+
+        /**
+         * @param searched how many files have been read so far
+         * @param total    how many files the search will read in all
+         */
+        void searched(int searched, int total);
+
+        /**
+         * Passes on the first report, the last, and at most one per interval
+         * in between, so a fast search does not flood whoever is listening.
+         *
+         * @param clock          where the time between reports is read from
+         * @param intervalMillis the least time between two reports in the middle
+         * @param target         where the reports that get through go
+         * @return a progress that reports to {@code target} less often
+         */
+        static Progress throttled(Clock clock, long intervalMillis, Progress target) {
+            return new Throttled(clock, intervalMillis, target);
+        }
+    }
+
+    /** One search's reports, thinned out. Used by the one thread running that search. */
+    private static final class Throttled implements Progress {
+        private final Clock clock;
+        private final long intervalMillis;
+        private final Progress target;
+        private boolean reported;
+        private long lastReportedAt;
+
+        Throttled(Clock clock, long intervalMillis, Progress target) {
+            this.clock = clock;
+            this.intervalMillis = intervalMillis;
+            this.target = target;
+        }
+
+        @Override
+        public void searched(int searched, int total) {
+            long now = clock.millis();
+            if (reported && searched < total && now - lastReportedAt < intervalMillis) {
+                return;
+            }
+            reported = true;
+            lastReportedAt = now;
+            target.searched(searched, total);
+        }
+    }
 
     @Override
     public String name() {
@@ -139,15 +196,37 @@ public class KeyWordSearch implements Tool {
      */
     @Override
     public ToolCallResult call(ToolCallParams toolCallParams, Set<String> directories) {
+        return call(toolCallParams, directories, Progress.NONE);
+    }
+
+    /**
+     * Runs the search, reporting how far it has got as it goes.
+     * <p>
+     * An interrupt stops the search between files. The result then says the
+     * search was stopped, rather than passing the matches found so far off as
+     * all of them.
+     * </p>
+     *
+     * @param toolCallParams the call parameters, whose {@code keyword} argument drives the search
+     * @param directories    the directories to search, resolved for this call alone
+     * @param progress       told after each file how many have been read, out of how many
+     * @return the matching files and their match counts
+     */
+    public ToolCallResult call(ToolCallParams toolCallParams, Set<String> directories, Progress progress) {
         String keyword = toolCallParams.arguments().get("keyword");
         ToolCallResultBuilder builder = ToolCallResultBuilder.builder();
         if (directories == null || directories.isEmpty()) {
             builder.addTextContent("No search directory was resolved for this call.");
             builder.asError();
         } else {
-            List<SearchOutput.FileMatch> matches = findMatches(directories, keyword);
-            builder.withContent(asContent(matches));
-            builder.withStructuredContent(SearchOutput.of(keyword, matches));
+            List<SearchOutput.FileMatch> matches = findMatches(directories, keyword, progress);
+            if (Thread.currentThread().isInterrupted()) {
+                builder.addTextContent("The search was stopped before it finished.");
+                builder.asError();
+            } else {
+                builder.withContent(asContent(matches));
+                builder.withStructuredContent(SearchOutput.of(keyword, matches));
+            }
         }
         return builder.build();
     }
@@ -180,6 +259,25 @@ public class KeyWordSearch implements Tool {
      * @return one entry per file that held the keyword, with how often it did
      */
     public List<SearchOutput.FileMatch> findMatches(Set<String> rootDirectories, String keyword) {
+        return findMatches(rootDirectories, keyword, Progress.NONE);
+    }
+
+    /**
+     * Searches for a keyword across multiple root directories, reporting how
+     * far it has got after each file, and stopping between files once the
+     * thread is interrupted.
+     * <p>
+     * The files are counted first, in a walk that reads none of them, so each
+     * report can say how many there are in all.
+     * </p>
+     *
+     * @param rootDirectories the root directory paths to search
+     * @param keyword         the keyword to search for in files
+     * @param progress        told after each file how many have been read, out of how many
+     * @return one entry per file that held the keyword, with how often it did
+     */
+    public List<SearchOutput.FileMatch> findMatches(Set<String> rootDirectories, String keyword,
+                                                    Progress progress) {
         List<SearchOutput.FileMatch> results = new ArrayList<>();
 
         if (keyword == null || keyword.trim().isEmpty()) {
@@ -187,7 +285,31 @@ public class KeyWordSearch implements Tool {
         }
 
         String searchKeyword = keyword.trim();
+        int[] total = {0};
+        walk(rootDirectories, file -> total[0]++);
+        int[] searched = {0};
+        walk(rootDirectories, file -> {
+            if (isTextFile(file)) {
+                try {
+                    int count = searchInFile(file, searchKeyword);
+                    if (count > 0) {
+                        results.add(new SearchOutput.FileMatch(file.toAbsolutePath().toString(), count));
+                    }
+                } catch (IOException e) {
+                    logger.log("Error searching in file: " + file, e);
+                }
+            }
+            progress.searched(++searched[0], total[0]);
+        });
+        return results;
+    }
 
+    /**
+     * Walks every root, handing each file worth reading to {@code visit}:
+     * regular files that are not hidden and not archives, outside the
+     * directories the search skips.
+     */
+    private void walk(Set<String> rootDirectories, Consumer<Path> visit) {
         for (String rootDir : rootDirectories) {
             String cleanRootDir = rootDir;
             if (rootDir != null && rootDir.startsWith(FILE_PREFIX)) {
@@ -216,22 +338,17 @@ public class KeyWordSearch implements Tool {
                     }
 
                     @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        // Skip binary files, hidden files, and archive files
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        if (Thread.currentThread().isInterrupted()) {
+                            return FileVisitResult.TERMINATE;
+                        }
+                        // Skip hidden files and archive files
                         String fileName = file.getFileName().toString();
                         if (Files.isRegularFile(file) &&
                                 !fileName.startsWith(".") &&
                                 !fileName.endsWith(".zip") &&
-                                !fileName.endsWith(".jar") &&
-                                isTextFile(file)) {
-                            try {
-                                int count = searchInFile(file, searchKeyword);
-                                if (count > 0) {
-                                    results.add(new SearchOutput.FileMatch(file.toAbsolutePath().toString(), count));
-                                }
-                            } catch (IOException e) {
-                                logger.log("Error searching in file: " + file, e);
-                            }
+                                !fileName.endsWith(".jar")) {
+                            visit.accept(file);
                         }
                         return FileVisitResult.CONTINUE;
                     }
@@ -247,8 +364,6 @@ public class KeyWordSearch implements Tool {
                 logger.log("Error walking directory tree: " + rootDir, e);
             }
         }
-
-        return results;
     }
 
     /**

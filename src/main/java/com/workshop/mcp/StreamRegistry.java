@@ -58,6 +58,47 @@ final class StreamRegistry {
     }
 
     /**
+     * @param taskId a task whose state changed
+     * @return the streams that agreed to push that task's status
+     */
+    List<RequestId> listeningForTask(String taskId) {
+        return streams.entrySet().stream()
+                .filter(entry -> entry.getValue().asksForTaskStatus()
+                                 && entry.getValue().taskIds().contains(taskId))
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    /**
+     * @param id a stream
+     * @return the tasks it agreed to push, empty when it is not open or agreed to none
+     */
+    List<String> tasksOf(RequestId id) {
+        SubscriptionFilter filter = streams.get(id);
+        return filter != null && filter.asksForTaskStatus() ? filter.taskIds() : List.of();
+    }
+
+    /**
+     * Stops pushing task status on a stream whose tasks have all finished.
+     * <p>
+     * A stream that agreed to nothing else has nothing left to say, so it is
+     * removed, and only the one caller that removed it may close it.
+     * </p>
+     *
+     * @param id a stream
+     * @return true when this call removed the stream and the caller must close it
+     */
+    boolean finishTasks(RequestId id) {
+        boolean[] removed = {false};
+        streams.computeIfPresent(id, (key, filter) -> {
+            SubscriptionFilter remaining = filter.withoutTasks();
+            removed[0] = remaining.isEmpty();
+            return removed[0] ? null : remaining;
+        });
+        return removed[0];
+    }
+
+    /**
      * Removes every stream, for a server that is shutting down and must close
      * each one.
      *

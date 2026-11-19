@@ -13,6 +13,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -452,7 +453,7 @@ class SpecTypesCoverageTest {
         @Test
         void everyRequestIsHonoredWhenTheServerAdvertisesTheMatchingCapability() {
             SubscriptionFilter honored = requestingEverything().honoredUnder(
-                    advertising(new Capability(true), new Capability(true, true), new Capability(true)));
+                    advertising(new Capability(true), new Capability(true, true), new Capability(true)), id -> true);
 
             assertEquals(Boolean.TRUE, honored.toolsListChanged());
             assertEquals(Boolean.TRUE, honored.promptsListChanged());
@@ -464,7 +465,7 @@ class SpecTypesCoverageTest {
         @Test
         void aServerAdvertisingNothingDropsEveryRequestInsteadOfAnsweringFalse() {
             SubscriptionFilter honored = requestingEverything()
-                    .honoredUnder(new ServerCapabilities(null, null, null, null, null, null, null));
+                    .honoredUnder(new ServerCapabilities(null, null, null, null, null, null, null), id -> true);
 
             // Dropped rather than set to false, so the acknowledgment never
             // says anything the server cannot back.
@@ -478,7 +479,7 @@ class SpecTypesCoverageTest {
         @Test
         void aCapabilityDeclaredWithoutListChangedOrSubscribeHonorsNothing() {
             SubscriptionFilter honored = new SubscriptionFilter(false, null, null, null).honoredUnder(
-                    advertising(new Capability(false), new Capability(true, false), new Capability(false)));
+                    advertising(new Capability(false), new Capability(true, false), new Capability(false)), id -> true);
 
             assertNull(honored.toolsListChanged());
             assertNull(honored.promptsListChanged());
@@ -506,12 +507,99 @@ class SpecTypesCoverageTest {
             assertEquals(new Capability(false, null), new Capability(false));
         }
 
+        @Test
+        @Tag("chapter07")
+        @Tag("stretch")
+        void onlyTheTasksTheServerHoldsAreAgreedTo() {
+            SubscriptionFilter requested = new SubscriptionFilter(null, null, null, null,
+                                                                  Arrays.asList("held", "unknown", null, "held"));
+
+            SubscriptionFilter honored = requested.honoredUnder(advertisingTasks(), "held"::equals);
+
+            assertEquals(List.of("held"), honored.taskIds(), "unknown, null and repeated ids are dropped");
+            assertFalse(honored.isEmpty());
+        }
+
+        @Test
+        @Tag("chapter07")
+        @Tag("stretch")
+        void noTaskIsAgreedToWhenNoneIsHeldOrTheServerPushesNoTaskStatus() {
+            SubscriptionFilter requested = new SubscriptionFilter(null, null, null, null, List.of("held"));
+            ServerCapabilities otherExtension =
+                    new ServerCapabilities(null, null, null, null, null, null, Map.of(MetaKeys.UI_EXTENSION, Map.of()));
+
+            assertNull(requested.honoredUnder(advertisingTasks(), id -> false).taskIds());
+            assertNull(requested.honoredUnder(advertising(null, null, null), id -> true).taskIds());
+            assertNull(requested.honoredUnder(otherExtension, id -> true).taskIds());
+            assertNull(new SubscriptionFilter(null, null, null, null).honoredUnder(advertisingTasks(), id -> true)
+                               .taskIds());
+        }
+
+        @Test
+        @Tag("chapter07")
+        @Tag("stretch")
+        void aFilterThatNamesATaskAsksForTaskStatusAndIsNotEmpty() {
+            assertTrue(new SubscriptionFilter(null, null, null, null, List.of("t")).asksForTaskStatus());
+            assertFalse(new SubscriptionFilter(null, null, null, null, List.of("t")).isEmpty());
+            assertFalse(new SubscriptionFilter(null, null, null, null, List.of()).asksForTaskStatus());
+            assertFalse(new SubscriptionFilter(null, null, null, null).asksForTaskStatus());
+        }
+
+        @Test
+        @Tag("chapter07")
+        @Tag("stretch")
+        void droppingTheTasksKeepsEverythingElse() {
+            SubscriptionFilter both = new SubscriptionFilter(true, null, null, List.of("file:///a"), List.of("t"));
+
+            assertEquals(new SubscriptionFilter(true, null, null, List.of("file:///a")), both.withoutTasks());
+        }
+
+        @Test
+        @Tag("chapter07")
+        @Tag("stretch")
+        void aListenAsksForTaskStatusOnlyWhenItsFilterNamesATask() {
+            assertTrue(new SubscriptionsListenParams(new SubscriptionFilter(null, null, null, null, List.of("t")))
+                               .asksForTaskStatus());
+            assertFalse(new SubscriptionsListenParams(new SubscriptionFilter(true, null, null, null))
+                                .asksForTaskStatus());
+            assertFalse(new SubscriptionsListenParams(null).asksForTaskStatus());
+        }
+
+        @Test
+        @Tag("chapter07")
+        @Tag("stretch")
+        void aTaskPushCarriesWhatTasksGetWouldAnswerTaggedWithItsStream() {
+            Task task = new Task("t-1", "completed", "done", "2026-11-18T12:00:00Z", "2026-11-18T12:00:04Z",
+                                 300_000L, 1000L);
+            TaskResult detail = TaskResult.detail(task, Map.of("content", List.of()), null, null);
+
+            TasksNotificationParams params = TasksNotificationParams.of(RequestId.of("listen:t"), detail);
+
+            assertEquals(Map.of(MetaKeys.SUBSCRIPTION_ID, RequestId.of("listen:t")), params._meta());
+            assertEquals("t-1", params.taskId());
+            assertEquals("completed", params.status());
+            assertEquals("done", params.statusMessage());
+            assertEquals("2026-11-18T12:00:00Z", params.createdAt());
+            assertEquals("2026-11-18T12:00:04Z", params.lastUpdatedAt());
+            assertEquals(300_000L, params.ttlMs());
+            assertEquals(1000L, params.pollIntervalMs());
+            assertEquals(Map.of("content", List.of()), params.result());
+            assertNull(params.error());
+            assertNull(params.inputRequests());
+            assertFalse(McpGson.create().toJson(params).contains("resultType"), "a notification is not a result");
+        }
+
         private SubscriptionFilter requestingEverything() {
             return new SubscriptionFilter(true, true, true, List.of("file:///a"));
         }
 
         private ServerCapabilities advertising(Capability prompts, Capability resources, Capability tools) {
             return new ServerCapabilities(null, null, null, prompts, resources, tools, null);
+        }
+
+        private ServerCapabilities advertisingTasks() {
+            return new ServerCapabilities(null, null, null, null, null, null,
+                                          Map.of(MetaKeys.TASKS_EXTENSION, Map.of()));
         }
     }
 

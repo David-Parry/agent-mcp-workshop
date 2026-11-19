@@ -19,4 +19,15 @@ package com.workshop.mcp.spec;
  * @see SubscriptionsListenResult
  * @since 1.0
  */
-public record SubscriptionsListenParams(SubscriptionFilter notifications) {}
+public record SubscriptionsListenParams(SubscriptionFilter notifications) {
+
+    /**
+     * Reports whether this listen asks for task status, which only a client
+     * that declared the tasks extension may.
+     *
+     * @return true when the filter names at least one task
+     */
+    public boolean asksForTaskStatus() {
+        return notifications != null && notifications.asksForTaskStatus();
+    }
+}

@@ -1145,22 +1145,101 @@ def s_tasks(c):
             raise Failure(f"-32021 should name the extension the client has to declare: {error}")
 
     # So is a listen stream that asks for task status. A client that declared
-    # the extension is agreed no task ids, because this server pushes none,
-    # and with nothing agreed to its stream closes.
-    task_status = {"notifications": {"taskIds": [task_id]}}
+    # the extension is agreed the tasks this server holds. The stream starts
+    # with where each of them stands, and closes once all of them have
+    # finished, as this one already has.
+    task_status = {"notifications": {"taskIds": [task_id, "no-such-task"]}}
     c.request("listen-undeclared", "subscriptions/listen", task_status, capabilities=DEPRECATED_AND_FORMS)
     error = c.expect_error("listen-undeclared", code=MISSING_REQUIRED_CLIENT_CAPABILITY)
     required = ((error.get("data") or {}).get("requiredCapabilities") or {}).get("extensions") or {}
     if TASKS_EXTENSION not in required:
         raise Failure(f"-32021 should name the extension the client has to declare: {error}")
     c.request("listen-declared", "subscriptions/listen", task_status, capabilities=TASK_CLIENT)
-    ack = c.expect_notification(
-        "notifications/subscriptions/acknowledged",
-        lambda n: ((n.get("params") or {}).get("_meta") or {}).get(META_SUBSCRIPTION_ID) == "listen-declared",
-    )
-    if "taskIds" in ((ack.get("params") or {}).get("notifications") or {}):
-        raise Failure(f"this server pushes no task status, so it agrees to no task ids: {ack}")
+    ack = c.expect_notification("notifications/subscriptions/acknowledged", on_stream("listen-declared"))
+    if ((ack.get("params") or {}).get("notifications") or {}).get("taskIds") != [task_id]:
+        raise Failure(f"only the task this server holds should be agreed to: {ack}")
+    pushed = (c.expect_notification("notifications/tasks", on_stream("listen-declared")).get("params") or {})
+    if pushed.get("taskId") != task_id or pushed.get("status") != "completed" or "resultType" in pushed:
+        raise Failure(f"the stream should start with the finished task's status, as a notification: {pushed}")
     require_result_type(c.expect_result("listen-declared"), "complete", "the subscription close")
+
+
+def on_stream(listen_id):
+    """Matches a notification sent on the stream a subscriptions/listen opened."""
+    return lambda n: ((n.get("params") or {}).get("_meta") or {}).get(META_SUBSCRIPTION_ID) == listen_id
+
+
+def poll_task_until(c, task_id, status, label, timeout=15.0):
+    """Polls tasks/get the way a client would, until the task reaches a status."""
+    deadline = time.time() + timeout
+    poll = 0
+    snapshot = None
+    while time.time() < deadline:
+        c.request(f"{label}-{poll}", "tasks/get", {"taskId": task_id}, capabilities=TASK_CLIENT)
+        snapshot = c.expect_result(f"{label}-{poll}")
+        if snapshot.get("status") == status:
+            return snapshot
+        poll += 1
+        time.sleep(0.3)
+    raise Failure(f"task {task_id} never reached {status}; last snapshot was {snapshot}")
+
+
+@scenario("task_push", "tasks, flow-diagram", chapter=7)
+def s_task_push(c):
+    """A stream that names a task hears each change instead of polling for it.
+
+    The extension forbids notifications/progress for a task, so progress
+    rides in the status message, and every push is the task's tasks/get
+    snapshot without a resultType.
+    """
+    directory = make_keyword_dir()
+    c.request(1, "tools/call", search_call(), capabilities=TASK_CLIENT_WITH_FORMS)
+    task_id = c.expect_result(1)["taskId"]
+    poll_task_until(c, task_id, "input_required", "ask")
+
+    c.request("listen-task", "subscriptions/listen", {"notifications": {"taskIds": [task_id]}},
+              capabilities=TASK_CLIENT)
+    ack = c.expect_notification("notifications/subscriptions/acknowledged", on_stream("listen-task"))
+    if ((ack.get("params") or {}).get("notifications") or {}).get("taskIds") != [task_id]:
+        raise Failure(f"the task should be agreed to: {ack}")
+
+    c.request(2, "tasks/update", {"taskId": task_id, "inputResponses": {KEY_DIRECTORY: form_answer(directory)}},
+              capabilities=TASK_CLIENT)
+    require_empty_acknowledgement(c.expect_result(2), "tasks/update answering what the task asked")
+
+    pushes = []
+    while not pushes or pushes[-1].get("status") != "completed":
+        pushes.append(c.expect_notification("notifications/tasks", on_stream("listen-task"), timeout=15.0)["params"])
+    statuses = [push.get("status") for push in pushes]
+    if statuses != ["input_required", "working", "working", "completed"]:
+        raise Failure(f"the stream should start from where the task stood and hear each change: {pushes}")
+    if any("resultType" in push or push.get("taskId") != task_id for push in pushes):
+        raise Failure(f"a push is the task's snapshot, not a result: {pushes}")
+    if pushes[2].get("statusMessage") != "Searched 1 of 1 files":
+        raise Failure(f"progress should ride in the status message: {pushes[2]}")
+    if "keyword_count=3" not in json.dumps(pushes[3].get("result") or {}):
+        raise Failure(f"the completed push should carry the result: {pushes[3]}")
+    require_result_type(c.expect_result("listen-task"), "complete", "the close once the task finished")
+
+
+@scenario("task_cancel_stops_work", "tasks, trace-log", chapter=7)
+def s_task_cancel_stops_work(c):
+    """tasks/cancel stops the task's worker, not just the status it reports."""
+    directory = make_keyword_dir()
+    c.request(1, "tools/call", search_call(
+        request_state=encode_state("directory"),
+        input_responses={KEY_DIRECTORY: form_answer(directory)},
+    ), capabilities=TASK_CLIENT)
+    task_id = c.expect_result(1)["taskId"]
+
+    c.request("cancel", "tasks/cancel", {"taskId": task_id}, capabilities=TASK_CLIENT)
+    require_empty_acknowledgement(c.expect_result("cancel"), "tasks/cancel on a running task")
+    # The worker pauses for 4 seconds before it searches, unless it is stopped.
+    if not c.log_contains(f"[TASK {task_id}] interrupted", timeout=2.0):
+        raise Failure("the cancelled task's worker kept running")
+    cancelled = poll_task_until(c, task_id, "cancelled", "after")
+    if "result" in cancelled:
+        raise Failure(f"a cancelled task must not produce a result: {cancelled}")
 
 
 def require_empty_acknowledgement(result, what):

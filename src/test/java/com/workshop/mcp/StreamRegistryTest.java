@@ -53,6 +53,39 @@ class StreamRegistryTest {
     }
 
     @Test
+    @Tag("chapter07")
+    void onlyStreamsThatAgreedToATaskAreToldOfIt() {
+        streams.open(RequestId.of("tasks"), new SubscriptionFilter(null, null, null, null, List.of("t1", "t2")));
+        streams.open(RequestId.of("tools"), TOOL_CHANGES);
+
+        assertEquals(List.of(RequestId.of("tasks")), streams.listeningForTask("t2"));
+        assertEquals(List.of(), streams.listeningForTask("t3"));
+        assertEquals(List.of("t1", "t2"), streams.tasksOf(RequestId.of("tasks")));
+        assertEquals(List.of(), streams.tasksOf(RequestId.of("tools")));
+        assertEquals(List.of(), streams.tasksOf(RequestId.of("gone")));
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aStreamWithNothingButTasksIsRemovedOnceTheyFinish() {
+        streams.open(RequestId.of("tasks"), new SubscriptionFilter(null, null, null, null, List.of("t1")));
+
+        assertTrue(streams.finishTasks(RequestId.of("tasks")));
+        assertFalse(streams.finishTasks(RequestId.of("tasks")), "only one caller may close it");
+        assertEquals(List.of(), streams.closeAll());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aStreamThatAgreedToMoreThanTasksStaysOpenForTheRest() {
+        streams.open(RequestId.of("both"), new SubscriptionFilter(true, null, null, null, List.of("t1")));
+
+        assertFalse(streams.finishTasks(RequestId.of("both")));
+        assertEquals(List.of(RequestId.of("both")), streams.listeningForToolListChanges());
+        assertEquals(List.of(), streams.listeningForTask("t1"));
+    }
+
+    @Test
     void closingAllEmptiesTheRegistryAndSaysWhatWasOpen() {
         streams.open(RequestId.of("a"), TOOL_CHANGES);
         streams.open(RequestId.of(7), RESOURCE_URIS);

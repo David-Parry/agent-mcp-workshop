@@ -1,5 +1,6 @@
 package com.workshop.mcp.tools;
 
+import com.workshop.mcp.MutableClock;
 import com.workshop.mcp.spec.ContentItem;
 import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.ToolCallParams;
@@ -19,6 +20,8 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -331,6 +334,85 @@ class KeyWordSearchTest {
 
             assertEquals(List.of(), tool.searchKeywordInDirectories(Set.of(root.toString()), KEYWORD));
         }
+    }
+
+    // --- progress and stopping ------------------------------------------
+
+    @Test
+    @Tag("chapter07")
+    @Tag("stretch")
+    void everyFileReadIsReportedOutOfHowManyWillBeRead() throws IOException {
+        write("a.txt", KEYWORD);
+        write("b.txt", "nothing");
+        write(".hidden", KEYWORD);
+        List<String> reports = new ArrayList<>();
+
+        tool.call(params(KEYWORD), Set.of(root.toString()), (searched, total) -> reports.add(searched + "/" + total));
+
+        assertEquals(List.of("1/2", "2/2"), reports, "a hidden file is neither read nor counted");
+    }
+
+    @Test
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aSearchOnAnInterruptedThreadReadsNothingAndSaysItWasStopped() throws IOException {
+        write("a.txt", KEYWORD);
+        List<String> reports = new ArrayList<>();
+
+        Thread.currentThread().interrupt();
+        ToolCallResult result;
+        try {
+            result = tool.call(params(KEYWORD), Set.of(root.toString()), (s, t) -> reports.add(s + "/" + t));
+        } finally {
+            Thread.interrupted();
+        }
+
+        assertTrue(result.isError());
+        assertEquals("The search was stopped before it finished.", result.content().get(0).text());
+        assertNull(result.structuredContent(), "a partial search is not passed off as a whole one");
+        assertEquals(List.of(), reports);
+    }
+
+    @Test
+    @Tag("chapter07")
+    @Tag("stretch")
+    void anInterruptStopsTheSearchBeforeTheNextFile() throws IOException {
+        write("a.txt", KEYWORD);
+        write("b.txt", KEYWORD);
+        List<Integer> searched = new ArrayList<>();
+
+        ToolCallResult result;
+        try {
+            result = tool.call(params(KEYWORD), Set.of(root.toString()), (s, t) -> {
+                searched.add(s);
+                Thread.currentThread().interrupt();
+            });
+        } finally {
+            Thread.interrupted();
+        }
+
+        assertEquals(List.of(1), searched);
+        assertTrue(result.isError());
+    }
+
+    @Test
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aThrottledProgressPassesOnTheFirstAndLastReportsAndOnePerIntervalBetween() {
+        MutableClock clock = new MutableClock();
+        List<String> passed = new ArrayList<>();
+        KeyWordSearch.Progress progress =
+                KeyWordSearch.Progress.throttled(clock, 500L, (s, t) -> passed.add(s + "/" + t));
+
+        progress.searched(1, 10);
+        progress.searched(2, 10);
+        clock.advance(Duration.ofMillis(499));
+        progress.searched(3, 10);
+        clock.advance(Duration.ofMillis(1));
+        progress.searched(4, 10);
+        progress.searched(10, 10);
+
+        assertEquals(List.of("1/10", "4/10", "10/10"), passed);
     }
 
     // --- helpers -----------------------------------------------------------

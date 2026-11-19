@@ -1,5 +1,6 @@
 package com.workshop.mcp.tasks;
 
+import com.workshop.mcp.MutableClock;
 import com.workshop.mcp.spec.ErrorCodes;
 import com.workshop.mcp.spec.InputRequest;
 import com.workshop.mcp.spec.Task;
@@ -12,8 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -35,11 +40,13 @@ class TaskStoreTest {
 
     private static final String UNKNOWN_ID = "no-such-task";
 
+    private final MutableClock clock = new MutableClock();
+    private final List<TaskResult> changes = new CopyOnWriteArrayList<>();
     private TaskStore store;
 
     @BeforeEach
     void setUp() {
-        store = new TaskStore();
+        store = new TaskStore(clock, changes::add);
     }
 
     // --- create ---------------------------------------------------------
@@ -417,6 +424,185 @@ class TaskStoreTest {
         assertEquals(first, store.cancel(task.taskId()));
     }
 
+    // --- change reports -------------------------------------------------
+
+    @Test
+    @Tag("stretch")
+    void everyChangeIsReportedWithWhatTasksGetWouldAnswerThen() {
+        Task task = store.create();
+        assertTrue(changes.isEmpty(), "nobody can have subscribed to a task that did not exist");
+
+        store.requireInput(task.taskId(), Map.of("directory", directoryRequest()));
+        store.applyInput(task.taskId(), Map.of("directory", "/srv/code"));
+        store.updateStatusMessage(task.taskId(), "Searched 1 of 2 files");
+        store.complete(task.taskId(), "payload");
+
+        assertEquals(List.of("input_required", "working", "working", "completed"),
+                     changes.stream().map(TaskResult::status).toList());
+        assertTrue(changes.get(0).inputRequests().containsKey("directory"));
+        assertEquals("Searched 1 of 2 files", changes.get(2).statusMessage());
+        assertEquals("payload", changes.get(3).result());
+    }
+
+    @Test
+    @Tag("stretch")
+    void aFailureAndACancelAreReportedToo() {
+        String failed = store.create().taskId();
+        String cancelled = store.create().taskId();
+
+        store.fail(failed, "boom");
+        store.cancel(cancelled);
+
+        assertEquals(List.of("failed", "cancelled"), changes.stream().map(TaskResult::status).toList());
+        assertEquals("boom", changes.get(0).error().message());
+    }
+
+    @Test
+    @Tag("stretch")
+    void aRequestThatChangesNothingReportsNothing() {
+        String waiting = store.create().taskId();
+        store.requireInput(waiting, Map.of("directory", directoryRequest()));
+        String finished = store.create().taskId();
+        store.complete(finished, "payload");
+        changes.clear();
+
+        store.applyInput(waiting, Map.of("smuggled", "ignored"));
+        store.complete(finished, "again");
+        store.fail(finished, "too late");
+        store.cancel(finished);
+        store.requireInput(finished, Map.of("directory", directoryRequest()));
+
+        assertTrue(changes.isEmpty(), "" + changes);
+    }
+
+    // --- the status message ---------------------------------------------
+
+    @Test
+    @Tag("stretch")
+    void aWorkingTaskCanSayHowFarItHasGotWithoutChangingItsStatus() {
+        Task task = store.create();
+        clock.advance(Duration.ofSeconds(2));
+
+        store.updateStatusMessage(task.taskId(), "Searched 120 of 300 files");
+
+        Task after = store.get(task.taskId());
+        assertEquals(TaskStatus.WORKING.getValue(), after.status());
+        assertEquals("Searched 120 of 300 files", after.statusMessage());
+        assertEquals(task.lastUpdatedAt(), after.lastUpdatedAt(), "a message is not a status change");
+    }
+
+    @Test
+    @Tag("stretch")
+    void aTaskThatIsNotWorkingKeepsItsStatusMessage() {
+        String waiting = store.create().taskId();
+        store.requireInput(waiting, Map.of("directory", directoryRequest()));
+        String finished = store.create().taskId();
+        store.complete(finished, "payload");
+        changes.clear();
+
+        store.updateStatusMessage(waiting, "Searched 1 of 2 files");
+        store.updateStatusMessage(finished, "Searched 1 of 2 files");
+        store.updateStatusMessage(UNKNOWN_ID, "Searched 1 of 2 files");
+
+        assertEquals("The operation is waiting for input.", store.get(waiting).statusMessage());
+        assertEquals("The operation completed successfully.", store.get(finished).statusMessage());
+        assertTrue(changes.isEmpty());
+    }
+
+    // --- time and expiry ------------------------------------------------
+
+    @Test
+    @Tag("stretch")
+    void aTasksTimesAreReadFromTheStoresClock() {
+        Task task = store.create();
+        clock.advance(Duration.ofSeconds(3));
+
+        store.complete(task.taskId(), "payload");
+
+        assertEquals("2026-11-18T12:00:00Z", task.createdAt());
+        assertEquals("2026-11-18T12:00:03Z", store.get(task.taskId()).lastUpdatedAt());
+    }
+
+    @Test
+    @Tag("stretch")
+    void aTaskIsKeptForItsTtlAndIsGoneOnceThatHasPassed() {
+        String taskId = store.create().taskId();
+
+        clock.advance(Duration.ofMillis(TaskStore.TTL_MILLIS));
+        assertNotNull(store.get(taskId), "the TTL has run out but not passed");
+
+        clock.advance(Duration.ofMillis(1));
+        assertNull(store.get(taskId), "a task whose time is up is gone before anything purges it");
+        assertNull(store.detail(taskId));
+        assertTrue(changes.isEmpty(), "reading purges nothing");
+
+        assertNull(store.cancel(taskId));
+        assertNull(store.applyInput(taskId, Map.of("directory", "/srv/code")));
+        assertNull(store.requireInput(taskId, Map.of("directory", directoryRequest())));
+        assertNull(store.awaitInput(taskId, 10L));
+        store.complete(taskId, "payload");
+        store.fail(taskId, "boom");
+        store.updateStatusMessage(taskId, "Searched 1 of 2 files");
+        assertEquals(List.of("failed"), changes.stream().map(TaskResult::status).toList(),
+                     "the purge says how the task ended, and nothing changes it after: " + changes);
+        assertEquals("The task expired.", changes.get(0).error().message());
+    }
+
+    @Test
+    @Tag("stretch")
+    void aFinishedTaskExpiresWithoutAnotherReport() {
+        String taskId = store.create().taskId();
+        store.complete(taskId, "payload");
+        changes.clear();
+
+        clock.advance(Duration.ofMillis(TaskStore.TTL_MILLIS + 1));
+        store.create();
+
+        assertNull(store.detail(taskId), "the result goes with the task");
+        assertTrue(changes.isEmpty(), "a finished task has already said how it ended: " + changes);
+    }
+
+    @Test
+    @Timeout(5)
+    @Tag("stretch")
+    void aTaskCanBeReadWhileItsChangeIsStillBeingReported() throws Exception {
+        CountDownLatch reporting = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        TaskStore held = new TaskStore(clock, change -> {
+            reporting.countDown();
+            awaitQuietly(release);
+        });
+        String taskId = held.create().taskId();
+        Thread completer = Thread.ofVirtual().start(() -> held.complete(taskId, "payload"));
+        reporting.await();
+
+        assertEquals(TaskStatus.COMPLETED.getValue(), held.get(taskId).status(),
+                     "a read takes no lock, so a listener that is slow to push holds up no poll");
+        assertEquals("payload", held.detail(taskId).result());
+        release.countDown();
+        completer.join();
+    }
+
+    @Test
+    @Timeout(5)
+    @Tag("stretch")
+    void aWorkerStillWaitingForInputWakesWhenItsTaskExpires() throws Exception {
+        Task task = store.create();
+        store.requireInput(task.taskId(), Map.of("directory", directoryRequest()));
+        AtomicReference<Map<String, Object>> answers = new AtomicReference<>(Map.of());
+        Thread waiter = Thread.ofVirtual().start(() -> answers.set(store.awaitInput(task.taskId(), 60_000L)));
+        while (waiter.getState() != Thread.State.TIMED_WAITING && waiter.isAlive()) {
+            Thread.sleep(5L);
+        }
+
+        clock.advance(Duration.ofMillis(TaskStore.TTL_MILLIS + 1));
+        store.create();
+        waiter.join(4_000L);
+
+        assertFalse(waiter.isAlive(), "the purge must wake the waiter rather than leave it to its timeout");
+        assertNull(answers.get());
+    }
+
     // --- the terminal guard ---------------------------------------------
 
     @Test
@@ -454,6 +640,14 @@ class TaskStoreTest {
     private static void pause() {
         try {
             Thread.sleep(40L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

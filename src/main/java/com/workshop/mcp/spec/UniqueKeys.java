@@ -137,6 +137,17 @@ public enum UniqueKeys {
     NOTIFICATIONS_TOOLS_LIST_CHANGED("notifications/tools/list_changed"),
 
     /**
+     * Notification pushing a task's state to a {@code subscriptions/listen}
+     * stream that agreed to its id (tasks extension).
+     * <p>
+     * It carries what {@code tasks/get} would answer at that moment, and
+     * {@link MetaKeys#SUBSCRIPTION_ID}. The name is the bare one because the
+     * {@code notifications/tasks/} prefix is reserved.
+     * </p>
+     */
+    NOTIFICATIONS_TASKS("notifications/tasks"),
+
+    /**
      * Method for polling a task's current state (tasks extension).
      * Returns the {@link Task} snapshot without blocking.
      */

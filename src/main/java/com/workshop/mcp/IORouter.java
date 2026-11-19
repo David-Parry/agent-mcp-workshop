@@ -90,6 +90,9 @@ public class IORouter implements Router {
      */
     private static final long TASK_INPUT_TIMEOUT_MILLIS = 60_000L;
 
+    /** The least time between two progress reports in a task's status message. */
+    private static final long PROGRESS_INTERVAL_MILLIS = 500L;
+
     /**
      * The methods this server accepts as inbound requests.
      * <p>
@@ -126,7 +129,15 @@ public class IORouter implements Router {
     private final LogFile logger;
     private final IOHandler io;
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
-    private final TaskStore taskStore = new TaskStore();
+    private final Clock clock;
+    private final TaskStore taskStore;
+    /**
+     * Held while anything is sent on a stream, and while a stream opens or
+     * ends, so that nothing is sent on a stream before its acknowledgement or
+     * after it ended. A task's monitor may be held when this is taken, so
+     * nothing done holding this may take a task's monitor.
+     */
+    private final Object pushLock = new Object();
     /**
      * Live task workers, keyed by task id. Virtual threads unmount while they
      * sleep or wait, so {@link Thread#getAllStackTraces()} will not find them;
@@ -161,6 +172,8 @@ public class IORouter implements Router {
         this.logger = logger;
         this.io = io;
         this.settings = settings;
+        this.clock = clock;
+        this.taskStore = new TaskStore(clock, this::taskChanged);
         byte[] stateKey = settings.stateKeyBytes();
         this.stateSigner = StateSigner.withKey(stateKey != null ? stateKey : StateSigner.randomKey(), clock,
                                                StateSigner.DEFAULT_LIFETIME);
@@ -294,7 +307,7 @@ public class IORouter implements Router {
         // Task status on a listen stream belongs to it too: taskIds is the
         // extension's filter, so only a client that declared it may ask.
         if (uniqueKey == UniqueKeys.SUBSCRIPTIONS_LISTEN && !envelope.supportsTasks()
-            && deserializer.deserializeParams(message, TaskStatusFilter.class).asksForTaskStatus()) {
+            && deserializer.deserializeParams(message, SubscriptionsListenParams.class).asksForTaskStatus()) {
             logger.log("[API][SENT] subscriptions/listen — taskIds without the tasks extension (returning -32021)");
             refuseWithoutTasksExtension(message.id());
             return;
@@ -414,6 +427,9 @@ public class IORouter implements Router {
                     logger.log("[API][SENT] tasks/cancel — unknown taskId=" + params.taskId() + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Failed to cancel task: Task not found");
                 } else {
+                    // The store has marked the task, but its worker runs on
+                    // until it is told to stop.
+                    interruptTaskWorker(task.taskId());
                     logger.log("[API][SENT] tasks/cancel — taskId=" + task.taskId() + " acknowledged, now "
                                + task.status());
                     success(message.id(), Map.of("resultType", ResultType.COMPLETE));
@@ -794,24 +810,6 @@ public class IORouter implements Router {
     }
 
     /**
-     * The filter the tasks extension adds to {@code subscriptions/listen}.
-     * <p>
-     * {@link SubscriptionFilter} reads the core protocol's four filters. This
-     * one is read only to refuse it: this server pushes no task status, so it
-     * agrees to no task ids even for a client that declared the extension.
-     * </p>
-     *
-     * @param notifications the requested filters, of which only {@code taskIds} is read
-     */
-    private record TaskStatusFilter(TaskIds notifications) {
-        private record TaskIds(List<String> taskIds) {}
-
-        boolean asksForTaskStatus() {
-            return notifications != null && notifications.taskIds() != null && !notifications.taskIds().isEmpty();
-        }
-    }
-
-    /**
      * Resolves {@code .} to an absolute path.
      * <p>
      * The search reports absolute paths, so the root it walks has to be
@@ -849,9 +847,28 @@ public class IORouter implements Router {
      * Runs the keyword search and remembers it for {@code recent_searches}.
      */
     private ToolCallResult search(ToolCallParams resolved, Set<String> directories) {
-        ToolCallResult result = new KeyWordSearch().call(resolved, directories);
+        return search(resolved, directories, KeyWordSearch.Progress.NONE);
+    }
+
+    /**
+     * Runs the keyword search, reporting its progress, and remembers it for
+     * {@code recent_searches}. A search that was stopped reports no matches,
+     * so it is not remembered.
+     */
+    private ToolCallResult search(ToolCallParams resolved, Set<String> directories,
+                                  KeyWordSearch.Progress progress) {
+        ToolCallResult result = new KeyWordSearch().call(resolved, directories, progress);
         recentSearches.record(directories, result);
         return result;
+    }
+
+    /**
+     * Reports a task's search in its status message. The extension rules out
+     * {@code notifications/progress} for a task.
+     */
+    private KeyWordSearch.Progress progressOf(String taskId) {
+        return KeyWordSearch.Progress.throttled(clock, PROGRESS_INTERVAL_MILLIS, (searched, total) ->
+                taskStore.updateStatusMessage(taskId, "Searched " + searched + " of " + total + " files"));
     }
 
     /**
@@ -883,8 +900,11 @@ public class IORouter implements Router {
                 // is never answered, so the stream is forgotten, not closed.
                 logger.log("[API][RECEIVED] notifications/cancelled requestId=" + params.requestId()
                            + " reason=" + params.reason());
-                if (streams.forget(params.requestId())) {
-                    logger.log("[API][RECEIVED] subscriptions/listen — the client closed stream " + params.requestId());
+                synchronized (pushLock) {
+                    if (streams.forget(params.requestId())) {
+                        logger.log("[API][RECEIVED] subscriptions/listen — the client closed stream "
+                                   + params.requestId());
+                    }
                 }
             }
             default -> logger.log("[API][RECEIVED] unhandled notification method: " + message.method()
@@ -934,23 +954,82 @@ public class IORouter implements Router {
         SubscriptionFilter requested = params.notifications() == null
                 ? new SubscriptionFilter(null, null, null, null)
                 : params.notifications();
-        SubscriptionFilter honored = requested.honoredUnder(discoverResult().capabilities());
+        synchronized (pushLock) {
+            Map<String, TaskResult> subscribed = new LinkedHashMap<>();
+            SubscriptionFilter honored = requested.honoredUnder(discoverResult().capabilities(), taskId -> {
+                TaskResult detail = taskStore.detail(taskId);
+                if (detail != null) {
+                    subscribed.put(taskId, detail);
+                }
+                return detail != null;
+            });
 
-        logger.log("[API][SENT] subscriptions/listen — acknowledging id=" + message.id()
-                   + " honored=" + honored);
-        io.emit(new JsonRpcNotification(
-                JSON_RPC_VERSION,
-                UniqueKeys.NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED.getValue(),
-                SubscriptionsAcknowledgedParams.of(message.id(), honored)));
+            logger.log("[API][SENT] subscriptions/listen — acknowledging id=" + message.id()
+                       + " honored=" + honored);
+            io.emit(new JsonRpcNotification(
+                    JSON_RPC_VERSION,
+                    UniqueKeys.NOTIFICATIONS_SUBSCRIPTIONS_ACKNOWLEDGED.getValue(),
+                    SubscriptionsAcknowledgedParams.of(message.id(), honored)));
 
-        if (honored.isEmpty()) {
-            logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
-            success(message.id(), SubscriptionsListenResult.closing(message.id()));
-            return;
+            if (honored.isEmpty()) {
+                logger.log("[API][SENT] subscriptions/listen — nothing honored, closing immediately");
+                success(message.id(), SubscriptionsListenResult.closing(message.id()));
+                return;
+            }
+            streams.open(message.id(), honored);
+            logger.log("[API][SENT] subscriptions/listen — holding stream " + message.id() + " open");
+            // A task may have moved on before the client subscribed, so the
+            // stream starts with where each task stands.
+            subscribed.values().forEach(detail -> pushTask(message.id(), detail));
+            closeIfTasksFinished(message.id());
+            if (Boolean.TRUE.equals(honored.toolsListChanged())) {
+                startListChangedTimer();
+            }
         }
-        streams.open(message.id(), honored);
-        logger.log("[API][SENT] subscriptions/listen — holding stream " + message.id() + " open");
-        startListChangedTimer();
+    }
+
+    /**
+     * Pushes a task's change to every stream that subscribed to it, and closes
+     * a stream once all of its tasks have finished.
+     * <p>
+     * The store calls this on whichever thread changed the task, holding the
+     * task's monitor, so a task's pushes go out in the order its changes
+     * happened. A push that fails to send is logged rather than thrown, so
+     * that a broken stream cannot fail the task or the request that changed it.
+     * </p>
+     *
+     * @param detail what {@code tasks/get} would answer for the task now
+     */
+    private void taskChanged(TaskResult detail) {
+        synchronized (pushLock) {
+            for (RequestId stream : streams.listeningForTask(detail.taskId())) {
+                try {
+                    pushTask(stream, detail);
+                    closeIfTasksFinished(stream);
+                } catch (RuntimeException e) {
+                    logger.log("[API][SENT] notifications/tasks on stream " + stream + " failed: " + e);
+                }
+            }
+        }
+    }
+
+    private void pushTask(RequestId stream, TaskResult detail) {
+        logger.log("[API][SENT] notifications/tasks — stream " + stream + " taskId=" + detail.taskId()
+                   + " status=" + detail.status());
+        io.emit(new JsonRpcNotification(JSON_RPC_VERSION, UniqueKeys.NOTIFICATIONS_TASKS.getValue(),
+                                        TasksNotificationParams.of(stream, detail)));
+    }
+
+    /**
+     * Closes a stream whose tasks have all finished, unless it agreed to
+     * something besides task status.
+     */
+    private void closeIfTasksFinished(RequestId stream) {
+        if (streams.tasksOf(stream).stream().allMatch(this::isFinished) && streams.finishTasks(stream)) {
+            logger.log("[API][SENT] subscriptions/listen — every task on stream " + stream
+                       + " has finished, closing it");
+            success(stream, SubscriptionsListenResult.closing(stream));
+        }
     }
 
     /**
@@ -981,16 +1060,18 @@ public class IORouter implements Router {
      * </p>
      */
     private void announceToolListChange() {
-        try {
-            for (RequestId stream : streams.listeningForToolListChanges()) {
-                logger.log("[API][SENT] notifications/tools/list_changed — stream " + stream);
-                io.emit(new JsonRpcNotification(
-                        JSON_RPC_VERSION,
-                        UniqueKeys.NOTIFICATIONS_TOOLS_LIST_CHANGED.getValue(),
-                        Map.of("_meta", Map.of(MetaKeys.SUBSCRIPTION_ID, stream))));
+        synchronized (pushLock) {
+            try {
+                for (RequestId stream : streams.listeningForToolListChanges()) {
+                    logger.log("[API][SENT] notifications/tools/list_changed — stream " + stream);
+                    io.emit(new JsonRpcNotification(
+                            JSON_RPC_VERSION,
+                            UniqueKeys.NOTIFICATIONS_TOOLS_LIST_CHANGED.getValue(),
+                            Map.of("_meta", Map.of(MetaKeys.SUBSCRIPTION_ID, stream))));
+                }
+            } catch (RuntimeException e) {
+                logger.log("[API][SENT] notifications/tools/list_changed failed: " + e);
             }
-        } catch (RuntimeException e) {
-            logger.log("[API][SENT] notifications/tools/list_changed failed: " + e);
         }
     }
 
@@ -1009,9 +1090,11 @@ public class IORouter implements Router {
         if (timer != null) {
             timer.shutdownNow();
         }
-        for (RequestId stream : streams.closeAll()) {
-            logger.log("[API][SENT] subscriptions/listen — the server is closing stream " + stream);
-            success(stream, SubscriptionsListenResult.closing(stream));
+        synchronized (pushLock) {
+            for (RequestId stream : streams.closeAll()) {
+                logger.log("[API][SENT] subscriptions/listen — the server is closing stream " + stream);
+                success(stream, SubscriptionsListenResult.closing(stream));
+            }
         }
         pages.close();
     }
@@ -1026,7 +1109,7 @@ public class IORouter implements Router {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Thread.sleep(4000L);
-                ToolCallResult result = search(params, directories);
+                ToolCallResult result = search(params, directories, progressOf(taskId));
                 taskStore.complete(taskId, result);
                 logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
             } catch (InterruptedException ie) {
@@ -1064,7 +1147,7 @@ public class IORouter implements Router {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 SearchQuestions.Answers answers = askTaskQuestions(taskId, keyword == null, envelope);
-                if (isTerminal(taskId)) {
+                if (isFinished(taskId)) {
                     return;
                 }
 
@@ -1076,7 +1159,8 @@ public class IORouter implements Router {
                 }
 
                 ToolCallResult result = search(
-                        resolvedCall(params, keyword != null ? keyword : answers.keyword()), Set.of(directory));
+                        resolvedCall(params, keyword != null ? keyword : answers.keyword()), Set.of(directory),
+                        progressOf(taskId));
                 taskStore.complete(taskId, result);
                 logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
             } catch (Exception e) {
@@ -1132,6 +1216,7 @@ public class IORouter implements Router {
         if (worker == null) {
             return false;
         }
+        logger.log("[TASK " + taskId + "] interrupting its worker");
         worker.interrupt();
         return true;
     }
@@ -1159,7 +1244,9 @@ public class IORouter implements Router {
         return answers == null ? Map.of() : answers;
     }
 
-    private boolean isTerminal(String taskId) {
-        return TaskStatus.fromValue(taskStore.get(taskId).status()).isTerminal();
+    /** Whether a task has finished, counting one whose time is up. Takes no task's monitor. */
+    private boolean isFinished(String taskId) {
+        Task task = taskStore.get(taskId);
+        return task == null || TaskStatus.fromValue(task.status()).isTerminal();
     }
 }

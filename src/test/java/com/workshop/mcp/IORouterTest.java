@@ -12,6 +12,7 @@ import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.MetaKeys;
 import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
+import com.workshop.mcp.tasks.TaskStore;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.RecentSearches;
 import com.workshop.mcp.tools.SearchContinuation;
@@ -36,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -1039,9 +1041,9 @@ class IORouterTest {
 
     @Test
     @Tag("chapter07")
-    void aClientThatDeclaredTheExtensionIsAgreedNoTaskStatus() {
+    void aListenForATaskThisServerDoesNotHoldIsAgreedToNothing() {
         // A server may agree to fewer task ids than it was asked for, and
-        // this one pushes no task status at all, so it agrees to none.
+        // this one agrees only to the tasks it holds.
         router.route("""
                 {"jsonrpc":"2.0","id":"listen:declared","method":"subscriptions/listen",
                  "params":{%s,"notifications":{"taskIds":["no-such-task"]}}}""".formatted(TASKS_META));
@@ -1231,6 +1233,251 @@ class IORouterTest {
 
             JsonObject done = awaitTaskStatus(taskId, "completed");
             assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean());
+        }
+    }
+
+    // --- tasks: cancelling the work, and pushing status ---------------
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aCancelStopsTheTasksWorkerInsteadOfLettingItRunOn(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws Exception {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, SETTINGS);
+        router.route(taskCallWithADirectory(92, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        router.route(cancel(93, taskId));
+
+        // Well inside the 4-second pause the worker takes before it searches.
+        awaitLog(log, 2_000L, "[TASK " + taskId + "] interrupted");
+        assertTrue(log.logged("[TASK " + taskId + "] interrupting its worker"), log.lines.toString());
+        assertNull(awaitTaskStatus(taskId, "cancelled").get("result"));
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aStreamThatNamesATaskHearsEachChangeAndClosesOnceTheTaskFinishes(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+        router.route(taskCallWithoutADirectory(94, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "input_required");
+
+        router.route(listenForTasks("listen:task", taskId));
+        router.route("""
+                {"jsonrpc":"2.0","id":95,"method":"tasks/update","params":{%s,"taskId":"%s",
+                  "inputResponses":{"search_directory":{"action":"accept","content":{"directory":"%s"}}}}}"""
+                             .formatted(TASKS_META, taskId, directory));
+        awaitResponse("listen:task");
+
+        List<JsonObject> stream = onStream("listen:task");
+        assertEquals(JsonParser.parseString("[\"" + taskId + "\"]"), stream.get(0).getAsJsonObject("params")
+                .getAsJsonObject("notifications").get("taskIds"), "the task is agreed to: " + stream.get(0));
+        List<JsonObject> pushes = stream.subList(1, stream.size() - 1).stream()
+                .map(push -> push.getAsJsonObject("params")).toList();
+        assertEquals(List.of("input_required", "working", "working", "completed"),
+                     pushes.stream().map(push -> push.get("status").getAsString()).toList(),
+                     "the stream starts from where the task stands: " + stream);
+        for (JsonObject push : pushes) {
+            assertEquals(taskId, push.get("taskId").getAsString());
+            assertFalse(push.has("resultType"), "a notification is not a result: " + push);
+        }
+        assertTrue(pushes.get(0).getAsJsonObject("inputRequests").has(SearchContinuation.KEY_DIRECTORY));
+        assertEquals("Searched 1 of 1 files", pushes.get(2).get("statusMessage").getAsString());
+        assertTrue(pushes.get(3).getAsJsonObject("result").toString().contains("hit.txt"), pushes.get(3).toString());
+        assertTrue(stream.get(stream.size() - 1).has("result"), "the stream closes once the task is done");
+    }
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aListenForATaskThatHasFinishedHearsHowItEndedAndIsClosed() {
+        router.route(taskCallWithoutADirectory(96, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        router.route(cancel(97, taskId));
+        io.clear();
+
+        router.route(listenForTasks("listen:late", taskId));
+
+        List<JsonObject> notifications = io.notifications();
+        assertEquals(List.of("notifications/subscriptions/acknowledged", "notifications/tasks"),
+                     notifications.stream().map(notification -> notification.get("method").getAsString()).toList());
+        assertEquals("cancelled", notifications.get(1).getAsJsonObject("params").get("status").getAsString());
+        assertEquals("listen:late", notifications.get(1).getAsJsonObject("params").getAsJsonObject("_meta")
+                .get(MetaKeys.SUBSCRIPTION_ID).getAsString());
+        assertEquals("listen:late", io.only().get("id").getAsString(), "with nothing left to hear, it closes");
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aStreamWatchingTwoTasksClosesOnlyWhenBothHaveFinished() throws Exception {
+        router.route(taskCallWithoutADirectory(98, "\"elicitation\":{\"form\":{}}"));
+        String first = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        io.clear();
+        router.route(taskCallWithoutADirectory(99, "\"elicitation\":{\"form\":{}}"));
+        String second = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(first, "input_required");
+        awaitTaskStatus(second, "input_required");
+        router.route(listenForTasks("listen:both", first, second));
+
+        io.clear();
+        router.route(cancel(100, first));
+        assertEquals("cancelled", io.notifications().get(0).getAsJsonObject("params").get("status").getAsString());
+        assertEquals(List.of("100"), io.responses().stream().map(r -> r.get("id").getAsString()).toList(),
+                     "one of its tasks is still running");
+
+        io.clear();
+        router.route(cancel(101, second));
+        assertEquals(Set.of("101", "listen:both"),
+                     Set.copyOf(io.responses().stream().map(r -> r.get("id").getAsString()).toList()));
+    }
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aStreamThatAgreedToMoreThanTaskStatusStaysOpenOnceItsTasksFinish() throws Exception {
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(60_000L));
+        router.route(taskCallWithoutADirectory(102, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        router.route("""
+                {"jsonrpc":"2.0","id":"listen:mixed","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"toolsListChanged":true,"taskIds":["%s"]}}}"""
+                             .formatted(TASKS_META, taskId));
+
+        io.clear();
+        router.route(cancel(103, taskId));
+
+        assertEquals("notifications/tasks", io.notifications().get(0).get("method").getAsString());
+        assertEquals(List.of("103"), io.responses().stream().map(r -> r.get("id").getAsString()).toList(),
+                     "the stream still has tool-list changes to hear");
+    }
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aStreamThatWatchesOnlyTasksStartsNoListChangedTimer() throws Exception {
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(50L));
+        router.route(taskCallWithoutADirectory(104, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        router.route(listenForTasks("listen:quiet", taskId));
+
+        Field timer = IORouter.class.getDeclaredField("listChangedTimer");
+        timer.setAccessible(true);
+        assertNull(timer.get(router), "nothing on this stream is waiting for a tool-list change");
+    }
+
+    @Test
+    @Timeout(10)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aPushThatFailsToSendIsLoggedAndTheChangeStillStands() throws Exception {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, SETTINGS);
+        router.route(taskCallWithoutADirectory(105, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "input_required");
+        router.route(listenForTasks("listen:broken", taskId));
+
+        io.clear();
+        io.failNextEmit();
+        router.route(cancel(106, taskId));
+
+        assertTrue(log.logged("notifications/tasks on stream listen:broken failed", "the write failed"),
+                   log.lines.toString());
+        assertEmptyAcknowledgement(io.only());
+        awaitTaskStatus(taskId, "cancelled");
+    }
+
+    @Test
+    @Timeout(15)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aTaskWhoseTimeIsUpIsForgottenAndItsWorkerStopsWaiting() throws Exception {
+        MutableClock clock = new MutableClock();
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, SETTINGS, clock);
+        router.route(taskCallWithoutADirectory(107, "\"elicitation\":{\"form\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        awaitTaskStatus(taskId, "input_required");
+        router.route(listenForTasks("listen:expiring", taskId));
+
+        clock.advance(Duration.ofMillis(TaskStore.TTL_MILLIS + 1));
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":108,"method":"tasks/get","params":{%s,"taskId":"%s"}}"""
+                             .formatted(TASKS_META, taskId));
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(), "it is gone at once");
+
+        io.clear();
+        router.route(cancel(109, taskId));
+        JsonObject push = io.notifications().get(0).getAsJsonObject("params");
+        assertEquals("failed", push.get("status").getAsString(), "the purge says how the task ended");
+        assertEquals("The task expired.", push.get("statusMessage").getAsString());
+        assertEquals(Set.of("109", "listen:expiring"),
+                     Set.copyOf(io.responses().stream().map(r -> r.get("id").getAsString()).toList()));
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.responses().stream()
+                .filter(r -> "109".equals(r.get("id").getAsString())).findFirst().orElseThrow()
+                .getAsJsonObject("error").get("code").getAsInt());
+
+        io.clear();
+        router.route("""
+                {"jsonrpc":"2.0","id":110,"method":"tasks/update","params":{%s,"taskId":"%s",
+                  "inputResponses":{"search_directory":{"action":"decline"}}}}""".formatted(TASKS_META, taskId));
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+
+        // Its wait for input would otherwise run for a minute.
+        awaitLog(log, 5_000L, "[TASK " + taskId + "] no answer arrived");
+    }
+
+    private static String listenForTasks(String id, String... taskIds) {
+        String ids = String.join("\",\"", taskIds);
+        return """
+                {"jsonrpc":"2.0","id":"%s","method":"subscriptions/listen",
+                 "params":{%s,"notifications":{"taskIds":["%s"]}}}""".formatted(id, TASKS_META, ids);
+    }
+
+    /** Everything ever sent on one stream, in order: its notifications, then the result that closed it. */
+    private List<JsonObject> onStream(String listenId) {
+        return io.everSent().stream().filter(message -> {
+            if (message.has("id")) {
+                return listenId.equals(message.get("id").getAsString());
+            }
+            JsonObject meta = message.getAsJsonObject("params").getAsJsonObject("_meta");
+            return meta != null && meta.has(MetaKeys.SUBSCRIPTION_ID)
+                   && listenId.equals(meta.get(MetaKeys.SUBSCRIPTION_ID).getAsString());
+        }).toList();
+    }
+
+    /** Waits for the answer to a request, whatever {@code clear()} has dropped since. */
+    private void awaitResponse(String id) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 20_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (io.everSent().stream().anyMatch(m -> m.has("id") && id.equals(m.get("id").getAsString()))) {
+                return;
+            }
+            Thread.sleep(10L);
+        }
+        throw new AssertionError("request " + id + " was never answered; sent " + io.everSent());
+    }
+
+    private static void awaitLog(RecordingLog log, long timeoutMillis, String... parts) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (!log.logged(parts)) {
+            if (System.currentTimeMillis() > deadline) {
+                throw new AssertionError("never logged " + List.of(parts) + "; logged " + log.lines);
+            }
+            Thread.sleep(10L);
         }
     }
 
@@ -2439,6 +2686,11 @@ class IORouterTest {
         /** Every notification since the handler was made, whatever {@link #clear()} has dropped. */
         List<JsonObject> notificationsEverSent() {
             return history.stream().filter(m -> !m.has("id")).toList();
+        }
+
+        /** Every message since the handler was made, in the order sent, whatever {@link #clear()} has dropped. */
+        List<JsonObject> everSent() {
+            return List.copyOf(history);
         }
 
         /** The single response, asserting there was exactly one. */
