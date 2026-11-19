@@ -116,7 +116,7 @@ Implement `server/discover` and the per-request envelope that replaced the hands
 - `03-sequence-diagram.md` — what the server does with each kind of line
 
 ### Verification
-- `./gradlew chapterTest -Pchapter=03` is green: 49 tests, of which 21 start red
+- `./gradlew chapterTest -Pchapter=03` is green: 49 tests, of which the 21 in `IORouterTest` start red
 - The harness passes: `python3 lessons/presentation-3hr/verify/harness.py --chapter 03`
 - MCP Inspector connects with `"protocolEra": "modern"`, and the first message on the wire is `server/discover`, not `initialize`
 - Discovery completes: the probe's id is the **string** `"server-discover-probe-1"` and comes back as a string, and the capabilities list prompts, resources, tools and completions
@@ -159,7 +159,7 @@ Implement the three core MCP capabilities to create a useful server.
 - JSON Schema for tool parameters
 - Classpath resource loading
 - Cache hints on every list and read result, and no `nextCursor` when there is one page
-- Errors versus results: an unknown tool, prompt or resource is `-32602`; a tool that ran and failed is a result with `isError`
+- Errors versus results: an unknown tool, prompt or resource is `-32602`; arguments the tool cannot use, and a tool that ran and failed, are a result with `isError`
 - Runtime context as a tool argument, resolved per call — there is no session to configure it in
 
 ### Supporting Materials
@@ -200,7 +200,7 @@ See where extensions are declared, though this chapter declares none, then ask t
 - `requestState` comes back from the client, which can rewrite it, so it holds only the stage; the keyword comes back with the retried call's arguments
 - An empty `"elicitation":{}` declares form, as it did before there were modes
 - Always leave a one-hop path — MRTR is optional for clients, so the directory is also an optional tool argument
-- Removed (SEP-2575) is not deprecated (SEP-2577): `initialize`, `ping`, `logging/setLevel` and the other removed methods are physically gone and answer `-32601`, whereas the roots, sampling, and logging features still work (the log level is now each request's `logLevel`), and clients keep declaring roots and sampling — this server just does not build on them
+- Removed (SEP-2575) is not deprecated (SEP-2577): `initialize`, `ping`, `logging/setLevel` and the other removed methods are physically gone, so a request for one answers `-32601` and a removed notification is only logged, whereas the roots, sampling, and logging features still work (the log level is now each request's `logLevel`), and clients keep declaring roots and sampling — this server just does not build on them
 
 ### Verification
 - `./gradlew chapterTest -Pchapter=05` is green: 36 tests, of which 27 start red (9 in `SearchContinuationTest`, 18 in `IORouterTest`); 4 already pass through Chapter 4's `TOOLS_CALL` case and must stay green when you replace it
@@ -272,6 +272,7 @@ Implement the **`io.modelcontextprotocol/tasks` extension**, at the Beta stage a
 - **A handle or a question, never both**: `resultType` holds one value, so the handler commits to the task handle before the tool works out what it is missing, and the question moves onto the task as its `input_required` status
 - A task that needs input asks through its status, and `tasks/update` delivers the `inputResponses`
 - `tasks/update` and `tasks/cancel` are acknowledged with an empty result: answers the task is not waiting for are ignored, and cancelling a finished task leaves it finished
+- A cancel stops the work as well as the status: the router interrupts the task's thread, and a result that arrives after the cancel is dropped
 - `notifications/tasks` goes only to a client that subscribed with `subscriptions/listen`; this server sends none, and the client polls
 - `ttlMs` / `pollIntervalMs` naming, and the TTL is the server's alone
 

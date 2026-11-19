@@ -33,6 +33,10 @@ Install the MCP Inspector tool globally:
 npm install -g @modelcontextprotocol/inspector@2.5.0
 ```
 
+### 6. Python 3
+
+Install Python 3. From Chapter 3 on, each chapter is also checked with `python3 lessons/presentation-3hr/verify/harness.py --chapter 0N`, which drives the built server the way a client would. It needs only the standard library. `verification.sh` does not check for Python, so confirm it with `python3 --version`.
+
 ## Verification
 
 Run the verification script to confirm your environment is properly configured:
@@ -94,7 +98,7 @@ git fetch origin
 git merge origin/01-chapter
 ```
 
-When Chapter N is green, commit (`git add -A && git commit -m "Finish chapter 0N"`), then run `git fetch origin` and `git merge origin/0(N+1)-chapter`. Every chapter branch is the one before it with that chapter solved, so the merge brings in the reference solution and the next chapter's empty methods. It is clean if you wrote the methods as the handouts give them; where you wrote something differently, git stops with a conflict that you resolve by keeping your version or taking the reference (`git checkout --theirs -- <file>`). A file the next branch deletes, such as a lesson handout you edited, conflicts as modify/delete instead: `git rm` it to accept the deletion.
+When Chapter N is green, commit (`git add -A && git commit -m "Finish chapter 0N"`), then run `git fetch origin` and `git merge origin/0(N+1)-chapter`. Every chapter branch is the one before it with that chapter solved, so the merge brings in the reference solution and the next chapter's empty methods. It is clean if you wrote the methods as the handouts give them; where you wrote something differently, git stops with a conflict that you resolve by editing the conflict markers to keep your version, or by taking the reference (`git checkout --theirs -- <file>`). Don't keep yours with `git checkout --ours -- <file>`: it takes your whole file, so it also throws away the next chapter's empty methods and every other change the merge brought into that file. A file the next branch deletes, such as a lesson handout you edited, conflicts as modify/delete instead: `git rm` it to accept the deletion.
 
 Check your work with **this** chapter's number (`01` on `01-chapter`, `02` on `02-chapter`, and so on):
 
@@ -119,7 +123,7 @@ The instructor will use JetBrains IntelliJ IDEA, but you can use any Java-capabl
 For issues with specific tools, consult their documentation:
 
 - **JDK/Java**: [Azul Support](https://www.azul.com/support/)
-- **Node.js/NPM**: [Node.js Documentation](https://nodejs.org/en/docs/guides/)
+- **Node.js/NPM**: [Node.js Documentation](https://nodejs.org/learn)
 - **Gradle**: [Gradle Troubleshooting Guide](https://docs.gradle.org/current/userguide/troubleshooting.html)
 - **MCP Inspector**: [MCP Inspector GitHub](https://github.com/modelcontextprotocol/inspector)
   - Use `npx @modelcontextprotocol/inspector --help` for command-line options
