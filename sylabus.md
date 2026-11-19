@@ -39,7 +39,7 @@ Build the bidirectional I/O infrastructure that enables communication between MC
 3. Implement `publishLine()` — distribute input to listeners
 
 ### Verification
-- `./gradlew chapterTest -Pchapter=01` is green: 58 tests, of which 13 in `IOHandlerImplTest` start red
+- `./gradlew chapterTest -Pchapter=01` is green: 62 tests, of which 13 in `IOHandlerImplTest` start red
 
 ### Outcome
 A working transport layer that can read input, publish to listeners, and emit JSON responses.
@@ -167,7 +167,7 @@ Implement the three core MCP capabilities to create a useful server.
 - `04-mcp-message-flow.md` — message flows for resources, tools, prompts and completion
 
 ### Verification
-- `./gradlew chapterTest -Pchapter=04` is green: 141 tests, of which the 22 in `IORouterTest` start red
+- `./gradlew chapterTest -Pchapter=04` is green: 152 tests, of which the 25 in `IORouterTest` start red
 - The harness passes: `python3 lessons/presentation-3hr/verify/harness.py --chapter 04`
 - The Inspector's Resources tab lists the Javadoc files
 - The Tools tab shows `key_word_search` with a required `keyword` and an optional `directory`
@@ -276,7 +276,7 @@ Implement the **`io.modelcontextprotocol/tasks` extension**, at the Beta stage a
 - `ttlMs` / `pollIntervalMs` naming, and the TTL is the server's alone
 
 ### Verification
-- `./gradlew chapterTest -Pchapter=07` is green: 74 tests, of which 58 start red (23 in `IORouterTest`, 35 in `TaskStoreTest`)
+- `./gradlew chapterTest -Pchapter=07` is green: 81 tests, of which 65 start red (28 in `IORouterTest`, 37 in `TaskStoreTest`)
 - `./gradlew clean build` passes, which on this branch includes the coverage check the finished server must meet, and so does the harness: `python3 lessons/presentation-3hr/verify/harness.py --chapter 07`
 - `./inspector/modern-tasks.sh` walks one task by hand: the handle, `input_required`, `tasks/update`, `completed`, a cancel that leaves it `completed`, then `-32021` and `-32602`
 - The `server/discover` result carries `extensions["io.modelcontextprotocol/tasks"]`
