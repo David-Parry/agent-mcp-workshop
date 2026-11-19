@@ -19,6 +19,8 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -96,16 +98,71 @@ public class KeyWordSearch implements Tool {
      */
     @Override
     public ToolCallResult call(ToolCallParams toolCallParams, Set<String> directories) {
-        String keyword = toolCallParams.arguments().get("keyword");
+        String keyword = toolCallParams.stringArgument("keyword");
         ToolCallResultBuilder builder = ToolCallResultBuilder.builder();
         if (directories == null || directories.isEmpty()) {
             builder.addTextContent("No search directory was resolved for this call.");
             builder.asError();
         } else {
-            List<ContentItem> contentItems = searchKeywordInDirectories(directories, keyword);
-            builder.withContent(contentItems);
+            // A directory can also arrive after the arguments were checked, from
+            // an elicited form or a tasks/update, so each one is checked here too.
+            String unusable = directories.stream().filter(Objects::nonNull).map(KeyWordSearch::pathProblem)
+                    .filter(Objects::nonNull).findFirst().orElse(null);
+            if (unusable != null) {
+                builder.addTextContent(unusable);
+                builder.asError();
+            } else {
+                List<ContentItem> contentItems = searchKeywordInDirectories(directories, keyword);
+                builder.withContent(contentItems);
+            }
         }
         return builder.build();
+    }
+
+    /**
+     * Checks a call's arguments against this tool's input schema.
+     * <p>
+     * An argument the tool cannot use is a mistake the model can fix, not a
+     * malformed request, so it is answered with a tool error rather than a
+     * protocol error. Only what would break the search is refused: a keyword
+     * or directory that is not a string, and a directory that cannot be a
+     * path. A missing keyword still searches for nothing, and a missing
+     * directory is asked for.
+     * </p>
+     *
+     * @param arguments the call's arguments, as the client sent them
+     * @return what is wrong with them, written for the model, or null when the search can run
+     */
+    public String checkArguments(Map<String, Object> arguments) {
+        if (arguments == null) {
+            return null;
+        }
+        Object keyword = arguments.get("keyword");
+        if (keyword != null && !(keyword instanceof String)) {
+            return "The keyword argument must be a string.";
+        }
+        Object directory = arguments.get("directory");
+        if (directory != null && !(directory instanceof String)) {
+            return "The directory argument must be a string.";
+        }
+        return directory == null ? null : pathProblem((String) directory);
+    }
+
+    /**
+     * Says why a directory cannot be searched as a path, such as a NUL byte
+     * in it, which no file system accepts.
+     *
+     * @param directory the directory as it was given, possibly as a {@code file://} URI
+     * @return the reason, written for the model, or null when it is a path
+     */
+    private static String pathProblem(String directory) {
+        String path = directory.startsWith(FILE_PREFIX) ? directory.substring(FILE_PREFIX.length()) : directory;
+        try {
+            Paths.get(path);
+            return null;
+        } catch (InvalidPathException e) {
+            return "The directory \"" + directory + "\" is not a valid path: " + e.getReason() + ".";
+        }
     }
 
     /**
@@ -154,6 +211,14 @@ public class KeyWordSearch implements Tool {
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        // A cancelled task interrupts the thread running its search, and
+                        // between files is the soonest the walk can stop. Walking on would
+                        // find nothing anyway: Files.lines, which isTextFile reads with,
+                        // throws on an interrupted thread, so every file would be skipped.
+                        if (Thread.currentThread().isInterrupted()) {
+                            logger.log("Search interrupted; stopping before " + file);
+                            return FileVisitResult.TERMINATE;
+                        }
                         // Skip binary files, hidden files, and archive files
                         String fileName = file.getFileName().toString();
                         if (Files.isRegularFile(file) &&

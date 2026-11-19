@@ -118,7 +118,7 @@ classDiagram
     class ToolCallParams {
         +MetaInfo _meta
         +String name
-        +Map~String,String~ arguments
+        +Map~String,Object~ arguments
         +Map~String,Object~ inputResponses
         +String requestState
     }
@@ -265,6 +265,7 @@ classDiagram
         +name() String
         +description() String
         +schema() InputSchema
+        +checkArguments(Map~String,Object~) String
         +call(ToolCallParams, Set~String~) ToolCallResult
     }
 
@@ -336,7 +337,7 @@ classDiagram
 - **ToolsListResult**: The list of available tools, plus cache hints
 - **InputSchema**: JSON Schema definition for tool parameters
 - **PropertySchema**: One property in that schema. Note `key` and `isRequired` are bookkeeping for the builder and are deliberately *not* serialized — a custom `TypeAdapter` writes only `type` and `description`, because anything else would not be valid JSON Schema
-- **ToolCallParams**: Parameters for executing a tool. `arguments` is `Map<String, String>`, so a tool receives its arguments already flattened to strings. `inputResponses` and `requestState` carry the answers to a server's question when a call is retried; nothing reads them until Chapter 5
+- **ToolCallParams**: Parameters for executing a tool. `arguments` is `Map<String, Object>`, because the specification lets each argument be any JSON value. A tool checks them against its own `inputSchema`, and `stringArgument` reads one that should be a string, or `null` if it is not. `inputResponses` and `requestState` carry the answers to a server's question when a call is retried; nothing reads them until Chapter 5
 - **ToolCallResult**: Result of tool execution. No cache hints: a search result is not reusable. `isError` marks a tool that ran and failed, which is still a result
 
 ### Prompt Classes

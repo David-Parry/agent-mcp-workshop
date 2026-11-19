@@ -104,6 +104,11 @@ case TOOLS_CALL -> {
         logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                    + " (returning -32602)");
         error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
+    } else if (keyWordSearch.checkArguments(toolCallParams.arguments()) instanceof String unusable) {
+        // Checked before the search starts: arguments the tool cannot
+        // use get a tool error the model can act on, and nothing runs.
+        logger.log("[API][SENT] tools/call — unusable arguments, answering isError: " + unusable);
+        success(message.id(), ToolCallResultBuilder.builder().addTextContent(unusable).asError().build());
     } else {
         String directory = directoryArgument(toolCallParams);
         if (directory == null) {
@@ -126,10 +131,11 @@ case TOOLS_CALL -> {
 
 ### Errors and results
 
-The two failures in `TOOLS_CALL` look alike and are answered differently:
+The failures in `TOOLS_CALL` look alike and are answered differently:
 
 - **An unknown tool name is a protocol error.** The request itself is wrong, so it gets `-32602`, `"Unknown tool: ..."`. Names are matched exactly: `Key_Word_Search` is a different tool, and is unknown.
 - **A missing directory is a tool error.** The request is fine and the tool ran, but it could not do its job. That is `isError: true` inside a successful result, with text the model can read and act on: here, by calling again with a directory. Chapter 5 turns that gap into a question.
+- **Arguments the tool cannot use are a tool error too.** A keyword that is an object, or a directory with a NUL byte in it, still fits `CallToolRequest`, whose `arguments` may hold any JSON value. Only the tool's own `inputSchema` rules them out, and the specification answers such input validation errors with `isError: true`, so the model can correct the call. `KeyWordSearch.checkArguments` makes this check before anything runs. Arguments that are not an object at all fail `CallToolRequest` itself, and still get `-32602`.
 
 `prompts/get` and `resources/read` follow the first rule: an unknown prompt, a missing required argument and an unknown resource are all `-32602`.
 
@@ -200,7 +206,7 @@ case PROMPTS_GET -> {
 
 Completion suggests values for a prompt argument while the user types it.
 
-**Action Required**: paste the following over the empty `COMPLETION_COMPLETE` case in `IORouter.java` — **line 223** as you checked it out, line 294 once Parts 1 to 3 are in:
+**Action Required**: paste the following over the empty `COMPLETION_COMPLETE` case in `IORouter.java` — **line 223** as you checked it out, line 299 once Parts 1 to 3 are in:
 
 ```java
 case COMPLETION_COMPLETE -> {
@@ -234,13 +240,15 @@ Both extra branches matter:
 ./gradlew chapterTest -Pchapter=04
 ```
 
-The run reports 141 tests, and 22 of them fail before you start, all of them in `IORouterTest`. The other 119 test the given code: the builders, the spec records, `KeyWordSearch` and `JavadocResources`. If one of those fails, given code has been changed. Failures worth recognising:
+The run reports 152 tests, and 25 of them fail before you start, all of them in `IORouterTest`. The other 127 test the given code: the builders, the spec records, `KeyWordSearch` and `JavadocResources`. If one of those fails, given code has been changed. Failures worth recognising:
 
 - `everyMethodTheServerAcceptsIsActuallyAnswered` — a case is still empty, so a method the server accepts gets no reply. This test ran in Chapter 3 too, and it runs in every chapter that adds to the switch.
 - `aListThatFitsOnOnePageOffersNoCursorToANextOne` — a list offers a `nextCursor` although it has one page.
 - `readingAResourceThatIsNotThereIsInvalidParamsNamingTheUri` — a missing page is answered as a result, or the `-32602` lacks `data.uri`.
 - `callingAToolThisServerDoesNotHaveIsInvalidParams` or `toolNamesAreMatchedCaseSensitively` — an unknown tool gets a result instead of `-32602`, or the name is compared with `equalsIgnoreCase`.
 - `aToolCallWithoutADirectoryIsAToolLevelError` — a missing directory gets `-32602` instead of `isError: true`, or the text never mentions the directory.
+- `aKeywordThatIsNotAStringIsAToolErrorTheModelCanFix` or `aDirectoryThatCannotBeAPathIsAToolErrorRatherThanAnInternalError` — arguments the tool cannot use are not answered with `isError: true` and text that names what to fix. Without the `checkArguments` branch, a keyword that is an object is answered as a missing directory.
+- `argumentsThatAreNotAnObjectAreStillInvalidParams` — arguments that are not an object got a result. They fail `CallToolRequest` itself, so they stay `-32602`.
 - `aPromptWithoutItsRequiredKeywordIsInvalidParams` — `prompts/get` expands the prompt without a keyword.
 - `completingTheKeywordArgumentOffersSeveralWords` — `total` or `hasMore` sits beside `completion` instead of inside it.
 - `cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot` — `tools/list` was sent as `builder.build()`, without `LIST_TTL_MILLIS` and `CacheScope.PUBLIC`.

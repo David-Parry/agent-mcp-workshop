@@ -330,7 +330,7 @@ public class IORouter implements Router {
     }
 
     private String directoryArgument(ToolCallParams params) {
-        String directory = params.arguments() == null ? null : params.arguments().get("directory");
+        String directory = params.stringArgument("directory");
         return directory == null || directory.isBlank() ? null : directory;
     }
 
