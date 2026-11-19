@@ -1040,6 +1040,47 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
+    void aKeywordThatIsNotAStringIsAToolErrorTheModelCanFix() {
+        // The request fits the CallToolRequest schema, whose arguments may hold
+        // any JSON value; only the tool's own schema says keyword is a string.
+        router.route("""
+                {"jsonrpc":"2.0","id":34,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","arguments":{"keyword":{"nested":true}}}}"""
+                             .formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertNotNull(result, "a well-formed call is answered with a result, not -32602: " + io.only());
+        assertTrue(result.get("isError").getAsBoolean());
+        assertTrue(result.toString().contains("keyword"), "the text must name the argument to fix: " + result);
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aDirectoryThatCannotBeAPathIsAToolErrorRatherThanAnInternalError() {
+        router.route("""
+                {"jsonrpc":"2.0","id":35,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search",
+                           "arguments":{"keyword":"record","directory":"/tmp/\\u0000bad"}}}""".formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertNotNull(result, "a NUL byte in a path is the caller's to fix, not -32603: " + io.only());
+        assertTrue(result.get("isError").getAsBoolean());
+        assertTrue(result.toString().contains("not a valid path"), "" + result);
+    }
+
+    @Test
+    @Tag("chapter04")
+    void argumentsThatAreNotAnObjectAreStillInvalidParams() {
+        // This one does fail the CallToolRequest schema, so it stays a protocol error.
+        router.route("""
+                {"jsonrpc":"2.0","id":36,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","arguments":"keyword=record"}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
     @Tag("chapter05")
     void aCallWithNoArgumentsAtAllStillAsksForSomewhereToSearch() {
         // The directory is read off a params.arguments that is simply absent

@@ -250,6 +250,11 @@ public class IORouter implements Router {
                     logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                                + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
+                } else if (keyWordSearch.checkArguments(toolCallParams.arguments()) instanceof String unusable) {
+                    // Checked before the search starts: arguments the tool cannot
+                    // use get a tool error the model can act on, and nothing runs.
+                    logger.log("[API][SENT] tools/call — unusable arguments, answering isError: " + unusable);
+                    success(message.id(), ToolCallResultBuilder.builder().addTextContent(unusable).asError().build());
                 } else {
                     handleKeywordSearch(message.id(), toolCallParams, envelope);
                 }
@@ -500,7 +505,7 @@ public class IORouter implements Router {
     }
 
     private String keywordArgument(ToolCallParams params) {
-        return params.arguments() == null ? null : params.arguments().get("keyword");
+        return params.stringArgument("keyword");
     }
 
     /**
@@ -542,7 +547,7 @@ public class IORouter implements Router {
     }
 
     private String directoryArgument(ToolCallParams params) {
-        String directory = params.arguments() == null ? null : params.arguments().get("directory");
+        String directory = params.stringArgument("directory");
         return directory == null || directory.isBlank() ? null : directory;
     }
 
