@@ -93,6 +93,16 @@ tasks.named('javadoc') {
     include '**/com/workshop/mcp/spec/**'
 }
 
+// The skill the server serves over the Skills extension is the lessons plugin's
+// own SKILL.md, copied in at build time so the two cannot drift. Its digest is
+// computed from these bytes, so the copy must stay byte for byte.
+processResources {
+    from('lessons/keyword-audit-plugin/skills/keyword-search') {
+        include 'SKILL.md'
+        into 'skills/keyword-search'
+    }
+}
+
 // The spec javadoc is the corpus this server serves as MCP resources, not just
 // documentation, so the committed copy under src/main/resources has to track the
 // source. JavadocResources enumerates it from html-files.txt, which lists only the

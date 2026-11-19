@@ -59,6 +59,9 @@ public final class MetaKeys {
     /** Identifier of the MCP Apps (UI) extension, declared under {@code capabilities.extensions}. */
     public static final String UI_EXTENSION = "io.modelcontextprotocol/ui";
 
+    /** Identifier of the Skills extension (SEP-2640), declared under {@code capabilities.extensions}. */
+    public static final String SKILLS_EXTENSION = "io.modelcontextprotocol/skills";
+
     /**
      * W3C trace context for the request, carried unprefixed by exception.
      * A server that participates in tracing reads this to continue the

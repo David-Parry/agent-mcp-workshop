@@ -46,9 +46,14 @@ META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
 META_SUBSCRIPTION_ID = "io.modelcontextprotocol/subscriptionId"
 TASKS_EXTENSION = "io.modelcontextprotocol/tasks"
 UI_EXTENSION = "io.modelcontextprotocol/ui"
+SKILLS_EXTENSION = "io.modelcontextprotocol/skills"
 
 APP_URI = "ui://keyword-search/mcp-app.html"
 APP_MIME_TYPE = "text/html;profile=mcp-app"
+
+# The one skill the server serves, and the plugin file it is built from.
+SKILL_URI = "skill://keyword-search/SKILL.md"
+PLUGIN_SKILL = os.path.join(REPO_ROOT, "lessons", "keyword-audit-plugin", "skills", "keyword-search", "SKILL.md")
 
 # Error codes. -32020..-32099 is reserved for the specification on this
 # revision; -32000..-32019 is legacy, and new implementations should not use it.
@@ -1418,6 +1423,57 @@ def s_app_only_tool(c):
         raise Failure(f"recent_searches should list the search that just ran: {searches}")
     if searches[0].get("directories") != [directory]:
         raise Failure(f"the history should say where the search looked: {searches[0]}")
+
+
+# ---------------------------------------------------------------- Skills extension
+
+@scenario("skills", "agent, extensions", chapter=7)
+def s_skills(c):
+    extensions = discovered_extensions(c, "probe")
+    # directoryRead is the extension's one setting, and declaring it would
+    # promise resources/directory/read, which this server does not serve.
+    if extensions.get(SKILLS_EXTENSION) != {}:
+        raise Failure(f"{SKILLS_EXTENSION} should be declared with no settings: {extensions}")
+
+    c.request(1, "skills/list")
+    listed = c.expect_result(1)
+    require_result_type(listed, "complete", "skills/list")
+    for field in ("ttlMs", "cacheScope"):
+        if field not in listed:
+            raise Failure(f"skills/list must carry {field}: {listed}")
+    skills = listed.get("skills") or []
+    if [s.get("uri") for s in skills] != [SKILL_URI]:
+        raise Failure(f"keyword-search should be the one skill served: {skills}")
+    skill = skills[0]
+    if (skill.get("frontmatter") or {}).get("name") != "keyword-search":
+        raise Failure(f"the frontmatter name must match the skill's last path segment: {skill}")
+    files = skill.get("resources") or []
+    if [f.get("uri") for f in files] != [SKILL_URI]:
+        raise Failure(f"the manifest should list SKILL.md, the skill's only file: {files}")
+
+    c.request(2, "resources/read", {"uri": SKILL_URI})
+    contents = (c.expect_result(2).get("contents") or [{}])[0]
+    if contents.get("mimeType") != "text/markdown":
+        raise Failure(f"a SKILL.md is served as text/markdown, not {contents.get('mimeType')}")
+    data = (contents.get("text") or "").encode("utf-8")
+    digest = "sha256:" + hashlib.sha256(data).hexdigest()
+    if files[0].get("digest") != digest or files[0].get("size") != len(data):
+        raise Failure(f"the manifest must describe the bytes resources/read returns: {files[0]}, "
+                      f"but they are {digest} and {len(data)} bytes")
+    with open(PLUGIN_SKILL, "rb") as f:
+        if f.read() != data:
+            raise Failure("the served SKILL.md should be the plugin's own file, byte for byte")
+
+    c.request(3, "skills/get", {"uri": SKILL_URI})
+    got = c.expect_result(3)
+    require_result_type(got, "complete", "skills/get")
+    if got.get("skill") != skill:
+        raise Failure(f"skills/get should answer with the entry skills/list gave: {got.get('skill')}")
+
+    c.request(4, "skills/get", {"uri": "skill://no-such-skill/SKILL.md"})
+    c.expect_error(4, INVALID_PARAMS)
+    c.request(5, "resources/read", {"uri": "skill://no-such-skill/SKILL.md"})
+    c.expect_error(5, INVALID_PARAMS)
 
 
 # ---------------------------------------------------------------- runner

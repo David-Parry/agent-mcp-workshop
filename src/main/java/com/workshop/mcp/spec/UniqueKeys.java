@@ -169,6 +169,21 @@ public enum UniqueKeys {
     TASKS_CANCEL("tasks/cancel"),
 
     /**
+     * Method listing the skills a server serves (Skills extension).
+     * <p>
+     * Each entry is a complete manifest of one skill, so a host can build its
+     * registry and verify every file it later reads from the listing alone.
+     * </p>
+     */
+    SKILLS_LIST("skills/list"),
+
+    /**
+     * Method returning one skill's entry, named by the URI of its
+     * {@code SKILL.md} (Skills extension).
+     */
+    SKILLS_GET("skills/get"),
+
+    /**
      * Name of an embedded {@code elicitation/create} request.
      * Embedded in an {@link InputRequiredResult} rather than sent as a request.
      */

@@ -710,6 +710,63 @@ class SpecTypesCoverageTest {
         }
     }
 
+    // --- the Skills extension ---------------------------------------------
+
+    @Nested
+    @Tag("agent")
+    @Tag("stretch")
+    class Skills {
+
+        private static final String URI = "skill://keyword-search/SKILL.md";
+        private static final String DIGEST = "sha256:" + "0".repeat(64);
+
+        private final SkillResource file = new SkillResource(URI, DIGEST, 42L);
+        private final Skill skill = new Skill(URI, Map.of("name", "keyword-search", "description", "Search"),
+                                              List.of(file));
+
+        @Test
+        void aSkillNamesItsSkillMdAndListsEveryFileWithItsDigestAndSize() {
+            assertEquals(URI, skill.uri());
+            assertEquals("keyword-search", skill.frontmatter().get("name"));
+            assertEquals(List.of(file), skill.resources());
+            assertEquals(URI, file.uri());
+            assertEquals(DIGEST, file.digest());
+            assertEquals(42L, file.size());
+        }
+
+        @Test
+        void aSkillsListIsCompleteWithTheCachingHintsItIsGiven() {
+            SkillsListResult page = new SkillsListResult(List.of(skill), "page-2", 60_000L, CacheScope.PUBLIC);
+
+            assertEquals(ResultType.COMPLETE, page.resultType());
+            assertEquals(List.of(skill), page.skills());
+            assertEquals("page-2", page.nextCursor());
+            assertEquals(60_000L, page.ttlMs());
+            assertEquals(CacheScope.PUBLIC, page.cacheScope());
+            assertEquals("page-2", new SkillsListParams("page-2").cursor());
+        }
+
+        @Test
+        void aSkillsGetIsCompleteWithTheCachingHintsItIsGiven() {
+            SkillsGetResult result = new SkillsGetResult(skill, 60_000L, CacheScope.PUBLIC);
+
+            assertEquals(ResultType.COMPLETE, result.resultType());
+            assertEquals(skill, result.skill());
+            assertEquals(60_000L, result.ttlMs());
+            assertEquals(CacheScope.PUBLIC, result.cacheScope());
+            assertEquals(URI, new SkillsGetParams(URI).uri());
+        }
+
+        @Test
+        void anEntryCarriesItsFrontmatterAsAJsonObjectAndItsSizeAsANumber() {
+            String json = McpGson.create().toJson(new SkillsGetResult(skill, 0L, CacheScope.PUBLIC));
+
+            assertTrue(json.contains("\"frontmatter\":{"), json);
+            assertTrue(json.contains("\"size\":42"), json);
+            assertTrue(json.contains("\"digest\":\"" + DIGEST + "\""), json);
+        }
+    }
+
     // --- the remaining wire records ---------------------------------------
 
     @Nested

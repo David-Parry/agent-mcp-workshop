@@ -8,6 +8,7 @@ import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
 import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.resources.Pagination;
+import com.workshop.mcp.skills.SkillCatalog;
 import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
 import com.workshop.mcp.tasks.TaskStore;
@@ -124,13 +125,16 @@ public class IORouter implements Router {
             UniqueKeys.SUBSCRIPTIONS_LISTEN,
             UniqueKeys.TASKS_GET,
             UniqueKeys.TASKS_UPDATE,
-            UniqueKeys.TASKS_CANCEL);
+            UniqueKeys.TASKS_CANCEL,
+            UniqueKeys.SKILLS_LIST,
+            UniqueKeys.SKILLS_GET);
 
     private final LogFile logger;
     private final IOHandler io;
     private final JsonRpcMessageDeserializer deserializer = new JsonRpcMessageDeserializer();
     private final Clock clock;
     private final TaskStore taskStore;
+    private final SkillCatalog skills = SkillCatalog.bundled();
     /**
      * Held while anything is sent on a stream, and while a stream opens or
      * ends, so that nothing is sent on a stream before its acknowledgement or
@@ -445,6 +449,7 @@ public class IORouter implements Router {
                                 .withDescription("Interactive keyword search results dashboard")
                                 .withMimeType(Resource.MIME_TYPE_UI_APP)
                                 .build());
+                all.addAll(skills.resources());
                 all.addAll(JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec"));
                 String cursor = deserializer.deserializeParams(message, ResourcesListParams.class).cursor();
                 Pagination.Page<Resource> page = Pagination.page(all, cursor);
@@ -469,6 +474,9 @@ public class IORouter implements Router {
                 if (resourceUri == null || resourceUri.isEmpty()) {
                     logger.log("[API][SENT] resources/read — no uri (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "resources/read requires a uri");
+                } else if (skills.read(resourceUri) instanceof TextReadResource skillFile) {
+                    success(message.id(), new ReadResourceResult(List.of(skillFile), LIST_TTL_MILLIS,
+                                                                 CacheScope.PUBLIC));
                 } else {
                     // The app is the one resource whose uri is not also its
                     // classpath path, but it is read and reported like any
@@ -506,6 +514,30 @@ public class IORouter implements Router {
             case SUBSCRIPTIONS_LISTEN -> {
                 if (!settings.requireFormForListen() || requireFormElicitation(message, envelope)) {
                     acknowledgeSubscription(message);
+                }
+            }
+            case SKILLS_LIST -> {
+                String cursor = deserializer.deserializeParams(message, SkillsListParams.class).cursor();
+                Pagination.Page<Skill> page = Pagination.page(skills.skills(), cursor);
+                if (page == null) {
+                    logger.log("[API][SENT] skills/list — a cursor this server never issued (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "Invalid cursor", Map.of("cursor", cursor));
+                    return;
+                }
+                success(message.id(), new SkillsListResult(page.items(), page.nextCursor(),
+                                                           LIST_TTL_MILLIS, CacheScope.PUBLIC));
+            }
+            case SKILLS_GET -> {
+                String uri = deserializer.deserializeParams(message, SkillsGetParams.class).uri();
+                Skill skill = skills.skill(uri);
+                if (skill != null) {
+                    success(message.id(), new SkillsGetResult(skill, LIST_TTL_MILLIS, CacheScope.PUBLIC));
+                } else if (uri == null) {
+                    logger.log("[API][SENT] skills/get — no uri (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "skills/get requires a uri");
+                } else {
+                    logger.log("[API][SENT] skills/get — no skill is served at " + uri + " (returning -32602)");
+                    error(message.id(), ErrorCodes.INVALID_PARAMS, "No skill is served at " + uri);
                 }
             }
         }
@@ -614,6 +646,7 @@ public class IORouter implements Router {
                         new Capability(settings.announcesListChanges(), null),
                         null))
                 .withExtension(MetaKeys.UI_EXTENSION, Map.of())
+                .withExtension(MetaKeys.SKILLS_EXTENSION, Map.of())
                 .withInstructions("Searches a project for a keyword. If no directory is supplied, the tool asks "
                                   + "for one over a Multi Round-Trip Request, and searches its own working "
                                   + "directory if the client offers nothing.")

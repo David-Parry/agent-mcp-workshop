@@ -36,16 +36,19 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -82,6 +85,12 @@ class IORouterTest {
                 "extensions":{"io.modelcontextprotocol/tasks":{}}
               }
             }""";
+
+    /** The one skill this server serves over the Skills extension. */
+    private static final String SKILL_URI = "skill://keyword-search/SKILL.md";
+
+    private static final String SKILLS_LIST = """
+            {"jsonrpc":"2.0","id":30,"method":"skills/list","params":{%s}}""".formatted(FULL_META);
 
     /** A client that can open a URL but cannot show a form. */
     private static final String URL_ONLY_META = """
@@ -229,6 +238,21 @@ class IORouterTest {
         JsonObject extensions = io.only().getAsJsonObject("result")
                 .getAsJsonObject("capabilities").getAsJsonObject("extensions");
         assertTrue(extensions.has(MetaKeys.TASKS_EXTENSION));
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void discoverDeclaresTheSkillsExtensionWithNoSettings() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject capabilities = io.only().getAsJsonObject("result").getAsJsonObject("capabilities");
+        // directoryRead is the extension's one setting, and declaring it would
+        // promise resources/directory/read, which this server does not serve.
+        assertEquals(new JsonObject(),
+                     capabilities.getAsJsonObject("extensions").getAsJsonObject(MetaKeys.SKILLS_EXTENSION));
+        assertNotNull(capabilities.get("resources"), "skills are read as resources, so the extension requires them");
     }
 
     // --- the per-request envelope --------------------------------------
@@ -1995,8 +2019,8 @@ class IORouterTest {
             pages++;
         } while (cursor != null);
 
-        int expected = JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec").size() + 1;
-        assertEquals(expected, uris.size(), "every javadoc page plus the app, each exactly once");
+        int expected = JavadocResources.loadAllHtmlResourcesFromFolder("javadoc/com/workshop/mcp/spec").size() + 2;
+        assertEquals(expected, uris.size(), "every javadoc page, the app, and the skill, each exactly once");
         assertEquals((expected + 19) / 20, pages);
         assertEquals(Set.of(CacheScope.PUBLIC), scopes, "every page of a list carries the same cacheScope");
     }
@@ -2088,6 +2112,136 @@ class IORouterTest {
                 {"jsonrpc":"2.0","id":27,"method":"resources/read","params":{%s}}""".formatted(FULL_META));
 
         assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    // --- skills (Skills extension) -------------------------------------
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void skillsListServesKeywordSearchWithItsFrontmatterAndEveryFileItHas() {
+        router.route(SKILLS_LIST);
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertEquals(CacheScope.PUBLIC, result.get("cacheScope").getAsString(), "every caller is served the same skills");
+        assertTrue(result.get("ttlMs").getAsLong() >= 0, "ttlMs is required on a skills list: " + result);
+        assertNull(result.get("nextCursor"), "one skill fits on one page");
+        JsonArray skills = result.getAsJsonArray("skills");
+        assertEquals(1, skills.size(), "keyword-search is the one skill this server serves: " + skills);
+        JsonObject skill = skills.get(0).getAsJsonObject();
+        assertEquals(SKILL_URI, skill.get("uri").getAsString());
+        JsonObject frontmatter = skill.getAsJsonObject("frontmatter");
+        assertEquals("keyword-search", frontmatter.get("name").getAsString());
+        assertEquals("Search the codebase for a keyword using the workshop MCP server",
+                     frontmatter.get("description").getAsString());
+        JsonArray files = skill.getAsJsonArray("resources");
+        assertEquals(1, files.size(), "SKILL.md is this skill's only file: " + files);
+        assertEquals(SKILL_URI, files.get(0).getAsJsonObject().get("uri").getAsString());
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void theManifestDescribesExactlyTheBytesResourcesReadReturns() throws Exception {
+        router.route(SKILLS_LIST);
+        JsonObject file = io.only().getAsJsonObject("result").getAsJsonArray("skills").get(0).getAsJsonObject()
+                .getAsJsonArray("resources").get(0).getAsJsonObject();
+        io.clear();
+
+        router.route(read(31, SKILL_URI));
+
+        JsonObject content = firstContent();
+        assertEquals("text/markdown", content.get("mimeType").getAsString());
+        byte[] bytes = content.get("text").getAsString().getBytes(StandardCharsets.UTF_8);
+        assertEquals(file.get("size").getAsLong(), bytes.length, "size counts bytes, and this file has multi-byte characters");
+        assertEquals(file.get("digest").getAsString(),
+                     "sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+        assertArrayEquals(Files.readAllBytes(Path.of("lessons/keyword-audit-plugin/skills/keyword-search/SKILL.md")),
+                          bytes, "the server serves the plugin's own SKILL.md");
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void skillsGetAnswersWithTheSameEntryTheListGives() {
+        router.route(SKILLS_LIST);
+        JsonObject listed = io.only().getAsJsonObject("result").getAsJsonArray("skills").get(0).getAsJsonObject();
+        io.clear();
+
+        router.route(skillsGet(32, SKILL_URI));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertEquals(CacheScope.PUBLIC, result.get("cacheScope").getAsString());
+        assertTrue(result.get("ttlMs").getAsLong() >= 0, "ttlMs is required on a skill: " + result);
+        assertEquals(listed, result.getAsJsonObject("skill"));
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void skillsGetForAUriThatServesNoSkillIsInvalidParams() {
+        for (String uri : List.of("skill://no-such-skill/SKILL.md", "skill://keyword-search/references/GUIDE.md",
+                                  "ui://keyword-search/mcp-app.html")) {
+            io.clear();
+            router.route(skillsGet(33, uri));
+
+            JsonObject error = io.onlyError();
+            assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt(), uri);
+            assertEquals("No skill is served at " + uri, error.get("message").getAsString());
+        }
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void skillsGetWithoutAUriIsInvalidParams() {
+        router.route("""
+                {"jsonrpc":"2.0","id":34,"method":"skills/get","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("skills/get requires a uri", error.get("message").getAsString());
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void skillsListRejectsACursorItNeverIssued() {
+        router.route("""
+                {"jsonrpc":"2.0","id":35,"method":"skills/list","params":{%s,"cursor":"page-2"}}"""
+                             .formatted(FULL_META));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("page-2", error.getAsJsonObject("data").get("cursor").getAsString());
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void theSkillFileIsListedAsAResourceRightAfterTheApp() {
+        router.route("""
+                {"jsonrpc":"2.0","id":36,"method":"resources/list","params":{%s}}""".formatted(FULL_META));
+
+        JsonObject listed = io.only().getAsJsonObject("result").getAsJsonArray("resources").get(1).getAsJsonObject();
+        assertEquals(SKILL_URI, listed.get("uri").getAsString());
+        assertEquals("keyword-search", listed.get("name").getAsString(), "named by its frontmatter");
+        assertEquals("Search the codebase for a keyword using the workshop MCP server",
+                     listed.get("description").getAsString());
+        assertEquals("text/markdown", listed.get("mimeType").getAsString());
+    }
+
+    @Test
+    @Tag("agent")
+    @Tag("stretch")
+    void readingASkillFileThisServerDoesNotServeIsInvalidParams() {
+        router.route(read(37, "skill://no-such-skill/SKILL.md"));
+
+        JsonObject error = io.onlyError();
+        assertEquals(ErrorCodes.INVALID_PARAMS, error.get("code").getAsInt());
+        assertEquals("skill://no-such-skill/SKILL.md", error.getAsJsonObject("data").get("uri").getAsString());
     }
 
     @Test
@@ -2551,6 +2705,12 @@ class IORouterTest {
     private static String read(int id, String uri) {
         return """
                 {"jsonrpc":"2.0","id":%d,"method":"resources/read",
+                 "params":{%s,"uri":"%s"}}""".formatted(id, FULL_META, uri);
+    }
+
+    private static String skillsGet(int id, String uri) {
+        return """
+                {"jsonrpc":"2.0","id":%d,"method":"skills/get",
                  "params":{%s,"uri":"%s"}}""".formatted(id, FULL_META, uri);
     }
 
