@@ -702,6 +702,20 @@ class SpecTypesCoverageTest {
 
             assertNull(first.inputResponse("search_directory"));
         }
+
+        @Test
+        @Tag("chapter04")
+        void aStringArgumentReadsAsAbsentUnlessItIsAString() {
+            ToolCallParams call = new ToolCallParams(null, "key_word_search",
+                                                     Map.of("keyword", "record", "directory", Map.of("path", "/srv")),
+                                                     null, null);
+            ToolCallParams bare = new ToolCallParams(null, "key_word_search", null, null, null);
+
+            assertEquals("record", call.stringArgument("keyword"));
+            assertNull(call.stringArgument("directory"), "an object is not a string");
+            assertNull(call.stringArgument("missing"));
+            assertNull(bare.stringArgument("keyword"), "a call may leave its arguments out altogether");
+        }
     }
 
     // --- helpers -----------------------------------------------------------

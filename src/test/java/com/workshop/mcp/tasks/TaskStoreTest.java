@@ -127,7 +127,7 @@ class TaskStoreTest {
     void completeMovesTheTaskToCompleted() {
         Task task = store.create();
 
-        store.complete(task.taskId(), "payload");
+        assertTrue(store.complete(task.taskId(), "payload"), "the caller is told the task took the result");
 
         assertEquals(TaskStatus.COMPLETED.getValue(), store.get(task.taskId()).status());
         assertEquals("The operation completed successfully.", store.get(task.taskId()).statusMessage());
@@ -145,7 +145,7 @@ class TaskStoreTest {
 
     @Test
     void completeIgnoresAnUnknownTaskId() {
-        store.complete(UNKNOWN_ID, "payload");
+        assertFalse(store.complete(UNKNOWN_ID, "payload"));
 
         assertNull(store.get(UNKNOWN_ID), "completing an unknown id must not create a task");
     }
@@ -155,7 +155,8 @@ class TaskStoreTest {
         Task task = store.create();
         store.cancel(task.taskId());
 
-        store.complete(task.taskId(), "payload");
+        assertFalse(store.complete(task.taskId(), "payload"),
+                    "the caller is told the result was dropped, so it does not report a completion");
 
         assertEquals(TaskStatus.CANCELLED.getValue(), store.get(task.taskId()).status());
         assertNull(store.detail(task.taskId()).result());
@@ -167,7 +168,7 @@ class TaskStoreTest {
     void failMovesTheTaskToFailedAndSurfacesTheReasonTwice() {
         Task task = store.create();
 
-        store.fail(task.taskId(), "no directory could be resolved");
+        assertTrue(store.fail(task.taskId(), "no directory could be resolved"));
 
         Task failed = store.get(task.taskId());
         assertEquals(TaskStatus.FAILED.getValue(), failed.status());
@@ -187,7 +188,7 @@ class TaskStoreTest {
 
     @Test
     void failIgnoresAnUnknownTaskId() {
-        store.fail(UNKNOWN_ID, "boom");
+        assertFalse(store.fail(UNKNOWN_ID, "boom"));
 
         assertNull(store.get(UNKNOWN_ID), "failing an unknown id must not create a task");
     }
@@ -197,7 +198,7 @@ class TaskStoreTest {
         Task task = store.create();
         store.complete(task.taskId(), "payload");
 
-        store.fail(task.taskId(), "boom");
+        assertFalse(store.fail(task.taskId(), "boom"));
 
         assertEquals(TaskStatus.COMPLETED.getValue(), store.get(task.taskId()).status());
         assertNull(store.detail(task.taskId()).error());

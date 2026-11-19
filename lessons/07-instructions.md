@@ -162,17 +162,17 @@ The task is in the map before `create` returns, so a `tasks/get` for its id reso
 
 ### Step 2: Fill `complete` and `fail`
 
-**Action Required**: fill `complete` at **line 103** of `TaskStore.java`:
+**Action Required**: fill `complete` at **line 105** of `TaskStore.java`:
 
 ```java
-public void complete(String taskId, Object result) {
+public boolean complete(String taskId, Object result) {
     Entry entry = entries.get(taskId);
     if (entry == null) {
-        return;
+        return false;
     }
     synchronized (entry) {
         if (entry.isTerminal()) {
-            return;
+            return false;
         }
         entry.status = TaskStatus.COMPLETED.getValue();
         entry.statusMessage = "The operation completed successfully.";
@@ -180,21 +180,22 @@ public void complete(String taskId, Object result) {
         entry.result = result;
         entry.inputRequests = null;
         entry.notifyAll();
+        return true;
     }
 }
 ```
 
-**Action Required**: fill `fail` at **line 114** of `TaskStore.java`:
+**Action Required**: fill `fail` at **line 120** of `TaskStore.java`:
 
 ```java
-public void fail(String taskId, String reason) {
+public boolean fail(String taskId, String reason) {
     Entry entry = entries.get(taskId);
     if (entry == null) {
-        return;
+        return false;
     }
     synchronized (entry) {
         if (entry.isTerminal()) {
-            return;
+            return false;
         }
         entry.status = TaskStatus.FAILED.getValue();
         entry.statusMessage = reason;
@@ -202,20 +203,21 @@ public void fail(String taskId, String reason) {
         entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
         entry.inputRequests = null;
         entry.notifyAll();
+        return true;
     }
 }
 ```
 
 #### What to notice
 
-1. **Neither touches a terminal task.** A task cancelled while its search was still running stays cancelled when the search finishes, because `complete` ignores it.
+1. **Neither touches a terminal task, and each says whether it changed anything.** A task cancelled while its search was still running stays cancelled when the search finishes, because `complete` ignores it and returns `false`. The worker reads that `false` and logs that the result was discarded, rather than claiming a completion that never happened.
 2. **`failed` means a JSON-RPC error.** The task's `error` is the `-32603` the same call would have got had it run inline and thrown. A search that finds nothing, or any tool result with `isError: true`, is a **completed** task with that result in `result`.
 
 ### Step 3: Fill `requireInput`, `applyInput` and `awaitInput`
 
 These three carry the question a task asks.
 
-**Action Required**: fill `requireInput` at **line 128** of `TaskStore.java`:
+**Action Required**: fill `requireInput` at **line 136** of `TaskStore.java`:
 
 ```java
 public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) {
@@ -236,7 +238,7 @@ public Task requireInput(String taskId, Map<String, InputRequest> inputRequests)
 }
 ```
 
-**Action Required**: fill `applyInput` at **line 151** of `TaskStore.java`:
+**Action Required**: fill `applyInput` at **line 159** of `TaskStore.java`:
 
 ```java
 public Task applyInput(String taskId, Map<String, Object> inputResponses) {
@@ -268,7 +270,7 @@ public Task applyInput(String taskId, Map<String, Object> inputResponses) {
 }
 ```
 
-**Action Required**: fill `awaitInput` at **line 182** of `TaskStore.java`:
+**Action Required**: fill `awaitInput` at **line 190** of `TaskStore.java`:
 
 ```java
 public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
@@ -306,7 +308,7 @@ public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
 
 ### Step 4: Fill `cancel`
 
-**Action Required**: fill `cancel` at **line 202** of `TaskStore.java`:
+**Action Required**: fill `cancel` at **line 210** of `TaskStore.java`:
 
 ```java
 public Task cancel(String taskId) {
@@ -327,13 +329,13 @@ public Task cancel(String taskId) {
 }
 ```
 
-Cancelling only asks. A task that has already finished keeps its status, and `cancel` returns `null` only for an id it does not know. A task waiting for input stops: `notifyAll` wakes its thread, which sees the task is cancelled and never searches. A search already running is not stopped. It runs to its end, and `complete` ignores it. The first stretch below changes that.
+Cancelling only asks. A task that has already finished keeps its status, and `cancel` returns `null` only for an id it does not know. A task waiting for input stops: `notifyAll` wakes its thread, which sees the task is cancelled and never searches. A search already running is not stopped by the store, which only records the status. The router stops it in Part 4, by interrupting the thread the task runs on.
 
 ---
 
 ## Part 3: Write the Task That Asks
 
-**Action Required**: fill `runSearchAsTaskThatAsks` at **line 793** of `src/main/java/com/workshop/mcp/IORouter.java`:
+**Action Required**: fill `runSearchAsTaskThatAsks` at **line 801** of `src/main/java/com/workshop/mcp/IORouter.java`:
 
 ```java
 private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
@@ -362,12 +364,11 @@ private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, Reque
                 directories.add(workingDirectory);
             }
 
-            ToolCallResult result = new KeyWordSearch().call(params, directories);
-            taskStore.complete(taskId, result);
-            logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
+            ToolCallResult result = newKeyWordSearch().call(params, directories);
+            completeTask(taskId, result);
         } catch (Exception e) {
             logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
-            taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
+            failTask(taskId, "Tool execution failed: " + e.getMessage());
         }
     });
 }
@@ -378,13 +379,14 @@ private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, Reque
 1. **It asks only a client that can show a form.** Any other client could never answer, so the search starts at once from the server's working directory, as the inline path does.
 2. **The wait is bounded.** `askOnTask`, which is already in the router, calls `requireInput` and then `awaitInput` with `TASK_INPUT_TIMEOUT_MILLIS`, a minute. A client does not have to answer at all, and without a limit the task would wait for good. After a minute with no answer, the search carries on from the working directory.
 3. **A cancelled task stops there.** `isTerminal` is checked straight after the wait, so a task cancelled while it waited never searches or reports a result.
-4. **The `catch` is what keeps a task from hanging.** Anything the search throws, such as a directory path with a NUL byte in it, fails the task. Without it the thread would die and leave the task in `working` for good.
+4. **The `catch` is what keeps a task from hanging.** Anything the search throws fails the task. Without it the thread would die and leave the task in `working` for good. A directory that cannot be a path does not get this far: the search answers it with `isError: true`, so the task completes with that tool error as its result.
+5. **Only a real completion is logged.** `completeTask` and `failTask`, which are already in the router, pass on what the store says. If the task was cancelled while the search ran, the log says the result or failure was discarded, and the task stays `cancelled`. Every search the router runs comes from `newKeyWordSearch()`, so a test can swap in one that throws, or one that runs until its task is cancelled.
 
 ---
 
 ## Part 4: Answer the Three Methods
 
-**Action Required**: paste these cases over the empty ones: `TASKS_GET` at **line 314**, `TASKS_UPDATE` at **line 317** and `TASKS_CANCEL` at **line 320** of `IORouter.java`:
+**Action Required**: paste these cases over the empty ones: `TASKS_GET` at **line 319**, `TASKS_UPDATE` at **line 322** and `TASKS_CANCEL` at **line 325** of `IORouter.java`:
 
 ```java
 case TASKS_GET -> {
@@ -427,6 +429,11 @@ case TASKS_CANCEL -> {
     } else {
         logger.log("[API][SENT] tasks/cancel — taskId=" + task.taskId() + " acknowledged, now "
                    + task.status());
+        // Marking the task stops nothing by itself: its worker
+        // would sleep, search and offer a result no one can see.
+        if (TaskStatus.CANCELLED.getValue().equals(task.status()) && interruptTaskWorker(task.taskId())) {
+            logger.log("[TASK " + task.taskId() + "] cancelled; interrupting its worker");
+        }
         success(message.id(), Map.of("resultType", ResultType.COMPLETE));
     }
 }
@@ -437,6 +444,7 @@ case TASKS_CANCEL -> {
 1. **An unknown task id is `-32602` Invalid params**, and a missing one is answered the same way. Read into the store, a `null` id would throw a `NullPointerException`. The router's `answer` would still reply, but with `-32603` Internal error, which tells the client the server broke when the mistake was in its request.
 2. **`tasks/update` and `tasks/cancel` answer with an empty result**, `{"resultType":"complete"}` and the `_meta` every result carries. The extension calls this an acknowledgement: it says the request arrived, not what it did to the task. A client that wants to know polls `tasks/get`. After a cancel it need not, and the extension lets it forget the task at once.
 3. **Neither refuses a task that has moved on.** An answer the task is not waiting for is ignored, and so is a cancel of a finished task, so a client never gets an error for a race it could not see.
+4. **A cancel stops the work, not only the status.** `interruptTaskWorker`, which is already in the router, interrupts the thread running the task, if one still is. A task cancelled during the 4-second wait in `runToolAsTask` wakes from its `sleep` and logs that it stopped before searching. A search already under way stops before its next file, because `KeyWordSearch` checks for an interrupt between files. A task that has already finished has no thread to interrupt, and its status stands.
 
 ---
 
@@ -446,21 +454,26 @@ case TASKS_CANCEL -> {
 ./gradlew chapterTest -Pchapter=07
 ```
 
-The run reports 74 tests, and 58 of them fail before you start: 23 in `IORouterTest` and 35 in `TaskStoreTest`. The other 16 pass already. Seven are the given parts of the router: the extension is declared, the test hook that interrupts a task's thread behaves, and a client without the extension never gets a handle and is refused the task methods and a listen for task status. Any other listen is acknowledged, with no task ids agreed to. Four check what `get`, `detail`, `complete` and `fail` do with an id the store does not know: the first two are given, and the other two, still empty, already do nothing. Five check the task types in `spec`. Failures worth recognising:
+The run reports 81 tests, and 65 of them fail before you start: 28 in `IORouterTest` and 37 in `TaskStoreTest`. The other 16 pass already. Eight are the given parts of the router: the extension is declared, `interruptTaskWorker` returns `false` for a task with no thread running, a client without the extension never gets a handle and is refused the task methods and a listen for task status, and a directory that cannot be a path gets a tool error rather than a task. Any other listen is acknowledged, with no task ids agreed to. One checks that the given `KeyWordSearch` stops when its thread is interrupted. Two check that `get` and `detail`, which are given, return `null` for an id the store does not know. Five check the task types in `spec`. Failures worth recognising:
 
 - `createStartsATaskInWorkingStatus` or `createGeneratesAnUnguessableIdPerTask` — `create` still throws, or builds its task some other way. Almost every router test fails with it, because no task can be created.
 - `completeIsIgnoredOnceTheTaskIsTerminal` or `failIsIgnoredOnceTheTaskIsTerminal` — the terminal check is missing, so a finished task changed its status.
+- `completeIgnoresAnUnknownTaskId` or `failIgnoresAnUnknownTaskId` — `complete` or `fail` still throws, or does not return `false` for an id the store never issued.
 - `anUpdateThatAnswersNothingTheTaskAskedLeavesItWaiting` or `anUpdateForATaskThatIsNotWaitingIsIgnored` — `applyInput` resumes the task, or changes it, without an answer to what it asked.
 - `awaitInputReturnsNullWhenTheWaitExpires` or `awaitInputReturnsNullWhenTheTaskIsCancelledWhileWaiting` — the wait ignores its deadline, or returns an empty answer for a task cancelled while it waited.
 - `cancellingAFinishedTaskLeavesItAsItWas` or `aSecondCancelChangesNothing` — `cancel` changes a task that has already finished.
 - `aTaskAsksForItsDirectoryAsAStatusAndResumesOnTasksUpdate` — the task never reaches `input_required`, or never resumes after `tasks/update`.
 - `cancellingATaskThatIsWaitingForInputStopsItInsteadOfCompletingIt` — a task cancelled while it waits for input never shows `cancelled`: the `TASKS_CANCEL` case is still empty, or `cancel` left the task as it was.
-- `aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking` — the `catch` is missing from `runSearchAsTaskThatAsks`, so the task stays in `working`.
+- `aTaskThatAsksWhoseSearchBlowsUpIsFailedRatherThanLeftWorking` — the `catch` is missing from `runSearchAsTaskThatAsks`, so the task stays in `working`. If the task completes instead, the search was made with `new KeyWordSearch()` rather than `newKeyWordSearch()`, so the test's search never ran.
+- `aTaskThatIsAnsweredWithAnImpossiblePathCompletesWithAToolError` — a task answered with a directory that cannot be a path failed, or never finished. The search answers such a path with `isError: true`, so the task completes with that tool error as its result.
+- `cancellingATaskWhileItWaitsToSearchStopsItsWorker` — the `TASKS_CANCEL` case marks the task but does not interrupt its thread, so the task sleeps out its 4 seconds and searches anyway.
+- `aSearchThatFinishesAfterItsTaskWasCancelledHasItsResultDiscarded` or `aSearchThatFailsAfterItsTaskWasCancelledHasItsFailureDiscarded` — a search that ended after its task was cancelled did not report through `completeTask` or `failTask`, so nothing logged that its result or failure was discarded. `the search never started` means it was made with `new KeyWordSearch()`.
+- `aCancelThatArrivesOnceTheWorkerHasStoppedIsStillAcknowledged` — a second cancel, sent once the task's thread has stopped, is not acknowledged, or logs that it interrupts a worker that is no longer there.
 - `everyMethodTheServerAcceptsIsActuallyAnswered` — one of the three cases is still empty.
 - `theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId` — a case reads a missing `taskId` into the store.
 - `aCancelIsAcknowledgedWithAnEmptyResultAndASecondOneToo`, `cancellingAFinishedTaskIsAcknowledgedAndLeavesItFinished` or `answeringATaskThatIsNoLongerAskingIsAcknowledgedAndChangesNothing` — a case answers with the task, or with an error, where the extension wants an empty acknowledgement.
 
-A router test that fails with `task never reached …` polled for 20 seconds for a status that never came, usually because one of the store's methods is still empty.
+A router test that fails with `task never reached …` polled for 20 seconds for a status that never came, usually because one of the store's methods still throws.
 
 No chapter test catches a missing `isTerminal` check after the wait. `complete` ignores a cancelled task, so the status and result still come out right, but the task searches anyway: the server's log shows `nothing was offered, using the working directory` straight after `no answer arrived for search_directory`. The coverage check in `./gradlew clean build`, below, does catch it, because `isTerminal` is then never called.
 
@@ -514,15 +527,11 @@ If you open the Inspector before the tests pass, what goes wrong tells you what 
 - Enter a directory and click **Submit** within a minute. After that the task stops waiting and searches the server's working directory, as Part 3 explains, and the Inspector, which does not poll while the form is open, still shows `input_required`. The **Protocol** panel shows the `tasks/update` and its empty acknowledgement, and the next poll finds the task `completed`.
 
 ### A task that is cancelled
-- Run it once more without a directory, and click **Cancel** in the form this time. The Inspector sends `tasks/cancel`, and the server acknowledges it. The server's log in `inspector/logs/` shows the waiting thread waking with `no answer arrived for search_directory` and stopping without a search.
+- Run it once more without a directory, and click **Cancel** in the form this time. The Inspector sends `tasks/cancel`, and the server acknowledges it. The server's log in `inspector/logs/` shows the acknowledgement and the waiting thread waking with `no answer arrived for search_directory` and stopping without a search. The cancel itself wakes that thread, so it has often stopped before the router looks for it. If it has not, `cancelled; interrupting its worker` is logged too. No `transitioning to completed` follows, because the task never completed.
 - The **Tools** tab reports `Pending request aborted`, because the Inspector stopped waiting for a result. **Tasks** moves the task under **Completed**, marked cancelled. The Inspector marks it from the acknowledgement alone and does not poll again, which the extension allows, so the panel keeps the status message of the last poll.
 
 ### The Run as task switch
 - Turn on **Run as task** and run a search with a directory. The Inspector adds `"task":{"ttl":60000}` to the call, the opt-in of the `2025-11-25` specification that the extension removed. The server ignores it, as the extension requires: the call is answered as before, and the handle in **Protocol** still says `"ttlMs": 300000`. Read the TTL there: once this task completes, **Tasks** lists it from a record the Inspector keeps itself, with `"ttl": null`.
-
-## Stretch: Stop the work when a task is cancelled
-
-Cancelling marks the task, but the search runs on. The router already keeps every task's thread in `taskWorkers`, and `interruptTaskWorker` interrupts one. Call it from the `TASKS_CANCEL` case once the store has cancelled the task. A task cancelled during the 4-second wait in `runToolAsTask` is then interrupted out of its `sleep`, and the `fail` in its `catch` changes nothing, because the task is already cancelled. The search itself never checks for an interrupt. To stop a search halfway, have `KeyWordSearch` check `Thread.currentThread().isInterrupted()` between files.
 
 ## Stretch: Push status to a client that subscribes
 

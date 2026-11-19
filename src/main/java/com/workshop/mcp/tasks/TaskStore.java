@@ -99,9 +99,13 @@ public class TaskStore {
      *
      * @param taskId target task
      * @param result the payload that the original request would have returned
+     * @return true if this call completed the task; false if there is no such
+     *         task or it had already ended, in which case the result is dropped
      */
-    public void complete(String taskId, Object result) {
+    public boolean complete(String taskId, Object result) {
         // Chapter 07: implement complete(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: complete(...) is not implemented yet");
     }
 
     /**
@@ -110,9 +114,13 @@ public class TaskStore {
      * @param taskId target task
      * @param reason human-readable failure message, surfaced both as
      *               {@code statusMessage} and as the {@code error} payload
+     * @return true if this call failed the task; false if there is no such
+     *         task or it had already ended, in which case the reason is dropped
      */
-    public void fail(String taskId, String reason) {
+    public boolean fail(String taskId, String reason) {
         // Chapter 07: implement fail(...).
+        throw new UnsupportedOperationException(
+                "Chapter 07: fail(...) is not implemented yet");
     }
 
     /**
