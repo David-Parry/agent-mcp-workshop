@@ -111,6 +111,11 @@ TOOLS_CALL_CH4 = '''
                     logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                                + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
+                } else if (keyWordSearch.checkArguments(toolCallParams.arguments()) instanceof String unusable) {
+                    // Checked before the search starts: arguments the tool cannot
+                    // use get a tool error the model can act on, and nothing runs.
+                    logger.log("[API][SENT] tools/call — unusable arguments, answering isError: " + unusable);
+                    success(message.id(), ToolCallResultBuilder.builder().addTextContent(unusable).asError().build());
                 } else {
                     String directory = directoryArgument(toolCallParams);
                     if (directory == null) {
@@ -566,13 +571,37 @@ def preceding_javadoc_start(text, sig_start):
     return text.rfind("\n", 0, javadoc) + 1
 
 
-def remove_method(text, name):
+def remove_method(text, name, with_blank_line=False):
+    """with_blank_line also takes the blank line that parts the method from
+    the member above it, so nothing is left where the method was."""
     pattern = method_sig_pattern(name)
     matches = list(pattern.finditer(text))
     for m in reversed(matches):
         open_brace = text.index("{", m.end() - 1)
         close = matching_brace(text, open_brace)
         start = preceding_javadoc_start(text, m.start())
+        if with_blank_line and text[:start].endswith("\n\n"):
+            start -= 1
+        end = close + 1
+        if end < len(text) and text[end] == "\n":
+            end += 1
+        text = text[:start] + text[end:]
+    return text
+
+
+def remove_type(text, name):
+    """Remove a nested class, record, interface or enum, with its javadoc
+    and the blank line above it."""
+    pattern = re.compile(
+        r"^[ \t]*(?:(?:public|private|protected|static|final|abstract)\s+)*"
+        r"(?:class|record|interface|enum)\s+" + re.escape(name) + r"\b[^{;]*\{",
+        re.M,
+    )
+    for m in reversed(list(pattern.finditer(text))):
+        close = matching_brace(text, m.end() - 1)
+        start = preceding_javadoc_start(text, m.start())
+        if text[:start].endswith("\n\n"):
+            start -= 1
         end = close + 1
         if end < len(text) and text[end] == "\n":
             end += 1
@@ -690,8 +719,8 @@ def strip_tasks(text):
         text = remove_case(text, label)
     for name in (
         "answersWithTask", "refuseWithoutTasksExtension", "TaskStatusFilter",
-        "runToolAsTask", "runSearchAsTaskThatAsks",
-        "runOnVirtualThread", "interruptTaskWorker",
+        "runToolAsTask", "runSearchAsTaskThatAsks", "completeTask", "failTask",
+        "runOnVirtualThread", "interruptTaskWorker", "newKeyWordSearch",
         "askOnTask", "isTerminal",
     ):
         text = remove_method(text, name)
@@ -1022,6 +1051,12 @@ def strip_coverage_helpers(text: str, chapter: int) -> str:
     return text
 
 
+def strip_search_test_imports(text: str, chapter: int) -> str:
+    if "class KeyWordSearchTest" in text and chapter < 7:
+        text = text.replace("import static org.mockito.Mockito.never;\n", "")
+    return text
+
+
 def strip_router_test_imports(text: str, chapter: int) -> str:
     if "class IORouterTest" not in text:
         return text
@@ -1029,6 +1064,14 @@ def strip_router_test_imports(text: str, chapter: int) -> str:
         text = text.replace("import com.workshop.mcp.tools.KeyWordSearch;\n", "")
     if chapter < 5:
         text = text.replace("import com.workshop.mcp.tools.SearchContinuation;\n", "")
+    if chapter < 7:
+        # Only the searches the task tests swap in use these.
+        for imported in (
+            "com.workshop.mcp.spec.ToolCallParams", "com.workshop.mcp.spec.ToolCallResult",
+            "com.workshop.mcp.spec.builders.ToolCallResultBuilder",
+            "java.util.concurrent.CountDownLatch", "java.util.concurrent.TimeUnit",
+        ):
+            text = text.replace(f"import {imported};\n", "")
     return text
 
 
@@ -1097,7 +1140,11 @@ def strip_unused_helpers(text, chapter):
     if chapter < 6:
         text = remove_method(text, "appTool")
     if chapter < 7:
+        # The published chapter branches keep the blank line this one leaves.
         text = remove_method(text, "interruptTaskThread")
+        for name in ("awaitWorkerExit", "awaitLogged", "routerSearchingWith", "searchThatThrows"):
+            text = remove_method(text, name, with_blank_line=True)
+        text = remove_type(text, "SearchThatWaitsForACancel")
     return text
 
 
@@ -1399,6 +1446,7 @@ def main():
             text = strip_unused_helpers(text, n)
             text = strip_coverage_helpers(text, n)
             text = strip_router_test_imports(text, n)
+            text = strip_search_test_imports(text, n)
             text = strip_missing_imports(text, n)
             if test.name == "IORouterTest.java":
                 text = inject_extra_tests(text, n)

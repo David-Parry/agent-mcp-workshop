@@ -179,6 +179,7 @@ By the end of this chapter you will have:
 - ✅ Read the reshaped records, `Task`, `TaskResult`, `TasksGetParams`, `TasksUpdateParams` and `TasksCancelParams`, with `ttlMs` and `pollIntervalMs`
 - ✅ Built a framework-free `TaskStore` that carries a task through its whole lifecycle, `input_required` included
 - ✅ Answered the three methods, with an empty acknowledgement for `tasks/update` and `tasks/cancel`
+- ✅ Made a cancel stop the task's work as well as its status, by interrupting the thread it runs on
 - ✅ Made task creation a **server** decision, gated on what the client declared on that request
 - ✅ Committed to the answer shape before asking anything, so a handle and a question never collide
 - ✅ Implemented the task-level round trip, where the question is a status and `tasks/update` is the answer
@@ -186,7 +187,6 @@ By the end of this chapter you will have:
 
 ## Stretch — Out of Scope for This Chapter
 
-- Stopping the work when a task is cancelled
 - Pushing `notifications/tasks` to a client that subscribes with `subscriptions/listen`
 - Reporting progress in `statusMessage`, since the extension rules out `notifications/progress` for tasks
 - Persisting tasks beyond process lifetime, and expiring them after their TTL

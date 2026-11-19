@@ -25,7 +25,7 @@ Each bold line number below is the line of the method's signature, or of the cas
 
 ### Step 1: Read `discoverResult`
 
-**Action Required**: open `src/main/java/com/workshop/mcp/IORouter.java` and read `discoverResult()` at **line 388**. It is already written:
+**Action Required**: open `src/main/java/com/workshop/mcp/IORouter.java` and read `discoverResult()` at **line 393**. It is already written:
 
 ```java
 private DiscoverResult discoverResult() {
@@ -153,7 +153,7 @@ public static SearchContinuation decode(String requestState) {
 
 ### Step 1: Hand `tools/call` to a resolver
 
-The `TOOLS_CALL` case is the one you wrote in Chapter 4: an unknown tool is `-32602`, and a call without a directory is a tool error. The error is what this chapter replaces.
+The `TOOLS_CALL` case is the one you wrote in Chapter 4: an unknown tool is `-32602`, and arguments the tool cannot use, or a call without a directory, are a tool error. The argument check stays. The missing-directory error is what this chapter replaces.
 
 **Action Required**: replace the `TOOLS_CALL` case at **line 242** of `src/main/java/com/workshop/mcp/IORouter.java`. Paste this over the whole case:
 
@@ -165,6 +165,11 @@ case TOOLS_CALL -> {
         logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                    + " (returning -32602)");
         error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
+    } else if (keyWordSearch.checkArguments(toolCallParams.arguments()) instanceof String unusable) {
+        // Checked before the search starts: arguments the tool cannot
+        // use get a tool error the model can act on, and nothing runs.
+        logger.log("[API][SENT] tools/call — unusable arguments, answering isError: " + unusable);
+        success(message.id(), ToolCallResultBuilder.builder().addTextContent(unusable).asError().build());
     } else {
         handleKeywordSearch(message.id(), toolCallParams, envelope);
     }
@@ -175,7 +180,7 @@ case TOOLS_CALL -> {
 
 ### Step 2: Resolve the directory, asking if necessary
 
-**Action Required**: fill `handleKeywordSearch` at **line 416** of `IORouter.java` (line 406 once Step 1's case is in):
+**Action Required**: fill `handleKeywordSearch` at **line 421** of `IORouter.java` (line 411 once Step 1's case is in):
 
 ```java
 private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
@@ -244,7 +249,7 @@ Everything about it follows from having no session:
 
 ### Step 3: Read the answer back
 
-**Action Required**: fill `elicitedDirectory` at **line 458** of `IORouter.java` (line 493 once Steps 1 and 2 are in):
+**Action Required**: fill `elicitedDirectory` at **line 463** of `IORouter.java` (line 498 once Steps 1 and 2 are in):
 
 ```java
 private String elicitedDirectory(Object inputResponse) {

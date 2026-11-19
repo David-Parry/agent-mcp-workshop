@@ -291,7 +291,7 @@ public class IORouter implements Router {
                 }
             }
             case TOOLS_LIST -> {
-                KeyWordSearch keyWordSearch = newKeyWordSearch();
+                KeyWordSearch keyWordSearch = new KeyWordSearch();
                 AppTool appTool = AppToolBuilder.builder()
                         .withName(keyWordSearch.name())
                         .withDescription(keyWordSearch.description())
@@ -302,14 +302,14 @@ public class IORouter implements Router {
             }
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
-                KeyWordSearch keyWordSearch = newKeyWordSearch();
+                KeyWordSearch keyWordSearch = new KeyWordSearch();
                 if (!keyWordSearch.name().equals(toolCallParams.name())) {
                     logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                                + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
                 } else if (keyWordSearch.checkArguments(toolCallParams.arguments()) instanceof String unusable) {
-                    // Answered before handleKeywordSearch, so arguments the
-                    // tool cannot use never become a task.
+                    // Checked before the search starts: arguments the tool cannot
+                    // use get a tool error the model can act on, and nothing runs.
                     logger.log("[API][SENT] tools/call — unusable arguments, answering isError: " + unusable);
                     success(message.id(), ToolCallResultBuilder.builder().addTextContent(unusable).asError().build());
                 } else {

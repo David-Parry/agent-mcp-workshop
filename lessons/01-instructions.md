@@ -206,9 +206,9 @@ All three methods are graded by tests that ship on this branch. Run them:
 ./gradlew chapterTest -Pchapter=01
 ```
 
-The run reports 58 tests, and 13 of them fail before you start, all of them in `IOHandlerImplTest`. `LogFileWriterTest`, the `Server` tests, and 4 of the 17 `IOHandlerImplTest` cases already pass, because they test code this branch gives you, or input that is empty or broken before a line is ever read. When all 58 are green, the transport layer is finished and you can move on to chapter 2.
+The run reports 62 tests, and 13 of them fail before you start, all of them in `IOHandlerImplTest`. `LogFileWriterTest`, the `Server` tests, and 4 of the 17 `IOHandlerImplTest` cases already pass, because they test code this branch gives you, or input that is empty or broken before a line is ever read. When all 62 are green, the transport layer is finished and you can move on to chapter 2.
 
-Each failure already prints its full stack trace. To rerun a single test while debugging, name it with `--tests`; the summary line then counts only that test, so the chapter is done only when a run without `--tests` shows all 58:
+Each failure already prints its full stack trace. To rerun a single test while debugging, name it with `--tests`; the summary line then counts only that test, so the chapter is done only when a run without `--tests` shows all 62:
 
 ```bash
 ./gradlew chapterTest -Pchapter=01 --tests 'IOHandlerImplTest.testEmit_WithStringMessage'
@@ -222,7 +222,7 @@ A few failures worth recognising:
 
 ### See the logs
 
-Once all 58 are green, look at what the transport wrote along the way. Run `IOHandlerImplTest` on its own, then print the log it leaves in `logs/`:
+Once all 62 are green, look at what the transport wrote along the way. Run `IOHandlerImplTest` on its own, then print the log it leaves in `logs/`:
 
 ```bash
 ./gradlew chapterTest -Pchapter=01 --tests 'IOHandlerImplTest' --rerun
