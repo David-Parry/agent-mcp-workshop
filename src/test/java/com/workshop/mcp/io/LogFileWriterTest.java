@@ -481,32 +481,91 @@ class LogFileWriterTest {
             logFile.log(message);
         }
         
-        // Test newline separately since it creates multiple lines
+        // Test newline separately since it is escaped rather than written
         logFile.log("Message with\nnewline");
 
         // Then
-        Path logsDir = Paths.get("logs");
-        Path logFilePath = Files.list(logsDir)
-                .filter(path -> path.toString().endsWith(".log"))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("Log file not found"));
+        List<String> lines = currentLogLines();
 
-        List<String> lines = Files.readAllLines(logFilePath);
-        
-        // Should have specialMessages.length + 2 (for the newline message which creates 2 lines)
-        assertEquals(specialMessages.length + 2, lines.size(), "Should have all messages plus extra line for newline");
-        
+        // Each message is one entry, so one line
+        assertEquals(specialMessages.length + 1, lines.size(), "Should have exactly one line per message");
+
         // Verify regular special character messages
         for (int i = 0; i < specialMessages.length; i++) {
             assertTrue(lines.get(i).contains(specialMessages[i]), 
                     "Line " + i + " should contain the special message");
         }
-        
-        // Verify newline message (split across two lines)
-        assertTrue(lines.get(specialMessages.length).contains("Message with"), 
-                "First part of newline message should be present");
-        assertEquals("newline", lines.get(specialMessages.length + 1), 
-                "Second part of newline message should be on next line");
+
+        // Verify newline message (kept on its own line, with the newline escaped)
+        assertTrue(lines.get(specialMessages.length).endsWith("] Message with\\nnewline"),
+                "The newline should be written as a backslash and an n: " + lines.get(specialMessages.length));
+    }
+
+    @Test
+    @DisplayName("Should not let a message forge a log entry of its own")
+    void testMessageCannotForgeAnEntry() throws IOException {
+        // Given
+        logFile = LogFileWriter.getInstance();
+
+        // When
+        logFile.log("[API][RECEIVED] reason: sorry\n[2026-01-01 00:00:00.000] [API][SENT] FORGED");
+
+        // Then
+        List<String> lines = currentLogLines();
+        assertEquals(1, lines.size(), "The whole message must stay one entry: " + lines);
+        assertFalse(lines.get(0).startsWith("[2026-01-01"), "The entry starts with the real timestamp");
+        assertTrue(lines.get(0).endsWith("sorry\\n[2026-01-01 00:00:00.000] [API][SENT] FORGED"), lines.get(0));
+    }
+
+    @Test
+    @DisplayName("Should escape control characters and keep tabs")
+    void testControlCharactersAreEscaped() throws IOException {
+        // Given
+        logFile = LogFileWriter.getInstance();
+
+        // When
+        logFile.log("cr\r nul\0 esc\u001b del\u007f nel\u0085 ls\u2028 ps\u2029 tab\tkept");
+
+        // Then
+        List<String> lines = currentLogLines();
+        assertEquals(1, lines.size(), "No character in the message may end the entry: " + lines);
+        assertTrue(lines.get(0).endsWith(
+                        "cr\\r nul\\u0000 esc\\u001b del\\u007f nel\\u0085 ls\\u2028 ps\\u2029 tab\tkept"),
+                lines.get(0));
+    }
+
+    @Test
+    @DisplayName("Should escape line breaks in raw messages too")
+    void testLogRawEscapesLineBreaks() throws IOException {
+        // Given
+        logFile = LogFileWriter.getInstance();
+
+        // When
+        logFile.logRaw("first\nsecond");
+
+        // Then
+        assertEquals(List.of("first\\nsecond"), currentLogLines());
+    }
+
+    @Test
+    @DisplayName("Should keep each line of a stack trace one line")
+    void testExceptionLinesStayOneLineEach() throws IOException {
+        // Given
+        logFile = LogFileWriter.getInstance();
+        RuntimeException exception = new RuntimeException(
+                "outer\n[2026-01-01 00:00:00.000] FORGED", new IllegalStateException("inner\rcause"));
+
+        // When
+        logFile.log("Failed\nhere", exception);
+
+        // Then
+        List<String> lines = currentLogLines();
+        assertTrue(lines.get(0).endsWith("] Failed\\nhere"), lines.get(0));
+        assertEquals("java.lang.RuntimeException: outer\\n[2026-01-01 00:00:00.000] FORGED", lines.get(1));
+        assertTrue(lines.get(2).startsWith("\tat com.workshop.mcp.io.LogFileWriterTest"),
+                "Frames keep their tab: " + lines.get(2));
+        assertTrue(lines.contains("Caused by: java.lang.IllegalStateException: inner\\rcause"), "" + lines);
+        assertTrue(lines.stream().noneMatch(line -> line.startsWith("[2026-01-01")), "" + lines);
     }
 
     @Test
@@ -605,6 +664,17 @@ class LogFileWriterTest {
      * file so the primary writer cannot be opened, and the temp directory the
      * writer falls back to does not exist.
      */
+    /** Reads the lines of the newest log file this test wrote. */
+    private static List<String> currentLogLines() throws IOException {
+        try (Stream<Path> logs = Files.list(Paths.get("logs"))) {
+            Path newest = logs.filter(path -> path.getFileName().toString().startsWith("agent-mcp-workshop-"))
+                    .filter(path -> path.toString().endsWith(".log"))
+                    .max(Comparator.comparing(path -> path.toFile().lastModified()))
+                    .orElseThrow(() -> new AssertionError("Log file not found"));
+            return Files.readAllLines(newest);
+        }
+    }
+
     private void withBrokenLogDestinations(Runnable action) throws IOException {
         Path logsDir = Paths.get("logs");
         deleteRecursively(logsDir);

@@ -81,6 +81,62 @@ class KeyWordSearchTest {
         assertTrue(result.content().get(0).text().endsWith("keyword_count=1"));
     }
 
+    @Test
+    void callWithADirectoryThatCannotBeAPathIsAToolError() {
+        // Such a directory can arrive after the arguments were checked, from a
+        // form the user filled in, so the search checks it again.
+        ToolCallResult result = tool.call(params(KEYWORD), Set.of(root.toString(), "/tmp/\u0000bad"));
+
+        assertTrue(result.isError());
+        assertTrue(result.content().get(0).text().contains("is not a valid path"), result.content().get(0).text());
+    }
+
+    // --- checking the arguments -------------------------------------------
+
+    @Test
+    void argumentsOfTheTypesTheSchemaDeclaresAreUsable() {
+        assertNull(tool.checkArguments(Map.of("keyword", KEYWORD, "directory", root.toString())));
+    }
+
+    @Test
+    void absentArgumentsAreLeftForTheSearchToHandle() {
+        // A missing keyword searches for nothing, and a missing directory is asked for.
+        Map<String, Object> nulls = new HashMap<>();
+        nulls.put("keyword", null);
+        nulls.put("directory", null);
+
+        assertNull(tool.checkArguments(null));
+        assertNull(tool.checkArguments(Map.of()));
+        assertNull(tool.checkArguments(nulls), "a JSON null reads as an absent argument");
+    }
+
+    @Test
+    void aKeywordThatIsNotAStringIsUnusable() {
+        assertEquals("The keyword argument must be a string.",
+                     tool.checkArguments(Map.of("keyword", Map.of("nested", true))));
+        assertEquals("The keyword argument must be a string.", tool.checkArguments(Map.of("keyword", 42.0)),
+                     "a number is refused rather than searched for as 42.0");
+    }
+
+    @Test
+    void aDirectoryThatIsNotAStringIsUnusable() {
+        assertEquals("The directory argument must be a string.",
+                     tool.checkArguments(Map.of("keyword", KEYWORD, "directory", List.of("/tmp"))));
+    }
+
+    @Test
+    void aDirectoryThatCannotBeAPathIsUnusable() {
+        String problem = tool.checkArguments(Map.of("keyword", KEYWORD, "directory", "/tmp/\u0000bad"));
+
+        assertTrue(problem.contains("is not a valid path"), problem);
+    }
+
+    @Test
+    void aFileUriIsCheckedAsThePathItNames() {
+        assertNull(tool.checkArguments(Map.of("directory", "file://" + root)));
+        assertTrue(tool.checkArguments(Map.of("directory", "file:///tmp/\u0000bad")).contains("is not a valid path"));
+    }
+
     // --- the keyword ------------------------------------------------------
 
     @Test
@@ -284,7 +340,7 @@ class KeyWordSearchTest {
     // --- helpers -----------------------------------------------------------
 
     private static ToolCallParams params(String keyword) {
-        Map<String, String> arguments = new HashMap<>();
+        Map<String, Object> arguments = new HashMap<>();
         arguments.put("keyword", keyword);
         return new ToolCallParams(null, "key_word_search", arguments, null, null);
     }
