@@ -140,7 +140,7 @@ loadScripts(document, 'script');</script>
 <div class="col-first even-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
 <div class="col-second even-row-color"><code><a href="#SUPPORTED_VERSION" class="member-name-link">SUPPORTED_VERSION</a></code></div>
 <div class="col-last even-row-color">
-<div class="block">The only protocol revision this server implements.</div>
+<div class="block">The only stateless protocol revision this server implements.</div>
 </div>
 <div class="col-first odd-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
 <div class="col-second odd-row-color"><code><a href="#SUPPORTED_VERSIONS" class="member-name-link">SUPPORTED_VERSIONS</a></code></div>
@@ -226,6 +226,16 @@ loadScripts(document, 'script');</script>
 <div class="block">Reports whether the client can render an elicitation form on this request.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#supportsElicitationUrl()" class="member-name-link">supportsElicitationUrl</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Reports whether the client can open an elicitation URL on this request.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#supportsMcpApps()" class="member-name-link">supportsMcpApps</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Reports whether the client can render an MCP App page on this request.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#supportsTasks()" class="member-name-link">supportsTasks</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Reports whether the client declared the tasks extension on this request.</div>
@@ -256,7 +266,9 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="SUPPORTED_VERSION">
 <h3>SUPPORTED_VERSION</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">SUPPORTED_VERSION</span></div>
-<div class="block">The only protocol revision this server implements.</div>
+<div class="block">The only stateless protocol revision this server implements. The
+ handshake revisions it also speaks are agreed through <code>initialize</code>,
+ never named in an envelope.</div>
 <dl class="notes">
 <dt>See Also:</dt>
 <dd>
@@ -342,6 +354,17 @@ loadScripts(document, 'script');</script>
 </section>
 </li>
 <li>
+<section class="detail" id="supportsElicitationUrl()">
+<h3>supportsElicitationUrl</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">supportsElicitationUrl</span>()</div>
+<div class="block">Reports whether the client can open an elicitation URL on this request.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>true when URL-mode elicitation is available</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="supportsTasks()">
 <h3>supportsTasks</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">supportsTasks</span>()</div>
@@ -353,6 +376,22 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>true when the tasks extension is available</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="supportsMcpApps()">
+<h3>supportsMcpApps</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">supportsMcpApps</span>()</div>
+<div class="block">Reports whether the client can render an MCP App page on this request.
+ <p>
+ Declaring the UI extension is not enough on its own: a host lists the
+ content types it can render in the extension's <code>mimeTypes</code>, and
+ a page is <a href="Resource.html#MIME_TYPE_UI_APP"><code>Resource.MIME_TYPE_UI_APP</code></a>.
+ </p></div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>true when the UI extension lists <code>text/html;profile=mcp-app</code></dd>
 </dl>
 </section>
 </li>

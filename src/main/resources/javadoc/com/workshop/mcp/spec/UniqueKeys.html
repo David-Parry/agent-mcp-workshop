@@ -107,7 +107,9 @@ loadScripts(document, 'script');</script>
  <code>ping</code>, <code>logging/setLevel</code>,
  <code>notifications/roots/list_changed</code>, <code>resources/subscribe</code>,
  <code>resources/unsubscribe</code>, <code>tasks/result</code>, and
- <code>tasks/list</code> are all gone for that reason.
+ <code>tasks/list</code> are all gone for that reason. The router answers
+ <code>initialize</code>, <code>notifications/initialized</code>, and <code>ping</code>
+ outside this registry, for clients still on a handshake revision.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -161,6 +163,16 @@ loadScripts(document, 'script');</script>
 <div class="block">Notification reporting which subset of a <code>subscriptions/listen</code>
  filter the server honored.</div>
 </div>
+<div class="col-first odd-row-color"><code><a href="#NOTIFICATIONS_TASKS" class="member-name-link">NOTIFICATIONS_TASKS</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">Notification pushing a task's state to a <code>subscriptions/listen</code>
+ stream that agreed to its id (tasks extension).</div>
+</div>
+<div class="col-first even-row-color"><code><a href="#NOTIFICATIONS_TOOLS_LIST_CHANGED" class="member-name-link">NOTIFICATIONS_TOOLS_LIST_CHANGED</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">Notification telling an open <code>subscriptions/listen</code> stream that the
+ tool list changed, so the client should fetch <code>tools/list</code> again.</div>
+</div>
 <div class="col-first odd-row-color"><code><a href="#PROMPTS_GET" class="member-name-link">PROMPTS_GET</a></code></div>
 <div class="col-last odd-row-color">
 <div class="block">Method for retrieving a specific prompt by name.</div>
@@ -185,6 +197,15 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color">
 <div class="block">Method for discovering a server's supported protocol revisions,
  capabilities, and identity.</div>
+</div>
+<div class="col-first odd-row-color"><code><a href="#SKILLS_GET" class="member-name-link">SKILLS_GET</a></code></div>
+<div class="col-last odd-row-color">
+<div class="block">Method returning one skill's entry, named by the URI of its
+ <code>SKILL.md</code> (Skills extension).</div>
+</div>
+<div class="col-first even-row-color"><code><a href="#SKILLS_LIST" class="member-name-link">SKILLS_LIST</a></code></div>
+<div class="col-last even-row-color">
+<div class="block">Method listing the skills a server serves (Skills extension).</div>
 </div>
 <div class="col-first odd-row-color"><code><a href="#SUBSCRIPTIONS_LISTEN" class="member-name-link">SUBSCRIPTIONS_LISTEN</a></code></div>
 <div class="col-last odd-row-color">
@@ -402,6 +423,33 @@ the order they are declared.</div>
 </section>
 </li>
 <li>
+<section class="detail" id="NOTIFICATIONS_TOOLS_LIST_CHANGED">
+<h3>NOTIFICATIONS_TOOLS_LIST_CHANGED</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATIONS_TOOLS_LIST_CHANGED</span></div>
+<div class="block">Notification telling an open <code>subscriptions/listen</code> stream that the
+ tool list changed, so the client should fetch <code>tools/list</code> again.
+ <p>
+ Sent only on a stream whose acknowledgement agreed to
+ <code>toolsListChanged</code>, and only by a server that advertised
+ <code>tools.listChanged</code>. Like everything on a stream, it carries
+ <a href="MetaKeys.html#SUBSCRIPTION_ID"><code>MetaKeys.SUBSCRIPTION_ID</code></a>.
+ </p></div>
+</section>
+</li>
+<li>
+<section class="detail" id="NOTIFICATIONS_TASKS">
+<h3>NOTIFICATIONS_TASKS</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">NOTIFICATIONS_TASKS</span></div>
+<div class="block">Notification pushing a task's state to a <code>subscriptions/listen</code>
+ stream that agreed to its id (tasks extension).
+ <p>
+ It carries what <code>tasks/get</code> would answer at that moment, and
+ <a href="MetaKeys.html#SUBSCRIPTION_ID"><code>MetaKeys.SUBSCRIPTION_ID</code></a>. The name is the bare one because the
+ <code>notifications/tasks/</code> prefix is reserved.
+ </p></div>
+</section>
+</li>
+<li>
 <section class="detail" id="TASKS_GET">
 <h3>TASKS_GET</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">TASKS_GET</span></div>
@@ -426,6 +474,25 @@ the order they are declared.</div>
 <h3>TASKS_CANCEL</h3>
 <div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">TASKS_CANCEL</span></div>
 <div class="block">Method for explicitly cancelling a task (tasks extension).</div>
+</section>
+</li>
+<li>
+<section class="detail" id="SKILLS_LIST">
+<h3>SKILLS_LIST</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">SKILLS_LIST</span></div>
+<div class="block">Method listing the skills a server serves (Skills extension).
+ <p>
+ Each entry is a complete manifest of one skill, so a host can build its
+ registry and verify every file it later reads from the listing alone.
+ </p></div>
+</section>
+</li>
+<li>
+<section class="detail" id="SKILLS_GET">
+<h3>SKILLS_GET</h3>
+<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="UniqueKeys.html" title="enum class in com.workshop.mcp.spec">UniqueKeys</a></span>&nbsp;<span class="element-name">SKILLS_GET</span></div>
+<div class="block">Method returning one skill's entry, named by the URI of its
+ <code>SKILL.md</code> (Skills extension).</div>
 </section>
 </li>
 <li>

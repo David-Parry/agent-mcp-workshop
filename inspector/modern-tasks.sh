@@ -4,15 +4,20 @@
 # Step 1: the call, from a client that declares the extension and names no
 #         directory. It is answered with a handle rather than a result.
 # Step 2: poll tasks/get until the task asks for its directory, as its status.
-# Step 3: answer with tasks/update, which is acknowledged with an empty result.
-# Step 4: poll tasks/get until the task has completed with the search result.
+# Step 3: open a stream that names the task, instead of polling any further.
+#         The server agrees to it and pushes the task as it stands.
+# Step 4: answer with tasks/update, which is acknowledged with an empty result.
+#         Every change is pushed as notifications/tasks: the search's progress
+#         in the status message, then the completed task with its result. The
+#         stream closes once the task has finished.
 # Step 5: cancel the finished task. It is acknowledged and stays completed.
 # Step 6: the same tasks/get from a client that left the extension off.
 # Step 7: tasks/get on a task id that was never issued.
 #
 # The server mints each task id, so unlike modern-mrtr.sh this script reads
-# every answer before it sends the next request. The server pushes no task
-# status, so each line it writes answers the request just sent.
+# every answer before it sends the next request. Task status is pushed only on
+# a stream that names the task, so outside steps 3 and 4 each line the server
+# writes answers the request just sent.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -34,6 +39,19 @@ send() {
   echo "$1" >&3
   IFS= read -r ANSWER <&4
   echo "$ANSWER"
+}
+
+# Prints lines until the one that answers request $1, keeping it in ANSWER.
+# What the server pushes on an open stream arrives in between, and is printed too.
+until_answer() {
+  while IFS= read -r ANSWER <&4; do
+    echo "$ANSWER"
+    case "$ANSWER" in
+      *"\"id\":$1,"* | *"\"id\":\"$1\","*) return ;;
+    esac
+  done
+  echo "the server stopped before it answered $1" >&2
+  exit 1
 }
 
 # The first string value of a field in ANSWER.
@@ -61,8 +79,15 @@ poll_until() {
 send "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{$TASKS,\"name\":\"key_word_search\",\"arguments\":{\"keyword\":\"record\"}}}"
 TASK_ID=$(field taskId)
 poll_until input_required
-send "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tasks/update\",\"params\":{$TASKS,\"taskId\":\"$TASK_ID\",\"inputResponses\":{\"search_directory\":{\"action\":\"accept\",\"content\":{\"directory\":\"$TARGET\"}}}}}"
-poll_until completed
+echo "{\"jsonrpc\":\"2.0\",\"id\":\"listen:tasks\",\"method\":\"subscriptions/listen\",\"params\":{$TASKS,\"notifications\":{\"taskIds\":[\"$TASK_ID\"]}}}" >&3
+# The acknowledgement, then the task as it stands.
+for _ in 1 2; do
+  IFS= read -r ANSWER <&4
+  echo "$ANSWER"
+done
+echo "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tasks/update\",\"params\":{$TASKS,\"taskId\":\"$TASK_ID\",\"inputResponses\":{\"search_directory\":{\"action\":\"accept\",\"content\":{\"directory\":\"$TARGET\"}}}}}" >&3
+until_answer 2
+until_answer listen:tasks
 send "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tasks/cancel\",\"params\":{$TASKS,\"taskId\":\"$TASK_ID\"}}"
 poll_until completed
 send "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tasks/get\",\"params\":{$NO_TASKS,\"taskId\":\"$TASK_ID\"}}"

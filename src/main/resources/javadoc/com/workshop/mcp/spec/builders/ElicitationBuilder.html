@@ -138,6 +138,19 @@ loadScripts(document, 'script');</script>
 <div class="block">Creates an <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec"><code>ElicitationCreateParams</code></a> that asks the user for an
  absolute path to a directory the keyword-search tool should search in.</div>
 </div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec">ElicitationCreateParams</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildSearchKeywordElicitation()" class="member-name-link">buildSearchKeywordElicitation</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Creates an <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec"><code>ElicitationCreateParams</code></a> that asks the user for the
+ keyword to search for.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec">ElicitationCreateParams</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#buildSearchPageElicitation(java.lang.String)" class="member-name-link">buildSearchPageElicitation</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;url)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">
+<div class="block">Creates an <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec"><code>ElicitationCreateParams</code></a> that sends the user to a page
+ to pick a directory, for a client that can open a URL but cannot show a
+ form.</div>
+</div>
 </div>
 </div>
 </div>
@@ -192,6 +205,38 @@ loadScripts(document, 'script');</script>
 <dt>Returns:</dt>
 <dd>parameters describing a single-field form prompting for an
          absolute directory path</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="buildSearchKeywordElicitation()">
+<h3>buildSearchKeywordElicitation</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec">ElicitationCreateParams</a></span>&nbsp;<span class="element-name">buildSearchKeywordElicitation</span>()</div>
+<div class="block">Creates an <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec"><code>ElicitationCreateParams</code></a> that asks the user for the
+ keyword to search for.
+ <p>
+ Asked beside the directory question, in the same round, when a call
+ carried neither. Each question has its own key in
+ <code>inputRequests</code>, so both answers come back on one retry.
+ </p></div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>parameters describing a single-field form prompting for a keyword</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="buildSearchPageElicitation(java.lang.String)">
+<h3>buildSearchPageElicitation</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec">ElicitationCreateParams</a></span>&nbsp;<span class="element-name">buildSearchPageElicitation</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;url)</span></div>
+<div class="block">Creates an <a href="../ElicitationCreateParams.html" title="class in com.workshop.mcp.spec"><code>ElicitationCreateParams</code></a> that sends the user to a page
+ to pick a directory, for a client that can open a URL but cannot show a
+ form.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>url</code> - the page the server is serving for this one question</dd>
+<dt>Returns:</dt>
+<dd>URL-mode parameters</dd>
 </dl>
 </section>
 </li>

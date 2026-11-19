@@ -172,6 +172,12 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets whether this result represents an error.</div>
 </div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="ToolCallResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ToolCallResultBuilder</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withStructuredContent(java.lang.Object)" class="member-name-link">withStructuredContent</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;structuredContent)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Sets the result as an object matching the tool's <code>outputSchema</code>,
+ sent beside the text content rather than instead of it.</div>
+</div>
 </div>
 </div>
 </div>
@@ -237,6 +243,20 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>text</code> - the text content to add</dd>
+<dt>Returns:</dt>
+<dd>this builder instance for method chaining</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="withStructuredContent(java.lang.Object)">
+<h3>withStructuredContent</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="ToolCallResultBuilder.html" title="class in com.workshop.mcp.spec.builders">ToolCallResultBuilder</a></span>&nbsp;<span class="element-name">withStructuredContent</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;structuredContent)</span></div>
+<div class="block">Sets the result as an object matching the tool's <code>outputSchema</code>,
+ sent beside the text content rather than instead of it.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>structuredContent</code> - anything that serializes to a JSON object</dd>
 <dt>Returns:</dt>
 <dd>this builder instance for method chaining</dd>
 </dl>

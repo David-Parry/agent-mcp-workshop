@@ -96,9 +96,10 @@ loadScripts(document, 'script');</script>
 <dd><code><span id="param-promptsListChanged">promptsListChanged</span></code> - deliver <code>notifications/prompts/list_changed</code></dd>
 <dd><code><span id="param-resourcesListChanged">resourcesListChanged</span></code> - deliver <code>notifications/resources/list_changed</code></dd>
 <dd><code><span id="param-resourceSubscriptions">resourceSubscriptions</span></code> - deliver updates for these specific resource URIs</dd>
+<dd><code><span id="param-taskIds">taskIds</span></code> - deliver <code>notifications/tasks</code> for these tasks</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">SubscriptionFilter</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;toolsListChanged, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;promptsListChanged, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;resourcesListChanged, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;resourceSubscriptions)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">SubscriptionFilter</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;toolsListChanged, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;promptsListChanged, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;resourcesListChanged, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;resourceSubscriptions, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;taskIds)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">Which notifications a client wants delivered on a
  <code>subscriptions/listen</code> stream.
@@ -109,11 +110,11 @@ loadScripts(document, 'script');</script>
  would leave the client waiting on notifications that never come.
  </p>
  <p>
- These are the core protocol's four filters. The tasks extension adds a
- fifth, <code>taskIds</code>, for its <code>notifications/tasks</code>. This server
- pushes no task status, so it agrees to no task ids, and reads that filter
- only to refuse it to a client that did not declare the extension. A client
- polls <code>tasks/get</code> instead, which is what the MCP Inspector does.
+ The first four are the core protocol's filters. The tasks extension adds a
+ fifth, <code>taskIds</code>, for its <code>notifications/tasks</code>, and only a
+ client that declared the extension may ask for it. A server agrees only to
+ the tasks it holds: an id it never issued, or one it has already purged,
+ has no status to push.
  </p></div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -141,6 +142,14 @@ loadScripts(document, 'script');</script>
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;resourcesListChanged,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;resourceSubscriptions)</code></div>
 <div class="col-last even-row-color">
+<div class="block">A filter of the core protocol's four, asking for no task status.</div>
+</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.lang.Boolean,java.lang.Boolean,java.lang.Boolean,java.util.List,java.util.List)" class="member-name-link">SubscriptionFilter</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;toolsListChanged,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;promptsListChanged,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;resourcesListChanged,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;resourceSubscriptions,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;taskIds)</code></div>
+<div class="col-last odd-row-color">
 <div class="block">Creates an instance of a <code>SubscriptionFilter</code> record class.</div>
 </div>
 </div>
@@ -157,41 +166,53 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#asksForTaskStatus()" class="member-name-link">asksForTaskStatus</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Reports whether this filter asks for task status, which belongs to the
+ tasks extension.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final boolean</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#equals(java.lang.Object)" class="member-name-link">equals</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;o)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Indicates whether some other object is "equal to" this one.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final int</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#hashCode()" class="member-name-link">hashCode</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a hash code value for this object.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="SubscriptionFilter.html" title="class in com.workshop.mcp.spec">SubscriptionFilter</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#honoredUnder(com.workshop.mcp.spec.ServerCapabilities)" class="member-name-link">honoredUnder</a><wbr>(<a href="ServerCapabilities.html" title="class in com.workshop.mcp.spec">ServerCapabilities</a>&nbsp;capabilities)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="SubscriptionFilter.html" title="class in com.workshop.mcp.spec">SubscriptionFilter</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#honoredUnder(com.workshop.mcp.spec.ServerCapabilities,java.util.function.Predicate)" class="member-name-link">honoredUnder</a><wbr>(<a href="ServerCapabilities.html" title="class in com.workshop.mcp.spec">ServerCapabilities</a>&nbsp;capabilities,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/function/Predicate.html" title="class or interface in java.util.function" class="external-link">Predicate</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;isKnownTask)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Narrows a requested filter to what the given capabilities can support.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isEmpty()" class="member-name-link">isEmpty</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isEmpty()" class="member-name-link">isEmpty</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Reports whether this filter asks for anything at all, which decides
  whether a subscription is worth holding open.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#promptsListChanged()" class="member-name-link">promptsListChanged</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#promptsListChanged()" class="member-name-link">promptsListChanged</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-promptsListChanged"><code>promptsListChanged</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resourcesListChanged()" class="member-name-link">resourcesListChanged</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resourcesListChanged()" class="member-name-link">resourcesListChanged</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-resourcesListChanged"><code>resourcesListChanged</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resourceSubscriptions()" class="member-name-link">resourceSubscriptions</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#resourceSubscriptions()" class="member-name-link">resourceSubscriptions</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-resourceSubscriptions"><code>resourceSubscriptions</code></a> record component.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#taskIds()" class="member-name-link">taskIds</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-taskIds"><code>taskIds</code></a> record component.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toolsListChanged()" class="member-name-link">toolsListChanged</a>()</code></div>
@@ -202,6 +223,12 @@ loadScripts(document, 'script');</script>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="SubscriptionFilter.html" title="class in com.workshop.mcp.spec">SubscriptionFilter</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withoutTasks()" class="member-name-link">withoutTasks</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">The same filter without its tasks, for a stream whose tasks have all
+ finished.</div>
 </div>
 </div>
 </div>
@@ -227,6 +254,24 @@ loadScripts(document, 'script');</script>
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;promptsListChanged,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;resourcesListChanged,
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;resourceSubscriptions)</span></div>
+<div class="block">A filter of the core protocol's four, asking for no task status.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>toolsListChanged</code> - deliver <code>notifications/tools/list_changed</code></dd>
+<dd><code>promptsListChanged</code> - deliver <code>notifications/prompts/list_changed</code></dd>
+<dd><code>resourcesListChanged</code> - deliver <code>notifications/resources/list_changed</code></dd>
+<dd><code>resourceSubscriptions</code> - deliver updates for these specific resource URIs</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="&lt;init&gt;(java.lang.Boolean,java.lang.Boolean,java.lang.Boolean,java.util.List,java.util.List)">
+<h3>SubscriptionFilter</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">SubscriptionFilter</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;toolsListChanged,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;promptsListChanged,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Boolean.html" title="class or interface in java.lang" class="external-link">Boolean</a>&nbsp;resourcesListChanged,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;resourceSubscriptions,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;taskIds)</span></div>
 <div class="block">Creates an instance of a <code>SubscriptionFilter</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -234,6 +279,7 @@ loadScripts(document, 'script');</script>
 <dd><code>promptsListChanged</code> - the value for the <a href="#param-promptsListChanged"><code>promptsListChanged</code></a> record component</dd>
 <dd><code>resourcesListChanged</code> - the value for the <a href="#param-resourcesListChanged"><code>resourcesListChanged</code></a> record component</dd>
 <dd><code>resourceSubscriptions</code> - the value for the <a href="#param-resourceSubscriptions"><code>resourceSubscriptions</code></a> record component</dd>
+<dd><code>taskIds</code> - the value for the <a href="#param-taskIds"><code>taskIds</code></a> record component</dd>
 </dl>
 </section>
 </li>
@@ -246,16 +292,30 @@ loadScripts(document, 'script');</script>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="honoredUnder(com.workshop.mcp.spec.ServerCapabilities)">
+<section class="detail" id="honoredUnder(com.workshop.mcp.spec.ServerCapabilities,java.util.function.Predicate)">
 <h3>honoredUnder</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="SubscriptionFilter.html" title="class in com.workshop.mcp.spec">SubscriptionFilter</a></span>&nbsp;<span class="element-name">honoredUnder</span><wbr><span class="parameters">(<a href="ServerCapabilities.html" title="class in com.workshop.mcp.spec">ServerCapabilities</a>&nbsp;capabilities)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="SubscriptionFilter.html" title="class in com.workshop.mcp.spec">SubscriptionFilter</a></span>&nbsp;<span class="element-name">honoredUnder</span><wbr><span class="parameters">(<a href="ServerCapabilities.html" title="class in com.workshop.mcp.spec">ServerCapabilities</a>&nbsp;capabilities,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/function/Predicate.html" title="class or interface in java.util.function" class="external-link">Predicate</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;&nbsp;isKnownTask)</span></div>
 <div class="block">Narrows a requested filter to what the given capabilities can support.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>capabilities</code> - what this server advertised at discovery</dd>
+<dd><code>isKnownTask</code> - whether this server holds a task, and so has a status to push for it</dd>
 <dt>Returns:</dt>
 <dd>the honored subset, with unsupported entries dropped rather than
          set to false, so the acknowledgment says nothing it cannot back</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="asksForTaskStatus()">
+<h3>asksForTaskStatus</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">asksForTaskStatus</span>()</div>
+<div class="block">Reports whether this filter asks for task status, which belongs to the
+ tasks extension.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>true when it names at least one task</dd>
 </dl>
 </section>
 </li>
@@ -268,6 +328,18 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>true when at least one notification would be delivered</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="withoutTasks()">
+<h3>withoutTasks</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="SubscriptionFilter.html" title="class in com.workshop.mcp.spec">SubscriptionFilter</a></span>&nbsp;<span class="element-name">withoutTasks</span>()</div>
+<div class="block">The same filter without its tasks, for a stream whose tasks have all
+ finished.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>this filter with <code>taskIds</code> dropped</dd>
 </dl>
 </section>
 </li>
@@ -353,6 +425,17 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <a href="#param-resourceSubscriptions"><code>resourceSubscriptions</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="taskIds()">
+<h3>taskIds</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</span>&nbsp;<span class="element-name">taskIds</span>()</div>
+<div class="block">Returns the value of the <a href="#param-taskIds"><code>taskIds</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-taskIds"><code>taskIds</code></a> record component</dd>
 </dl>
 </section>
 </li>

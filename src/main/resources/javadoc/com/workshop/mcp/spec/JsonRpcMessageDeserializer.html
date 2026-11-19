@@ -185,6 +185,11 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Deserializes the params field of a JSON-RPC request into a specific type.</div>
 </div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#traceparent(com.workshop.mcp.spec.JsonRpcRequest)" class="member-name-link">traceparent</a><wbr>(<a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec">JsonRpcRequest</a>&nbsp;request)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Reads the W3C trace context a caller may send in <code>params._meta</code>.</div>
+</div>
 </div>
 </div>
 </div>
@@ -340,6 +345,19 @@ loadScripts(document, 'script');</script>
 <dd><code>request</code> - the request to inspect</dd>
 <dt>Returns:</dt>
 <dd>the envelope, never null</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="traceparent(com.workshop.mcp.spec.JsonRpcRequest)">
+<h3>traceparent</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">traceparent</span><wbr><span class="parameters">(<a href="JsonRpcRequest.html" title="class in com.workshop.mcp.spec">JsonRpcRequest</a>&nbsp;request)</span></div>
+<div class="block">Reads the W3C trace context a caller may send in <code>params._meta</code>.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>request</code> - the request to read</dd>
+<dt>Returns:</dt>
+<dd>the <code>traceparent</code> value, or <code>null</code> when the caller sent none</dd>
 </dl>
 </section>
 </li>

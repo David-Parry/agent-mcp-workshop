@@ -95,10 +95,11 @@ loadScripts(document, 'script');</script>
 <dd><code><span id="param-name">name</span></code> - the unique identifier for the tool</dd>
 <dd><code><span id="param-description">description</span></code> - a human-readable description of what the tool does</dd>
 <dd><code><span id="param-inputSchema">inputSchema</span></code> - the schema defining the tool's input parameters</dd>
+<dd><code><span id="param-outputSchema">outputSchema</span></code> - the JSON Schema of the tool's <code>structuredContent</code>, or null when it returns none</dd>
 <dd><code><span id="param-_meta">_meta</span></code> - UI metadata that declares the resource URI for the interactive app</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">AppTool</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description, <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema, <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a>&nbsp;_meta)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">AppTool</span>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description, <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema, <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a>&nbsp;_meta)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">Represents a tool that declares MCP App UI capability via <code>_meta.ui.resourceUri</code>.
  <p>
@@ -164,6 +165,14 @@ loadScripts(document, 'script');</script>
  <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema,
  <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a>&nbsp;_meta)</code></div>
 <div class="col-last even-row-color">
+<div class="block">Creates an app tool whose results carry no structured content.</div>
+</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.lang.String,java.lang.String,com.workshop.mcp.spec.InputSchema,java.util.Map,com.workshop.mcp.spec.AppMeta)" class="member-name-link">AppTool</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description,
+ <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema,
+ <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a>&nbsp;_meta)</code></div>
+<div class="col-last odd-row-color">
 <div class="block">Creates an instance of a <code>AppTool</code> record class.</div>
 </div>
 </div>
@@ -210,9 +219,14 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-name"><code>name</code></a> record component.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#outputSchema()" class="member-name-link">outputSchema</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Returns the value of the <a href="#param-outputSchema"><code>outputSchema</code></a> record component.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#toString()" class="member-name-link">toString</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
 </div>
 </div>
@@ -239,12 +253,31 @@ loadScripts(document, 'script');</script>
  <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description,
  <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema,
  <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a>&nbsp;_meta)</span></div>
+<div class="block">Creates an app tool whose results carry no structured content.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>name</code> - the unique identifier for the tool</dd>
+<dd><code>description</code> - what the tool does</dd>
+<dd><code>inputSchema</code> - the schema defining the tool's input parameters</dd>
+<dd><code>_meta</code> - UI metadata that declares the resource URI for the interactive app</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="&lt;init&gt;(java.lang.String,java.lang.String,com.workshop.mcp.spec.InputSchema,java.util.Map,com.workshop.mcp.spec.AppMeta)">
+<h3>AppTool</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">AppTool</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;name,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;description,
+ <a href="InputSchema.html" title="class in com.workshop.mcp.spec">InputSchema</a>&nbsp;inputSchema,
+ <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema,
+ <a href="AppMeta.html" title="class in com.workshop.mcp.spec">AppMeta</a>&nbsp;_meta)</span></div>
 <div class="block">Creates an instance of a <code>AppTool</code> record class.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>name</code> - the value for the <a href="#param-name"><code>name</code></a> record component</dd>
 <dd><code>description</code> - the value for the <a href="#param-description"><code>description</code></a> record component</dd>
 <dd><code>inputSchema</code> - the value for the <a href="#param-inputSchema"><code>inputSchema</code></a> record component</dd>
+<dd><code>outputSchema</code> - the value for the <a href="#param-outputSchema"><code>outputSchema</code></a> record component</dd>
 <dd><code>_meta</code> - the value for the <a href="#param-_meta"><code>_meta</code></a> record component</dd>
 </dl>
 </section>
@@ -328,6 +361,17 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>the value of the <a href="#param-inputSchema"><code>inputSchema</code></a> record component</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="outputSchema()">
+<h3>outputSchema</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</span>&nbsp;<span class="element-name">outputSchema</span>()</div>
+<div class="block">Returns the value of the <a href="#param-outputSchema"><code>outputSchema</code></a> record component.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>the value of the <a href="#param-outputSchema"><code>outputSchema</code></a> record component</dd>
 </dl>
 </section>
 </li>

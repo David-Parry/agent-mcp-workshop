@@ -158,6 +158,11 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the name of the tool being built.</div>
 </div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="ToolsListResultBuilder.ToolBuilder.html" title="class in com.workshop.mcp.spec.builders">ToolsListResultBuilder.ToolBuilder</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withOutputSchema(java.util.Map)" class="member-name-link">withOutputSchema</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Declares the JSON Schema the tool's <code>structuredContent</code> matches.</div>
+</div>
 </div>
 </div>
 </div>
@@ -190,6 +195,21 @@ loadScripts(document, 'script');</script>
 <section class="method-details" id="method-detail">
 <h2>Method Details</h2>
 <ul class="member-list">
+<li>
+<section class="detail" id="withOutputSchema(java.util.Map)">
+<h3>withOutputSchema</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="ToolsListResultBuilder.ToolBuilder.html" title="class in com.workshop.mcp.spec.builders">ToolsListResultBuilder.ToolBuilder</a></span>&nbsp;<span class="element-name">withOutputSchema</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema)</span></div>
+<div class="block">Declares the JSON Schema the tool's <code>structuredContent</code> matches.
+ Optional; a tool that declares one must return matching structured
+ content on every successful result.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>outputSchema</code> - a JSON Schema object</dd>
+<dt>Returns:</dt>
+<dd>this builder instance for method chaining</dd>
+</dl>
+</section>
+</li>
 <li>
 <section class="detail" id="withName(java.lang.String)">
 <h3>withName</h3>

@@ -170,9 +170,19 @@ loadScripts(document, 'script');</script>
 <div class="block">Sets the name of the tool.</div>
 </div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="AppToolBuilder.html" title="class in com.workshop.mcp.spec.builders">AppToolBuilder</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withResourceUri(java.lang.String)" class="member-name-link">withResourceUri</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withOutputSchema(java.util.Map)" class="member-name-link">withOutputSchema</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Declares the JSON Schema the tool's <code>structuredContent</code> matches.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="AppToolBuilder.html" title="class in com.workshop.mcp.spec.builders">AppToolBuilder</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withResourceUri(java.lang.String)" class="member-name-link">withResourceUri</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;resourceUri)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the <code>ui://</code> resource URI that points to the HTML app the host will render.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="AppToolBuilder.html" title="class in com.workshop.mcp.spec.builders">AppToolBuilder</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#withVisibility(java.lang.String...)" class="member-name-link">withVisibility</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>...&nbsp;visibility)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Restricts who may invoke the tool.</div>
 </div>
 </div>
 </div>
@@ -191,6 +201,21 @@ loadScripts(document, 'script');</script>
 <section class="method-details" id="method-detail">
 <h2>Method Details</h2>
 <ul class="member-list">
+<li>
+<section class="detail" id="withOutputSchema(java.util.Map)">
+<h3>withOutputSchema</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="AppToolBuilder.html" title="class in com.workshop.mcp.spec.builders">AppToolBuilder</a></span>&nbsp;<span class="element-name">withOutputSchema</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;outputSchema)</span></div>
+<div class="block">Declares the JSON Schema the tool's <code>structuredContent</code> matches.
+ Optional; a tool that declares one must return matching structured
+ content on every successful result.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>outputSchema</code> - a JSON Schema object</dd>
+<dt>Returns:</dt>
+<dd>this builder instance for method chaining</dd>
+</dl>
+</section>
+</li>
 <li>
 <section class="detail" id="builder()">
 <h3>builder</h3>
@@ -270,6 +295,20 @@ loadScripts(document, 'script');</script>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>resourceUri</code> - the <code>ui://</code> URI for the app's HTML resource</dd>
+<dt>Returns:</dt>
+<dd>this builder instance for method chaining</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="withVisibility(java.lang.String...)">
+<h3>withVisibility</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="AppToolBuilder.html" title="class in com.workshop.mcp.spec.builders">AppToolBuilder</a></span>&nbsp;<span class="element-name">withVisibility</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>...&nbsp;visibility)</span></div>
+<div class="block">Restricts who may invoke the tool. Without it, hosts let both the agent
+ and the page call the tool.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>visibility</code> - <code>"model"</code>, <code>"app"</code>, or both</dd>
 <dt>Returns:</dt>
 <dd>this builder instance for method chaining</dd>
 </dl>

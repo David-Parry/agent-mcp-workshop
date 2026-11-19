@@ -10,4 +10,6 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # config.json pins protocolEra to modern: 2026-07-28, no fallback to initialize.
-npx @modelcontextprotocol/inspector@2.5.0 --web --catalog config.json
+# ./run.sh config-legacy.json connects the way a client on a handshake revision
+# does instead: initialize first, then every request without the envelope.
+npx @modelcontextprotocol/inspector@2.5.0 --web --catalog "${1:-config.json}"

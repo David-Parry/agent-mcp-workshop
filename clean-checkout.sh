@@ -23,6 +23,7 @@ if [ $# -ne 1 ]; then
     echo
     echo "Other:"
     echo "  $0 complete       # the finished server, and the agent and bonus chapters"
+    echo "  $0 stretch        # complete plus every stretch goal, described in STRETCH.md"
     echo
     echo "WARNING: this discards all uncommitted and untracked work."
     echo "To keep your own code instead, commit it and run: git merge origin/<branch>"
@@ -51,6 +52,8 @@ echo "Now on '$BRANCH'."
 if [[ "$BRANCH" == *-chapter ]]; then
     echo "This chapter's lesson is in lessons/. Later chapters are not on this branch."
     echo "Check your work with: ./gradlew chapterTest -Pchapter=${BRANCH%%-chapter}"
+elif [ "$BRANCH" = stretch ]; then
+    echo "What each stretch goal adds, and how to try it, is in STRETCH.md."
 else
     echo "Lesson materials, when present, are in lessons/."
 fi
