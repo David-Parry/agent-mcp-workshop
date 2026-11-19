@@ -382,6 +382,19 @@ class SpecTypesCoverageTest {
         }
 
         @Test
+        @Tag("chapter05")
+        @Tag("stretch")
+        void urlElicitationIsAvailableOnlyWhenTheClientNamesIt() {
+            assertTrue(envelope(null, new ClientCapabilities(new Elicitation(null, new Capability()), null))
+                               .supportsElicitationUrl());
+            ClientCapabilities empty = McpGson.create().fromJson("{\"elicitation\":{}}", ClientCapabilities.class);
+            assertFalse(envelope(null, empty).supportsElicitationUrl(),
+                        "an empty elicitation object means form only");
+            assertFalse(envelope(null, capabilities()).supportsElicitationUrl());
+            assertFalse(envelope(null, null).supportsElicitationUrl());
+        }
+
+        @Test
         @Tag("chapter07")
         void tasksSupportIsReadFromExtensionsRatherThanARetiredTopLevelSlot() {
             assertTrue(envelope(null, declaring(MetaKeys.TASKS_EXTENSION)).supportsTasks());

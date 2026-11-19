@@ -53,4 +53,43 @@ public class ElicitationBuilder {
             requestedSchema
         );
     }
+
+    /**
+     * Creates an {@link ElicitationCreateParams} that asks the user for the
+     * keyword to search for.
+     * <p>
+     * Asked beside the directory question, in the same round, when a call
+     * carried neither. Each question has its own key in
+     * {@code inputRequests}, so both answers come back on one retry.
+     * </p>
+     *
+     * @return parameters describing a single-field form prompting for a keyword
+     */
+    public static ElicitationCreateParams buildSearchKeywordElicitation() {
+        Map<String, Object> keywordProperty = new LinkedHashMap<>();
+        keywordProperty.put("type", "string");
+        keywordProperty.put("title", "Keyword");
+        keywordProperty.put("description", "The word the keyword search should count");
+        Map<String, Object> requestedSchema = new LinkedHashMap<>();
+        requestedSchema.put("type", "object");
+        requestedSchema.put("properties", Map.of("keyword", keywordProperty));
+        requestedSchema.put("required", List.of("keyword"));
+        return new ElicitationCreateParams(
+            "What should the keyword-search tool look for?",
+            requestedSchema
+        );
+    }
+
+    /**
+     * Creates an {@link ElicitationCreateParams} that sends the user to a page
+     * to pick a directory, for a client that can open a URL but cannot show a
+     * form.
+     *
+     * @param url the page the server is serving for this one question
+     * @return URL-mode parameters
+     */
+    public static ElicitationCreateParams buildSearchPageElicitation(String url) {
+        return ElicitationCreateParams.url(
+            "Open this page to pick a directory for the keyword-search tool, then come back:", url);
+    }
 }

@@ -31,4 +31,14 @@ public record Elicitation(Capability form, Capability url) {
     public boolean supportsForm() {
         return form != null || url == null;
     }
+
+    /**
+     * Reports whether the client can open an out-of-band page, which is how
+     * this workshop asks a client that cannot show a form.
+     *
+     * @return true when url is declared
+     */
+    public boolean supportsUrl() {
+        return url != null;
+    }
 }

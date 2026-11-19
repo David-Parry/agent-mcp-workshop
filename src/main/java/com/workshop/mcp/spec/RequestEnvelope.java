@@ -73,6 +73,17 @@ public record RequestEnvelope(
     }
 
     /**
+     * Reports whether the client can open an elicitation URL on this request.
+     *
+     * @return true when URL-mode elicitation is available
+     */
+    public boolean supportsElicitationUrl() {
+        return clientCapabilities != null
+               && clientCapabilities.elicitation() != null
+               && clientCapabilities.elicitation().supportsUrl();
+    }
+
+    /**
      * Reports whether the client declared the tasks extension on this request.
      * <p>
      * A server must not hand back a task handle to a client that did not

@@ -365,6 +365,30 @@ class BuildersCoverageTest {
         void theFactoryIsStillInstantiableEvenThoughItHoldsOnlyStaticMembers() {
             assertNotNull(new ElicitationBuilder());
         }
+
+        @Test
+        @Tag("stretch")
+        void theKeywordFormAsksForOneRequiredKeywordInTheSameOrderEveryRun() {
+            ElicitationCreateParams params = ElicitationBuilder.buildSearchKeywordElicitation();
+
+            assertEquals(ElicitationCreateParams.MODE_FORM, params.mode());
+            assertEquals("What should the keyword-search tool look for?", params.message());
+            assertEquals("{\"type\":\"object\",\"properties\":{\"keyword\":{\"type\":\"string\","
+                         + "\"title\":\"Keyword\",\"description\":\"The word the keyword search should count\"}},"
+                         + "\"required\":[\"keyword\"]}",
+                         McpGson.create().toJson(params.requestedSchema()));
+        }
+
+        @Test
+        @Tag("stretch")
+        void thePageQuestionCarriesAUrlAndNoSchema() {
+            ElicitationCreateParams params = ElicitationBuilder.buildSearchPageElicitation("http://127.0.0.1:1/elicit/t");
+
+            assertEquals("{\"mode\":\"url\",\"message\":\"Open this page to pick a directory for the "
+                         + "keyword-search tool, then come back:\",\"url\":\"http://127.0.0.1:1/elicit/t\"}",
+                         McpGson.create().toJson(params),
+                         "a URL-mode elicitation has no requestedSchema and no elicitationId");
+        }
     }
 
     // --- InputSchemaBuilder --------------------------------------------

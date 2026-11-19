@@ -12,12 +12,16 @@ import com.workshop.mcp.spec.*;
 import com.workshop.mcp.spec.builders.*;
 import com.workshop.mcp.tasks.TaskStore;
 
+import com.workshop.mcp.tools.ElicitationPages;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.KeywordCompletions;
 import com.workshop.mcp.tools.SearchContinuation;
+import com.workshop.mcp.tools.SearchQuestions;
+import com.workshop.mcp.tools.StateSigner;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -132,6 +136,8 @@ public class IORouter implements Router {
     private final StreamRegistry streams = new StreamRegistry();
     /** Started by the first stream that asks for tool-list changes. */
     private ScheduledExecutorService listChangedTimer;
+    private final StateSigner stateSigner;
+    private final ElicitationPages pages;
 
     public IORouter(IOHandler io) {
         this(io, Settings.defaults());
@@ -146,9 +152,17 @@ public class IORouter implements Router {
     }
 
     IORouter(IOHandler io, LogFile logger, Settings settings) {
+        this(io, logger, settings, Clock.systemUTC());
+    }
+
+    IORouter(IOHandler io, LogFile logger, Settings settings, Clock clock) {
         this.logger = logger;
         this.io = io;
         this.settings = settings;
+        byte[] stateKey = settings.stateKeyBytes();
+        this.stateSigner = StateSigner.withKey(stateKey != null ? stateKey : StateSigner.randomKey(), clock,
+                                               StateSigner.DEFAULT_LIFETIME);
+        this.pages = new ElicitationPages(settings.elicitationPort(), clock, StateSigner.DEFAULT_LIFETIME);
     }
 
     public void route(String message) {
@@ -572,7 +586,7 @@ public class IORouter implements Router {
 
     /**
      * Runs the keyword search, asking the client for a directory first if it
-     * needs one.
+     * needs one, and for the keyword too when the call has neither.
      * <p>
      * This is the Multi Round-Trip Requests loop, and it exists in this shape
      * because there is no session to hold the answer in. Each stage returns an
@@ -587,8 +601,8 @@ public class IORouter implements Router {
      * @param envelope  this request's declared client capabilities
      */
     private void handleKeywordSearch(RequestId requestId, ToolCallParams params, RequestEnvelope envelope) {
-        SearchContinuation continuation = SearchContinuation.decode(params.requestState());
-        String stage = continuation != null ? continuation.stage() : null;
+        SearchContinuation continuation = SearchContinuation.decode(params.requestState(), stateSigner);
+        String keyword = keywordArgument(params);
 
         Set<String> directories = new LinkedHashSet<>();
 
@@ -600,16 +614,27 @@ public class IORouter implements Router {
             directories.add(argument);
         }
 
-        if (SearchContinuation.STAGE_DIRECTORY.equals(stage)) {
-            String directory = elicitedDirectory(params.inputResponse(SearchContinuation.KEY_DIRECTORY));
-            if (directory != null) {
-                directories.add(directory);
+        if (continuation != null) {
+            SearchQuestions.Answers answers = continuation.askedOnPage()
+                    ? pageAnswers(continuation.token(), params.inputResponse(SearchContinuation.KEY_PAGE))
+                    : SearchQuestions.fromForms(params::inputResponse, continuation.askedForKeyword());
+            if (answers == null) {
+                // The client says the user went to the page, but nothing has
+                // been submitted there yet, so the user is sent back to it.
+                logger.log("[API][SENT] tools/call — the page has no answer yet, asking again");
+                success(requestId, pageQuestion(continuation.token(), pages.url(continuation.token())));
+                return;
             }
-            logger.log("[API][RECEIVED] tools/call retry — elicited directory=" + directory);
+            if (answers.directory() != null) {
+                directories.add(answers.directory());
+            }
+            keyword = keyword != null ? keyword : answers.keyword();
+            logger.log("[API][RECEIVED] tools/call retry — elicited directory=" + answers.directory()
+                       + " keyword=" + answers.keyword());
         }
 
         if (!directories.isEmpty()) {
-            executeKeyWordSearchCall(requestId, params, directories, envelope);
+            executeKeyWordSearchCall(requestId, resolvedCall(params, keyword), directories, envelope);
             return;
         }
 
@@ -628,22 +653,36 @@ public class IORouter implements Router {
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId()
                        + " with no directory; the task will ask for one");
             success(requestId, TaskResult.handle(task));
-            runSearchAsTaskThatAsks(task.taskId(), resolvedCall(params), envelope);
+            runSearchAsTaskThatAsks(task.taskId(), params, keyword, envelope);
             return;
         }
 
-        // Asking the user for a directory is the only question this tool has
-        // left. It used to embed a roots/list first, since a client answers
-        // that from configuration without troubling anyone, but roots is
-        // deprecated under SEP-2577 and the directory argument above is the
-        // migration the spec names in its place.
-        if (!SearchContinuation.STAGE_DIRECTORY.equals(stage) && envelope.supportsElicitationForm()) {
+        // Asking the user is all this tool has left. It used to embed a
+        // roots/list first, since a client answers that from configuration
+        // without troubling anyone, but roots is deprecated under SEP-2577 and
+        // the directory argument above is the migration the spec names in its
+        // place. A call missing its keyword as well gets both questions in
+        // one round.
+        boolean askKeyword = keyword == null;
+        if (continuation == null && envelope.supportsElicitationForm()) {
+            SearchContinuation asking = askKeyword
+                    ? SearchContinuation.awaitingKeywordAndDirectory()
+                    : SearchContinuation.awaitingDirectory();
             logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create");
-            success(requestId, InputRequiredResult.of(
-                    SearchContinuation.KEY_DIRECTORY,
-                    InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()),
-                    SearchContinuation.awaitingDirectory().encode()));
+            success(requestId, new InputRequiredResult(SearchQuestions.forms(askKeyword),
+                                                       asking.encode(stateSigner)));
             return;
+        }
+
+        // A client that can open a URL but cannot show a form is sent to a
+        // page this server serves for the one question.
+        if (continuation == null && envelope.supportsElicitationUrl()) {
+            ElicitationPages.Question page = openPage(askKeyword);
+            if (page != null) {
+                logger.log("[API][SENT] tools/call — input_required, embedding elicitation/create in URL mode");
+                success(requestId, pageQuestion(page.token(), page.url()));
+                return;
+            }
         }
 
         // There is nothing left to ask, or nothing that may be asked. Rather
@@ -652,7 +691,49 @@ public class IORouter implements Router {
         String workingDirectory = workingDirectory();
         logger.log("[API][SENT] tools/call — no directory to search, using the working directory "
                    + workingDirectory);
-        executeKeyWordSearchCall(requestId, params, Set.of(workingDirectory), envelope);
+        executeKeyWordSearchCall(requestId, resolvedCall(params, keyword), Set.of(workingDirectory), envelope);
+    }
+
+    /**
+     * The URL-mode question for a page, with the state that finds the page
+     * again on the retry.
+     */
+    private InputRequiredResult pageQuestion(String token, String url) {
+        return InputRequiredResult.of(SearchContinuation.KEY_PAGE, SearchQuestions.page(url),
+                                      SearchContinuation.awaitingPage(token).encode(stateSigner));
+    }
+
+    /**
+     * Opens a page for a URL-mode question.
+     *
+     * @return the page, or null when it cannot be served and nothing should be asked
+     */
+    private ElicitationPages.Question openPage(boolean askKeyword) {
+        try {
+            return pages.open(askKeyword);
+        } catch (IOException e) {
+            logger.log("[API] the elicitation page cannot be served: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Reads what a page collected once the client answers its URL-mode
+     * question.
+     *
+     * @return the answers, or null when the user accepted but has not yet
+     *         submitted a page that is still open
+     */
+    private SearchQuestions.Answers pageAnswers(String token, Object response) {
+        if (!SearchQuestions.accepted(response)) {
+            pages.discard(token);
+            return SearchQuestions.Answers.NONE;
+        }
+        Map<String, String> submitted = pages.take(token);
+        if (submitted != null) {
+            return SearchQuestions.fromPage(submitted);
+        }
+        return pages.isWaiting(token) ? null : SearchQuestions.Answers.NONE;
     }
 
     /**
@@ -725,9 +806,8 @@ public class IORouter implements Router {
      * tasks extension on the very request being answered.
      * </p>
      */
-    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams params,
+    private void executeKeyWordSearchCall(RequestId requestId, ToolCallParams resolved,
                                           Set<String> directories, RequestEnvelope envelope) {
-        ToolCallParams resolved = resolvedCall(params);
         if (answersWithTask(envelope)) {
             Task task = taskStore.create();
             logger.log("[API][SENT] tools/call — created taskId=" + task.taskId() + " status=" + task.status());
@@ -741,32 +821,18 @@ public class IORouter implements Router {
     /**
      * Strips a call down to the arguments the tool itself needs, dropping the
      * round-trip bookkeeping.
+     *
+     * @param keyword the keyword from the arguments or an answer, may be null
      */
-    private ToolCallParams resolvedCall(ToolCallParams params) {
-        String keyword = keywordArgument(params);
+    private ToolCallParams resolvedCall(ToolCallParams params, String keyword) {
         return new ToolCallParams(params._meta(), params.name(),
                                   Map.of("keyword", keyword == null ? "" : keyword),
                                   null, null);
     }
 
     private String keywordArgument(ToolCallParams params) {
-        return params.arguments() == null ? null : params.arguments().get("keyword");
-    }
-
-    /**
-     * Reads the directory out of an embedded {@code elicitation/create} answer,
-     * which the user may also have declined or cancelled.
-     */
-    private String elicitedDirectory(Object inputResponse) {
-        ElicitationCreateResult result = deserializer.convert(inputResponse, ElicitationCreateResult.class);
-        if (result == null || !"accept".equalsIgnoreCase(result.action())) {
-            return null;
-        }
-        if (result.content() instanceof Map<?, ?> content && content.get("directory") instanceof String directory
-            && !directory.isBlank()) {
-            return directory;
-        }
-        return null;
+        String keyword = params.arguments() == null ? null : params.arguments().get("keyword");
+        return keyword == null || keyword.isBlank() ? null : keyword;
     }
 
     private void process(JsonRpcNotification message) {
@@ -894,7 +960,8 @@ public class IORouter implements Router {
 
     /**
      * Ends every stream this server is holding open, answering each listen
-     * request with a closing result, and stops the timer.
+     * request with a closing result, and stops the timer and the elicitation
+     * pages.
      */
     @Override
     public void close() {
@@ -910,6 +977,7 @@ public class IORouter implements Router {
             logger.log("[API][SENT] subscriptions/listen — the server is closing stream " + stream);
             success(stream, SubscriptionsListenResult.closing(stream));
         }
+        pages.close();
     }
 
     /**
@@ -954,33 +1022,25 @@ public class IORouter implements Router {
      * the server's working directory, exactly as the inline path does.
      * </p>
      */
-    private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, RequestEnvelope envelope) {
+    private void runSearchAsTaskThatAsks(String taskId, ToolCallParams params, String keyword,
+                                         RequestEnvelope envelope) {
         runOnVirtualThread(taskId, () -> {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
-                Set<String> directories = new LinkedHashSet<>();
-
-                if (envelope.supportsElicitationForm()) {
-                    Map<String, Object> answers = askOnTask(
-                            taskId, SearchContinuation.KEY_DIRECTORY,
-                            InputRequest.elicitation(ElicitationBuilder.buildSearchDirectoryElicitation()));
-                    if (isTerminal(taskId)) {
-                        return;
-                    }
-                    String directory = elicitedDirectory(answers.get(SearchContinuation.KEY_DIRECTORY));
-                    if (directory != null) {
-                        directories.add(directory);
-                    }
+                SearchQuestions.Answers answers = askTaskQuestions(taskId, keyword == null, envelope);
+                if (isTerminal(taskId)) {
+                    return;
                 }
 
-                if (directories.isEmpty()) {
-                    String workingDirectory = workingDirectory();
+                String directory = answers.directory();
+                if (directory == null) {
+                    directory = workingDirectory();
                     logger.log("[TASK " + taskId + "] nothing was offered, using the working directory "
-                               + workingDirectory);
-                    directories.add(workingDirectory);
+                               + directory);
                 }
 
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
+                ToolCallResult result = new KeyWordSearch().call(
+                        resolvedCall(params, keyword != null ? keyword : answers.keyword()), Set.of(directory));
                 taskStore.complete(taskId, result);
                 logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
             } catch (Exception e) {
@@ -988,6 +1048,26 @@ public class IORouter implements Router {
                 taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Asks a task's questions the way this client can answer them: in forms,
+     * on a page, or not at all.
+     */
+    private SearchQuestions.Answers askTaskQuestions(String taskId, boolean askKeyword, RequestEnvelope envelope) {
+        if (envelope.supportsElicitationForm()) {
+            Map<String, Object> responses = askOnTask(taskId, SearchQuestions.forms(askKeyword));
+            return SearchQuestions.fromForms(responses::get, askKeyword);
+        }
+        ElicitationPages.Question page = envelope.supportsElicitationUrl() ? openPage(askKeyword) : null;
+        if (page == null) {
+            return SearchQuestions.Answers.NONE;
+        }
+        Map<String, Object> responses = askOnTask(
+                taskId, Map.of(SearchContinuation.KEY_PAGE, SearchQuestions.page(page.url())));
+        SearchQuestions.Answers answers = pageAnswers(page.token(), responses.get(SearchContinuation.KEY_PAGE));
+        pages.discard(page.token());
+        return answers == null ? SearchQuestions.Answers.NONE : answers;
     }
 
     /**
@@ -1021,8 +1101,8 @@ public class IORouter implements Router {
     }
 
     /**
-     * Publishes one question on a task and blocks until the client answers it
-     * with {@code tasks/update}.
+     * Publishes a round of questions on a task and blocks until the client
+     * answers it with {@code tasks/update}.
      * <p>
      * An unanswered question is not distinguished from an unasked one: both
      * yield no answers, and the caller checks the task's status to tell a
@@ -1032,13 +1112,14 @@ public class IORouter implements Router {
      *
      * @return the answers, empty when none arrived
      */
-    private Map<String, Object> askOnTask(String taskId, String key, InputRequest request) {
-        taskStore.requireInput(taskId, Map.of(key, request));
-        logger.log("[TASK " + taskId + "] input_required — asking for " + request.method()
-                   + " under key=" + key);
+    private Map<String, Object> askOnTask(String taskId, Map<String, InputRequest> questions) {
+        String keys = String.join(", ", questions.keySet());
+        taskStore.requireInput(taskId, questions);
+        logger.log("[TASK " + taskId + "] input_required — asking for "
+                   + UniqueKeys.ELICITATION_CREATE.getValue() + " under key=" + keys);
         Map<String, Object> answers = taskStore.awaitInput(taskId, TASK_INPUT_TIMEOUT_MILLIS);
         logger.log("[TASK " + taskId + "] "
-                   + (answers == null ? "no answer arrived for " + key : "tasks/update answered " + key));
+                   + (answers == null ? "no answer arrived for " + keys : "tasks/update answered " + keys));
         return answers == null ? Map.of() : answers;
     }
 

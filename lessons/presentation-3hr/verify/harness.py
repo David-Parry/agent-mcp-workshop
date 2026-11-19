@@ -20,6 +20,8 @@ Exit code is the number of failed scenarios.
 
 import base64
 import glob
+import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -27,6 +29,9 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
@@ -88,9 +93,22 @@ TASK_CLIENT = {"roots": {"listChanged": True}, "extensions": {TASKS_EXTENSION: {
 TASK_CLIENT_WITH_FORMS = {"elicitation": {"form": {}, "url": {}},
                           "extensions": {TASKS_EXTENSION: {}}}
 NO_CAPABILITIES = {}
+# A client that can open a URL but cannot show a form.
+URL_ONLY = {"elicitation": {"url": {}}}
 
-# The key the keyword-search tool answers its one embedded request under.
+# The key the keyword-search tool answers its directory question under.
 KEY_DIRECTORY = "search_directory"
+# The keyword question, asked beside it when the call has neither, and the
+# URL-mode question that sends a URL-only client to a page instead.
+KEY_KEYWORD = "search_keyword"
+KEY_PAGE = "search_page"
+
+# The server seals requestState with HMAC-SHA256, so entering the exchange
+# partway through means signing the way the server does. Every server this
+# harness starts is given this run's key, which is never printed.
+STATE_KEY = os.urandom(32)
+STATE_LIFETIME_MS = 10 * 60 * 1000
+SERVER_ENV = {"WORKSHOP_STATE_KEY": base64.b64encode(STATE_KEY).decode()}
 
 # The key the removed roots stage used to answer under. Kept only so the
 # scenarios can assert it never appears again.
@@ -117,21 +135,48 @@ def envelope(capabilities):
     }
 
 
-def encode_state(stage, **planted):
-    """Mint a requestState the way SearchContinuation does.
+def b64url(data):
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
 
-    Url-safe base64 of the continuation JSON, padding stripped. Real clients
-    treat the value as opaque and echo back whatever the server sent; this is
-    only for entering the exchange partway through, or for forging a value
-    the server never sent.
+
+def unb64url(text):
+    return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+
+
+def encode_state(stage, key=None, expires_in_ms=STATE_LIFETIME_MS, **planted):
+    """Mint a requestState the way SearchContinuation and StateSigner do.
+
+    The continuation JSON with its expiry, in epoch milliseconds, under exp;
+    url-safe base64 with the padding stripped; then a dot and an HMAC-SHA256
+    of that first part. Real clients treat the value as opaque and echo back
+    whatever the server sent; this is only for entering the exchange partway
+    through, or for forging a value the server never sent.
     """
-    raw = json.dumps({**planted, "stage": stage}, separators=(",", ":"))
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+    state = {**planted, "stage": stage, "exp": int(time.time() * 1000) + expires_in_ms}
+    body = b64url(json.dumps(state, separators=(",", ":")).encode())
+    return body + "." + b64url(hmac.new(key or STATE_KEY, body.encode(), hashlib.sha256).digest())
 
 
 def decode_state(request_state):
-    padded = request_state + "=" * (-len(request_state) % 4)
-    return json.loads(base64.urlsafe_b64decode(padded).decode())
+    """Open a requestState the server sealed, checking it was signed with this run's key."""
+    body, _, signature = request_state.partition(".")
+    expected = hmac.new(STATE_KEY, body.encode(), hashlib.sha256).digest()
+    if not signature or not hmac.compare_digest(expected, unb64url(signature)):
+        raise Failure(f"requestState is not signed with the key the server was given: {request_state}")
+    state = json.loads(unb64url(body).decode())
+    state.pop("exp", None)
+    return state
+
+
+def http(method, url, form=None):
+    """One request to a page the server serves, bypassing any proxy; returns (status, body)."""
+    data = urllib.parse.urlencode(form).encode() if form is not None else None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(urllib.request.Request(url, data=data, method=method), timeout=5) as response:
+            return response.status, response.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
 
 
 class Failure(Exception):
@@ -148,7 +193,7 @@ class Client:
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             cwd=REPO_ROOT,
-            env={**os.environ, **(env or {})},
+            env={**os.environ, **SERVER_ENV, **(env or {})},
             text=True,
             bufsize=1,
         )
@@ -732,8 +777,9 @@ def s_mrtr_elicitation(c):
     if "keyword_count=3" not in json.dumps(done.get("content") or []):
         raise Failure(f"the elicited directory should have been searched: {done}")
 
-    # A client can send any requestState it likes. A keyword planted in one
-    # must not replace the one the retried call's arguments name.
+    # Even a state the server signed is not where the keyword comes from. A
+    # keyword planted in one must not replace the one the retried call's
+    # arguments name.
     c.request(6, "tools/call", search_call(
         request_state=encode_state("directory", keyword="absentword"),
         input_responses={KEY_DIRECTORY: form_answer(directory)},
@@ -774,6 +820,110 @@ def s_mrtr_elicitation(c):
     # before there were modes to name, so it is asked like one.
     c.request(7, "tools/call", search_call(), capabilities={"elicitation": {}})
     require_result_type(c.expect_result(7), "input_required", "a call from a client declaring elicitation: {}")
+
+
+@scenario("sealed_state", "extensions", chapter=5)
+def s_sealed_state(c):
+    """requestState is signed and expires: a client can carry it, not forge or replay it.
+
+    Each value goes back with a declined form. A server that believed it would
+    treat the question as asked and search its working directory; one that
+    sees through it treats the retry as a first attempt and asks again.
+    """
+    decline = {KEY_DIRECTORY: {"action": "decline"}}
+    genuine = encode_state("directory")
+    forgeries = [
+        ("an unsigned state", b64url(json.dumps({"stage": "directory"}, separators=(",", ":")).encode())),
+        ("a state signed with another key", encode_state("directory", key=os.urandom(32))),
+        ("a state past its ten minutes", encode_state("directory", expires_in_ms=-1000)),
+        ("a state whose body was altered",
+         encode_state("keyword_and_directory").partition(".")[0] + "." + genuine.partition(".")[2]),
+    ]
+    for id_, (what, state) in enumerate(forgeries, start=1):
+        c.request(id_, "tools/call", search_call(request_state=state, input_responses=decline))
+        require_result_type(c.expect_result(id_), "input_required", f"{what}, treated as a first attempt,")
+
+    c.request(9, "tools/call", search_call(request_state=genuine, input_responses=decline))
+    require_result_type(c.expect_result(9), "complete", "a decline carrying a genuine state")
+
+
+@scenario("two_questions", "extensions, flow-diagram", chapter=5)
+def s_two_questions(c):
+    """A call with neither a keyword nor a directory is asked for both in one round."""
+    directory = make_keyword_dir()
+
+    call = search_call()
+    del call["arguments"]["keyword"]
+    c.request(1, "tools/call", call)
+    asked = c.expect_result(1)
+    require_result_type(asked, "input_required", "a call with neither a keyword nor a directory")
+    keys = list((asked.get("inputRequests") or {}).keys())
+    if keys != [KEY_KEYWORD, KEY_DIRECTORY]:
+        raise Failure(f"both questions belong in one round, keyword first: {keys}")
+    keyword_form = asked["inputRequests"][KEY_KEYWORD].get("params") or {}
+    if "keyword" not in ((keyword_form.get("requestedSchema") or {}).get("required") or []):
+        raise Failure(f"the keyword form should require 'keyword': {keyword_form}")
+    if decode_state(asked["requestState"]) != {"stage": "keyword_and_directory"}:
+        raise Failure(f"the state should record that both were asked: {asked['requestState']}")
+
+    retry = search_call(request_state=asked["requestState"], input_responses={
+        KEY_KEYWORD: {"action": "accept", "content": {"keyword": "needleword"}},
+        KEY_DIRECTORY: form_answer(directory),
+    })
+    del retry["arguments"]["keyword"]
+    c.request(2, "tools/call", retry)
+    done = c.expect_result(2)
+    require_result_type(done, "complete", "the retry answering both")
+    if "keyword_count=3" not in json.dumps(done.get("content") or []):
+        raise Failure(f"the answered keyword should have been searched for in the answered directory: {done}")
+
+
+@scenario("url_elicitation", "extensions, flow-diagram", chapter=5)
+def s_url_elicitation(c):
+    """A client that can open a URL but cannot show a form is sent to a page."""
+    directory = make_keyword_dir()
+
+    c.request(1, "tools/call", search_call(), capabilities=URL_ONLY)
+    asked = c.expect_result(1)
+    require_result_type(asked, "input_required", "a call from a URL-only client")
+    embedded = (asked.get("inputRequests") or {}).get(KEY_PAGE) or {}
+    params = embedded.get("params") or {}
+    if embedded.get("method") != "elicitation/create" or params.get("mode") != "url":
+        raise Failure(f"expected a URL-mode elicitation/create under {KEY_PAGE!r}: {asked}")
+    url = params.get("url") or ""
+    if not url.startswith("http://127.0.0.1:"):
+        raise Failure(f"the page should be served on the loopback interface only: {params}")
+    for absent in ("requestedSchema", "elicitationId"):
+        if absent in params:
+            raise Failure(f"a URL-mode elicitation carries no {absent}: {params}")
+    state = decode_state(asked["requestState"])
+    if state.get("stage") != "page" or not url.endswith("/" + str(state.get("token"))):
+        raise Failure(f"the state should find the page again: {state}")
+
+    # Confirming before the page was submitted sends the user back to it.
+    confirm = {KEY_PAGE: {"action": "accept"}}
+    c.request(2, "tools/call", search_call(request_state=asked["requestState"], input_responses=confirm),
+              capabilities=URL_ONLY)
+    again = c.expect_result(2)
+    require_result_type(again, "input_required", "a confirmation before the page was submitted")
+    if (((again.get("inputRequests") or {}).get(KEY_PAGE) or {}).get("params") or {}).get("url") != url:
+        raise Failure(f"the user should be sent back to the same page: {again}")
+
+    status, page = http("GET", url)
+    if status != 200 or 'name="directory"' not in page:
+        raise Failure(f"the page should be a form asking for a directory: {status} {page[:200]}")
+    status, _ = http("POST", url, {"directory": directory})
+    if status != 200:
+        raise Failure(f"submitting the page should succeed, got {status}")
+
+    c.request(3, "tools/call", search_call(request_state=again["requestState"], input_responses=confirm),
+              capabilities=URL_ONLY)
+    done = c.expect_result(3)
+    require_result_type(done, "complete", "the retry after the page was submitted")
+    if "keyword_count=3" not in json.dumps(done.get("content") or []):
+        raise Failure(f"the directory submitted on the page should have been searched: {done}")
+    if http("GET", url)[0] != 404:
+        raise Failure("a page whose answer was taken should be gone")
 
 
 @scenario("task_client_is_not_asked", "extensions, tasks", chapter=7)

@@ -14,6 +14,7 @@ import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.SearchContinuation;
+import com.workshop.mcp.tools.StateSigner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,9 +24,17 @@ import org.junit.jupiter.api.Timeout;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -71,13 +80,27 @@ class IORouterTest {
               }
             }""";
 
+    /** A client that can open a URL but cannot show a form. */
+    private static final String URL_ONLY_META = """
+            "_meta":{
+              "io.modelcontextprotocol/protocolVersion":"2026-07-28",
+              "io.modelcontextprotocol/clientCapabilities":{"elicitation":{"url":{}}}
+            }""";
+
+    /** The key every router here signs {@code requestState} with, so a test can seal a state it accepts. */
+    private static final byte[] STATE_KEY = "a test key that is thirty-two by".getBytes(StandardCharsets.US_ASCII);
+    private static final Settings SETTINGS =
+            Settings.defaults().withStateKey(Base64.getEncoder().encodeToString(STATE_KEY));
+
+    private final StateSigner signer =
+            StateSigner.withKey(STATE_KEY, Clock.systemUTC(), StateSigner.DEFAULT_LIFETIME);
     private CapturingIOHandler io;
     private IORouter router;
 
     @BeforeEach
     void setUp() {
         io = new CapturingIOHandler();
-        router = new IORouter(io);
+        router = new IORouter(io, SETTINGS);
     }
 
     @AfterEach
@@ -163,7 +186,7 @@ class IORouterTest {
     @Tag("chapter03")
     @Tag("stretch")
     void withTheListChangedTimerOffNoListChangesAreAdvertised() {
-        router = new IORouter(io, new RecordingLog(), new Settings(0L, false));
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(0L));
         router.route("""
                 {"jsonrpc":"2.0","id":"probe","method":"server/discover","params":{%s}}""".formatted(FULL_META));
 
@@ -532,7 +555,7 @@ class IORouterTest {
 
         // The state records only that the question was asked. The keyword
         // comes back with the retried call's own arguments.
-        SearchContinuation state = SearchContinuation.decode(result.get("requestState").getAsString());
+        SearchContinuation state = SearchContinuation.decode(result.get("requestState").getAsString(), signer);
         assertEquals(SearchContinuation.awaitingDirectory(), state);
     }
 
@@ -542,10 +565,10 @@ class IORouterTest {
             throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
 
-        // A client can send any requestState it likes. This one names a
-        // keyword the retried call's arguments do not.
-        String planted = Base64.getUrlEncoder().withoutPadding().encodeToString(
-                "{\"keyword\":\"absent\",\"stage\":\"directory\"}".getBytes(StandardCharsets.UTF_8));
+        // Even a state this server signed is not where the keyword comes from.
+        // This one names a keyword the retried call's arguments do not.
+        String planted = signer.seal(JsonParser.parseString(
+                "{\"keyword\":\"absent\",\"stage\":\"directory\"}").getAsJsonObject());
         router.route(toolCall(6, planted, """
                 "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
 
@@ -560,7 +583,7 @@ class IORouterTest {
         // The stage on the continuation is what stops the server asking the
         // same thing again when the answer was unusable. Without it a client
         // that declined the form would be handed the same form forever.
-        String state = SearchContinuation.awaitingDirectory().encode();
+        String state = state(SearchContinuation.awaitingDirectory());
         router.route(toolCall(3, state, """
                 "search_directory":{"action":"decline"}"""));
 
@@ -574,7 +597,7 @@ class IORouterTest {
     void anElicitedDirectoryRunsTheSearch(@org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
 
-        String state = SearchContinuation.awaitingDirectory().encode();
+        String state = state(SearchContinuation.awaitingDirectory());
         router.route(toolCall(4, state, """
                 "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
 
@@ -586,7 +609,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void aDeclinedElicitationFallsBackToTheWorkingDirectory() {
-        String state = SearchContinuation.awaitingDirectory().encode();
+        String state = state(SearchContinuation.awaitingDirectory());
         router.route(toolCall(5, state, """
                 "search_directory":{"action":"decline"}"""));
 
@@ -653,11 +676,184 @@ class IORouterTest {
     void aCorruptRequestStateIsTreatedAsAFirstAttemptRatherThanAnError() {
         // The state came from this server, but it made a round trip through a
         // client and cannot be trusted to come back intact.
-        assertNull(SearchContinuation.decode("not-base64-at-all!!"));
+        assertNull(SearchContinuation.decode("not-base64-at-all!!", signer));
 
         router.route(toolCall(7, "bm90LWpzb24", null));
         assertEquals(ResultType.INPUT_REQUIRED,
                      io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aRequestStateTheClientWroteItselfIsTreatedAsAFirstAttempt() {
+        // Unsigned, this is exactly what the server used to send. Accepted, it
+        // would let a client skip the question by claiming it was asked.
+        String forged = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("{\"stage\":\"directory\"}".getBytes(StandardCharsets.UTF_8));
+
+        router.route(toolCall(70, forged, "\"search_directory\":{\"action\":\"decline\"}"));
+
+        assertEquals(ResultType.INPUT_REQUIRED, io.only().getAsJsonObject("result").get("resultType").getAsString(),
+                     "a forged state must not stand in for the question having been asked");
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aRequestStateOlderThanItsLifetimeIsTreatedAsAFirstAttempt() {
+        MutableClock clock = new MutableClock();
+        router = new IORouter(io, new RecordingLog(), SETTINGS, clock);
+        router.route(toolCall(71, null, null));
+        String issued = io.only().getAsJsonObject("result").get("requestState").getAsString();
+
+        clock.advance(StateSigner.DEFAULT_LIFETIME.plusMillis(1));
+        io.clear();
+        router.route(toolCall(72, issued, "\"search_directory\":{\"action\":\"decline\"}"));
+
+        assertEquals(ResultType.INPUT_REQUIRED, io.only().getAsJsonObject("result").get("resultType").getAsString(),
+                     "a replayed state is good for ten minutes and no longer");
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aCallWithNeitherKeywordNorDirectoryAsksForBothInOneRound() {
+        router.route(searchCall(73, FULL_META, "{}", null, null));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(List.of(SearchContinuation.KEY_KEYWORD, SearchContinuation.KEY_DIRECTORY),
+                     List.copyOf(result.getAsJsonObject("inputRequests").keySet()));
+        assertEquals(SearchContinuation.awaitingKeywordAndDirectory(),
+                     SearchContinuation.decode(result.get("requestState").getAsString(), signer));
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void bothAnswersComeBackOnOneRetryAndRunTheSearch(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+
+        router.route(searchCall(74, FULL_META, "{}", state(SearchContinuation.awaitingKeywordAndDirectory()), """
+                "search_keyword":{"action":"accept","content":{"keyword":"record"}},
+                "search_directory":{"action":"accept","content":{"directory":"%s"}}""".formatted(directory)));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertEquals("record", result.getAsJsonObject("structuredContent").get("keyword").getAsString());
+        assertEquals(1, result.getAsJsonObject("structuredContent").get("totalMatches").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aClientThatCanOnlyOpenAUrlIsSentToAPage() {
+        router.route(searchCall(75, URL_ONLY_META, "{\"keyword\":\"record\"}", null, null));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.INPUT_REQUIRED, result.get("resultType").getAsString());
+        JsonObject params = result.getAsJsonObject("inputRequests").getAsJsonObject(SearchContinuation.KEY_PAGE)
+                .getAsJsonObject("params");
+        assertEquals("url", params.get("mode").getAsString());
+        assertTrue(params.get("url").getAsString().startsWith("http://127.0.0.1:"), params.toString());
+        assertNull(params.get("requestedSchema"), "a page collects the answer, not the client");
+        assertNull(params.get("elicitationId"), "2026-07-28 removed elicitationId with its notification");
+        SearchContinuation state = SearchContinuation.decode(result.get("requestState").getAsString(), signer);
+        assertTrue(state.askedOnPage());
+        assertTrue(params.get("url").getAsString().endsWith(state.token()));
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void whatThePageCollectedRunsTheSearchOnTheRetry(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+        router.route(searchCall(76, URL_ONLY_META, "{}", null, null));
+        JsonObject asked = io.only().getAsJsonObject("result");
+        String url = pageUrl(asked);
+        assertTrue(get(url).contains("name=\"keyword\""), "the call had no keyword, so the page asks for it");
+
+        assertEquals(200, submit(url, "keyword=record&directory=" + URLEncoder.encode(directory.toString(),
+                                                                                    StandardCharsets.UTF_8)));
+        io.clear();
+        router.route(searchCall(77, URL_ONLY_META, "{}", asked.get("requestState").getAsString(),
+                                "\"search_page\":{\"action\":\"accept\"}"));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertEquals(1, result.getAsJsonObject("structuredContent").get("totalMatches").getAsInt());
+        assertTrue(result.getAsJsonArray("content").toString().contains("hit.txt"));
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aRetryBeforeThePageIsSubmittedSendsTheUserBackToIt() throws Exception {
+        router.route(searchCall(78, URL_ONLY_META, "{\"keyword\":\"record\"}", null, null));
+        JsonObject asked = io.only().getAsJsonObject("result");
+        assertFalse(get(pageUrl(asked)).contains("name=\"keyword\""), "the call carried its keyword");
+
+        io.clear();
+        router.route(searchCall(79, URL_ONLY_META, "{\"keyword\":\"record\"}",
+                                asked.get("requestState").getAsString(), "\"search_page\":{\"action\":\"accept\"}"));
+
+        JsonObject again = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.INPUT_REQUIRED, again.get("resultType").getAsString());
+        assertEquals(pageUrl(asked), pageUrl(again), "the same page, which still has no answer");
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aDeclinedPageIsForgottenAndTheSearchFallsBack() throws Exception {
+        router.route(searchCall(80, URL_ONLY_META, "{\"keyword\":\"record\"}", null, null));
+        JsonObject asked = io.only().getAsJsonObject("result");
+
+        io.clear();
+        router.route(searchCall(81, URL_ONLY_META, "{\"keyword\":\"record\"}",
+                                asked.get("requestState").getAsString(), "\"search_page\":{\"action\":\"decline\"}"));
+
+        assertEquals(ResultType.COMPLETE, io.only().getAsJsonObject("result").get("resultType").getAsString());
+        assertEquals(404, submit(pageUrl(asked), "directory=/tmp"), "a declined page takes no more answers");
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void anAcceptedPageThatIsGoneFallsBackRatherThanAskingForever() {
+        router.route(searchCall(82, URL_ONLY_META, "{\"keyword\":\"record\"}",
+                                state(SearchContinuation.awaitingPage("gone")), "\"search_page\":{\"action\":\"accept\"}"));
+
+        assertEquals(ResultType.COMPLETE, io.only().getAsJsonObject("result").get("resultType").getAsString());
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void whenThePageCannotBeServedNothingIsAsked() throws IOException {
+        RecordingLog log = new RecordingLog();
+        try (ServerSocket taken = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            router = new IORouter(io, log, SETTINGS.withElicitationPort(taken.getLocalPort()));
+            router.route(searchCall(83, URL_ONLY_META, "{\"keyword\":\"record\"}", null, null));
+        }
+
+        assertEquals(ResultType.COMPLETE, io.only().getAsJsonObject("result").get("resultType").getAsString());
+        assertTrue(log.logged("the elicitation page cannot be served"));
+    }
+
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aRouterMadeWithNothingButItsTransportStillSignsItsState() {
+        router.close();
+        router = new IORouter(io);
+
+        router.route(toolCall(84, null, null));
+
+        String issued = io.only().getAsJsonObject("result").get("requestState").getAsString();
+        assertNull(SearchContinuation.decode(issued, signer), "with no key configured, the key is its own");
     }
 
     // --- tasks ---------------------------------------------------------
@@ -678,7 +874,7 @@ class IORouterTest {
                   "requestState":"%s",
                   "inputResponses":{"search_directory":{"action":"accept",
                                      "content":{"directory":"%s"}}}}}"""
-                             .formatted(SearchContinuation.awaitingDirectory().encode(), directory));
+                             .formatted(state(SearchContinuation.awaitingDirectory()), directory));
 
         JsonObject handle = io.responses().get(0).getAsJsonObject("result");
         assertEquals(ResultType.TASK, handle.get("resultType").getAsString());
@@ -870,6 +1066,84 @@ class IORouterTest {
         assertNull(cancelled.get("result"), "a cancelled task must not produce a result: " + cancelled);
     }
 
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aTaskWithNeitherKeywordNorDirectoryAsksForBothAndSearchesWithTheAnswers(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+        router.route(searchCall(85, TASKS_META, "{}", null, null));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        JsonObject asking = awaitTaskStatus(taskId, "input_required");
+        assertEquals(List.of(SearchContinuation.KEY_KEYWORD, SearchContinuation.KEY_DIRECTORY),
+                     List.copyOf(asking.getAsJsonObject("inputRequests").keySet()));
+        router.route("""
+                {"jsonrpc":"2.0","id":86,"method":"tasks/update","params":{%s,"taskId":"%s","inputResponses":{
+                  "search_keyword":{"action":"accept","content":{"keyword":"record"}},
+                  "search_directory":{"action":"accept","content":{"directory":"%s"}}}}}"""
+                             .formatted(TASKS_META, taskId, directory));
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertEquals(1, done.getAsJsonObject("result").getAsJsonObject("structuredContent")
+                .get("totalMatches").getAsInt(), done.toString());
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aUrlOnlyTaskSendsTheUserToAPageAndSearchesWhatItCollected(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+        router.route(taskCallWithoutADirectory(87, "\"elicitation\":{\"url\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        String url = pageUrl(awaitTaskStatus(taskId, "input_required"));
+        submit(url, "directory=" + URLEncoder.encode(directory.toString(), StandardCharsets.UTF_8));
+        router.route("""
+                {"jsonrpc":"2.0","id":88,"method":"tasks/update","params":{%s,"taskId":"%s",
+                  "inputResponses":{"search_page":{"action":"accept"}}}}""".formatted(TASKS_META, taskId));
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertTrue(done.getAsJsonObject("result").toString().contains("hit.txt"), done.toString());
+        assertEquals(404, submit(url, "directory=/tmp"), "the task is done with its page");
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aUrlOnlyTaskWhosePageWasNeverFilledInFallsBack() throws Exception {
+        router.route(taskCallWithoutADirectory(89, "\"elicitation\":{\"url\":{}}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        awaitTaskStatus(taskId, "input_required");
+        router.route("""
+                {"jsonrpc":"2.0","id":90,"method":"tasks/update","params":{%s,"taskId":"%s",
+                  "inputResponses":{"search_page":{"action":"accept"}}}}""".formatted(TASKS_META, taskId));
+
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean(),
+                    "a task asks once; an empty page means the working directory");
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    @Tag("stretch")
+    void aUrlOnlyTaskWhosePageCannotBeServedIsNotAsked() throws Exception {
+        try (ServerSocket taken = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+            router = new IORouter(io, new RecordingLog(), SETTINGS.withElicitationPort(taken.getLocalPort()));
+            router.route(taskCallWithoutADirectory(91, "\"elicitation\":{\"url\":{}}"));
+            String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+            JsonObject done = awaitTaskStatus(taskId, "completed");
+            assertFalse(done.getAsJsonObject("result").get("isError").getAsBoolean());
+        }
+    }
+
     /** A {@code tools/call} from a task client that supplies no directory. */
     private static String taskCallWithoutADirectory(int id, String extraCapability) {
         return """
@@ -906,7 +1180,7 @@ class IORouterTest {
             @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
         Files.writeString(directory.resolve("hit.txt"), "the record speaks");
 
-        router.route(toolCall(9, SearchContinuation.awaitingDirectory().encode(), """
+        router.route(toolCall(9, state(SearchContinuation.awaitingDirectory()), """
                 "search_directory":{"action":"accept","content":{"directory":"%s"}}"""
                                      .formatted(directory)));
 
@@ -952,7 +1226,7 @@ class IORouterTest {
     @Tag("chapter03")
     @Tag("stretch")
     void aStreamThatAskedForToolListChangesIsHeldOpenAndToldWhenTheListChanges() throws InterruptedException {
-        router = new IORouter(io, new RecordingLog(), new Settings(50L, false));
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(50L));
         router.route(listen("listen:open", "{\"toolsListChanged\":true,\"resourcesListChanged\":true}"));
 
         JsonObject agreed = io.notifications().get(0).getAsJsonObject("params").getAsJsonObject("notifications");
@@ -971,7 +1245,7 @@ class IORouterTest {
     @Tag("stretch")
     void aStreamTheClientCancelsIsForgottenWithoutAnAnswer() throws InterruptedException {
         RecordingLog log = new RecordingLog();
-        router = new IORouter(io, log, new Settings(50L, false));
+        router = new IORouter(io, log, SETTINGS.withListChangedIntervalMillis(50L));
         router.route(listen("listen:gone", "{\"toolsListChanged\":true}"));
         awaitNotification("notifications/tools/list_changed");
 
@@ -992,7 +1266,7 @@ class IORouterTest {
     @Tag("chapter03")
     @Tag("stretch")
     void theServerClosesEveryStreamItHoldsWhenItStops() {
-        router = new IORouter(io, new RecordingLog(), new Settings(60_000L, false));
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(60_000L));
         router.route(listen("listen:a", "{\"toolsListChanged\":true}"));
         router.route(listen("listen:b", "{\"toolsListChanged\":true}"));
         assertTrue(io.responses().isEmpty());
@@ -1018,7 +1292,7 @@ class IORouterTest {
     @Tag("stretch")
     void aListChangeThatFailsToSendDoesNotStopTheTimer() throws InterruptedException {
         RecordingLog log = new RecordingLog();
-        router = new IORouter(io, log, new Settings(50L, false));
+        router = new IORouter(io, log, SETTINGS.withListChangedIntervalMillis(50L));
         router.route(listen("listen:flaky", "{\"toolsListChanged\":true}"));
         io.failNextEmit();
 
@@ -1030,7 +1304,7 @@ class IORouterTest {
     @Tag("chapter03")
     @Tag("stretch")
     void withTheListChangedTimerOffAStreamAskingForToolChangesIsClosedAtOnce() {
-        router = new IORouter(io, new RecordingLog(), new Settings(0L, false));
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(0L));
         router.route(listen("listen:off", "{\"toolsListChanged\":true}"));
 
         assertTrue(io.notifications().get(0).getAsJsonObject("params").getAsJsonObject("notifications").isEmpty());
@@ -1041,7 +1315,7 @@ class IORouterTest {
     @Tag("chapter03")
     @Tag("stretch")
     void withFormsRequiredAListenFromAClientThatCannotShowOneIsMissingACapability() {
-        router = new IORouter(io, new RecordingLog(), new Settings(0L, true));
+        router = new IORouter(io, new RecordingLog(), SETTINGS.withListChangedIntervalMillis(0L).withRequireFormForListen(true));
         router.route("""
                 {"jsonrpc":"2.0","id":"listen:no-form","method":"subscriptions/listen","params":{"_meta":{
                   "io.modelcontextprotocol/protocolVersion":"2026-07-28",
@@ -1564,7 +1838,7 @@ class IORouterTest {
                  "params":{%s,"name":"key_word_search","requestState":"%s",
                            "inputResponses":{"search_directory":{"action":"accept",
                                                                  "content":{"directory":"%s"}}}}}"""
-                             .formatted(FULL_META, SearchContinuation.awaitingDirectory().encode(), directory));
+                             .formatted(FULL_META, state(SearchContinuation.awaitingDirectory()), directory));
 
         JsonObject result = io.only().getAsJsonObject("result");
         assertFalse(result.get("isError").getAsBoolean());
@@ -1584,12 +1858,22 @@ class IORouterTest {
                      "whitespace is not a directory");
     }
 
+    @Test
+    @Tag("chapter05")
+    @Tag("stretch")
+    void aBlankKeywordArgumentIsAskedForLikeAMissingOne() {
+        router.route(searchCall(92, FULL_META, "{\"keyword\":\"   \"}", null, null));
+
+        assertTrue(io.only().getAsJsonObject("result").getAsJsonObject("inputRequests")
+                           .has(SearchContinuation.KEY_KEYWORD), "whitespace is not a keyword");
+    }
+
     // --- reading the answers back ----------------------------------------
 
     @Test
     @Tag("chapter05")
     void aFormAnswerThatIsNotEvenAnObjectIsTreatedAsNoAnswer() {
-        router.route(toolCall(34, SearchContinuation.awaitingDirectory().encode(),
+        router.route(toolCall(34, state(SearchContinuation.awaitingDirectory()),
                               "\"search_directory\":null"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1600,7 +1884,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere() {
-        router.route(toolCall(36, SearchContinuation.awaitingDirectory().encode(),
+        router.route(toolCall(36, state(SearchContinuation.awaitingDirectory()),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":{}}"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1610,7 +1894,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void anAcceptedFormWhoseDirectoryIsBlankFallsBackToo() {
-        router.route(toolCall(37, SearchContinuation.awaitingDirectory().encode(),
+        router.route(toolCall(37, state(SearchContinuation.awaitingDirectory()),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":{\"directory\":\"  \"}}"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1620,7 +1904,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void anAcceptedFormWhoseContentIsNotAnObjectFallsBackToo() {
-        router.route(toolCall(38, SearchContinuation.awaitingDirectory().encode(),
+        router.route(toolCall(38, state(SearchContinuation.awaitingDirectory()),
                               "\"search_directory\":{\"action\":\"accept\",\"content\":\"/tmp\"}"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1630,7 +1914,7 @@ class IORouterTest {
     @Test
     @Tag("chapter05")
     void aMissingFormAnswerFallsBackToTheWorkingDirectory() {
-        router.route(toolCall(39, SearchContinuation.awaitingDirectory().encode(),
+        router.route(toolCall(39, state(SearchContinuation.awaitingDirectory()),
                               "\"search_directory\":null"));
 
         assertEquals(ResultType.COMPLETE,
@@ -1975,8 +2259,13 @@ class IORouterTest {
     }
 
     private static String toolCall(int id, String requestState, String inputResponses) {
-        StringBuilder params = new StringBuilder(FULL_META);
-        params.append(",\"name\":\"key_word_search\",\"arguments\":{\"keyword\":\"record\"}");
+        return searchCall(id, FULL_META, "{\"keyword\":\"record\"}", requestState, inputResponses);
+    }
+
+    private static String searchCall(int id, String meta, String arguments, String requestState,
+                                     String inputResponses) {
+        StringBuilder params = new StringBuilder(meta);
+        params.append(",\"name\":\"key_word_search\",\"arguments\":").append(arguments);
         if (requestState != null) {
             params.append(",\"requestState\":\"").append(requestState).append('"');
         }
@@ -1984,6 +2273,31 @@ class IORouterTest {
             params.append(",\"inputResponses\":{").append(inputResponses).append('}');
         }
         return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"method\":\"tools/call\",\"params\":{" + params + "}}";
+    }
+
+    /** Seals a continuation the way the router under test does. */
+    private String state(SearchContinuation continuation) {
+        return continuation.encode(signer);
+    }
+
+    /** The page a URL-mode question, on a call or a task, sends the user to. */
+    private static String pageUrl(JsonObject asking) {
+        return asking.getAsJsonObject("inputRequests").getAsJsonObject(SearchContinuation.KEY_PAGE)
+                .getAsJsonObject("params").get("url").getAsString();
+    }
+
+    private static String get(String url) throws IOException, InterruptedException {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create(url)).GET().build(),
+                                               HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    /** Fills in a page the way the user's browser would. */
+    private static int submit(String url, String form) throws IOException, InterruptedException {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create(url))
+                                                       .header("Content-Type", "application/x-www-form-urlencoded")
+                                                       .POST(HttpRequest.BodyPublishers.ofString(form))
+                                                       .build(),
+                                               HttpResponse.BodyHandlers.discarding()).statusCode();
     }
 
     /**
