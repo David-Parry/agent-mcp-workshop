@@ -244,6 +244,12 @@ public static LogFile getInstance() {
 - Logging failures don't propagate to the application
 - Graceful degradation when file system is unavailable
 
+#### One entry per line
+- Each entry is one line that starts with its timestamp, so reading the file line by line gives back the entries
+- Text a client sent, such as a cancellation reason, can hold a line break. Written as is, the rest of that text would look like an entry of its own (CWE-117, log injection)
+- So the writer escapes a line feed as `\n`, a carriage return as `\r`, and any other control character, or the Unicode line and paragraph separators, as `\uXXXX`. Each line of a stack trace is escaped the same way
+- Tabs and backslashes are kept. The JSON lines come out exactly as they were sent, because Gson has already escaped those characters inside strings
+
 #### Why a file, and not stderr
 The specification's own answer for stdio logging is stderr: a server may write log text there, and the client decides what to do with it. The protocol-level alternative, `notifications/message`, is deprecated on `2026-07-28`, and its migration note points stdio servers at stderr or OpenTelemetry.
 
