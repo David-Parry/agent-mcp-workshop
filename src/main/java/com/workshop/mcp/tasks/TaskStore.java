@@ -109,15 +109,17 @@ public class TaskStore {
      *
      * @param taskId target task
      * @param result the payload that the original request would have returned
+     * @return true if this call completed the task; false if there is no such
+     *         task or it had already ended, in which case the result is dropped
      */
-    public void complete(String taskId, Object result) {
+    public boolean complete(String taskId, Object result) {
         Entry entry = entries.get(taskId);
         if (entry == null) {
-            return;
+            return false;
         }
         synchronized (entry) {
             if (entry.isTerminal()) {
-                return;
+                return false;
             }
             entry.status = TaskStatus.COMPLETED.getValue();
             entry.statusMessage = "The operation completed successfully.";
@@ -125,6 +127,7 @@ public class TaskStore {
             entry.result = result;
             entry.inputRequests = null;
             entry.notifyAll();
+            return true;
         }
     }
 
@@ -134,15 +137,17 @@ public class TaskStore {
      * @param taskId target task
      * @param reason human-readable failure message, surfaced both as
      *               {@code statusMessage} and as the {@code error} payload
+     * @return true if this call failed the task; false if there is no such
+     *         task or it had already ended, in which case the reason is dropped
      */
-    public void fail(String taskId, String reason) {
+    public boolean fail(String taskId, String reason) {
         Entry entry = entries.get(taskId);
         if (entry == null) {
-            return;
+            return false;
         }
         synchronized (entry) {
             if (entry.isTerminal()) {
-                return;
+                return false;
             }
             entry.status = TaskStatus.FAILED.getValue();
             entry.statusMessage = reason;
@@ -150,6 +155,7 @@ public class TaskStore {
             entry.error = new JsonRpcError(ErrorCodes.INTERNAL_ERROR, reason, null);
             entry.inputRequests = null;
             entry.notifyAll();
+            return true;
         }
     }
 

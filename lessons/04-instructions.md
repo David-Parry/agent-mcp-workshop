@@ -126,10 +126,11 @@ case TOOLS_CALL -> {
 
 ### Errors and results
 
-The two failures in `TOOLS_CALL` look alike and are answered differently:
+The failures in `TOOLS_CALL` look alike and are answered differently:
 
 - **An unknown tool name is a protocol error.** The request itself is wrong, so it gets `-32602`, `"Unknown tool: ..."`. Names are matched exactly: `Key_Word_Search` is a different tool, and is unknown.
 - **A missing directory is a tool error.** The request is fine and the tool ran, but it could not do its job. That is `isError: true` inside a successful result, with text the model can read and act on: here, by calling again with a directory. Chapter 5 turns that gap into a question.
+- **Arguments the tool cannot use are a tool error too.** A keyword that is an object, or a directory with a NUL byte in it, still fits `CallToolRequest`, whose `arguments` may hold any JSON value. Only the tool's own `inputSchema` rules them out, and the specification answers such input validation errors with `isError: true`, so the model can correct the call. `KeyWordSearch.checkArguments` makes this check before anything runs. Arguments that are not an object at all fail `CallToolRequest` itself, and still get `-32602`.
 
 `prompts/get` and `resources/read` follow the first rule: an unknown prompt, a missing required argument and an unknown resource are all `-32602`.
 

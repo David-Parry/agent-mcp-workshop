@@ -291,7 +291,7 @@ public class IORouter implements Router {
                 }
             }
             case TOOLS_LIST -> {
-                KeyWordSearch keyWordSearch = new KeyWordSearch();
+                KeyWordSearch keyWordSearch = newKeyWordSearch();
                 AppTool appTool = AppToolBuilder.builder()
                         .withName(keyWordSearch.name())
                         .withDescription(keyWordSearch.description())
@@ -302,11 +302,16 @@ public class IORouter implements Router {
             }
             case TOOLS_CALL -> {
                 ToolCallParams toolCallParams = deserializer.deserializeParams(message, ToolCallParams.class);
-                KeyWordSearch keyWordSearch = new KeyWordSearch();
+                KeyWordSearch keyWordSearch = newKeyWordSearch();
                 if (!keyWordSearch.name().equals(toolCallParams.name())) {
                     logger.log("[API][SENT] tools/call — unknown tool " + toolCallParams.name()
                                + " (returning -32602)");
                     error(message.id(), ErrorCodes.INVALID_PARAMS, "Unknown tool: " + toolCallParams.name());
+                } else if (keyWordSearch.checkArguments(toolCallParams.arguments()) instanceof String unusable) {
+                    // Answered before handleKeywordSearch, so arguments the
+                    // tool cannot use never become a task.
+                    logger.log("[API][SENT] tools/call — unusable arguments, answering isError: " + unusable);
+                    success(message.id(), ToolCallResultBuilder.builder().addTextContent(unusable).asError().build());
                 } else {
                     handleKeywordSearch(message.id(), toolCallParams, envelope);
                 }
@@ -351,6 +356,11 @@ public class IORouter implements Router {
                 } else {
                     logger.log("[API][SENT] tasks/cancel — taskId=" + task.taskId() + " acknowledged, now "
                                + task.status());
+                    // Marking the task stops nothing by itself: its worker
+                    // would sleep, search and offer a result no one can see.
+                    if (TaskStatus.CANCELLED.getValue().equals(task.status()) && interruptTaskWorker(task.taskId())) {
+                        logger.log("[TASK " + task.taskId() + "] cancelled; interrupting its worker");
+                    }
                     success(message.id(), Map.of("resultType", ResultType.COMPLETE));
                 }
             }
@@ -673,7 +683,7 @@ public class IORouter implements Router {
             success(requestId, TaskResult.handle(task));
             runToolAsTask(task.taskId(), resolved, directories);
         } else {
-            success(requestId, new KeyWordSearch().call(resolved, directories));
+            success(requestId, newKeyWordSearch().call(resolved, directories));
         }
     }
 
@@ -689,7 +699,7 @@ public class IORouter implements Router {
     }
 
     private String keywordArgument(ToolCallParams params) {
-        return params.arguments() == null ? null : params.arguments().get("keyword");
+        return params.stringArgument("keyword");
     }
 
     /**
@@ -731,7 +741,7 @@ public class IORouter implements Router {
     }
 
     private String directoryArgument(ToolCallParams params) {
-        String directory = params.arguments() == null ? null : params.arguments().get("directory");
+        String directory = params.stringArgument("directory");
         return directory == null || directory.isBlank() ? null : directory;
     }
 
@@ -792,16 +802,19 @@ public class IORouter implements Router {
             logger.log("[TASK " + taskId + "] background tool execution started for tool=" + params.name());
             try {
                 Thread.sleep(4000L);
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
-                taskStore.complete(taskId, result);
-                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
+                ToolCallResult result = newKeyWordSearch().call(params, directories);
+                completeTask(taskId, result);
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
-                logger.log("[TASK " + taskId + "] interrupted: " + ie.getMessage());
-                taskStore.fail(taskId, "Interrupted: " + ie.getMessage());
+                if (taskStore.fail(taskId, "Interrupted: " + ie.getMessage())) {
+                    logger.log("[TASK " + taskId + "] interrupted: " + ie.getMessage());
+                } else {
+                    logger.log("[TASK " + taskId + "] stopped before searching: the task was already "
+                               + taskStore.get(taskId).status());
+                }
             } catch (Exception e) {
                 logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
-                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
+                failTask(taskId, "Tool execution failed: " + e.getMessage());
             }
         });
     }
@@ -850,14 +863,38 @@ public class IORouter implements Router {
                     directories.add(workingDirectory);
                 }
 
-                ToolCallResult result = new KeyWordSearch().call(params, directories);
-                taskStore.complete(taskId, result);
-                logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
+                ToolCallResult result = newKeyWordSearch().call(params, directories);
+                completeTask(taskId, result);
             } catch (Exception e) {
                 logger.log("[TASK " + taskId + "] tool execution failed: " + e.getMessage());
-                taskStore.fail(taskId, "Tool execution failed: " + e.getMessage());
+                failTask(taskId, "Tool execution failed: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Records a task's result, and reports the completion only if the task
+     * took it. A task cancelled while its search ran keeps its status, and
+     * the result it would have had is dropped.
+     */
+    private void completeTask(String taskId, ToolCallResult result) {
+        if (taskStore.complete(taskId, result)) {
+            logger.log("[TASK " + taskId + "] tool completed, transitioning to completed");
+        } else {
+            logger.log("[TASK " + taskId + "] tool finished, but the task was already "
+                       + taskStore.get(taskId).status() + "; result discarded");
+        }
+    }
+
+    /**
+     * Records a task's failure, unless the task has already ended, in which
+     * case its status stands and the failure is dropped.
+     */
+    private void failTask(String taskId, String reason) {
+        if (!taskStore.fail(taskId, reason)) {
+            logger.log("[TASK " + taskId + "] the task was already " + taskStore.get(taskId).status()
+                       + "; failure discarded");
+        }
     }
 
     /**
@@ -888,6 +925,14 @@ public class IORouter implements Router {
         }
         worker.interrupt();
         return true;
+    }
+
+    /**
+     * Makes the search a call runs. Tests override it to get a search that
+     * throws, which no argument a client can send makes the real one do.
+     */
+    KeyWordSearch newKeyWordSearch() {
+        return new KeyWordSearch();
     }
 
     /**

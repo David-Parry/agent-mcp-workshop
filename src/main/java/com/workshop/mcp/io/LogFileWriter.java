@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -42,6 +43,16 @@ import java.time.format.DateTimeFormatter;
  * synchronized, because the file is opened by whichever call logs first: unsynchronized,
  * two threads logging together could each open it and close the other's writer, and the
  * lines written to the closed one were lost.</p>
+ *
+ * <p>One entry, one line: every message is written on a single physical line, whoever
+ * wrote it. Messages carry text a client chose — a cancellation reason, a tool name, a
+ * directory, the raw line that arrived on stdin — and a line break in it would otherwise
+ * start a second entry, timestamp and all, that reads as if the server had written it.
+ * So line feeds and carriage returns are written as {@code \n} and {@code \r}, and every
+ * other control character, as well as the Unicode line and paragraph separators, as
+ * {@code \}{@code uXXXX}. Tabs are kept: they cannot start a line, and stack frames are
+ * indented with them. Backslashes are kept too, so a JSON message, which can hold no
+ * raw control character, is logged exactly as it was sent.</p>
  *
  * @author Workshop MCP Team
  * @version 1.0
@@ -172,7 +183,8 @@ public class LogFileWriter implements LogFile {
      *
      * <p>This method is intended for low-level logging where the caller
      * provides the complete message to be logged. It does not add any
-     * additional formatting or timestamps.</p>
+     * additional formatting or timestamps. Like every entry, it is written on
+     * one line, with line breaks and control characters escaped.</p>
      *
      * @param message the raw message to log
      */
@@ -181,7 +193,7 @@ public class LogFileWriter implements LogFile {
             if (logWriter == null) {
                 createNewLogFile();
             }
-            logWriter.println(message);
+            logWriter.println(oneLine(message));
             logWriter.flush();
         } catch (IOException e) {
             // Ignore logging failures – prevent cascading errors
@@ -195,6 +207,10 @@ public class LogFileWriter implements LogFile {
      * exception. It ensures that both the message and exception details are
      * captured in the log file for debugging purposes.</p>
      *
+     * <p>The trace keeps its usual shape, one line per frame and per "Caused by",
+     * but each of those lines is escaped like a message: an exception's message
+     * often quotes the input that caused it.</p>
+     *
      * @param message the message to log
      * @param exception the exception whose stack trace should be logged
      */
@@ -205,11 +221,57 @@ public class LogFileWriter implements LogFile {
             }
 
             String timestamp = timestampFormat.format(LocalDateTime.now());
-            logWriter.println("[" + timestamp + "] " + message);
-            exception.printStackTrace(logWriter);
+            logWriter.println("[" + timestamp + "] " + oneLine(message));
+            exception.printStackTrace(new OneLinePrintWriter(logWriter));
             logWriter.flush();
         } catch (IOException e) {
             // Ignore logging failures – prevent cascading errors
+        }
+    }
+
+    /**
+     * Escapes whatever would let one message read as more than one entry, or
+     * write raw control bytes into the file.
+     *
+     * @param text the text to write, which may be null
+     * @return the text on one line, the same instance when nothing needed escaping
+     */
+    static String oneLine(String text) {
+        if (text == null || text.chars().noneMatch(LogFileWriter::needsEscaping)) {
+            return text;
+        }
+        StringBuilder line = new StringBuilder(text.length() + 16);
+        for (char c : text.toCharArray()) {
+            if (c == '\n') {
+                line.append("\\n");
+            } else if (c == '\r') {
+                line.append("\\r");
+            } else if (needsEscaping(c)) {
+                line.append("\\u%04x".formatted((int) c));
+            } else {
+                line.append(c);
+            }
+        }
+        return line.toString();
+    }
+
+    private static boolean needsEscaping(int c) {
+        return c != '\t' && (Character.isISOControl(c) || c == '\u2028' || c == '\u2029');
+    }
+
+    /**
+     * Keeps each line of a stack trace on one line. {@link Throwable} prints
+     * every line of its trace through {@link #println(Object)}, so this is
+     * the one place to escape them.
+     */
+    private static final class OneLinePrintWriter extends PrintWriter {
+        OneLinePrintWriter(Writer out) {
+            super(out);
+        }
+
+        @Override
+        public void println(Object line) {
+            super.println(oneLine(String.valueOf(line)));
         }
     }
 

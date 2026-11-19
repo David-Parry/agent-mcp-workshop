@@ -11,6 +11,9 @@ import com.workshop.mcp.spec.McpGson;
 import com.workshop.mcp.spec.MetaKeys;
 import com.workshop.mcp.spec.RequestEnvelope;
 import com.workshop.mcp.spec.ResultType;
+import com.workshop.mcp.spec.ToolCallParams;
+import com.workshop.mcp.spec.ToolCallResult;
+import com.workshop.mcp.spec.builders.ToolCallResultBuilder;
 import com.workshop.mcp.tools.KeyWordSearch;
 import com.workshop.mcp.tools.SearchContinuation;
 import org.junit.jupiter.api.Tag;
@@ -28,6 +31,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1301,6 +1306,58 @@ class IORouterTest {
     }
 
     @Test
+    @Tag("chapter04")
+    void aKeywordThatIsNotAStringIsAToolErrorTheModelCanFix() {
+        // The request fits the CallToolRequest schema, whose arguments may hold
+        // any JSON value; only the tool's own schema says keyword is a string.
+        router.route("""
+                {"jsonrpc":"2.0","id":34,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","arguments":{"keyword":{"nested":true}}}}"""
+                             .formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertNotNull(result, "a well-formed call is answered with a result, not -32602: " + io.only());
+        assertTrue(result.get("isError").getAsBoolean());
+        assertTrue(result.toString().contains("keyword"), "the text must name the argument to fix: " + result);
+    }
+
+    @Test
+    @Tag("chapter04")
+    void aDirectoryThatCannotBeAPathIsAToolErrorRatherThanAnInternalError() {
+        router.route("""
+                {"jsonrpc":"2.0","id":35,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search",
+                           "arguments":{"keyword":"record","directory":"/tmp/\\u0000bad"}}}""".formatted(FULL_META));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertNotNull(result, "a NUL byte in a path is the caller's to fix, not -32603: " + io.only());
+        assertTrue(result.get("isError").getAsBoolean());
+        assertTrue(result.toString().contains("not a valid path"), "" + result);
+    }
+
+    @Test
+    @Tag("chapter04")
+    void argumentsThatAreNotAnObjectAreStillInvalidParams() {
+        // This one does fail the CallToolRequest schema, so it stays a protocol error.
+        router.route("""
+                {"jsonrpc":"2.0","id":36,"method":"tools/call",
+                 "params":{%s,"name":"key_word_search","arguments":"keyword=record"}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("chapter07")
+    void aTaskClientWhoseDirectoryCannotBeAPathGetsAToolErrorAndNoTask() {
+        router.route(taskCallWithADirectory(37, "/tmp/\\u0000bad"));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString(), "" + result);
+        assertNull(result.get("taskId"), "arguments the tool cannot use must not become a task: " + result);
+        assertTrue(result.get("isError").getAsBoolean());
+    }
+
+    @Test
     @Tag("chapter05")
     void aCallWithNoArgumentsAtAllStillAsksForSomewhereToSearch() {
         // The directory is read off a params.arguments that is simply absent
@@ -1495,6 +1552,46 @@ class IORouterTest {
         assertNotNull(after.get("result"), "a terminal status never changes, so the result stays: " + after);
     }
 
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void cancellingATaskWhileItWaitsToSearchStopsItsWorker(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log);
+        router.route(taskCallWithADirectory(70, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        router.route(cancel(71, taskId));
+
+        // The worker sleeps for 4 seconds before it searches. Stopping well
+        // inside that means the cancel woke it, rather than the sleep ending.
+        awaitLogged(log, 2_000L, taskId, "stopped before searching");
+        assertTrue(log.logged(taskId, "cancelled; interrupting its worker"), "" + log.lines);
+        assertFalse(log.logged(taskId, "transitioning to completed"), "a cancelled task never completed: " + log.lines);
+        assertNull(awaitTaskStatus(taskId, "cancelled").get("result"));
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aCancelThatArrivesOnceTheWorkerHasStoppedIsStillAcknowledged(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log);
+        router.route(taskCallWithADirectory(72, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+        router.route(cancel(73, taskId));
+        awaitWorkerExit(taskId);
+
+        io.clear();
+        router.route(cancel(74, taskId));
+
+        assertEmptyAcknowledgement(io.only());
+        assertEquals(1, log.lines.stream().filter(line -> line.contains("[TASK " + taskId + "] cancelled;")).count(),
+                     "there is no worker left to interrupt the second time: " + log.lines);
+    }
+
     // --- tasks: the virtual thread's own outcomes ----------------------
 
     @Test
@@ -1515,14 +1612,66 @@ class IORouterTest {
     @Test
     @Timeout(30)
     @Tag("chapter07")
-    void aTaskWhoseSearchBlowsUpIsFailedRatherThanLeftWorking() throws Exception {
-        // A NUL byte cannot appear in a path, so resolving this one throws
-        // straight out of the search and into the task's own catch.
-        router.route(taskCallWithADirectory(48, "/tmp/\\u0000nope"));
+    void aTaskWhoseSearchBlowsUpIsFailedRatherThanLeftWorking(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        // No argument a client can send makes the real search throw, so this
+        // one is swapped for a search that does, to reach the task's own catch.
+        router = routerSearchingWith(new RecordingLog(), searchThatThrows());
+        router.route(taskCallWithADirectory(48, directory.toString()));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        JsonObject failed = awaitTaskStatus(taskId, "failed");
+        assertTrue(failed.getAsJsonObject("error").get("message").getAsString().contains("the search broke"),
+                   "a failed task must say what went wrong: " + failed);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aTaskThatAsksWhoseSearchBlowsUpIsFailedRatherThanLeftWorking() throws Exception {
+        router = routerSearchingWith(new RecordingLog(), searchThatThrows());
+        // A client that cannot show a form is never asked, so the search runs at once.
+        router.route(taskCallWithoutADirectory(75, "\"roots\":{\"listChanged\":true}"));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
 
         JsonObject failed = awaitTaskStatus(taskId, "failed");
         assertNotNull(failed.get("error"), "a failed task must say what went wrong: " + failed);
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aSearchThatFinishesAfterItsTaskWasCancelledHasItsResultDiscarded() throws Exception {
+        RecordingLog log = new RecordingLog();
+        SearchThatWaitsForACancel search = new SearchThatWaitsForACancel(false);
+        router = routerSearchingWith(log, search);
+        router.route(taskCallWithoutADirectory(76, "\"roots\":{\"listChanged\":true}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        search.awaitStart();
+        router.route(cancel(77, taskId));
+
+        awaitLogged(log, 5_000L, taskId, "result discarded");
+        assertFalse(log.logged(taskId, "transitioning to completed"), "the task never took the result: " + log.lines);
+        assertNull(awaitTaskStatus(taskId, "cancelled").get("result"));
+    }
+
+    @Test
+    @Timeout(30)
+    @Tag("chapter07")
+    void aSearchThatFailsAfterItsTaskWasCancelledHasItsFailureDiscarded() throws Exception {
+        RecordingLog log = new RecordingLog();
+        SearchThatWaitsForACancel search = new SearchThatWaitsForACancel(true);
+        router = routerSearchingWith(log, search);
+        router.route(taskCallWithoutADirectory(78, "\"roots\":{\"listChanged\":true}"));
+        String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
+
+        search.awaitStart();
+        router.route(cancel(79, taskId));
+
+        awaitLogged(log, 5_000L, taskId, "failure discarded");
+        JsonObject cancelled = awaitTaskStatus(taskId, "cancelled");
+        assertNull(cancelled.get("error"), "a cancelled task stays cancelled, not failed: " + cancelled);
     }
 
     @Test
@@ -1635,7 +1784,7 @@ class IORouterTest {
     @Test
     @Timeout(30)
     @Tag("chapter07")
-    void aTaskThatIsAnsweredWithAnImpossiblePathIsFailedRatherThanLeftWorking() throws Exception {
+    void aTaskThatIsAnsweredWithAnImpossiblePathCompletesWithAToolError() throws Exception {
         router.route(taskCallWithoutADirectory(50, "\"elicitation\":{\"form\":{}}"));
         String taskId = io.responses().get(0).getAsJsonObject("result").get("taskId").getAsString();
 
@@ -1646,8 +1795,12 @@ class IORouterTest {
                                      "content":{"directory":"/tmp/\\u0000nope"}}}}}"""
                              .formatted(TASKS_META, taskId));
 
-        JsonObject failed = awaitTaskStatus(taskId, "failed");
-        assertNotNull(failed.get("error"));
+        // A path the user typed wrong is theirs to fix, so the task completes
+        // with a tool error in its result; failed is for what would have been -32603.
+        JsonObject done = awaitTaskStatus(taskId, "completed");
+        JsonObject result = done.getAsJsonObject("result");
+        assertTrue(result.get("isError").getAsBoolean(), "" + done);
+        assertTrue(result.toString().contains("not a valid path"), "" + done);
     }
 
     /**
@@ -1664,6 +1817,47 @@ class IORouterTest {
             Thread.sleep(10L);
         }
         throw new AssertionError("no thread was ever running task " + taskId);
+    }
+
+    /** Waits until no thread is running {@code taskId} any more. */
+    private void awaitWorkerExit(String taskId) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5_000L;
+        while (router.interruptTaskWorker(taskId)) {
+            if (System.currentTimeMillis() > deadline) {
+                throw new AssertionError("the thread running task " + taskId + " never stopped");
+            }
+            Thread.sleep(10L);
+        }
+    }
+
+    /** Waits for one logged line that contains every one of the parts. */
+    private static void awaitLogged(RecordingLog log, long timeoutMillis, String... parts) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (!log.logged(parts)) {
+            if (System.currentTimeMillis() > deadline) {
+                throw new AssertionError("no line logged with " + List.of(parts) + ": " + log.lines);
+            }
+            Thread.sleep(10L);
+        }
+    }
+
+    /** A router whose every search is {@code search}, logging to {@code log}. */
+    private IORouter routerSearchingWith(RecordingLog log, KeyWordSearch search) {
+        return new IORouter(io, log) {
+            @Override
+            KeyWordSearch newKeyWordSearch() {
+                return search;
+            }
+        };
+    }
+
+    private static KeyWordSearch searchThatThrows() {
+        return new KeyWordSearch() {
+            @Override
+            public ToolCallResult call(ToolCallParams params, Set<String> directories) {
+                throw new IllegalStateException("the search broke");
+            }
+        };
     }
 
     // --- helpers -------------------------------------------------------
@@ -1815,6 +2009,37 @@ class IORouterTest {
         @Override
         public boolean isRunning() {
             return false;
+        }
+    }
+
+    /**
+     * A search that runs until its thread is interrupted, as a cancelled
+     * task's is, and then finishes anyway: with a result, or by throwing.
+     */
+    private static final class SearchThatWaitsForACancel extends KeyWordSearch {
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final boolean throwsWhenStopped;
+
+        SearchThatWaitsForACancel(boolean throwsWhenStopped) {
+            this.throwsWhenStopped = throwsWhenStopped;
+        }
+
+        void awaitStart() throws InterruptedException {
+            assertTrue(started.await(5, TimeUnit.SECONDS), "the search never started");
+        }
+
+        @Override
+        public ToolCallResult call(ToolCallParams params, Set<String> directories) {
+            started.countDown();
+            try {
+                new CountDownLatch(1).await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            if (throwsWhenStopped) {
+                throw new IllegalStateException("the search broke after its task was cancelled");
+            }
+            return ToolCallResultBuilder.builder().addTextContent("too late").build();
         }
     }
 
