@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
+import com.workshop.mcp.legacy.LegacySession;
 import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.spec.CacheScope;
 import com.workshop.mcp.spec.ErrorCodes;
@@ -91,6 +92,18 @@ class IORouterTest {
 
     private static final String SKILLS_LIST = """
             {"jsonrpc":"2.0","id":30,"method":"skills/list","params":{%s}}""".formatted(FULL_META);
+
+    /**
+     * A client on the newest handshake revision opening its session. It
+     * declares elicitation and the tasks extension, so a test can show that
+     * its requests are served without either.
+     */
+    private static final String LEGACY_INITIALIZE = """
+            {"jsonrpc":"2.0","id":0,"method":"initialize","params":{
+              "protocolVersion":"2025-11-25",
+              "capabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}},
+                              "extensions":{"io.modelcontextprotocol/tasks":{}}},
+              "clientInfo":{"name":"legacy-client","version":"1.0"}}}""";
 
     /** A client that can open a URL but cannot show a form. */
     private static final String URL_ONLY_META = """
@@ -288,30 +301,14 @@ class IORouterTest {
     void methodsRemovedByThisRevisionAreNotFoundRatherThanInvalid() {
         // Method existence is settled before the envelope is looked at, so a
         // legacy client is told the method is gone, not that its _meta is off.
-        for (String method : List.of("initialize", "ping", "logging/setLevel",
-                                     "resources/subscribe", "tasks/result", "tasks/list")) {
+        // initialize and ping are answered the legacy way; see the legacy tests.
+        for (String method : List.of("logging/setLevel", "resources/subscribe", "tasks/result", "tasks/list")) {
             io.clear();
             router.route("""
                     {"jsonrpc":"2.0","id":1,"method":"%s","params":{}}""".formatted(method));
             assertEquals(ErrorCodes.METHOD_NOT_FOUND, io.onlyError().get("code").getAsInt(),
                          method + " was removed in 2026-07-28 and must be -32601");
         }
-    }
-
-    @Test
-    @Tag("chapter03")
-    void initializeIsToldWhichVersionsThisServerSupports() {
-        // A client still on the handshake cannot move forward on its own, so
-        // this error may be the only diagnostic its user ever sees.
-        router.route("""
-                {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}""");
-
-        JsonObject error = io.onlyError();
-        assertEquals(ErrorCodes.METHOD_NOT_FOUND, error.get("code").getAsInt());
-        assertTrue(error.get("message").getAsString().contains(RequestEnvelope.SUPPORTED_VERSION),
-                   error.toString());
-        assertEquals(RequestEnvelope.SUPPORTED_VERSION,
-                     error.getAsJsonObject("data").getAsJsonArray("supported").get(0).getAsString());
     }
 
     @Test
@@ -2244,6 +2241,228 @@ class IORouterTest {
         assertEquals("skill://no-such-skill/SKILL.md", error.getAsJsonObject("data").get("uri").getAsString());
     }
 
+    // --- clients on a handshake revision -----------------------------------
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void initializeIsAnsweredWithTheHandshakeRevisionTheClientAskedFor() {
+        for (String version : LegacySession.VERSIONS) {
+            io.clear();
+            router.route(initialize(version));
+
+            JsonObject result = io.only().getAsJsonObject("result");
+            assertEquals(version, result.get("protocolVersion").getAsString());
+            assertEquals("agent-mcp-workshop", result.getAsJsonObject("serverInfo").get("name").getAsString());
+            assertTrue(result.get("instructions").getAsString().contains("working directory"),
+                       "a legacy client is never asked, so it is told where a search without a directory looks");
+        }
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void initializeForARevisionThisServerDoesNotSpeakIsOfferedTheNewestHandshakeRevision() {
+        // There is no handshake on 2026-07-28, so a client asking for it over
+        // initialize is offered the newest revision that has one.
+        for (String version : List.of("2024-10-07", RequestEnvelope.SUPPORTED_VERSION)) {
+            io.clear();
+            router.route(initialize(version));
+
+            assertEquals("2025-11-25", io.only().getAsJsonObject("result").get("protocolVersion").getAsString(),
+                         version);
+        }
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void initializeWithoutAVersionOrCapabilitiesIsInvalidParams() {
+        for (String params : List.of("", ",\"params\":{}", ",\"params\":{\"protocolVersion\":\"2025-11-25\"}",
+                                     ",\"params\":{\"capabilities\":{}}")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":0,"method":"initialize"%s}""".formatted(params));
+
+            assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(), params);
+        }
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aLegacyClientIsPromisedNoListChangesAndNoTasks() {
+        router.route(LEGACY_INITIALIZE);
+
+        JsonObject capabilities = io.only().getAsJsonObject("result").getAsJsonObject("capabilities");
+        assertFalse(capabilities.getAsJsonObject("tools").get("listChanged").getAsBoolean(),
+                    "a legacy client holds no stream to hear a change on");
+        assertNull(capabilities.get("logging"), "logging/setLevel is not served");
+        JsonObject extensions = capabilities.getAsJsonObject("extensions");
+        assertEquals(Set.of(MetaKeys.UI_EXTENSION, MetaKeys.SKILLS_EXTENSION), extensions.keySet(),
+                     "a legacy request is served without the tasks extension, so it is not offered");
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void theInitializedNotificationIsAcceptedWithoutAnAnswer() {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, SETTINGS);
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","method":"notifications/initialized"}""");
+
+        assertTrue(io.responses().isEmpty() && io.notifications().isEmpty(), "a notification is never answered");
+        assertTrue(log.logged("notifications/initialized", "ready"));
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aPingWithoutTheEnvelopeIsAnsweredEmptyEvenBeforeInitialize() {
+        router.route("""
+                {"jsonrpc":"2.0","id":"ping-1","method":"ping"}""");
+
+        JsonObject response = io.only();
+        assertEquals("ping-1", response.get("id").getAsString());
+        assertEquals(Set.of("_meta"), response.getAsJsonObject("result").keySet(),
+                     "an empty result, carrying only the server's identity");
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aPingThatNamesThisRevisionIsAnUnknownMethod() {
+        router.route("""
+                {"jsonrpc":"2.0","id":1,"method":"ping","params":{%s}}""".formatted(FULL_META));
+
+        assertEquals(ErrorCodes.METHOD_NOT_FOUND, io.onlyError().get("code").getAsInt(),
+                     "2026-07-28 removed ping, and a request that names it is served by its rules");
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void afterInitializeARequestWithoutTheEnvelopeIsServed() {
+        router.route(LEGACY_INITIALIZE);
+
+        for (String method : List.of("tools/list", "prompts/list", "resources/list", "skills/list")) {
+            io.clear();
+            router.route("""
+                    {"jsonrpc":"2.0","id":1,"method":"%s"}""".formatted(method));
+
+            assertEquals(ResultType.COMPLETE, io.only().getAsJsonObject("result").get("resultType").getAsString(),
+                         method + " left its params out, as legacy clients do");
+        }
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aLegacyClientsSearchRunsInOneHopInTheDirectoryItNames(@org.junit.jupiter.api.io.TempDir Path directory)
+            throws IOException {
+        Files.writeString(directory.resolve("hit.txt"), "the record speaks");
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{
+                  "name":"key_word_search","arguments":{"keyword":"record","directory":"%s"}}}""".formatted(directory));
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString());
+        assertEquals(1, result.getAsJsonObject("structuredContent").get("totalMatches").getAsInt());
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aLegacyClientWithNoDirectoryIsNeitherAskedNorHandedATask() {
+        RecordingLog log = new RecordingLog();
+        router = new IORouter(io, log, SETTINGS);
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{
+                  "name":"key_word_search","arguments":{"keyword":"record"}}}""");
+
+        JsonObject result = io.only().getAsJsonObject("result");
+        assertEquals(ResultType.COMPLETE, result.get("resultType").getAsString(),
+                     "the client declared elicitation and tasks, but legacy requests are served without both");
+        assertTrue(log.logged("using the working directory"), "the one hop searches the working directory");
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aRequestCarryingTheEnvelopeIsStillServedStatelesslyAfterInitialize() {
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route(toolCall(4, null, null));
+
+        assertEquals(ResultType.INPUT_REQUIRED, io.only().getAsJsonObject("result").get("resultType").getAsString(),
+                     "a modern client is asked for its directory, whoever else has opened a session");
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void afterInitializeARequestThatNamesThisRevisionMustStillCarryTheWholeEnvelope() {
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","id":5,"method":"tools/list","params":{
+                  "_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}""");
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void serverDiscoverStillNeedsTheEnvelopeAfterInitialize() {
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","id":6,"method":"server/discover"}""");
+
+        assertEquals(ErrorCodes.INVALID_PARAMS, io.onlyError().get("code").getAsInt(),
+                     "server/discover belongs to 2026-07-28 alone");
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aLegacyClientCannotCallTheTaskMethods() {
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","id":7,"method":"tasks/get","params":{"taskId":"t-1"}}""");
+
+        assertEquals(ErrorCodes.MISSING_REQUIRED_CLIENT_CAPABILITY, io.onlyError().get("code").getAsInt());
+    }
+
+    @Test
+    @Tag("bonus")
+    @Tag("stretch")
+    void aMethodNeitherEraServesIsStillNotFoundForALegacyClient() {
+        router.route(LEGACY_INITIALIZE);
+        io.clear();
+
+        router.route("""
+                {"jsonrpc":"2.0","id":8,"method":"logging/setLevel","params":{"level":"info"}}""");
+
+        assertEquals(ErrorCodes.METHOD_NOT_FOUND, io.onlyError().get("code").getAsInt());
+    }
+
     @Test
     @Tag("chapter04")
     void completingTheKeywordArgumentOffersSeveralWords() {
@@ -2706,6 +2925,12 @@ class IORouterTest {
         return """
                 {"jsonrpc":"2.0","id":%d,"method":"resources/read",
                  "params":{%s,"uri":"%s"}}""".formatted(id, FULL_META, uri);
+    }
+
+    private static String initialize(String version) {
+        return """
+                {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"%s",
+                 "capabilities":{},"clientInfo":{"name":"legacy-client","version":"1.0"}}}""".formatted(version);
     }
 
     private static String skillsGet(int id, String uri) {

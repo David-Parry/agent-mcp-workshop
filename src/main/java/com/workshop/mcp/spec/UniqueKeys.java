@@ -11,7 +11,9 @@ package com.workshop.mcp.spec;
  * {@code ping}, {@code logging/setLevel},
  * {@code notifications/roots/list_changed}, {@code resources/subscribe},
  * {@code resources/unsubscribe}, {@code tasks/result}, and
- * {@code tasks/list} are all gone for that reason.
+ * {@code tasks/list} are all gone for that reason. The router answers
+ * {@code initialize}, {@code notifications/initialized}, and {@code ping}
+ * outside this registry, for clients still on a handshake revision.
  * </p>
  *
  * @see JsonRpcRequest

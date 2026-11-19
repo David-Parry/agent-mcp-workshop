@@ -3,7 +3,8 @@
 #
 # Sends the discovery probe, then a handful of stateless requests, each
 # carrying the io.modelcontextprotocol/* envelope in params._meta, then the
-# mistakes a server has to answer. Useful for checking wire shapes without
+# mistakes a server has to answer, and ends with the legacy handshake a client
+# on an earlier revision opens with. Useful for checking wire shapes without
 # launching the Inspector UI.
 #
 # Works from chapter 03 on. The envelope checks use subscriptions/listen
@@ -30,8 +31,8 @@ META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelc
   # No directory: -32601 on chapter 03, a tool error on 04, input_required on
   # 05 and 06, and a task handle from 07, because META declares the tasks extension.
   echo "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{$META,\"name\":\"key_word_search\",\"arguments\":{\"keyword\":\"record\"}}}"
-  # Legacy handshake must now be refused, naming the revisions that would work.
-  echo "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"initialize\",\"params\":{$META}}"
+  # A ping that names 2026-07-28 is -32601: that revision removed ping.
+  echo "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"ping\",\"params\":{$META}}"
   # Envelope naming a revision this server does not speak: -32022.
   echo '{"jsonrpc":"2.0","id":5,"method":"subscriptions/listen","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2025-11-25","io.modelcontextprotocol/clientCapabilities":{}}}}'
   # Envelope missing entirely: -32602.
@@ -40,5 +41,11 @@ META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelc
   echo '{"jsonrpc":"2.0","id":7,"method":'
   # JSON, but not a JSON-RPC 2.0 message: -32600, also with no id.
   echo '{"id":8,"method":"server/discover"}'
+  # A client on a handshake revision opens with initialize, and this server
+  # answers it the legacy way. That picks the legacy era for the rest of the
+  # process, so it comes last: from here a request with no envelope is served.
+  echo '{"jsonrpc":"2.0","id":9,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"modern-probe","version":"0.0.0"}}}'
+  echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+  echo '{"jsonrpc":"2.0","id":10,"method":"tools/list"}'
   sleep 1
 } | java -jar "$JAR"

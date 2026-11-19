@@ -6,6 +6,9 @@ import com.google.gson.JsonParseException;
 import com.workshop.mcp.io.IOHandler;
 import com.workshop.mcp.io.LogFile;
 import com.workshop.mcp.io.LogFileWriter;
+import com.workshop.mcp.legacy.InitializeParams;
+import com.workshop.mcp.legacy.InitializeResult;
+import com.workshop.mcp.legacy.LegacySession;
 import com.workshop.mcp.resources.JavadocResources;
 import com.workshop.mcp.resources.Pagination;
 import com.workshop.mcp.skills.SkillCatalog;
@@ -52,6 +55,12 @@ import static com.workshop.mcp.spec.Resource.DEFAULT_MIME_TYPE;
  * this server used to ask for are embedded in an {@link InputRequiredResult}
  * instead.
  * </p>
+ * <p>
+ * A client on a handshake revision is served too, by the one exception:
+ * {@link LegacySession} answers its {@code initialize} and remembers what it
+ * declared, and its later requests, which carry no envelope, are served under
+ * that.
+ * </p>
  *
  * @see RequestEnvelope
  * @see InputRequiredResult
@@ -62,6 +71,9 @@ public class IORouter implements Router {
     private static final String JSON_RPC_VERSION = "2.0";
     private static final String KEYWORD_APP_URI = "ui://keyword-search/mcp-app.html";
     private static final long LIST_TTL_MILLIS = 60_000L;
+    private static final String LEGACY_INSTRUCTIONS = "Searches a project for a keyword. Pass the directory to "
+                                                      + "search; without one, the tool searches its own working "
+                                                      + "directory.";
 
     /**
      * Whether {@code tools/call} hands back a task handle instead of running
@@ -135,6 +147,7 @@ public class IORouter implements Router {
     private final Clock clock;
     private final TaskStore taskStore;
     private final SkillCatalog skills = SkillCatalog.bundled();
+    private final LegacySession legacy = new LegacySession();
     /**
      * Held while anything is sent on a stream, and while a stream opens or
      * ends, so that nothing is sent on a stream before its acknowledgement or
@@ -275,23 +288,44 @@ public class IORouter implements Router {
         if (traceparent != null) {
             logger.log("[API][RECEIVED] " + message.method() + " traceparent=" + traceparent);
         }
+        // initialize selects the legacy revisions for the rest of this process,
+        // whatever else the request carries. ping is theirs too: 2026-07-28
+        // removed it, so a ping that names that revision is an unknown method.
+        if (LegacySession.INITIALIZE.equals(message.method())) {
+            answerInitialize(message);
+            return;
+        }
+        if (LegacySession.PING.equals(message.method())
+            && deserializer.deserializeEnvelope(message).protocolVersion() == null) {
+            success(message.id(), Map.of());
+            return;
+        }
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
 
         // Method existence is settled before the envelope is looked at.
         // Deletions in this revision are physical: a method absent from the
-        // registry is -32601 by absence, and answering a removed method like
-        // initialize with a complaint about its _meta would tell a legacy
-        // client the wrong thing about why it failed.
+        // registry is -32601 by absence, and answering a removed method with
+        // a complaint about its _meta would tell a legacy client the wrong
+        // thing about why it failed.
         if (uniqueKey == UniqueKeys.NOT_FOUND || !INBOUND_METHODS.contains(uniqueKey)) {
             rejectUnknownMethod(message);
             return;
         }
 
-        // server/discover is answered whatever version it names: a client uses
-        // it precisely to find out which versions this server speaks, so
-        // rejecting it for asking with the wrong one would be circular. It is
-        // still a request, though, so it must carry the required envelope.
-        RequestEnvelope envelope = envelopeFor(message, uniqueKey != UniqueKeys.SERVER_DISCOVER);
+        // A request that names no modern revision is the legacy client's, once
+        // one has opened with initialize, and is served under what it declared
+        // there. server/discover belongs to 2026-07-28 alone, and is answered
+        // whatever version it names: a client uses it precisely to find out
+        // which versions this server speaks, so rejecting it for asking with
+        // the wrong one would be circular. It still needs the envelope.
+        RequestEnvelope declared = deserializer.deserializeEnvelope(message);
+        boolean legacyRequest = uniqueKey != UniqueKeys.SERVER_DISCOVER && legacy.serves(declared);
+        if (legacyRequest) {
+            message = LegacySession.withParams(message);
+        }
+        RequestEnvelope envelope = legacyRequest
+                ? legacy.envelope()
+                : envelopeFor(message, declared, uniqueKey != UniqueKeys.SERVER_DISCOVER);
         if (envelope == null) {
             return;
         }
@@ -568,26 +602,53 @@ public class IORouter implements Router {
     /**
      * Answers a method this server does not have with
      * {@link ErrorCodes#METHOD_NOT_FOUND}.
-     * <p>
-     * {@code initialize} gets more than the bare code. A client still on the
-     * handshake has no way to move forward on its own, so the revision asks a
-     * server that speaks only stateless revisions to name them in any error
-     * it returns to {@code initialize}: this message may be the only
-     * diagnostic the client can show its user.
-     * </p>
      *
      * @param message the inbound request
      */
     private void rejectUnknownMethod(JsonRpcRequest message) {
         logger.log("[API][SENT] unsupported method '" + message.method() + "' (returning -32601)");
-        if ("initialize".equals(message.method())) {
-            error(message.id(), ErrorCodes.METHOD_NOT_FOUND,
-                  "Method not found: initialize. This server only supports protocol versions without the "
-                  + "initialize handshake: " + String.join(", ", RequestEnvelope.SUPPORTED_VERSIONS),
-                  Map.of("supported", RequestEnvelope.SUPPORTED_VERSIONS));
-        } else {
-            error(message.id(), ErrorCodes.METHOD_NOT_FOUND, "Method not found: " + message.method());
+        error(message.id(), ErrorCodes.METHOD_NOT_FOUND, "Method not found: " + message.method());
+    }
+
+    /**
+     * Answers {@code initialize}, which opens the legacy session for the rest
+     * of this process.
+     * <p>
+     * A server that speaks only the stateless revisions refuses it, and
+     * should name those revisions in the error. This server speaks both eras,
+     * so it agrees a handshake revision instead.
+     * </p>
+     *
+     * @param message the inbound request
+     */
+    private void answerInitialize(JsonRpcRequest message) {
+        InitializeParams params = deserializer.deserializeParams(message, InitializeParams.class);
+        InitializeResult result = legacy.open(params, legacyCapabilities(), LEGACY_INSTRUCTIONS);
+        if (result == null) {
+            logger.log("[API][SENT] initialize — no protocolVersion or capabilities (returning -32602)");
+            error(message.id(), ErrorCodes.INVALID_PARAMS, "initialize requires a protocolVersion and capabilities");
+            return;
         }
+        logger.log("[API][SENT] initialize — the client asked for " + params.protocolVersion() + ", agreed "
+                   + result.protocolVersion());
+        success(message.id(), result);
+    }
+
+    /**
+     * What a legacy client is told this server offers. It holds no stream, so
+     * it is promised no list changes, and the tasks extension is left out
+     * because its requests are served without it.
+     */
+    private static ServerCapabilities legacyCapabilities() {
+        Map<String, Object> extensions = new LinkedHashMap<>();
+        extensions.put(MetaKeys.UI_EXTENSION, Map.of());
+        extensions.put(MetaKeys.SKILLS_EXTENSION, Map.of());
+        return new ServerCapabilities(null, null,
+                                      new Capability(null, null),
+                                      new Capability(false, null),
+                                      new Capability(false, false),
+                                      new Capability(false, null),
+                                      extensions);
     }
 
     /**
@@ -600,13 +661,13 @@ public class IORouter implements Router {
      * </p>
      *
      * @param message        the inbound request
+     * @param envelope       the envelope it carries, complete or not
      * @param versionMatters false for {@code server/discover}, which is answered
      *                       whatever version it names
      * @return the validated envelope, or null when an error has already been
      *         emitted and the caller should stop
      */
-    private RequestEnvelope envelopeFor(JsonRpcRequest message, boolean versionMatters) {
-        RequestEnvelope envelope = deserializer.deserializeEnvelope(message);
+    private RequestEnvelope envelopeFor(JsonRpcRequest message, RequestEnvelope envelope, boolean versionMatters) {
         if (!envelope.isComplete()) {
             logger.log("[API][SENT] " + message.method() + " — incomplete _meta envelope (returning -32602)");
             error(message.id(), ErrorCodes.INVALID_PARAMS,
@@ -922,6 +983,10 @@ public class IORouter implements Router {
     }
 
     private void process(JsonRpcNotification message) {
+        if (LegacySession.INITIALIZED.equals(message.method())) {
+            logger.log("[API][RECEIVED] notifications/initialized — the legacy client is ready");
+            return;
+        }
         UniqueKeys uniqueKey = UniqueKeys.fromValue(message.method());
         switch (uniqueKey) {
             case NOTIFICATION_CANCELLED -> {

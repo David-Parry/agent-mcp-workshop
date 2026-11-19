@@ -505,9 +505,8 @@ def s_removed_methods(c):
     # Deletion in this revision is physical: absence from the method registry.
     # Method existence is settled before the envelope is looked at, so a legacy
     # client is told the method is gone, not that its _meta is malformed.
+    # initialize and ping are answered the legacy way: see the legacy scenario.
     removed = [
-        "initialize",
-        "ping",
         "notifications/initialized",
         "logging/setLevel",
         "notifications/roots/list_changed",
@@ -523,10 +522,9 @@ def s_removed_methods(c):
             raise Failure(
                 f"{method} was removed in {PROTOCOL_VERSION} and must be {METHOD_NOT_FOUND}, got {error}"
             )
-        # A client still on the handshake cannot move forward by itself, so
-        # its error should say which revisions would work.
-        if method == "initialize" and (error.get("data") or {}).get("supported") != [PROTOCOL_VERSION]:
-            raise Failure(f"the initialize error should name the supported revisions: {error}")
+    # A ping that names this revision is served by its rules, which removed ping.
+    c.request(120, "ping")
+    c.expect_error(120, code=METHOD_NOT_FOUND)
 
 
 @scenario("malformed_messages", "protocol, trace-log", chapter=3)
@@ -1474,6 +1472,81 @@ def s_skills(c):
     c.expect_error(4, INVALID_PARAMS)
     c.request(5, "resources/read", {"uri": "skill://no-such-skill/SKILL.md"})
     c.expect_error(5, INVALID_PARAMS)
+
+
+# ---------------------------------------------------------------- Clients on a handshake revision
+
+# What a client on an MCP SDK of the 2025-11-25 era declares. Its requests are
+# served without elicitation or tasks all the same.
+LEGACY_CAPABILITIES = {"roots": {"listChanged": True}, "elicitation": {"form": {}, "url": {}},
+                       "extensions": {TASKS_EXTENSION: {}}}
+
+
+def legacy_initialize(version, capabilities):
+    return {"protocolVersion": version, "capabilities": capabilities,
+            "clientInfo": {"name": "walkthrough-harness", "version": "2.0"}}
+
+
+@scenario("legacy", "protocol, flow-diagram", chapter=7)
+def s_legacy(c):
+    # The handshake revisions allow a ping at any time, before initialize too.
+    c.raw_request("ping-0", "ping")
+    pong = c.expect_result("ping-0")
+    if set(pong) - {"_meta"}:
+        raise Failure(f"a ping is answered with an empty result: {pong}")
+
+    # There is no handshake on this revision, so a client asking for it over
+    # initialize is offered the newest revision that has one.
+    c.raw_request(0, "initialize", legacy_initialize(PROTOCOL_VERSION, {}))
+    if c.expect_result(0).get("protocolVersion") != LEGACY_VERSION:
+        raise Failure(f"initialize for {PROTOCOL_VERSION} should be offered {LEGACY_VERSION}")
+
+    # A dual-era server picks the era from how a client opens: initialize picks
+    # the handshake revisions for the rest of this process.
+    c.raw_request(1, "initialize", legacy_initialize(LEGACY_VERSION, LEGACY_CAPABILITIES))
+    opened = c.expect_result(1)
+    if opened.get("protocolVersion") != LEGACY_VERSION:
+        raise Failure(f"initialize for {LEGACY_VERSION} should be agreed to it: {opened}")
+    if (opened.get("serverInfo") or {}).get("name") != "agent-mcp-workshop":
+        raise Failure(f"the initialize result should name this server: {opened}")
+    capabilities = opened.get("capabilities") or {}
+    if (capabilities.get("tools") or {}).get("listChanged") is not False:
+        raise Failure(f"a legacy client holds no stream, so it is promised no list changes: {capabilities}")
+    if TASKS_EXTENSION in (capabilities.get("extensions") or {}):
+        raise Failure(f"legacy requests are served without tasks, so the extension is not offered: {capabilities}")
+    c.notify("notifications/initialized")
+
+    # Its requests carry no envelope, and may leave their params out.
+    c.raw_request(2, "tools/list")
+    tools = [t.get("name") for t in c.expect_result(2).get("tools") or []]
+    if tools != ["key_word_search"]:
+        raise Failure(f"a legacy tools/list should list the search: {tools}")
+
+    # Not asked, and not handed a task: the search runs in one hop.
+    directory = make_keyword_dir("needleword", 3)
+    c.raw_request(3, "tools/call", {"name": "key_word_search",
+                                    "arguments": {"keyword": "needleword", "directory": directory}})
+    found = c.expect_result(3)
+    require_result_type(found, "complete", "a legacy search that names its directory")
+    if (found.get("structuredContent") or {}).get("totalMatches") != 3:
+        raise Failure(f"the legacy search should find all three: {found.get('structuredContent')}")
+    c.raw_request(4, "tools/call", search_call())
+    require_result_type(c.expect_result(4, timeout=30.0), "complete", "a legacy search with no directory")
+    if not c.log_contains("using the working directory"):
+        raise Failure("a legacy search with no directory should search the server's working directory")
+
+    c.raw_request(5, "tasks/get", {"taskId": "t-1"})
+    c.expect_error(5, code=MISSING_REQUIRED_CLIENT_CAPABILITY)
+
+    # Both eras are served side by side: a request that carries the envelope
+    # is still stateless, and server/discover still needs one.
+    c.request(6, "tools/call", search_call(), capabilities=FORMS_ONLY)
+    require_result_type(c.expect_result(6), "input_required", "a modern call with no directory")
+    c.raw_request(7, "server/discover")
+    c.expect_error(7, code=INVALID_PARAMS)
+    c.request(8, "server/discover")
+    if c.expect_result(8).get("supportedVersions") != [PROTOCOL_VERSION]:
+        raise Failure("server/discover should list only the revision an envelope may name")
 
 
 # ---------------------------------------------------------------- runner

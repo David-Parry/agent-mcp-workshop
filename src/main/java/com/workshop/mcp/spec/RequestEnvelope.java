@@ -35,7 +35,11 @@ public record RequestEnvelope(
     String logLevel
 ) {
 
-    /** The only protocol revision this server implements. */
+    /**
+     * The only stateless protocol revision this server implements. The
+     * handshake revisions it also speaks are agreed through {@code initialize},
+     * never named in an envelope.
+     */
     public static final String SUPPORTED_VERSION = "2026-07-28";
 
     /**
