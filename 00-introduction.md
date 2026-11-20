@@ -50,7 +50,7 @@ We'll create an MCP server tool that performs the predictable, algorithmic work:
 This tool doesn't think - it just executes. It's deterministic, reliable, and fast. It does exactly what you'd do manually, but automated.
 
 ### Part 2: The Intelligent Agent
-Then we'll connect this tool to an AI agent that:
+Then, in the agent chapter on the `complete` branch, we'll connect this tool to an AI agent that:
 - Takes your high-level question
 - Invokes the keyword search tool
 - Analyzes the results

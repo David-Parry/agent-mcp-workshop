@@ -222,16 +222,16 @@ A few failures worth recognising:
 
 ### See the logs
 
-Once all 62 are green, look at what the transport wrote along the way. Run `IOHandlerImplTest` on its own, then print the log it leaves in `logs/`:
+Once all 62 are green, look at what the transport wrote along the way. Run `IOHandlerImplTest` on its own, then print the newest log in `logs/`:
 
 ```bash
 ./gradlew chapterTest -Pchapter=01 --tests 'IOHandlerImplTest' --rerun
-cat logs/agent-mcp-workshop-*.log
+cat "$(ls -t logs/agent-mcp-workshop-*.log | head -n 1)"
 ```
 
-This is only meant to show the initial part of the application starting. So far the server is just its transport layer, so the log has an `[API][RECEIVED]` line for each line read, an `[API][SENT]:` line for each message written, and `Input stream closed.` when a reader finishes. The stack traces in it are expected: some tests hand the reader a broken input stream, or register a listener that throws, to check the failure is logged instead of taking the server down.
+This is only meant to show the transport at work. So far the server is just its transport layer, so the log has an `[API][RECEIVED]` line for each line read, an `[API][SENT]:` line for each message written, and `Input stream closed.` when a reader finishes. The stack traces in it are expected: some tests hand the reader a broken input stream, or register a listener that throws, to check the failure is logged instead of taking the server down.
 
-Run `IOHandlerImplTest` on its own because a full run can delete the log before you read it: `LogFileWriterTest` runs in the same JVM, and after each of its tests it removes every `agent-mcp-workshop-*` file from `logs/`, not just its own. `--rerun` makes Gradle run the tests even when nothing has changed since your last run; without it the task is reported UP-TO-DATE, nothing runs, and no new log is written.
+Run `IOHandlerImplTest` on its own because a full run can delete the log before you read it: `LogFileWriterTest` runs in the same JVM, and after each of its tests it removes every `agent-mcp-workshop-*` file from `logs/`, not just its own. Each run starts a file of its own, though, so `logs/` can still hold files from earlier runs; `ls -t` lists the newest first, and `head -n 1` keeps only that one. `--rerun` makes Gradle run the tests even when nothing has changed since your last run; without it the task is reported UP-TO-DATE, nothing runs, and no new log is written.
 
 ## Where this goes next
 
