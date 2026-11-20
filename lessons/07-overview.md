@@ -127,7 +127,7 @@ A task handed to a client that will not poll is a result nobody collects, which 
 |---|---|---|
 | `tasks/get` | client → server | Non-blocking poll. Returns the task, plus `result` once it has completed, `error` once it has failed, or `inputRequests` while it waits for input. |
 | `tasks/update` | client → server | **New.** Delivers `inputResponses` to a task in `input_required`. Acknowledged with an empty result; answers under keys the task is not waiting on are ignored. |
-| `tasks/cancel` | client → server | Asks the server to cancel. Acknowledged with an empty result, even for a task that has finished, which keeps its status. The server need not stop the work. |
+| `tasks/cancel` | client → server | Asks the server to cancel. Acknowledged with an empty result, even for a task that has finished, which keeps its status. The server need not stop the work, and this one does, by interrupting the thread the task runs on. |
 | `notifications/tasks` | server → client | Optional push of a task's state, sent only to a client that subscribed to that task with `subscriptions/listen`. Polling is the default, and this server sends none. |
 
 `tasks/result` and `tasks/list` are **removed**, and removal in this revision is physical: sending either one gets `-32601`, not a polite refusal. Every task method also requires the extension: a client that did not declare it on the request gets `-32021`. So does a `subscriptions/listen` from that client that asks for task status by naming `taskIds`.
