@@ -134,8 +134,8 @@ case TOOLS_CALL -> {
 The failures in `TOOLS_CALL` look alike and are answered differently:
 
 - **An unknown tool name is a protocol error.** The request itself is wrong, so it gets `-32602`, `"Unknown tool: ..."`. Names are matched exactly: `Key_Word_Search` is a different tool, and is unknown.
-- **A missing directory is a tool error.** The request is fine and the tool ran, but it could not do its job. That is `isError: true` inside a successful result, with text the model can read and act on: here, by calling again with a directory. Chapter 5 turns that gap into a question.
-- **Arguments the tool cannot use are a tool error too.** A keyword that is an object, or a directory with a NUL byte in it, still fits `CallToolRequest`, whose `arguments` may hold any JSON value. Only the tool's own `inputSchema` rules them out, and the specification answers such input validation errors with `isError: true`, so the model can correct the call. `KeyWordSearch.checkArguments` makes this check before anything runs. Arguments that are not an object at all fail `CallToolRequest` itself, and still get `-32602`.
+- **A missing directory is a tool error.** The request is fine, but the tool cannot do its job without one. That is `isError: true` inside a successful result, with text the model can read and act on: here, by calling again with a directory. Chapter 5 turns that gap into a question.
+- **Arguments the tool cannot use are a tool error too.** A keyword that is an object, or a directory with a NUL byte in it, still fits `CallToolRequest`, whose `arguments` may hold any JSON value. Only the tool rules them out: its `inputSchema` says the keyword is a string, and its own path check refuses the NUL byte, which a JSON string may hold. The specification answers such input validation errors with `isError: true`, so the model can correct the call. `KeyWordSearch.checkArguments` makes this check before anything runs. Arguments that are not an object at all fail `CallToolRequest` itself, and still get `-32602`.
 
 `prompts/get` and `resources/read` follow the first rule: an unknown prompt, a missing required argument and an unknown resource are all `-32602`.
 
@@ -247,12 +247,12 @@ The run reports 152 tests, and 25 of them fail before you start, all of them in 
 - `readingAResourceThatIsNotThereIsInvalidParamsNamingTheUri` — a missing page is answered as a result, or the `-32602` lacks `data.uri`.
 - `callingAToolThisServerDoesNotHaveIsInvalidParams` or `toolNamesAreMatchedCaseSensitively` — an unknown tool gets a result instead of `-32602`, or the name is compared with `equalsIgnoreCase`.
 - `aToolCallWithoutADirectoryIsAToolLevelError` — a missing directory gets `-32602` instead of `isError: true`, or the text never mentions the directory.
-- `aKeywordThatIsNotAStringIsAToolErrorTheModelCanFix` or `aDirectoryThatCannotBeAPathIsAToolErrorRatherThanAnInternalError` — arguments the tool cannot use are not answered with `isError: true` and text that names what to fix. Without the `checkArguments` branch, a keyword that is an object is answered as a missing directory.
+- `aKeywordThatIsNotAStringIsAToolErrorTheModelCanFix` or `aDirectoryThatCannotBeAPathIsAToolErrorRatherThanAnInternalError` — arguments the tool cannot use are not answered with `isError: true` and text that names what to fix: the `checkArguments` branch sends `error(...)`, or drops `.asError()`. Leave the branch out and only the first fails, because a keyword that is an object is then answered as a missing directory. `KeyWordSearch.call` checks a directory again itself, so the bad path is still refused.
 - `argumentsThatAreNotAnObjectAreStillInvalidParams` — arguments that are not an object got a result. They fail `CallToolRequest` itself, so they stay `-32602`.
 - `aPromptWithoutItsRequiredKeywordIsInvalidParams` — `prompts/get` expands the prompt without a keyword.
 - `completingTheKeywordArgumentOffersSeveralWords` — `total` or `hasMore` sits beside `completion` instead of inside it.
 - `cacheableResultsCarryFreshnessHintsAndUncacheableOnesDoNot` — `tools/list` was sent as `builder.build()`, without `LIST_TTL_MILLIS` and `CacheScope.PUBLIC`.
-- A test that expects one response and finds a `-32603` — something you wrote threw. The log file says what.
+- A test that expects one response and finds a `-32603`, or fails with a `NullPointerException` because the response has no `result` — something you wrote threw, and the server answered with an error. The log file in `logs/` says what.
 
 Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 

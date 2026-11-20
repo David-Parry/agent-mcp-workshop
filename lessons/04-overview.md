@@ -49,7 +49,7 @@ Tools provide executable functionality that clients can discover and invoke:
   - Deserializes `ToolCallParams` to identify which tool to execute
   - Matches the tool name exactly, because tool names are case-sensitive
   - Delegates to the tool's `call()` method for actual execution
-  - Answers an unknown tool with `-32602`, a protocol error, and a missing directory with `isError: true`, a tool error the model can read and act on
+  - Answers an unknown tool with `-32602`, a protocol error, and a missing directory or an argument it cannot use, such as a keyword that is not a string, with `isError: true`, a tool error the model can read and act on
 
 ### 3. **Prompts Capability Implementation**
 Prompts create user-friendly templates that guide clients in using tools effectively:
@@ -116,7 +116,7 @@ This lesson demonstrates how the three capabilities work together:
 
 The implementation shows important patterns:
 - **Builder Pattern**: All responses use builders for type-safe construction
-- **Errors Versus Results**: A request naming something the server does not have gets `-32602`; a tool that ran and failed returns a result with `isError: true`
+- **Errors Versus Results**: A request naming something the server does not have gets `-32602`; a well-formed call the tool cannot carry out returns a result with `isError: true`
 - **Stateless Design**: Each request is independent with no session state
 - **Schema-Driven Interface**: Tools use JSON Schema for parameter definition
 - **Content Negotiation**: Resources include MIME types for proper handling

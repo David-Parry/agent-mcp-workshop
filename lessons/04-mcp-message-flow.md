@@ -68,9 +68,9 @@ sequenceDiagram
     Note right of Server: "Unknown tool: ..."<br/>The request named something that is not there
     
     Client->>Server: tools/call (request)
-    Note right of Client: key_word_search with no directory
+    Note right of Client: key_word_search with no directory,<br/>or a keyword that is not a string
     Server-->>Client: tools/call (response) with isError true
-    Note right of Server: Still a result: the tool ran,<br/>and its text tells the model what to fix
+    Note right of Server: Still a result: the request was well formed,<br/>and its text tells the model what to fix
     
     Client->>Server: resources/read (request)
     Note right of Client: Empty or unknown URI
@@ -99,5 +99,5 @@ sequenceDiagram
 3. **Get Prompt**: Client receives the message to hand the model
 
 ### Errors and Results
-- A request naming a tool, prompt or resource the server does not have, or missing a required prompt argument, gets a `-32602` error. A missing resource names its uri in `data`
-- A tool that ran and failed, such as a search with no directory, returns a result with `isError: true`. It is still a result, and its text is written for the model to act on
+- A request naming a tool, prompt or resource the server does not have, missing a required prompt argument, with tool arguments that are not an object, or asking for a completion without naming the argument, gets a `-32602` error. A missing resource names its uri in `data`
+- A well-formed call the tool cannot carry out, such as a search with no directory or with a keyword that is not a string, returns a result with `isError: true`. It is still a result, and its text is written for the model to act on
