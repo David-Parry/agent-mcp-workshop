@@ -4,7 +4,7 @@ Based on the foundation built in lesson 4, here's what will take place in this l
 
 ## Core Objective
 
-This lesson introduces two mechanisms that look separate but are not: the **extensions** system, which is how MCP evolves beyond its core specification, and **Multi Round-Trip Requests**, which is how a server asks for information now that it is forbidden from sending the client a request.
+This lesson introduces two mechanisms that look separate but are not: the **extensions** system, which is how MCP evolves beyond its core specification, and **Multi Round-Trip Requests** (MRTR), which is how a server asks for information now that it is forbidden from sending the client a request.
 
 Students will see where `server/discover` declares extensions, though this chapter declares none yet, then build the elicitation flow so the server asks for a search directory *by answering* rather than by asking.
 
@@ -65,7 +65,7 @@ Before the list of extensions, the thing to know about any one of them: **every 
 | **Beta** | Anything, but breaking changes should be rare, batched, and announced | Real usage is welcome. Breaking changes are documented in a changelog. |
 | **Stable** | Only with a new core protocol revision | Behavior is fixed for the revision you negotiated. A published revision is immutable. |
 
-An extension starts Experimental and **must** pass through Beta. From Beta it either settles at Stable or a Standards Track SEP promotes it into the core specification. Each Beta extension declares its intended destination — Stable or Core — and that intent can change while it is in Beta.
+An extension starts Experimental and **must** pass through Beta, unless the Core Maintainers waive that by a recorded vote. From Beta it either settles at Stable or a Standards Track SEP promotes it into the core specification. Each Beta extension declares its intended destination — Stable or Core — and that intent can change while it is in Beta.
 
 Two consequences worth holding on to:
 
@@ -74,7 +74,7 @@ Two consequences worth holding on to:
 
 ## Official Extensions
 
-Official extensions live in the MCP GitHub organization in repositories prefixed `ext-`, and the directory holding the spec (`specification/beta/`, `specification/stable/`) is what records the stage.
+Official extensions live in the MCP GitHub organization in repositories prefixed `ext-`, and the directory holding the spec (`specification/beta/`, `specification/stable/`) is meant to record the stage. Repositories that predate the lifecycle, `ext-tasks` among them, have not moved to that layout yet, so the [extensions overview](https://modelcontextprotocol.io/extensions/overview) is the reference for each extension's stage, and the table below follows it.
 
 | Extension | Identifier | Stage | What it does |
 |-----------|-----------|-------|--------------|
@@ -82,15 +82,15 @@ Official extensions live in the MCP GitHub organization in repositories prefixed
 | Enterprise-Managed Authorization | `io.modelcontextprotocol/enterprise-managed-authorization` | Stable | Centralized, auditable access control through corporate identity providers |
 | MCP Apps | `io.modelcontextprotocol/ui` | **Stable** | Interactive UI inline in conversations — charts, forms, media players. **Chapter 6's subject.** |
 | MCP Tasks | `io.modelcontextprotocol/tasks` | **Beta, to Core** | Async execution for long-running work: polling, mid-flight input, durable handles. **Chapter 7's subject.** |
-| Skills over MCP | `io.modelcontextprotocol/skills` | Beta | Serve Agent Skills — workflow instructions and supporting files — through Resources |
-| Server Cards | *(see ext-server-card)* | Beta | Lets a client discover a server's metadata *before* connecting to it |
+| Skills over MCP | `io.modelcontextprotocol/skills` | Beta, destination not yet stated | Serve Agent Skills — workflow instructions and supporting files — through Resources |
+| Server Cards | *(see ext-server-card)* | Beta, destination not yet stated | Lets a client discover a server's metadata *before* connecting to it |
 
 The two this workshop implements sit at different stages, and that difference is not cosmetic:
 
 - **MCP Apps is Stable.** The UI contract you write in Chapter 6 is fixed for `2026-07-28`. It will not shift under you until a new protocol revision ships.
 - **MCP Tasks is Beta, headed for Core.** Chapter 7's task handles work today, but the shape can still move, and when promotion lands, task support stops being something you declare and becomes something every server at that revision is simply expected to do.
 
-**Server Cards** is the one on the list that operates outside a live session. Everything else here is negotiated *after* you connect; a server card is fetched over plain HTTP *before* a connection exists, so a client can decide whether connecting is worthwhile — a directory listing rather than a conversation.
+**Server Cards** is the one on the list that works without a connection. Everything else here is negotiated *after* you connect; a server card is fetched over plain HTTP *before* a connection exists, so a client can decide whether connecting is worthwhile — a directory listing rather than a conversation.
 
 ## Extension Identifiers
 
@@ -185,7 +185,7 @@ Its ordering matters:
 
 2. **An embedded request has no `id` and no `jsonrpc`.** It has been de-JSON-RPC'd into data describing a question, identified by its `method` and correlated by the key it sits under in `inputRequests`.
 
-3. **An input response is a bare result, not a JSON-RPC response.** There is no envelope to unwrap — which is why the deserializer no longer has a method for unwrapping one.
+3. **An input response is a bare result, not a JSON-RPC response.** There is no envelope to unwrap — which is why the deserializer has no method for unwrapping one.
 
 4. **`requestState` is opaque bytes.** The protocol guarantees only that the client returns them unchanged. It came from your server, but it travelled through a client, so validate it like any other input. And keep in it nothing a forged value could abuse: if the state decided what to search, the specification would require its integrity to be protected, for example by signing it.
 
@@ -195,7 +195,7 @@ Its ordering matters:
 
 7. **Same pattern, every extension** — declare the identifier under `capabilities.extensions`, read the client's side off each request's envelope, and exchange extension-specific messages. Chapters 6 and 7 declare the two this server uses.
 
-8. **Removed is not deprecated.** A removed method is gone and answers `-32601`. A deprecated feature still works until at least the first revision published on or after 2027-07-28, and new code should not adopt it. The specification keeps every deprecated feature in one list, its Deprecated Features registry, with what replaces each. The handout lists both kinds.
+8. **Removed is not deprecated.** A removed method is gone: a request for it answers `-32601`, and a removed notification is only logged. A deprecated feature still works until at least the first revision published on or after 2027-07-28, and new code should not adopt it. The specification keeps every deprecated feature in one list, its Deprecated Features registry, with what replaces each. The handout lists both kinds.
 
 ## What Students Will Achieve
 
