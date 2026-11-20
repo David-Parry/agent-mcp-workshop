@@ -13,13 +13,14 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -104,38 +105,37 @@ class LogFileWriterTest {
 
     @Test
     @DisplayName("Should handle concurrent singleton initialization")
-    void testConcurrentSingletonInitialization() throws InterruptedException {
-        // Given
+    void testConcurrentSingletonInitialization() throws Exception {
+        // Given - holding the lock stops every thread past the unlocked check,
+        // so all but the first find the instance already made inside it. They
+        // are platform threads because a virtual thread blocked on a monitor
+        // pins its carrier.
+        Field lockField = LogFileWriter.class.getDeclaredField("lock");
+        lockField.setAccessible(true);
+        Object lock = lockField.get(null);
         int threadCount = 10;
-        CountDownLatch startLatch = new CountDownLatch(1);
-        CountDownLatch endLatch = new CountDownLatch(threadCount);
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-        AtomicReference<LogFile> firstInstance = new AtomicReference<>();
+        List<Thread> threads = new ArrayList<>();
+        List<LogFile> instances = new CopyOnWriteArrayList<>();
 
         // When
-        for (int i = 0; i < threadCount; i++) {
-            executor.submit(() -> {
-                try {
-                    startLatch.await(); // Wait for all threads to be ready
-                    LogFile instance = LogFileWriter.getInstance();
-                    firstInstance.compareAndSet(null, instance);
-                    
-                    // Verify all threads get the same instance
-                    assertEquals(firstInstance.get(), instance);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    endLatch.countDown();
-                }
-            });
+        synchronized (lock) {
+            for (int i = 0; i < threadCount; i++) {
+                threads.add(Thread.ofPlatform().start(() -> instances.add(LogFileWriter.getInstance())));
+            }
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (threads.stream().anyMatch(thread -> thread.getState() != Thread.State.BLOCKED)) {
+                assertTrue(System.nanoTime() < deadline, "Every thread should be waiting for the lock");
+                Thread.sleep(1L);
+            }
+        }
+        for (Thread thread : threads) {
+            thread.join(TimeUnit.SECONDS.toMillis(5));
         }
 
-        // Start all threads simultaneously
-        startLatch.countDown();
-        
-        // Wait for all threads to complete
-        assertTrue(endLatch.await(5, TimeUnit.SECONDS), "All threads should complete within timeout");
-        executor.shutdown();
+        // Then
+        assertEquals(threadCount, instances.size(), "All threads should complete within timeout");
+        assertTrue(instances.stream().allMatch(instance -> instance == instances.get(0)),
+                "Every thread should get the same instance");
     }
 
     @Test
