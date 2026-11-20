@@ -484,7 +484,7 @@ Then build everything and drive the built server the way a client would. The har
 python3 lessons/presentation-3hr/verify/harness.py --chapter 07
 ```
 
-On this branch, `build` also runs the coverage check the finished server has to pass. If the tests are green but it stops with `Rule violated for class …`, some code in that class is never run by any test, so compare the class with the handout's code. One exception: `Rule violated for class com.workshop.mcp.io.LogFileWriter: branches covered ratio is 0.9` comes from a test that depends on threads racing, not from your code. Run the build again.
+On this branch, `build` also runs the coverage check the finished server has to pass. If the tests are green but it stops with `Rule violated for class …`, some code in that class is never run by any test, so compare the class with the handout's code.
 
 Last, walk one task through by hand. `inspector/modern-tasks.sh` sends each request, reads the answer and uses the task id in it for the next. It calls the tool without a directory, polls until the task asks, answers with the tool's own source directory, polls until the task completes, and then cancels it. Finally come two requests that are refused: one from a client that left the extension off, and one for a task that was never created:
 
