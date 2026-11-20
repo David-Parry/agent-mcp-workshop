@@ -12,7 +12,7 @@ The records, the router wiring and the page are already on this branch. You writ
 2. `AppToolBuilder.withResourceUri`, which stores that address
 3. `AppToolBuilder.build`, which refuses an incomplete tool and builds the rest
 
-The line numbers below are where each method sits in the file as you checked it out. Every paste moves what is below it, so after your first paste in a file, find each one by its name rather than its number.
+Each bold line number below is the line of the method's signature in the file as you checked it out. The body below it holds a `// Chapter 06:` comment and a `throw new UnsupportedOperationException(...)`, and each snippet is the whole method, so paste it over everything from the signature to the closing brace. Every paste moves what is below it: where a method has moved by the time you reach it, its new line follows, and finding it by its name always works.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/apps/overview](https://modelcontextprotocol.io/extensions/apps/overview), and the specification itself at [https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 
@@ -143,7 +143,7 @@ Nothing in `IORouter.java` needs writing in this chapter. Read the four places t
 
 This is the first entry in the `extensions` map Chapter 5 described. A host only uses an extension that both sides declare, so a server that left this out would never have its page shown.
 
-The settings object is empty on purpose. MCP Apps defines one setting, `mimeTypes`, and it belongs to the **host**: the list of page types it can render, which it sends in the `clientCapabilities` of every request as `{"mimeTypes":["text/html;profile=mcp-app"]}`. The extension defines no settings for a server, and the extensions overview's own example of a server declaring it is `"io.modelcontextprotocol/ui": {}`.
+The settings object is empty on purpose. MCP Apps defines one setting, `mimeTypes`, and it belongs to the **host**: the list of page types it can render, which it sends in the `clientCapabilities` of every request, under `extensions`, as `{"mimeTypes":["text/html;profile=mcp-app"]}`. The extension defines no settings for a server, and the extensions overview's own example of a server declaring it is `"io.modelcontextprotocol/ui": {}`.
 
 ### `TOOLS_LIST` sends an `AppTool`
 
@@ -250,19 +250,19 @@ Turn on the switch on the `workshop` card to connect. The Inspector speaks `2026
 ### The app
 - The **Apps** tab appears because a tool has a `_meta.ui.resourceUri`. It lists `key_word_search` under **MCP Apps (1)**.
 - Select it, give it a `keyword` and a `directory`, and click **Open App**. The Inspector calls the tool and renders the page inside its own sandbox.
-- The page shows its banner and its sample rows, whatever you searched for. The real result is in the **Protocol** panel, as the `tools/call` reply. The host sent it to the page as well, and the page did not listen.
+- The page shows its banner and its sample rows, whatever you searched for. The real result is in the **Protocol** panel, as the `tools/call` reply. The host never passes it to the page: a host sends a page the tool's arguments and result only after the page's `ui/initialize` handshake, and this page never starts one.
 
 A host such as Claude Desktop or VS Code GitHub Copilot renders the page the same way, beside the tool's result in the conversation, provided it speaks `2026-07-28`. The [client matrix](https://modelcontextprotocol.io/extensions/client-matrix) lists which clients support which extensions.
 
 ## Stretch: Make the page real
 
-Make the page listen. On load, send `ui/initialize` to the host with `postMessage`, and send `ui/notifications/initialized` once the host answers. Render the rows from `ui/notifications/tool-result`, whose `content` holds one `<path>, keyword_count=N` line per file. Then make **Search** ask the host to `tools/call` `key_word_search` instead of filtering the sample rows.
+Make the page listen. On load, send `ui/initialize` to the host with `postMessage`, and send `ui/notifications/initialized` once the host answers. Render the rows from `ui/notifications/tool-result`, whose `content` holds one text item per file, `<path>, keyword_count=N`, or, when `isError` is true, a single item that says what went wrong. Then make **Search** ask the host to `tools/call` `key_word_search` instead of filtering the sample rows.
 
 The `App` class in `@modelcontextprotocol/ext-apps` does all of this for you, but the page may not load it from a CDN without saying so. Either inline it, or declare the CDN's origin in `_meta.ui.csp.resourceDomains` on the content `resources/read` returns. That `_meta.ui` also takes `prefersBorder`, if you want to choose whether the host draws a border.
 
 ## Stretch: Offer the page only to hosts that can show it
 
-Read `io.modelcontextprotocol/ui` from the request's `clientCapabilities`. Offer the `AppTool` only when its `mimeTypes` includes `text/html;profile=mcp-app`, and the plain `Tool` otherwise. Then decide whether the list can still be cached as `public`, now that two callers can get different answers. The caching rules say a cached response is identified by its method and the request parameters that affect the result.
+Read `io.modelcontextprotocol/ui` from the `extensions` in the request's `clientCapabilities`. Offer the `AppTool` only when its `mimeTypes` includes `text/html;profile=mcp-app`, and the plain `Tool` otherwise. Then decide whether the list can still be cached as `public`, now that two callers can get different answers. The caching rules say a cached response is identified by its method and the request parameters that affect the result.
 
 ## Stretch: A tool only the page can call
 

@@ -95,7 +95,7 @@ The server's `server/discover` result advertises MCP Apps support in the `extens
 }
 ```
 
-The settings object is empty. MCP Apps defines one setting, `mimeTypes`, and it is the **host's**: the page types the host can render, declared in the client capabilities it sends, as `{"mimeTypes": ["text/html;profile=mcp-app"]}`. A server has no settings to declare.
+The settings object is empty. MCP Apps defines one setting, `mimeTypes`, and it is the **host's**: the page types the host can render, declared under `extensions` in the client capabilities it sends, as `{"mimeTypes": ["text/html;profile=mcp-app"]}`. A server has no settings to declare.
 
 A host only uses an extension that both sides declare. If the server leaves this out, the host treats MCP Apps as unsupported: the tool still works, but the page never appears.
 
