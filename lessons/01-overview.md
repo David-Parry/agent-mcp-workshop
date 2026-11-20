@@ -54,7 +54,7 @@ classDiagram
     }
 
     class IOHandlerImpl {
-        -LogFile logger
+        -static LogFile logger
         -PrintWriter writer
         -List~Consumer~String~~ lineListeners
         -AtomicBoolean running
@@ -97,6 +97,12 @@ classDiagram
         +log(String message, Throwable exception)
         +close()
         -resolveProcessId() String
+        ~static oneLine(String text) String
+        -static needsEscaping(int c) boolean
+    }
+
+    class OneLinePrintWriter {
+        +println(Object line)
     }
 
     class Router {
@@ -106,6 +112,7 @@ classDiagram
 
     IOHandler <|.. IOHandlerImpl : implements
     LogFile <|.. LogFileWriter : implements
+    LogFileWriter --> OneLinePrintWriter : prints stack traces through
     IOHandlerImpl --> LogFile : uses
     IOHandlerImpl --> "0..*" Consumer : notifies
 ```
@@ -245,10 +252,10 @@ public static LogFile getInstance() {
 - Graceful degradation when file system is unavailable
 
 #### One entry per line
-- Each entry is one line that starts with its timestamp, so reading the file line by line gives back the entries
+- Each entry is one line that starts with its timestamp. An entry that logs an exception is followed by its stack trace, one line per frame and per `Caused by:`, and none of those lines starts with a timestamp, so every line that does is the start of an entry
 - Text a client sent, such as a cancellation reason, can hold a line break. Written as is, the rest of that text would look like an entry of its own (CWE-117, log injection)
 - So the writer escapes a line feed as `\n`, a carriage return as `\r`, and any other control character, or the Unicode line and paragraph separators, as `\uXXXX`. Each line of a stack trace is escaped the same way
-- Tabs and backslashes are kept. The JSON lines come out exactly as they were sent, because Gson has already escaped those characters inside strings
+- Tabs and backslashes are kept, so a JSON line nearly always comes out exactly as it was sent: JSON has already written any line break or tab inside a string as `\n` or `\t`. The one difference comes from DEL and the control characters U+0080 to U+009F: JSON allows them raw inside a string and Gson does not escape them, so the log writes them as `\uXXXX`
 
 #### Why a file, and not stderr
 The specification's own answer for stdio logging is stderr: a server may write log text there, and the client decides what to do with it. The protocol-level alternative, `notifications/message`, is deprecated on `2026-07-28`, and its migration note points stdio servers at stderr or OpenTelemetry.

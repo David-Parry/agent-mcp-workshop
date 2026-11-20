@@ -124,7 +124,6 @@
 <div class="log-entry sent">[2026-09-04 12:54:57.435] [API][SENT]: {"jsonrpc":"2.0","method":"notifications/subscriptions/acknowledged","params":{"_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0"},"notifications":{}}}</div>
 <div class="log-entry system">          ↑ the acknowledgment MUST carry _meta subscriptionId. Omit it and the client waits forever — no error, no timeout. The honored set reports only what the server can actually back.</div>
 <div class="log-entry system">[2026-09-04 12:54:57.436] [API][SENT] subscriptions/listen — nothing honored, closing immediately</div>
-<div class="log-entry system">[2026-09-04 12:54:57.436] [API][SENT] subscriptions/listen — graceful close for id=listen:0</div>
 <div class="log-entry sent">[2026-09-04 12:54:57.437] [API][SENT]: {"jsonrpc":"2.0","id":"listen:0","result":{"resultType":"complete","_meta":{"io.modelcontextprotocol/subscriptionId":"listen:0","io.modelcontextprotocol/serverInfo":{"name":"agent-mcp-workshop","version":"0.0.1"}}}}</div>
 <div class="log-entry system">          ↑ this server advertises listChanged false on every list, so there is nothing to stream and the request is answered at once. Had anything been honored, that result would simply never have been sent — the request stays open and unanswered for the life of the subscription while notifications interleave on stdout.</div>
         </div>

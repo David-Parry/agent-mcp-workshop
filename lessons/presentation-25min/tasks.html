@@ -89,6 +89,9 @@ stateDiagram-v2
     working --> completed
     working --> failed
     working --> cancelled
+    input_required --> completed
+    input_required --> failed
+    input_required --> cancelled
     completed --> [*]
     failed --> [*]
     cancelled --> [*]

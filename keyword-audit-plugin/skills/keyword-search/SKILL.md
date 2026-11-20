@@ -30,12 +30,11 @@ Search the codebase for a specific keyword using the `key_word_search` MCP tool 
 Keyword: deprecated
 ─────────────────────────────────────────
    2  src/main/java/com/workshop/mcp/IORouter.java
-   2  src/main/java/com/workshop/mcp/spec/AppMeta.java
+   1  src/main/java/com/workshop/mcp/spec/AppMeta.java
    1  src/main/java/com/workshop/mcp/spec/ClientCapabilities.java
    1  src/main/java/com/workshop/mcp/spec/InputRequest.java
-   1  src/main/java/com/workshop/mcp/spec/builders/AppToolBuilder.java
 ─────────────────────────────────────────
-Total: 7 occurrences across 5 files
+Total: 5 occurrences across 4 files
 ```
 
 ## Instructions for Claude

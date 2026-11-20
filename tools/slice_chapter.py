@@ -1218,7 +1218,7 @@ git fetch origin
 git merge origin/{nxt}
 ```
 
-The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`. If git reports a modify/delete conflict instead, the next branch deleted that file, such as a `lessons/{chapter}-*.md` handout you edited, and `--theirs` has nothing to take: run `git rm <file>` to accept the deletion, then `git commit --no-edit`.'''
+The merge brings in this chapter's reference solution and the next chapter's empty methods. If you wrote the methods as the handout gives them, it is clean. Where you wrote something differently, git stops with a conflict in that file: keep your version by editing the conflict markers, or take the reference with `git checkout --theirs -- <file>`, then `git add` the file and run `git commit --no-edit`. Don't keep yours with `git checkout --ours -- <file>`: it takes your whole file, so it also throws away the next chapter's empty methods and every other change the merge brought into that file. If git reports a modify/delete conflict instead, the next branch deleted that file, such as a `lessons/{chapter}-*.md` handout you edited, and `--theirs` has nothing to take: run `git rm <file>` to accept the deletion, then `git commit --no-edit`.'''
     else:
         next_section = '''### After this chapter
 

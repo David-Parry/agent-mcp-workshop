@@ -32,7 +32,7 @@ Read the top of `IORouter.java`, down to `process(JsonRpcRequest message)`. It i
 
 5. **`INBOUND_METHODS` is the list of methods this chapter answers**: `server/discover` and `subscriptions/listen`. Everything else is `-32601` until a later chapter adds it. `UniqueKeys.fromValue` matches method names exactly, because they are case-sensitive: `SERVER/DISCOVER` is not a method.
 
-`RequestId`, `McpGson` and `RequestEnvelope` are from chapter 02. New on this branch is `ProgressToken`: `MetaInfo`, the `_meta` record that chapter 04's params records carry, reads `progressToken` as one, and like a `RequestId` it may be a string or an integer.
+`RequestId`, `McpGson` and `RequestEnvelope` are from chapter 02. New on this branch, and given, are `UniqueKeys`, the discovery and subscription types the tasks below use, and `ProgressToken`: `MetaInfo`, the `_meta` record that chapter 04's params records carry, reads `progressToken` as one, and like a `RequestId` it may be a string or an integer.
 
 ## First Implementation Task: Subscriptions
 
@@ -77,7 +77,7 @@ success(message.id(), SubscriptionsListenResult.closing(message.id()));
    - A listen request that names no notifications is still valid, and is acknowledged with an empty filter.
    - `"notifications": "everything"` does not fit `SubscriptionsListenParams`, so `deserializeParams` throws, and `answer()` turns that into `-32602`.
 
-`discoverResult()` is still empty, so this task's tests stay red until the third task is done.
+`discoverResult()` still throws `UnsupportedOperationException` until the third task replaces it, and `answer()` turns that into `-32603`, so the tests that expect a subscription to be acknowledged stay red until then.
 
 ## Second Implementation Task: Notifications
 
@@ -225,7 +225,7 @@ The prelude produces three distinct rejections, and the order between them is th
 ./gradlew chapterTest -Pchapter=03
 ```
 
-The run reports 49 tests, and 21 of them fail before you start. The other 28 test the given code: `route()`'s handling of bad input and of messages a client never sends, the constant classes such as `ErrorCodes`, `UniqueKeys`, `ProgressToken`, the subscription filter and the discovery builder. If one of those fails, given code has been changed. Failures worth recognising:
+The run reports 49 tests, and 21 of them fail before you start, all of them in `IORouterTest`. The other 28 test the given code: `route()`'s handling of bad input and of messages a client never sends, the constant classes such as `ErrorCodes`, `UniqueKeys`, `ProgressToken`, the subscription filter and the discovery builder. If one of those fails, given code has been changed. Failures worth recognising:
 
 - `methodsRemovedByThisRevisionAreNotFoundRatherThanInvalid` — the envelope is checked before the method, so `initialize` gets `-32602`.
 - `discoverIsAnsweredEvenWhenTheEnvelopeNamesAnUnsupportedRevision` — `envelopeFor` is called with `versionMatters` true for discovery.
@@ -234,7 +234,7 @@ The run reports 49 tests, and 21 of them fail before you start. The other 28 tes
 - `aSubscriptionIsAcknowledgedAndClosedWithItsSubscriptionId` — the acknowledgement or the closing result is missing, or one of them lacks the subscription id.
 - `everyMethodTheServerAcceptsIsActuallyAnswered` — a method in `INBOUND_METHODS` gets no reply.
 - `aCancelledNotificationForSomeOtherRequestIsNoted` or `anUnrecognisedNotificationIsIgnoredRatherThanRejected` — the notification `switch` is missing, or one of its arms logs nothing.
-- A test that expects one response and finds a `-32603` — something you wrote threw. The log file says what.
+- A test that expects one response and finds a `-32603`, or fails with a `NullPointerException` because the response has no `result` — something you wrote threw, and the server answered with an error. The log file in `logs/` says what.
 
 Then drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
@@ -254,9 +254,9 @@ cat "$(ls -t logs/agent-mcp-workshop-*.log | head -n 1)"
 
 This is only meant to show the router at work. `IORouterTest` is the only test in this chapter that writes to the log. It swaps the transport for a fake that records what the router sends, so every line comes from `IORouter`, and none of the raw lines `IOHandlerImpl` logs as they come in and go out are here. There is a line for every decision the router made: `server/discover — advertised [2026-07-28]` for each discovery it answered, `acknowledging` and then `closing immediately` for each subscription, an `[API][RECEIVED]` line for each message it recorded instead of answering, and for each one it turned away, the reason and the code it sent back, such as `unsupported method 'initialize' (returning -32601)` or `incomplete _meta envelope (returning -32602)`.
 
-Two lines look like failures and are expected. The `-32603` comes from a test that makes the first write of an answer fail, to check the client still gets a reply with its id. The `params do not fit` line ends with Gson's own message, which puts a troubleshooting link on a line of its own. The `notifications/cancelled` line from the second task is not in this file, because the notification tests give the router a log of their own to read back; Step 5 of the Inspector run below shows it in `inspector/logs/`.
+Two lines look like failures and are expected. The `-32603` comes from a test that makes the first write of an answer fail, to check the client still gets a reply with its id. The `params do not fit` line ends with Gson's own message, whose troubleshooting link follows a line break. The log writes that break as `\n`, as it does any line break in a message, so the link stays on the same line and the entry stays one line. The `notifications/cancelled` line from the second task is not in this file, because the notification tests give the router a log of their own to read back; Step 5 of the Inspector run below shows it in `inspector/logs/`.
 
-Use `chapterTest` here, not `./gradlew test`, because the full run deletes the log: it includes chapter 01's `LogFileWriterTest`, which removes every `agent-mcp-workshop-*` file from `logs/` after each of its tests. This chapter's tests delete nothing, so `logs/` keeps a file for every run, including the one the harness's server wrote; `ls -t` lists the newest first, and `head -n 1` keeps only that one. `--rerun` makes Gradle run the tests even when nothing has changed since your last run; without it the task is reported UP-TO-DATE, nothing runs, and no new log is written.
+Use `chapterTest` here, not `./gradlew test`, because the full run deletes the log: it includes chapter 01's `LogFileWriterTest`, which removes every `agent-mcp-workshop-*` file from `logs/` after each of its tests. This chapter's tests delete nothing, so `logs/` keeps a file for every run, including one for each server the harness started, which is one per scenario; `ls -t` lists the newest first, and `head -n 1` keeps only that one. `--rerun` makes Gradle run the tests even when nothing has changed since your last run; without it the task is reported UP-TO-DATE, nothing runs, and no new log is written.
 
 ## Try It in the MCP Inspector
 
@@ -270,7 +270,7 @@ This compiles, runs every test on the branch, and packages the server at `build/
 
 ### Step 2: Check the Inspector configuration
 
-Open `inspector/config.json` and confirm `"protocolEra": "modern"` is a **direct sibling of `command` and `args`**, inside the `workshop` entry. Nested anywhere else the key is ignored, and the Inspector falls back to its default era, `legacy`: it sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for.
+Open `inspector/config.json` and confirm `"protocolEra": "modern"` is a **direct sibling of `command` and `args`**, inside the `workshop` entry. Nested anywhere else the key is ignored, and the Inspector falls back to its default era, `legacy`: it sends `initialize`, and you spend twenty minutes debugging a `-32601` you asked for. Its neighbour, `"modernLogLevel": "off"`, keeps the Inspector from adding `"io.modelcontextprotocol/logLevel": "debug"` to the `_meta` of every request after `server/discover`. A request without a log level must get no `notifications/message`, and this server sends none anyway, because it writes its log to a file.
 
 The era decides what the first message on the wire is:
 

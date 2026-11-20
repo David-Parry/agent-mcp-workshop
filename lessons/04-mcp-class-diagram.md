@@ -6,7 +6,7 @@ Four things about it are worth noticing before you read it:
 
 - **Every result record starts with `resultType`.** It is required on the wire, and it is what tells the client whether it is holding a finished answer, a question, or a task handle.
 - **Every *list* result, and the result of `resources/read`, also carries `ttlMs` and `cacheScope`.** Those are the cache hints, and the builders do not set them — the router restates the built result with them attached. `tools/call`, `prompts/get` and `completion/complete` results carry none.
-- **Only `ToolCallResult` has `isError`.** A tool that ran and failed still answers with a result. Anything else that fails, such as an unknown tool, prompt or resource, is answered with a `JsonRpcErrorResponse` carrying `-32602`.
+- **Only `ToolCallResult` has `isError`.** A well-formed call the tool cannot carry out still answers with a result. Anything else that fails, such as an unknown tool, prompt or resource, is answered with a `JsonRpcErrorResponse` carrying `-32602`.
 - **`id` is a `RequestId`**, not a `String` and not a `Long`, because a JSON-RPC id may be either and has to be echoed back in the form it arrived.
 
 ```mermaid
@@ -121,6 +121,7 @@ classDiagram
         +Map~String,Object~ arguments
         +Map~String,Object~ inputResponses
         +String requestState
+        +stringArgument(String) String
     }
 
     class ToolCallResult {
@@ -322,7 +323,7 @@ classDiagram
 ## Key Class Groups in Lesson 4
 
 ### Errors
-- **JsonRpcErrorResponse** / **JsonRpcError**: The answer to a request the server cannot serve. In this chapter that is `-32602` for an unknown tool, an unknown prompt, a missing required prompt argument, and an empty or unreadable resource uri. Only the unreadable uri's error carries `data`, naming the uri
+- **JsonRpcErrorResponse** / **JsonRpcError**: The answer to a request the server cannot serve. In this chapter that is `-32602` for an unknown tool, `tools/call` arguments that are not an object, an unknown prompt, a missing required prompt argument, an empty or unreadable resource uri, and a completion request with no argument to complete. Only the unreadable uri's error carries `data`, naming the uri
 
 ### Resource Classes
 - **Resource**: A single documentation file with URI, name, description, MIME type, and optional annotations
@@ -338,7 +339,7 @@ classDiagram
 - **InputSchema**: JSON Schema definition for tool parameters
 - **PropertySchema**: One property in that schema. Note `key` and `isRequired` are bookkeeping for the builder and are deliberately *not* serialized — a custom `TypeAdapter` writes only `type` and `description`, because anything else would not be valid JSON Schema
 - **ToolCallParams**: Parameters for executing a tool. `arguments` is `Map<String, Object>`, because the specification lets each argument be any JSON value. A tool checks them against its own `inputSchema`, and `stringArgument` reads one that should be a string, or `null` if it is not. `inputResponses` and `requestState` carry the answers to a server's question when a call is retried; nothing reads them until Chapter 5
-- **ToolCallResult**: Result of tool execution. No cache hints: a search result is not reusable. `isError` marks a tool that ran and failed, which is still a result
+- **ToolCallResult**: Result of tool execution. No cache hints: a search result is not reusable. `isError` marks a well-formed call the tool could not carry out, which is still a result
 
 ### Prompt Classes
 - **Prompt**: A prompt template with its arguments

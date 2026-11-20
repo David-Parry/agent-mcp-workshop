@@ -202,6 +202,7 @@
     <div class="ide-demo">
         <h3>Live Demo</h3>
         <ul style="margin-bottom:0">
+            <li>Run these with <code>inspector/modern-mrtr.sh</code>, which declares no tasks. The Inspector declares the tasks extension on every request, so on <code>complete</code> it gets a task handle instead, which is the Tasks slide's flow.</li>
             <li>Call <code>key_word_search</code> with a <code>directory</code> argument first &mdash; one request, one <code>complete</code> result. That is the baseline.</li>
             <li>Drop the argument and call it again &mdash; now the reply is <code>input_required</code>, neither an answer nor an error.</li>
             <li>Point at the <code>requestState</code>, then at the <strong>new id</strong> on the retry: two JSON-RPC exchanges, one logical call.</li>

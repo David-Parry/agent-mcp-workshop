@@ -31,8 +31,8 @@ Chapter order is in [lessons/sylabus.md](lessons/sylabus.md):
 
 1. Transport layer — reading stdio, publishing lines, emitting JSON
 2. JSON-RPC — classifying requests, notifications, responses and errors
-3. Discovery and routing — `server/discover`, the `_meta` envelope, `RequestId`
-4. Tools and resources — the keyword-search tool and Javadoc resources
+3. Discovery and routing — `server/discover`, the `_meta` envelope, and the request prelude
+4. Tools, resources and prompts — the keyword-search tool, Javadoc resources and a prompt
 5. Extensions and Multi Round-Trip Requests — asking the client a question
 6. MCP Apps — shipping a UI with your tool
 7. Tasks — long-running work, polling, and task-level questions

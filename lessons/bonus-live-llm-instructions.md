@@ -142,11 +142,11 @@ Which files in src/main/java mention "deprecated", and what is being deprecated?
 Compare the occurrence of "test" vs "spec" across the codebase. What does this tell us about the testing approach?
 ```
 
-Each call returns one line per matching file: its absolute path and how often the keyword appears in it. The analysis request gets five such lines, among them:
+Each call returns one line per matching file: its absolute path and how often the keyword appears in it. The analysis request gets four such lines, among them:
 
 ```text
 /path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java, keyword_count=2
-/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/AppMeta.java, keyword_count=2
+/path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/AppMeta.java, keyword_count=1
 /path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/spec/InputRequest.java, keyword_count=1
 ```
 

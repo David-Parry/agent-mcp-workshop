@@ -328,12 +328,11 @@ Expected:
 Keyword: deprecated
 ─────────────────────────────────────────
    2  src/main/java/com/workshop/mcp/IORouter.java
-   2  src/main/java/com/workshop/mcp/spec/AppMeta.java
+   1  src/main/java/com/workshop/mcp/spec/AppMeta.java
    1  src/main/java/com/workshop/mcp/spec/ClientCapabilities.java
    1  src/main/java/com/workshop/mcp/spec/InputRequest.java
-   1  src/main/java/com/workshop/mcp/spec/builders/AppToolBuilder.java
 ─────────────────────────────────────────
-Total: 7 occurrences across 5 files
+Total: 5 occurrences across 4 files
 ```
 
 ### Run keyword-report
@@ -342,7 +341,7 @@ Total: 7 occurrences across 5 files
 /keyword-audit-plugin:keyword-report deprecated
 ```
 
-You'll get a markdown report grouping the same seven hits by Java package: four in `com.workshop.mcp.spec`, two in `com.workshop.mcp` and one in `com.workshop.mcp.spec.builders`. The top file holds 2 of the 7, about 29%, and the report ends with a recommendation.
+You'll get a markdown report grouping the same five hits by Java package: three in `com.workshop.mcp.spec` and two in `com.workshop.mcp`. The top file holds 2 of the 5, 40%, and the report ends with a recommendation.
 
 ### Run java-script-runner
 
@@ -356,10 +355,10 @@ Claude writes the embedded `FileAnalyzer` to a temp file, runs it, and displays:
   File Analysis: IORouter.java
   Path:          /path/to/agent-mcp-workshop/src/main/java/com/workshop/mcp/IORouter.java
 ════════════════════════════════════════════════════════════
-  Total lines:         918
-  Code lines:          533
-  Comment lines:       329
-  Blank lines:         56
+  Total lines:         963
+  Code lines:          558
+  Comment lines:       346
+  Blank lines:         59
 
   Keyword Frequency:
     TODO:          0 occurrences
@@ -392,12 +391,12 @@ Or with custom keywords:
 ```
 TODO          0 occurrences
 FIXME         0 occurrences
-deprecated    7 occurrences across 5 files
+deprecated    5 occurrences across 4 files
 
 Hotspot: IORouter.java (2 hits)
 ```
 
-`IORouter.java` and `AppMeta.java` both have two hits. The skill breaks a tie by total hits across all keywords, then by path order, which puts `IORouter.java` first.
+`IORouter.java` is the only file with two hits, so there is no tie to break. When there is one, the skill takes the file with the most hits across all keywords, then the first in path order.
 
 **Step 3** — FileAnalyzer runs via the JVM and prints the profile shown above.
 

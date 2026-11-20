@@ -300,7 +300,7 @@
             <li>You need ordered streaming output &mdash; tasks are point-in-time, not a stream. Reach for <code>subscriptions/listen</code> instead</li>
             <li>The result is small and cacheable &mdash; <code>ttlMs</code> on a plain result may buy more than a task would</li>
         </ul>
-        <p style="color:var(--muted);font-size:13px">In this workshop the switch is <code>answersWithTask</code> in <code>IORouter</code>: a handle goes back whenever the client declared the extension, behind a <code>TASK_HANDLES_ENABLED</code> constant that is <code>true</code> on the branch. The same call shows both shapes by changing only what the client declares — the probe scripts leave the extension off, and the Inspector turns it on.</p>
+        <p style="color:var(--muted);font-size:13px">In this workshop the switch is <code>answersWithTask</code> in <code>IORouter</code>: a handle goes back whenever the client declared the extension, behind a <code>TASK_HANDLES_ENABLED</code> constant that is <code>true</code> on the branch. The same call shows both shapes by changing only what the client declares — <code>inspector/modern-mrtr.sh</code> leaves the extension off and is answered inline, while <code>modern-probe.sh</code>, <code>modern-tasks.sh</code> and the Inspector declare it and get a handle.</p>
     </section>
 
     <div class="footer">© 2026 MCP Presentation. Tasks &mdash; Chapter 7.</div>

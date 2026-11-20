@@ -405,7 +405,7 @@ case TASKS_GET | TASKS_UPDATE | TASKS_CANCEL → tasks extension</pre>
             <li>Open the <strong>Resources</strong> tab → the Javadoc pages are already listed, because the Inspector fetched every list once discovery completed; the raw result carries <code>ttlMs</code> and <code>cacheScope</code></li>
             <li>Click a resource → read its HTML content via <code>resources/read</code></li>
             <li>Open the <strong>Tools</strong> tab → see <code>key_word_search</code> with a required <code>keyword</code> and an optional <code>directory</code>, and <em>no</em> <code>execution</code> block</li>
-            <li>Call <code>key_word_search</code> with keyword=<code>"record"</code> and no directory → the first answer is <code>resultType: "input_required"</code>, not results. That is the MRTR loop starting</li>
+            <li>Call <code>key_word_search</code> with keyword=<code>"record"</code> and no directory → not results. The Inspector declares the tasks extension, so on <code>complete</code> it gets a task handle whose first poll is <code>input_required</code>; a client without the extension gets <code>resultType: "input_required"</code> as the answer itself. That is the MRTR loop starting</li>
             <li>Open the <strong>Prompts</strong> tab → see the <code>search_keyword</code> prompt</li>
             <li>Get the prompt with a keyword — note the result carries <code>resultType</code> but <strong>no</strong> cache fields</li>
             <li>Switch to <a href="runtime-facts.html" style="color:var(--accent)">Runtime Facts</a> to see what discovery reported</li>

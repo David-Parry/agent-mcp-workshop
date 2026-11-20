@@ -95,7 +95,7 @@ The **class diagram** reveals the overall architecture:
 
 1. **STDIO Discipline**: never write to standard output — it is reserved for protocol communication. All logging goes to files under `logs/` in the server's working directory, which is `inspector/logs/` when the Inspector starts it.
 
-2. **Ids Are Not Numbers**: the very first message of this revision arrives with a string id. Typing `id` as a `Long` crashes the server with `NumberFormatException: For input string: "server-discover-probe-1"` before anything else can happen. A server must echo an id back in exactly the form it arrived.
+2. **Ids Are Not Numbers**: the very first message of this revision arrives with a string id. Typed as a `Long`, that id makes Gson fail with `NumberFormatException: For input string: "server-discover-probe-1"`; chapter 02's deserializer turns the failure into an `Unknown`, so the probe is answered `-32600` and the client never gets as far as discovery. A server must echo an id back in exactly the form it arrived.
 
 3. **Capability Advertisement**: the server advertises Resources, Prompts, and Tools in its discovery result but hasn't implemented them yet — demonstrating the importance of implementing everything you advertise.
 

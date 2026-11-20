@@ -12,7 +12,7 @@ The records, the extension's declaration, the decision to answer with a handle a
 2. `runSearchAsTaskThatAsks` in `IORouter`, the search that asks for its directory as the task's status
 3. The three cases that answer `tasks/get`, `tasks/update` and `tasks/cancel`
 
-The line numbers below are where each method sits in the file as you checked it out. Every paste pushes what is below it further down, so after your first paste in a file, find each one by its name rather than its number.
+Each bold line number below is where the method or case sits in the file as you checked it out. Every paste pushes what is below it further down, so where one has moved by the time you reach it, its new line follows in parentheses, with your earlier pastes in. Finding it by its name always works.
 
 > Official documentation: [https://modelcontextprotocol.io/extensions/tasks/overview](https://modelcontextprotocol.io/extensions/tasks/overview), and the specification itself at [https://github.com/modelcontextprotocol/ext-tasks/blob/main/specification/2026-07-28/tasks.md](https://github.com/modelcontextprotocol/ext-tasks/blob/main/specification/2026-07-28/tasks.md)
 
@@ -162,7 +162,7 @@ The task is in the map before `create` returns, so a `tasks/get` for its id reso
 
 ### Step 2: Fill `complete` and `fail`
 
-**Action Required**: fill `complete` at **line 105** of `TaskStore.java`:
+**Action Required**: fill `complete` at **line 105** of `TaskStore.java` (line 115 after your earlier pastes):
 
 ```java
 public boolean complete(String taskId, Object result) {
@@ -185,7 +185,7 @@ public boolean complete(String taskId, Object result) {
 }
 ```
 
-**Action Required**: fill `fail` at **line 120** of `TaskStore.java`:
+**Action Required**: fill `fail` at **line 120** of `TaskStore.java` (line 143 after your earlier pastes):
 
 ```java
 public boolean fail(String taskId, String reason) {
@@ -217,7 +217,7 @@ public boolean fail(String taskId, String reason) {
 
 These three carry the question a task asks.
 
-**Action Required**: fill `requireInput` at **line 136** of `TaskStore.java`:
+**Action Required**: fill `requireInput` at **line 136** of `TaskStore.java` (line 172 after your earlier pastes):
 
 ```java
 public Task requireInput(String taskId, Map<String, InputRequest> inputRequests) {
@@ -238,7 +238,7 @@ public Task requireInput(String taskId, Map<String, InputRequest> inputRequests)
 }
 ```
 
-**Action Required**: fill `applyInput` at **line 159** of `TaskStore.java`:
+**Action Required**: fill `applyInput` at **line 159** of `TaskStore.java` (line 206 after your earlier pastes):
 
 ```java
 public Task applyInput(String taskId, Map<String, Object> inputResponses) {
@@ -270,7 +270,7 @@ public Task applyInput(String taskId, Map<String, Object> inputResponses) {
 }
 ```
 
-**Action Required**: fill `awaitInput` at **line 190** of `TaskStore.java`:
+**Action Required**: fill `awaitInput` at **line 190** of `TaskStore.java` (line 259 after your earlier pastes):
 
 ```java
 public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
@@ -308,7 +308,7 @@ public Map<String, Object> awaitInput(String taskId, long timeoutMillis) {
 
 ### Step 4: Fill `cancel`
 
-**Action Required**: fill `cancel` at **line 210** of `TaskStore.java`:
+**Action Required**: fill `cancel` at **line 210** of `TaskStore.java` (line 299 after your earlier pastes):
 
 ```java
 public Task cancel(String taskId) {
@@ -467,15 +467,15 @@ The run reports 81 tests, and 65 of them fail before you start: 28 in `IORouterT
 - `aTaskThatAsksWhoseSearchBlowsUpIsFailedRatherThanLeftWorking` — the `catch` is missing from `runSearchAsTaskThatAsks`, so the task stays in `working`. If the task completes instead, the search was made with `new KeyWordSearch()` rather than `newKeyWordSearch()`, so the test's search never ran.
 - `aTaskThatIsAnsweredWithAnImpossiblePathCompletesWithAToolError` — a task answered with a directory that cannot be a path failed, or never finished. The search answers such a path with `isError: true`, so the task completes with that tool error as its result.
 - `cancellingATaskWhileItWaitsToSearchStopsItsWorker` — the `TASKS_CANCEL` case marks the task but does not interrupt its thread, so the task sleeps out its 4 seconds and searches anyway.
-- `aSearchThatFinishesAfterItsTaskWasCancelledHasItsResultDiscarded` or `aSearchThatFailsAfterItsTaskWasCancelledHasItsFailureDiscarded` — a search that ended after its task was cancelled did not report through `completeTask` or `failTask`, so nothing logged that its result or failure was discarded. `the search never started` means it was made with `new KeyWordSearch()`.
-- `aCancelThatArrivesOnceTheWorkerHasStoppedIsStillAcknowledged` — a second cancel, sent once the task's thread has stopped, is not acknowledged, or logs that it interrupts a worker that is no longer there.
+- `aSearchThatFinishesAfterItsTaskWasCancelledHasItsResultDiscarded` or `aSearchThatFailsAfterItsTaskWasCancelledHasItsFailureDiscarded` — a search that ended after its task was cancelled did not report through `completeTask` or `failTask`, so nothing logged that its result or failure was discarded. If the log lines in the message have no `cancelled; interrupting its worker`, it is the `TASKS_CANCEL` case: this test's search only stops when the task's thread is interrupted. `the search never started` means `runSearchAsTaskThatAsks` is still empty, or made its search with `new KeyWordSearch()`.
+- `aCancelThatArrivesOnceTheWorkerHasStoppedIsStillAcknowledged` — a second cancel, sent once the task's thread has stopped, is not acknowledged, or logs that it interrupts a worker that is no longer there. `expected: <1> but was: <0>` means not even the first cancel interrupted the thread.
 - `everyMethodTheServerAcceptsIsActuallyAnswered` — one of the three cases is still empty.
 - `theTaskMethodsAnswerRatherThanFaultOnAMissingTaskId` — a case reads a missing `taskId` into the store.
 - `aCancelIsAcknowledgedWithAnEmptyResultAndASecondOneToo`, `cancellingAFinishedTaskIsAcknowledgedAndLeavesItFinished` or `answeringATaskThatIsNoLongerAskingIsAcknowledgedAndChangesNothing` — a case answers with the task, or with an error, where the extension wants an empty acknowledgement.
 
-A router test that fails with `task never reached …` polled for 20 seconds for a status that never came, usually because one of the store's methods still throws.
+A router test that fails with `task never reached …` polled for 20 seconds for a status that never came, usually because one of the store's methods still throws. One that fails with `Index 0 out of bounds for length 0` in `awaitTaskStatus`, or with `expected exactly one response, got []`, got no answer at all, because the case for the method it sent is still empty.
 
-No chapter test catches a missing `isTerminal` check after the wait. `complete` ignores a cancelled task, so the status and result still come out right, but the task searches anyway: the server's log shows `nothing was offered, using the working directory` straight after `no answer arrived for search_directory`. The coverage check in `./gradlew clean build`, below, does catch it, because `isTerminal` is then never called.
+No chapter test catches a missing `isTerminal` check after the wait. `complete` ignores a cancelled task, so the status and result still come out right, but the task starts a search anyway: after `no answer arrived for search_directory`, the server's log shows `nothing was offered, using the working directory`, and then that the search's result was discarded. The coverage check in `./gradlew clean build`, below, does catch it, because `isTerminal` is then never called.
 
 Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
@@ -484,7 +484,7 @@ Then build everything and drive the built server the way a client would. The har
 python3 lessons/presentation-3hr/verify/harness.py --chapter 07
 ```
 
-On this branch, `build` also runs the coverage check the finished server has to pass. If the tests are green but it stops with `Rule violated for class …`, some code in that class is never run by any test, so compare the class with the handout's code.
+On this branch, `build` also runs the coverage check the finished server has to pass. If the tests are green but it stops with `Rule violated for class …`, some code in that class is never run by any test, so compare the class with the handout's code. One exception: `Rule violated for class com.workshop.mcp.io.LogFileWriter: branches covered ratio is 0.9` comes from a test that depends on threads racing, not from your code. Run the build again.
 
 Last, walk one task through by hand. `inspector/modern-tasks.sh` sends each request, reads the answer and uses the task id in it for the next. It calls the tool without a directory, polls until the task asks, answers with the tool's own source directory, polls until the task completes, and then cancels it. Finally come two requests that are refused: one from a client that left the extension off, and one for a task that was never created:
 
@@ -524,7 +524,8 @@ If you open the Inspector before the tests pass, what goes wrong tells you what 
 ### A task that asks
 - Clear the `directory` and click **Execute Tool** again. The Inspector sends the empty field as `""`, which the tool treats as no directory at all.
 - The handle comes back as before, and the first poll finds the task in `input_required`. The Inspector shows the form from its `inputRequests`, with a note that the answer goes back through `tasks/update`, not a retry.
-- Enter a directory and click **Submit** within a minute. After that the task stops waiting and searches the server's working directory, as Part 3 explains, and the Inspector, which does not poll while the form is open, still shows `input_required`. The **Protocol** panel shows the `tasks/update` and its empty acknowledgement, and the next poll finds the task `completed`.
+- Enter a directory and click **Submit** within a minute of the form appearing. The **Protocol** panel shows the `tasks/update` and its empty acknowledgement, and the next poll finds the task `completed`.
+- If you take longer, the task stops waiting and searches the server's working directory, as Part 3 explains, while the Inspector, which does not poll while the form is open, still shows `input_required`. A late **Submit** is still acknowledged, and the next poll finds the task `completed` with the matches from `inspector/`, the server's working directory.
 
 ### A task that is cancelled
 - Run it once more without a directory, and click **Cancel** in the form this time. The Inspector sends `tasks/cancel`, and the server acknowledges it. The server's log in `inspector/logs/` shows the acknowledgement and the waiting thread waking with `no answer arrived for search_directory` and stopping without a search. The cancel itself wakes that thread, so it has often stopped before the router looks for it. If it has not, `cancelled; interrupting its worker` is logged too. No `transitioning to completed` follows, because the task never completed.
@@ -535,7 +536,7 @@ If you open the Inspector before the tests pass, what goes wrong tells you what 
 
 ## Stretch: Push status to a client that subscribes
 
-This server never pushes task status, which the extension allows: polling is the default. A client asks for pushes with `subscriptions/listen`, naming the tasks in `notifications.taskIds`. Add `taskIds` to `SubscriptionFilter`, which `process` already refuses to a client that did not declare the extension. List the ids you agree to in the acknowledgement, and keep the stream open: `acknowledgeSubscription` answers the request at once, and that answer is what closes it. Then send a `notifications/tasks` on every change to a subscribed task, carrying what `tasks/get` would answer at that moment and the subscription's id in `_meta`. The extension forbids `notifications/progress` and `notifications/message` on a task's stream.
+This server never pushes task status, which the extension allows: polling is the default. A client asks for pushes with `subscriptions/listen`, naming the tasks in `notifications.taskIds`. Add `taskIds` to `SubscriptionFilter`. `process` already refuses a `taskIds` filter from a client that did not declare the extension, with `-32021`. List the ids you agree to in the acknowledgement, and keep the stream open: `acknowledgeSubscription` answers the request at once, and that answer is what closes it. Then send a `notifications/tasks` on every change to a subscribed task, carrying what `tasks/get` would answer at that moment and the subscription's id in `_meta`. The extension forbids `notifications/progress` and `notifications/message` on a task's stream.
 
 ## Stretch: Report progress in the status message
 

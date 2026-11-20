@@ -40,7 +40,7 @@ bright-room conditions (the choice persists in `localStorage`).
 | `overview.html` | Protocol architecture, plus why "stateless" drives everything else |
 | `flow-diagram.html` | Full sequence diagram, hover a message for its JSON |
 | `extensions.html` | `extensions` capabilities and Multi Round-Trip Requests |
-| `mcp-apps.html` | `ui://` resources and the two `_meta` resource-uri keys |
+| `mcp-apps.html` | `ui://` resources and the nested `_meta.ui.resourceUri` key |
 | `tasks.html` | The tasks extension — lifecycle and what survived the move |
 | `agent.html` | The plugin skills and the supervised audit workflow |
 | `runtime-facts.html` | Reference card: revision, envelope, capabilities, error codes, inventory |

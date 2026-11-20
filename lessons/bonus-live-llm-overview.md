@@ -140,7 +140,7 @@ sequenceDiagram
     Your_Server-->>LLM_Client: Return frequency data
 
     LLM_Client->>LLM_Client: Interpret results
-    LLM_Client-->>You: "7 hits in 5 files, mostly notes on deprecated spec features..."
+    LLM_Client-->>You: "5 hits in 4 files, mostly notes on deprecated spec features..."
 ```
 
 ## What You'll Do

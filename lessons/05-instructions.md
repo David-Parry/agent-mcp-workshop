@@ -85,7 +85,7 @@ Two of the old flags have no replacement at all. There is no `supportsRoots()` a
 public record ClientCapabilities(
     Elicitation elicitation,
     Map<String, Object> extensions
-) {}
+) { … }
 ```
 
 There are no negative request-id constants either, no `ELICITATION_REQUEST_ID = -4000L`. They existed to match a response to a request *the server had sent*, and this server sends none.
@@ -265,7 +265,7 @@ private String elicitedDirectory(Object inputResponse) {
 }
 ```
 
-- **`deserializer.convert(...)`, not `deserializeResult(...)`.** An input response is the **bare result the method would have returned**, `{"action":"accept","content":{…}}`, not a JSON-RPC response. There is no `jsonrpc`, no `id`, and no `result` wrapper to unwrap. A server that sends no requests receives no responses, so the deserializer has no method for one.
+- **`deserializer.convert(...)`, the method Chapter 2 wrote for these answers.** An input response is the **bare result the method would have returned**, `{"action":"accept","content":{…}}`, not a JSON-RPC response. There is no `jsonrpc`, no `id`, and no `result` wrapper to unwrap. A server that sends no requests receives no responses, so the deserializer has no method for one.
 - **`"accept"`**: a form can also come back `decline` or `cancel`. Neither is an error. Both mean no directory, which sends the resolver on to its fallback.
 
 ### What the wire looks like
@@ -337,7 +337,7 @@ That is the difference between modelling a protocol and modelling *your use* of 
 
 `2026-07-28` does both, and the code treats them differently. Each change below is named by its SEP (a Specification Enhancement Proposal, the numbered form every change to the specification takes).
 
-**Removed** means gone, answering `-32601` (SEP-2575): `initialize`, `notifications/initialized`, `ping`, `logging/setLevel`, `resources/subscribe`, `resources/unsubscribe`, `notifications/roots/list_changed`, `notifications/elicitation/complete`, `tasks/result` and `tasks/list`. On HTTP the session headers, `Mcp-Session-Id` and `Last-Event-ID`, went with them. Tasks moved to the `io.modelcontextprotocol/tasks` extension, which is Chapter 7.
+**Removed** means gone (SEP-2575): `initialize`, `notifications/initialized`, `ping`, `logging/setLevel`, `resources/subscribe`, `resources/unsubscribe`, `notifications/roots/list_changed`, `notifications/elicitation/complete`, `tasks/result` and `tasks/list`. A request for one of them answers `-32601`. A notification gets no answer, as no notification does, and the server only logs it, as Chapter 3 showed. On HTTP the session headers, `Mcp-Session-Id` and `Last-Event-ID`, went with them. Tasks moved to the `io.modelcontextprotocol/tasks` extension, which is Chapter 7.
 
 **Deprecated** means marked, but still working. New code should not adopt a deprecated feature. It keeps working until at least the first revision published on or after 2027-07-28, and removing it takes a proposal of its own:
 
@@ -368,8 +368,8 @@ The run reports 36 tests, and 27 of them fail before you start: 9 in `SearchCont
 - `theQuestionIsAskedOnceAndOnlyOnce` — a declined form is asked again, because the stage is not checked before asking.
 - `aClientThatCannotShowAFormIsNotAsked` or `anElicitationDeclarationThatNamesNoModeIsShownTheForm` — the server asks without `envelope.supportsElicitationForm()`, or reads `elicitation` itself and misses that `{}` means form.
 - `aDirectoryArgumentSkipsTheRoundTripEntirely` — this one passed before you started, so a directory argument is no longer searched straight away.
-- `anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere` — `elicitedDirectory` returned something other than a usable directory.
-- A test that expects one response and finds a `-32603` — something you wrote threw. The log file says what.
+- `anAcceptedFormWithNoDirectoryInItFallsBackRatherThanSearchingNowhere` — `elicitedDirectory` threw on an accepted answer with no `directory` in it, instead of returning null.
+- A test that fails with a `NullPointerException` on a `result` that is null — the server answered with an error, usually `-32603`, because something you wrote threw. The log file in `logs/` says what.
 
 Then build everything and drive the built server the way a client would. The harness starts the JAR and checks everything up to this chapter over stdio:
 
@@ -378,7 +378,11 @@ Then build everything and drive the built server the way a client would. The har
 python3 lessons/presentation-3hr/verify/harness.py --chapter 05
 ```
 
-The probe sends the round trip by hand: a bare call, the retry with a directory, the retry with the form declined, and two clients that cannot be asked. Its first reply is the question, and the second is the search:
+`build` also runs the earlier chapters' tests. If it fails in `aKeywordThatIsNotAStringIsAToolErrorTheModelCanFix`, the `checkArguments` branch went missing when you replaced the `TOOLS_CALL` case. That test belongs to Chapter 4, so `chapterTest -Pchapter=05` never runs it.
+
+`./inspector/modern-probe.sh`, from Chapter 3, now gets `input_required` where it got `isError: true`: its `tools/call` (id 3) has no directory, and its envelope declares a form.
+
+`inspector/modern-mrtr.sh` sends the round trip by hand: a bare call, the retry with a directory, the retry with the form declined, and two clients that cannot be asked. Its first reply is the question, and the second is the search:
 
 ```bash
 ./inspector/modern-mrtr.sh
@@ -389,7 +393,7 @@ The probe sends the round trip by hand: a bare call, the retry with a directory,
 {"jsonrpc":"2.0","id":11,"result":{"resultType":"complete","content":[…],"isError":false,…}}
 ```
 
-The other three replies are searches of the probe's own directory, because none of those calls has a directory to search.
+The other three replies are searches of the script's own directory, `inspector/`, because none of those calls has a directory to search.
 
 Last, prove the old direction is gone. Send `elicitation/create` *to* the server:
 

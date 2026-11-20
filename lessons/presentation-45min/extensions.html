@@ -143,7 +143,7 @@
 
     <section class="card">
         <h2>The Official Extensions — and Their Stages</h2>
-        <p>Every extension sits at one of three stages (SEP-3392), and the stage is what tells you how much you can lean on it: <strong style="color:var(--red)">Experimental</strong> may change without notice, <strong style="color:var(--orange)">Beta</strong> documents its breaking changes, <strong style="color:var(--green)">Stable</strong> can only change with a new protocol revision. An extension starts Experimental and must pass through Beta, then either settles at Stable or is promoted into core.</p>
+        <p>Every extension sits at one of three stages (SEP-3392), and the stage is what tells you how much you can lean on it: <strong style="color:var(--red)">Experimental</strong> may change without notice, <strong style="color:var(--orange)">Beta</strong> documents its breaking changes, <strong style="color:var(--green)">Stable</strong> can only change with a new protocol revision. An extension starts Experimental and must pass through Beta (the Core Maintainers can waive that by a recorded vote), then either settles at Stable or is promoted into core.</p>
 
         <table>
             <thead><tr><th>Extension</th><th>Repository</th><th>Stage</th><th>What it does</th></tr></thead>
@@ -152,8 +152,8 @@
                 <tr><td>Enterprise-Managed Authorization</td><td><code>ext-auth</code></td><td style="color:var(--green)">Stable</td><td>Centralised access control via corporate identity providers</td></tr>
                 <tr><td><strong>MCP Apps</strong> <span style="color:var(--muted)">(<code>…/ui</code>)</span></td><td><code>ext-apps</code></td><td style="color:var(--green)">Stable</td><td>Interactive HTML inline in the conversation — charts, forms, media players</td></tr>
                 <tr><td><strong>MCP Tasks</strong> <span style="color:var(--muted)">(<code>…/tasks</code>)</span></td><td><code>ext-tasks</code></td><td style="color:var(--orange)">Beta, to Core</td><td>Async execution for long-running work: polling, mid-flight input, durable handles</td></tr>
-                <tr><td>Skills over MCP <span style="color:var(--muted)">(<code>…/skills</code>)</span></td><td><code>ext-skills</code></td><td style="color:var(--orange)">Beta</td><td>Serve Agent Skills and their supporting files through Resources</td></tr>
-                <tr><td>Server Cards</td><td><code>ext-server-card</code></td><td style="color:var(--orange)">Beta</td><td>Read a server's metadata over HTTP <em>before</em> connecting to it</td></tr>
+                <tr><td>Skills over MCP <span style="color:var(--muted)">(<code>…/skills</code>)</span></td><td><code>ext-skills</code></td><td style="color:var(--orange)">Beta, destination not yet stated</td><td>Serve Agent Skills and their supporting files through Resources</td></tr>
+                <tr><td>Server Cards</td><td><code>ext-server-card</code></td><td style="color:var(--orange)">Beta, destination not yet stated</td><td>Read a server's metadata over HTTP <em>before</em> connecting to it</td></tr>
             </tbody>
         </table>
 
@@ -307,7 +307,7 @@
     <div class="ide-demo">
         <span class="ide-demo-badge">⌨️ IDE Demo — 41–43 min</span>
         <h3>Inspector: See the MRTR Loop Live</h3>
-        <p style="color:var(--muted);font-size:14px">Two ways in — the Inspector UI, or <code>inspector/modern-mrtr.sh</code>, which walks all five of its steps in one go: the question, the retry, a declined form, and two clients that cannot be asked.</p>
+        <p style="color:var(--muted);font-size:14px">Two ways in — the Inspector UI, or <code>inspector/modern-mrtr.sh</code>, which walks all five of its steps in one go: the question, the retry, a declined form, and two clients that cannot be asked. On <code>complete</code> the Inspector declares the tasks extension on every request, so it gets a task handle instead, and the form arrives as the task's <code>input_required</code> status (Chapter 7); the steps below are the exchange as the script, which declares no tasks, shows it.</p>
         <ul>
             <li>Turn on the switch on the <code>workshop</code> card — nothing is asked. No request of any kind goes out from the server at startup, because a server has no way to send one</li>
             <li>Open <strong>Tools</strong> and invoke <code>key_word_search</code> with a keyword <em>and</em> a <code>directory</code> — one request, one <code>complete</code> result. That is the baseline to contrast against</li>

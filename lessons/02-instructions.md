@@ -12,14 +12,14 @@ Each line number is the `// Chapter 02:` comment inside that method. The bold on
 
 JSON-RPC 2.0 puts four different kinds of message on the same wire. Every one of them is a JSON object whose `jsonrpc` member is exactly the string `"2.0"`, and they are told apart purely by which other fields are present:
 
-| Shape | Has `method` | Has `id` | Meaning |
-| --- | --- | --- | --- |
-| Request | yes | yes | Answer me, and quote this id back |
-| Notification | yes | no | For your information; do not reply |
-| Response | no | — | The result of something you asked for |
-| Error response | no | — | ...and it went wrong |
+| Shape | Has `method` | Has `id` | Has `result` or `error` | Meaning |
+| --- | --- | --- | --- | --- |
+| Request | yes | yes | — | Answer me, and quote this id back |
+| Notification | yes | no | — | For your information; do not reply |
+| Response | no | — | `result` | The result of something you asked for |
+| Error response | no | — | `error` | ...and it went wrong |
 
-In this revision requests only flow one way. A server MUST NOT initiate requests: when it needs something from the user, it returns an `input_required` result and the client sends a new request carrying the answer (chapter 05). So a server receives requests and notifications, and a client receives the responses. The classifier still knows all four shapes, because they look the same in both directions and a misbehaving peer can send anything.
+In this revision requests only flow one way. A server MUST NOT initiate requests: when it needs something from the user, it returns an `input_required` result and the client sends a new request carrying the answer (chapter 05). So a server receives requests and notifications, and a client receives the responses, along with notifications that belong to a request it still has open. The classifier still knows all four shapes, because they look the same in both directions and a misbehaving peer can send anything.
 
 Anything that fits none of these is not something this server understands, and that includes well-formed JSON that is not an object, or that does not say `"jsonrpc": "2.0"`. It must be preserved rather than guessed at.
 
@@ -67,6 +67,7 @@ return new Unknown(json);
    - `JsonParser.parseString(json)` gives an untyped tree, and we inspect that tree to decide *which* type to ask Gson for
    - You cannot skip this step: Gson needs to know the target class up front, and here the class depends on the content
    - If the text is not JSON at all, `parseString` throws `JsonSyntaxException`. Let it escape: that exception is how chapter 03 knows to answer with a parse error
+   - "Not JSON" means not JSON to Gson, whose `parseString` is lenient. A bare word such as `hello` parses as a string and comes back as `Unknown`, and `{'jsonrpc':'2.0','id':1,'method':'tools/list'}`, in single quotes, is read as a request. Text that is cut off or garbled, like the tests' `{"method":`, still throws
 
 2. **Well-formed JSON is not yet a message**:
    - An array, a bare string, a number, or `null` parses without complaint, but none of them is a JSON-RPC message. JSON-RPC allows *batches*, which arrive as an array, and this revision does not accept them — so an array must not be mistaken for a single message
@@ -211,7 +212,7 @@ This is optional, and no chapter test checks it.
 
 A client that traces its own work with OpenTelemetry can say which trace a request belongs to, by sending `traceparent` (and optionally `tracestate` and `baggage`) in `params._meta`. A server that continues that trace, instead of starting a new one, lets someone follow a single user action from the client, through this server, and into anything it calls. The keys are already in `MetaKeys`.
 
-Add this method to `JsonRpcMessageDeserializer`, just above `metaObject`:
+Add this method to `JsonRpcMessageDeserializer`, just below the constructor. Next to a body you pasted, it would make the merge into chapter 03 stop with a conflict, because the reference changed the same lines:
 
 ```java
 /**
@@ -226,7 +227,7 @@ public String traceparent(JsonRpcRequest request) {
 }
 ```
 
-Then add a test for it to `JsonRpcMessageDeserializerTest`. The value is the example from the [W3C Trace Context](https://www.w3.org/TR/trace-context/) specification:
+Then add a test for it to `JsonRpcMessageDeserializerTest`. The value is built from the example trace-id and parent-id in the [W3C Trace Context](https://www.w3.org/TR/trace-context/) specification:
 
 ```java
 @Test
