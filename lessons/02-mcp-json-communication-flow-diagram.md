@@ -1,6 +1,6 @@
 # MCP Json Communication Flow Diagram
 
-The JSON below is what the server sends by the end of chapter 04. The builders it names, in `com.workshop.mcp.spec.builders`, arrive in chapters 03 and 04, so they are not on this branch yet. Chapters 05 to 07 add a round trip, an MCP App UI, and task handles.
+The JSON below is what the server sends by the end of chapter 04. The builders it names, in `com.workshop.mcp.spec.builders`, arrive in chapters 03 and 04, so they are not on this branch yet. Chapters 05 to 07 add a round trip, an MCP App UI, and task handles. The client's side is trimmed from a run of the Inspector's command-line mode, which names itself `inspector-cli`. The web UI you connect in chapter 03 names itself `mcp-inspector`, and declares more capabilities, among them `elicitation` and the `io.modelcontextprotocol/ui` extension.
 
 ```mermaid
 sequenceDiagram
@@ -18,14 +18,14 @@ sequenceDiagram
 
     Server->>Client: discover result<br/>{"jsonrpc": "2.0", "id": "server-discover-probe-1", "result": {<br/>"resultType": "complete", "supportedVersions": ["2026-07-28"],<br/>"capabilities": {"completions": {}, "prompts": {"listChanged": false},<br/>"resources": {"listChanged": false, "subscribe": false}, "tools": {"listChanged": false}},<br/>"instructions": "Searches a project for a keyword.",<br/>"ttlMs": 60000, "cacheScope": "public",<br/>"_meta": {"io.modelcontextprotocol/serverInfo": {"name": "agent-mcp-workshop", "version": "0.0.1"}}}}
 
-    Note over Client,Server: Every message below carries "jsonrpc": "2.0" and an id,<br/>every request repeats params._meta, and every result carries<br/>serverInfo in its _meta as discover's does. They are elided from here on,<br/>and each result is shown without its response wrapper.
+    Note over Client,Server: Every message below carries "jsonrpc": "2.0", every request and result an id,<br/>every request repeats params._meta, and every result carries<br/>serverInfo in its _meta as discover's does. They are elided from here on,<br/>and each result is shown without its response wrapper.
 
     Note over Client,Server: Resource Discovery Phase
 
     Client->>Server: resources/list
 
     Note right of Server: Server uses ResourcesListResultBuilder<br/>to build list of Javadoc resources
-    Server-->>Builders: ResourcesListResultBuilder<br/>.addResource(ResourceBuilder)
+    Server-->>Builders: ResourcesListResultBuilder<br/>.withResources(JavadocResources<br/>.loadAllHtmlResourcesFromFolder(...))
 
     Server->>Client: resources/list result<br/>{"resultType": "complete", "resources": [Javadoc pages],<br/>"ttlMs": 60000, "cacheScope": "public"}
 
@@ -62,5 +62,5 @@ sequenceDiagram
     Server->>Client: closing result for id "listen:0"<br/>{"resultType": "complete",<br/>"_meta": {"io.modelcontextprotocol/subscriptionId": "listen:0"}}
 
     Note over Client,Server: Shutdown — the client closes stdin
-    Server-->>Server: Stopping and closing resources
+    Server-->>Server: Input stream closed.<br/>IO processing has stopped. Initiating shutdown.
 ```
